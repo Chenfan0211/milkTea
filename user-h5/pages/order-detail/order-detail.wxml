@@ -1,0 +1,127 @@
+<view class="order-detail-page">
+  <navigation-bar title="订单详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="order-detail-scroll" scroll-y>
+    <view class="order-detail__inner">
+      <view class="status-card {{order.orderStatus === 'canceled' ? 'is-canceled' : ''}}">
+        <text class="status-card__title">{{order.statusTitle}}</text>
+        <block wx:if="{{order.pickupCode}}">
+          <text class="status-card__code">{{order.pickupCode}}</text>
+          <text class="status-card__label">取单号</text>
+        </block>
+        <text class="status-card__note">{{order.statusNote}}</text>
+        <view wx:if="{{order.orderStatus === 'completed'}}" class="status-card__actions">
+          <view class="status-action status-action--secondary" bindtap="handleReorder" aria-role="button" aria-label="再来一单">再来一单</view>
+          <view class="status-action status-action--primary" bindtap="handleReview" aria-role="button" aria-label="立即评价">立即评价</view>
+        </view>
+      </view>
+
+      <block wx:if="{{order.orderStatus === 'paid_pickup'}}">
+        <view class="detail-card progress-card">
+          <view class="progress-step" wx:for="{{order.progressSteps}}" wx:key="id">
+            <view class="progress-step__icon-wrap {{item.done || item.active ? 'is-done' : ''}}">
+              <image class="progress-step__icon" src="/assets/icons/lucide/{{item.icon}}.svg" mode="aspectFit" />
+            </view>
+            <text class="progress-step__label {{item.active ? 'is-active' : ''}}">{{item.label}}</text>
+          </view>
+        </view>
+
+        <view class="coupon-banner" bindtap="handleCoupon" aria-role="button" aria-label="入群领30元券包">
+          <view class="coupon-banner__copy">
+            <text class="coupon-banner__title">入群领</text>
+            <text class="coupon-banner__amount">30元</text>
+            <text class="coupon-banner__title">券包</text>
+            <text class="coupon-banner__action">{{order.couponBanner.actionText}}</text>
+          </view>
+          <view class="coupon-banner__list">
+            <view class="coupon-chip" wx:for="{{order.couponBanner.coupons}}" wx:key="id">
+              <text class="coupon-chip__value">{{item.value}}</text>
+              <text class="coupon-chip__note">{{item.note}}</text>
+              <text class="coupon-chip__tag">{{item.tag}}</text>
+            </view>
+          </view>
+          <image class="coupon-banner__image" src="/assets/images/3x/menu-product.jpg" mode="aspectFit" />
+        </view>
+
+        <view class="reward-card">
+          <view class="reward-item" wx:for="{{order.rewards}}" wx:key="id">
+            <image class="reward-item__icon" src="/assets/icons/lucide/{{item.icon}}.svg" mode="aspectFit" />
+            <text class="reward-item__label">{{item.label}}</text>
+            <text class="reward-item__value">{{item.value}}</text>
+          </view>
+          <text class="reward-card__note">{{order.rewardNote}}</text>
+        </view>
+      </block>
+
+      <view class="detail-card store-card">
+        <view class="store-card__head">
+          <text class="store-card__name">{{order.storeName}}</text>
+
+        </view>
+
+        <view class="product-row" wx:for="{{order.items}}" wx:key="id">
+          <view class="product-row__image-wrap">
+            <image class="product-row__image" src="{{item.image}}" mode="aspectFit" />
+            <image wx:if="{{item.badgeIcon}}" class="product-row__crown" src="{{item.badgeIcon}}" mode="aspectFit" />
+          </view>
+          <view class="product-row__content">
+            <text class="product-row__name">{{item.name}}</text>
+            <text class="product-row__price-label">小程序价</text>
+            <text class="product-row__spec">{{item.spec}}</text>
+            <text class="product-row__quantity">x{{item.quantity}}</text>
+          </view>
+          <view class="product-row__price">
+            <text class="product-row__original">¥{{item.originalPrice}}</text>
+            <text class="product-row__actual">¥{{item.unitPrice}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{order.couponName}}" class="discount-row">
+          <view class="discount-row__icon">券</view>
+          <text class="discount-row__name">{{order.couponName}}</text>
+          <text class="discount-row__amount">-¥{{order.couponAmountText}}</text>
+        </view>
+
+        <view class="order-summary">
+          <text class="order-summary__discount">已优惠 <text>¥{{order.discountAmountText}}</text></text>
+          <text class="order-summary__total">共 <text>¥{{order.amountText}}</text></text>
+        </view>
+      </view>
+
+      <block wx:if="{{order.orderStatus === 'completed'}}">
+        <view class="detail-card info-card">
+          <text class="info-card__title">用餐信息</text>
+          <view class="info-row" wx:for="{{order.mealInfo}}" wx:key="label">
+            <text class="info-row__label">{{item.label}}</text>
+            <text class="info-row__value">{{item.value}}</text>
+          </view>
+        </view>
+      </block>
+
+      <view class="detail-card info-card">
+        <text class="info-card__title">订单信息</text>
+        <view class="info-row">
+          <text class="info-row__label">订单编号</text>
+          <view class="copy-row" bindtap="handleCopy" aria-role="button" aria-label="复制订单编号">
+            <text class="info-row__value">{{order.orderInfo.orderNo}}</text>
+            <image class="copy-row__icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+          </view>
+        </view>
+        <view class="info-row">
+          <text class="info-row__label">下单时间</text>
+          <text class="info-row__value">{{order.orderInfo.createdAt}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-row__label">支付方式</text>
+          <text class="info-row__value">{{order.orderInfo.payMethod}}</text>
+        </view>
+        <view wx:if="{{order.orderStatus === 'completed' && order.completedTime}}" class="info-row">
+          <text class="info-row__label">完成时间</text>
+          <text class="info-row__value">{{order.completedTime}}</text>
+        </view>
+      </view>
+
+      <view class="order-detail__safe"></view>
+    </view>
+  </scroll-view>
+</view>

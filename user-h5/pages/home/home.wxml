@@ -1,0 +1,55 @@
+<scroll-view class="home-scroll" scroll-y enhanced="{{false}}">
+<view class="home-page">
+  <view class="hero-wrap">
+    <image class="home-hero" src="/assets/images/3x/home-hero.jpg" mode="widthFix" aria-label="金秋入茶限定上新" />
+  </view>
+
+  <view class="home-card">
+    <view class="user-strip">
+      <text>{{userProfile.nickname}}</text>
+      <view class="coupon-link" bindtap="openCoupons">
+        <text>优惠券{{userProfile.couponCount || 5}}张</text>
+        <image class="coupon-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="order-modes">
+      <view class="order-mode" data-mode="dinein" bindtap="selectOrderMode">
+        <text class="order-mode__title">店内堂食</text>
+        <text class="order-mode__description">领券下单享优惠</text>
+      </view>
+      <view class="order-mode" data-mode="pickup" bindtap="selectOrderMode">
+        <text class="order-mode__title">打包自取</text>
+        <text class="order-mode__description">到店自取免排队</text>
+      </view>
+    </view>
+
+    <view class="home-card__divider"></view>
+
+    <view class="shortcut-grid">
+      <view
+        wx:for="{{homeShortcuts}}"
+        wx:key="id"
+        class="shortcut-item"
+        data-id="{{item.id}}"
+        data-label="{{item.label}}"
+        bindtap="handleShortcut"
+      >
+        <image class="shortcut-item__icon" src="{{item.icon}}" mode="aspectFit" />
+        <text class="shortcut-item__label">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view
+    class="join-card"
+    data-label="加盟合作"
+    bindtap="showUnavailable"
+    aria-role="button"
+    aria-label="加入我们，新中式养生茶饮连锁品牌，点击合作"
+  >
+    <image class="join-card__image" src="/assets/images/3x/join-banner.jpg" mode="widthFix" />
+  </view>
+  <view class="tabbar-safe-space"></view>
+</view>
+</scroll-view>

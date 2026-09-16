@@ -1,0 +1,37 @@
+<view class="exchange-records-page">
+  <navigation-bar title="兑换记录" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="exchange-record-categories" scroll-x enhanced="{{false}}" show-scrollbar="{{false}}">
+    <view class="exchange-record-categories__inner">
+      <view
+        wx:for="{{exchangeRecordCategories}}"
+        wx:key="id"
+        class="exchange-record-category {{activeCategory === item.id ? 'is-active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="switchCategory"
+        aria-role="button"
+        aria-label="{{item.label}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <scroll-view class="exchange-record-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{filteredRecords.length}}" class="exchange-record-list">
+      <view class="exchange-record" wx:for="{{filteredRecords}}" wx:key="id">
+        <text>{{item.name}}</text>
+      </view>
+    </view>
+
+    <empty-state
+      wx:else
+      variant="illustration"
+      icon="/assets/images/3x/points-empty.jpg"
+      title="暂无兑换记录"
+      description="去积分商城看看可以兑换的好物"
+    />
+
+    <view class="exchange-records-safe"></view>
+  </scroll-view>
+</view>

@@ -1,0 +1,139 @@
+.home-scroll {
+  height: 100vh;
+  background: #E7F0D8;
+}
+
+.home-page {
+  min-height: 100vh;
+  padding-bottom: 0;
+  background: #E7F0D8;
+}
+
+.hero-wrap {
+  position: relative;
+  height: 1040rpx;
+}
+
+.home-hero {
+  display: block;
+  width: 750rpx;
+  height: 1040rpx;
+}
+
+.home-card {
+  position: relative;
+  z-index: 1;
+  margin: -13rpx 20rpx 0;
+  overflow: hidden;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 28rpx rgba(49, 73, 28, 0.08);
+}
+
+.user-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 58rpx;
+  padding: 0 62rpx;
+  color: #33342F;
+  font-size: 29rpx;
+  background: #F1F1EF;
+}
+
+.coupon-link {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.coupon-link__arrow {
+  width: 34rpx;
+  height: 34rpx;
+  margin-left: 10rpx;
+}
+
+.order-modes {
+  display: flex;
+  height: 188rpx;
+}
+
+.order-mode {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 20rpx;
+}
+
+.order-mode + .order-mode {
+  border-left: 1rpx solid #EEEFEB;
+}
+
+.order-mode__title {
+  color: #2F302D;
+  font-size: 39rpx;
+  font-weight: 500;
+  line-height: 58rpx;
+}
+
+.order-mode__description {
+  margin-top: 10rpx;
+  color: #8B8C87;
+  font-size: 25rpx;
+  line-height: 36rpx;
+}
+
+.home-card__divider {
+  height: 1rpx;
+  margin: 0 72rpx;
+  background: #E2E3DE;
+}
+
+.shortcut-grid {
+  display: flex;
+  align-items: center;
+  height: 142rpx;
+  padding: 0 10rpx;
+}
+
+.shortcut-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.shortcut-item__icon {
+  width: 62rpx;
+  height: 62rpx;
+}
+
+
+
+
+
+.shortcut-item__label {
+  margin-top: 15rpx;
+  color: #62635E;
+  font-size: 24rpx;
+  line-height: 34rpx;
+  text-align: center;
+}
+
+.join-card {
+  position: relative;
+  width: 710rpx;
+  height: 200rpx;
+  margin: 6rpx 20rpx 0;
+  overflow: hidden;
+  border-radius: 12rpx;
+}
+
+.join-card__image {
+  display: block;
+  width: 710rpx;
+  height: 200rpx;
+}

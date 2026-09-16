@@ -1,0 +1,105 @@
+page {
+  /* 品牌色 */
+  --brand-green: #53882C;
+  --brand-dark: #3F6E1F;
+  --brand-soft: #E9F1D9;
+  --brand-tint: #E7F0D8;
+  /* 中性色 */
+  --page-bg: #F4F5F2;
+  --page-bg-neutral: #F7F7F7;
+  --card-bg: #FFFFFF;
+  --text-main: #2F302D;
+  --text-secondary: #777873;
+  --text-muted: #9B9B96;
+  --line-color: #E9EAE5;
+  --dark-fill: #2D2D2D;
+  /* 功能色 */
+  --accent-orange: #C65A1E;
+  --price-red: #FF0000;
+  --tag-hot-bg: #FFE0E1;
+  --tag-light-bg: #D5F0C3;
+  --tag-light-text: #6E9B45;
+  /* 字号档位 */
+  --font-caption: 20rpx;
+  --font-sm: 24rpx;
+  --font-base: 28rpx;
+  --font-md: 30rpx;
+  --font-lg: 34rpx;
+  --font-xl: 38rpx;
+  --font-display: 48rpx;
+  /* 圆角档位 */
+  --radius-xs: 4rpx;
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --radius-pill: 999rpx;
+  /* 阴影档位 */
+  --shadow-card: 0 8rpx 28rpx rgba(49, 73, 28, 0.06);
+  --shadow-float: 0 12rpx 30rpx rgba(0, 0, 0, 0.22);
+  /* 尺寸 */
+  --tabbar-height: 112rpx;
+  --page-gutter: 20rpx;
+  min-height: 100%;
+  background: var(--page-bg);
+  color: var(--text-main);
+  font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  font-size: 28rpx;
+}
+
+view,
+scroll-view,
+image,
+text,
+button {
+  box-sizing: border-box;
+}
+
+button::after {
+  border: none;
+}
+
+.page-shell {
+  min-height: 100vh;
+  background: var(--page-bg);
+}
+
+.page-scroll {
+  min-height: 100vh;
+}
+
+.tabbar-safe-space {
+  height: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 28rpx rgba(49, 73, 28, 0.06);
+}
+
+.section-title {
+  color: var(--text-main);
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.primary-text {
+  color: var(--brand-green);
+}
+
+.muted-text {
+  color: var(--text-secondary);
+}
+
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ellipsis-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

@@ -1,0 +1,95 @@
+<view class="points-page">
+  <navigation-bar
+    title="积分商城"
+    back="{{true}}"
+    search="{{true}}"
+    bindsearch="handleSearch"
+    background="#E9F1D9"
+    color="#2F302D"
+  />
+
+  <scroll-view class="points-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="points-hero">
+      <text class="points-hero__watermark">五零时光</text>
+      <view class="points-hero__balance">
+        <view class="points-hero__coin">
+          <image class="points-hero__coin-icon" src="/assets/icons/lucide/badge-japanese-yen-brand.svg" mode="aspectFit" />
+        </view>
+        <text class="points-hero__value">{{pointsBalance}}</text>
+      </view>
+
+      <view class="points-hero__links">
+        <view class="points-hero__link" bindtap="openPointsDetail" aria-role="button" aria-label="积分明细">积分明细</view>
+        <view class="points-hero__link" bindtap="openSignInRules" aria-role="button" aria-label="积分规则">积分规则</view>
+        <view class="points-hero__link" bindtap="openExchangeRecords" aria-role="button" aria-label="兑换记录">兑换记录</view>
+      </view>
+    </view>
+
+    <view class="points-store">
+      <view class="points-store__main" bindtap="selectStore" aria-role="button" aria-label="切换门店">
+        <image class="points-store__pin" src="/assets/icons/lucide/map-pinned.svg" mode="aspectFit" />
+        <text class="points-store__name">{{currentStore.name}}</text>
+        <text class="points-store__distance">{{currentStore.distanceText}}</text>
+      </view>
+      <view class="points-store__switch" bindtap="selectStore" aria-role="button" aria-label="重新选择门店">
+        <image class="points-store__switch-icon" src="/assets/icons/lucide/rotate-ccw.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="points-body">
+      <view class="checkin-card" bindtap="handleCheckIn" aria-role="button" aria-label="签到有礼">
+        <view class="checkin-card__copy">
+          <view class="checkin-card__title-row">
+            <text class="checkin-card__title">签到有礼</text>
+            <text class="checkin-card__en">CHECK-IN</text>
+          </view>
+          <view class="checkin-card__desc-row">
+            <text class="checkin-card__desc">{{signedToday ? '今日已签到，明日再来领取积分' : '签到领积分 连续签到得买一送一券'}}</text>
+            <image class="checkin-card__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+          </view>
+        </view>
+        <view class="checkin-card__icon-wrap">
+          <image class="checkin-card__icon" src="/assets/icons/lucide/calendar-check-brand.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view class="points-categories">
+        <view
+          wx:for="{{pointsCategories}}"
+          wx:key="id"
+          class="points-category {{activeCategory === item.id ? 'is-active' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="filterCategory"
+          aria-role="button"
+          aria-label="{{item.label}}"
+        >
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+
+      <view class="points-grid">
+        <view
+          wx:for="{{filteredProducts}}"
+          wx:key="id"
+          class="points-product"
+          data-id="{{item.id}}"
+          bindtap="openProduct"
+          aria-role="button"
+          aria-label="{{item.name}}"
+        >
+          <view class="points-product__media">
+            <image class="points-product__image" src="{{item.image}}" mode="aspectFit" />
+            <text wx:if="{{!item.badgeInImage}}" class="points-product__badge">{{item.badge}}</text>
+          </view>
+          <view class="points-product__body">
+            <text class="points-product__name ellipsis">{{item.name}}</text>
+            <text class="points-product__stock">剩余{{item.stock}}件</text>
+            <text class="points-product__points">{{item.points}}<text class="points-product__unit">积分</text></text>
+          </view>
+        </view>
+      </view>
+
+      <view class="points-safe"></view>
+    </view>
+  </scroll-view>
+</view>

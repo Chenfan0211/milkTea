@@ -1,0 +1,27 @@
+<view class="product-card {{showDivider ? 'has-divider' : ''}}">
+  <view class="product-card__media">
+    <image class="product-card__image" src="{{product.image}}" mode="aspectFit" />
+    <image wx:if="{{product.badgeIcon}}" class="product-card__badge" src="{{product.badgeIcon}}" mode="aspectFit" />
+  </view>
+  <view class="product-card__content">
+    <text class="product-card__name ellipsis">{{product.name}}</text>
+    <view class="product-card__tags">
+      <text class="product-card__tag product-card__tag--hot">{{product.tags[0]}}</text>
+      <text class="product-card__tag product-card__tag--light">{{product.tags[1]}}</text>
+    </view>
+    <text class="product-card__description">{{product.description}}</text>
+    <view class="product-card__footer">
+      <view class="product-card__price-block">
+        <view class="product-card__price-main">
+          <text class="product-card__price-label">券后价</text>
+          <text class="product-card__price-symbol">¥</text>
+          <text class="product-card__price">{{product.price}}</text>
+        </view>
+        <text class="product-card__original">¥{{product.originalPrice}}</text>
+      </view>
+      <view class="product-card__action" bindtap="handleSpec" aria-role="button" aria-label="选规格">
+        <text>选规格</text>
+      </view>
+    </view>
+  </view>
+</view>

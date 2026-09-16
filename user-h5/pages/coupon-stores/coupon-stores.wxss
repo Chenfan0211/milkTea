@@ -1,0 +1,139 @@
+.store-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.store-filter {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 96rpx;
+  padding: 0 var(--page-gutter);
+  background: var(--card-bg);
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.store-filter__location {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.store-filter__pin {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.store-filter__address {
+  flex: 1;
+  min-width: 0;
+  margin-left: 8rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.store-filter__arrow {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+  margin-left: 4rpx;
+}
+
+.store-filter__city {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 64rpx;
+  margin-left: 20rpx;
+  padding: 0 20rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-md);
+}
+
+.store-filter__city-arrow {
+  width: 28rpx;
+  height: 28rpx;
+  margin-left: 4rpx;
+}
+
+.store-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.store-page__list {
+  padding: 20rpx var(--page-gutter) calc(20rpx + env(safe-area-inset-bottom));
+}
+
+.store-card {
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.store-card + .store-card {
+  margin-top: 20rpx;
+}
+
+.store-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.store-card__name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.store-card__distance {
+  flex: none;
+  margin-left: 20rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  line-height: 1.4;
+}
+
+.store-card__content {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx;
+}
+
+.store-card__address {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+  line-height: 40rpx;
+}
+
+.store-card__navigate {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  margin-left: 20rpx;
+  background: var(--brand-soft);
+  border-radius: 50%;
+}
+
+.store-card__navigate-icon {
+  width: 36rpx;
+  height: 36rpx;
+}

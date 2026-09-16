@@ -1,0 +1,143 @@
+<view class="signin-page">
+  <navigation-bar back="{{true}}" background="#E9F1D9" color="#2F302D" />
+
+  <scroll-view class="signin-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="signin-hero">
+      <view class="signin-hero__head">
+        <text class="signin-hero__title">签到得好礼</text>
+        <view class="signin-rules-entry" bindtap="openRules" aria-role="button" aria-label="活动规则">
+          <text>活动规则</text>
+          <image class="signin-rules-entry__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view class="signin-points-pill">
+        <image class="signin-points-pill__icon" src="/assets/icons/lucide/star-active.svg" mode="aspectFit" />
+        <text>我的积分 {{points}}</text>
+      </view>
+
+      <image class="signin-hero__calendar" src="/assets/images/3x/points-signin-calendar.jpg" mode="aspectFit" />
+    </view>
+
+    <view class="signin-card">
+      <text class="signin-card__title">已连续签到<text class="signin-card__days">{{continuousDays}}</text>天</text>
+      <text class="signin-card__hint">连续签到7天获得“5积分”</text>
+
+      <view class="signin-week">
+        <view
+          wx:for="{{weekDates}}"
+          wx:key="key"
+          class="signin-week__item {{item.signed ? 'is-signed' : ''}}"
+        >
+          <text class="signin-week__date">{{item.label}}</text>
+          <view class="signin-week__icon-wrap">
+            <image wx:if="{{item.signed}}" class="signin-week__icon" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
+            <image wx:else class="signin-week__icon" src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+          </view>
+          <text class="signin-week__reward">+1</text>
+        </view>
+
+        <view class="signin-week__item signin-week__calendar" bindtap="openCalendar" aria-role="button" aria-label="打开签到日历">
+          <view class="signin-week__calendar-icon-wrap">
+            <image class="signin-week__icon" src="/assets/icons/lucide/calendar-check-brand.svg" mode="aspectFit" />
+          </view>
+          <view class="signin-week__calendar-label">
+            <text>日历</text>
+            <image class="signin-week__calendar-arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+
+      <view
+        class="signin-submit {{signedToday ? 'is-disabled' : ''}}"
+        bindtap="handleSignIn"
+        aria-role="button"
+        aria-label="{{signedToday ? '已签到' : '立即签到'}}"
+      >
+        {{signedToday ? '已签到' : '立即签到'}}
+      </view>
+
+      <view class="signin-prizes" bindtap="handleRewards" aria-role="button" aria-label="我的奖品">
+        <text>我的奖品</text>
+        <image class="signin-prizes__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="signin-rewards-card">
+      <text class="signin-rewards-card__title">连续签到奖励</text>
+      <view class="signin-reward" wx:for="{{rewards}}" wx:key="id">
+        <view class="signin-reward__coin">
+          <view class="signin-reward__coin-inner">
+            <image wx:if="{{item.type === 'coupon'}}" class="signin-reward__gift" src="/assets/icons/lucide/gift.svg" mode="aspectFit" />
+            <text wx:else>{{item.amount}}</text>
+          </view>
+        </view>
+        <view class="signin-reward__copy">
+          <text class="signin-reward__title">{{item.title}}</text>
+          <text class="signin-reward__desc">{{item.description}}</text>
+        </view>
+        <view class="signin-reward__status {{item.status === '已完成' ? 'is-done' : ''}}">{{item.status}}</view>
+      </view>
+
+      <view class="signin-rewards-card__expand" bindtap="toggleRewards" aria-role="button" aria-label="展开或收起奖励">
+        <text>{{rewardsExpanded ? '收起' : '展开'}}</text>
+        <image class="signin-rewards-card__expand-icon {{rewardsExpanded ? 'is-expanded' : ''}}" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="signin-safe"></view>
+  </scroll-view>
+
+  <view wx:if="{{successVisible}}" class="signin-modal signin-success-modal" bindtap="closeSuccess">
+    <view class="signin-modal__panel" catchtap="noop">
+      <text class="signin-modal__title">签到成功！恭喜获得</text>
+      <view class="signin-modal__reward">
+        <image class="signin-modal__star" src="/assets/icons/lucide/star-active.svg" mode="aspectFit" />
+        <text>1积分</text>
+      </view>
+      <view class="signin-modal__close" bindtap="closeSuccess" aria-role="button" aria-label="关闭签到成功弹窗">关闭</view>
+    </view>
+  </view>
+
+  <view wx:if="{{calendarVisible}}" class="signin-calendar-mask" bindtap="closeCalendar">
+    <view class="signin-calendar-sheet" catchtap="noop">
+      <view class="signin-calendar-sheet__head">
+        <text class="signin-calendar-sheet__title">本月已累计签到{{continuousDays}}天</text>
+        <view class="signin-calendar-sheet__close" bindtap="closeCalendar" aria-role="button" aria-label="关闭日历">
+          <image src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view class="signin-calendar-sheet__month">
+        <view class="signin-calendar-sheet__month-button" data-delta="-1" bindtap="changeMonth" aria-role="button" aria-label="上个月">
+          <image src="/assets/icons/lucide/chevron-left.svg" mode="aspectFit" />
+        </view>
+        <text>{{calendarYear}}年{{calendarMonth}}月</text>
+        <view class="signin-calendar-sheet__month-button" data-delta="1" bindtap="changeMonth" aria-role="button" aria-label="下个月">
+          <image src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view class="signin-calendar-weekdays">
+        <text wx:for="{{weekdays}}" wx:key="*this">{{item}}</text>
+      </view>
+
+      <view class="signin-calendar-grid">
+        <view
+          wx:for="{{calendarCells}}"
+          wx:key="id"
+          class="signin-calendar-cell {{item.empty ? 'is-empty' : ''}} {{item.signed ? 'is-signed' : ''}}"
+        >
+          <block wx:if="{{!item.empty}}">
+            <text class="signin-calendar-cell__date">{{item.signed ? '已签' : item.day}}</text>
+            <view class="signin-calendar-cell__icon-wrap">
+              <image wx:if="{{item.signed}}" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+              <image wx:else src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+            </view>
+            <text class="signin-calendar-cell__reward">+1</text>
+          </block>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

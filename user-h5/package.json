@@ -1,0 +1,15 @@
+{
+  "name": "wuling-shiguang-miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build:images": "node scripts/build-images.mjs && node scripts/build-points-images.mjs",
+    "check": "node scripts/check-project.mjs && node scripts/acceptance-check.test.mjs",
+    "icons": "node scripts/sync-lucide-icons.mjs",
+    "test:acceptance": "node scripts/acceptance-check.test.mjs"
+  },
+  "devDependencies": {
+    "lucide-static": "1.46.0"
+  }
+}

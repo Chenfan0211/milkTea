@@ -1,0 +1,70 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/menu/menu",
+    "pages/member/member",
+    "pages/orders/orders",
+    "pages/profile/profile",
+    "pages/order-detail/order-detail",
+    "pages/coupon-list/coupon-list",
+    "pages/points-mall/points-mall",
+    "pages/points-signin/points-signin",
+    "pages/points-signin-rules/points-signin-rules",
+    "pages/points-exchange/points-exchange",
+    "pages/points-detail/points-detail",
+    "pages/exchange-records/exchange-records",
+    "pages/gift-card/gift-card",
+    "pages/gift-card-purchase/gift-card-purchase",
+    "pages/order-confirm/order-confirm",
+    "pages/coupon-stores/coupon-stores"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationStyle": "custom",
+    "backgroundColor": "#F4F5F2",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#9B9B96",
+    "selectedColor": "#53882C",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/menu/menu",
+        "text": "点单"
+      },
+      {
+        "pagePath": "pages/member/member",
+        "text": "会员专区"
+      },
+      {
+        "pagePath": "pages/orders/orders",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "renderer": "skyline",
+  "rendererOptions": {
+    "skyline": {
+      "defaultDisplayBlock": true,
+      "defaultContentBox": true,
+      "disableABTest": true,
+      "sdkVersionBegin": "3.0.0",
+      "sdkVersionEnd": "15.255.255"
+    }
+  },
+  "componentFramework": "glass-easel",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

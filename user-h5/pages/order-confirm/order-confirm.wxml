@@ -1,0 +1,139 @@
+<view class="confirm-page">
+  <navigation-bar title="确认订单" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="confirm-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="confirm-scroll__inner">
+        <view class="store-card">
+          <image class="store-card__decor" src="/assets/icons/lucide/map-pinned.svg" mode="aspectFit" />
+          <view class="store-card__head">
+            <view class="store-card__name-row" bindtap="selectStore" aria-role="button" aria-label="切换门店">
+              <text class="store-card__name ellipsis">{{store.name}}</text>
+              <image class="store-card__name-arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+            </view>
+            <view class="store-card__distance" bindtap="selectStore" aria-role="button" aria-label="切换门店">
+              <text>{{store.distanceText}}</text>
+              <image class="store-card__distance-arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+            </view>
+          </view>
+
+          <view class="store-card__address">
+            <image class="store-card__address-icon" src="/assets/icons/lucide/map-pin.svg" mode="aspectFit" />
+            <text class="store-card__address-text ellipsis">{{store.address}}</text>
+          </view>
+
+          <text class="store-card__hint">现在下单，立即制作</text>
+
+          <view class="store-card__divider"></view>
+
+          <view class="mode-group">
+            <view
+              wx:for="{{modeOptions}}"
+              wx:key="value"
+              class="mode-option {{orderMode === item.value ? 'is-active' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+              data-mode="{{item.value}}"
+              bindtap="selectMode"
+              aria-role="button"
+              aria-label="{{item.label}}"
+            >
+              <image class="mode-option__icon" src="{{item.icon}}" mode="aspectFit" />
+              <text class="mode-option__label">{{item.label}}</text>
+              <view wx:if="{{orderMode === item.value}}" class="mode-option__check">
+                <image class="mode-option__check-icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="goods-card">
+          <view wx:for="{{items}}" wx:key="id" class="goods-row {{index < items.length - 1 ? 'has-divider' : ''}}">
+            <view class="goods-row__media">
+              <image class="goods-row__image" src="{{item.image}}" mode="aspectFit" />
+              <text wx:if="{{item.isNew}}" class="goods-row__badge">新</text>
+            </view>
+            <view class="goods-row__content">
+              <text class="goods-row__name">{{item.name}}</text>
+              <text class="goods-row__price-label">小程序价</text>
+              <text class="goods-row__spec">{{item.spec}}</text>
+              <text class="goods-row__quantity">x{{item.quantity}}</text>
+            </view>
+            <view class="goods-row__price">
+              <text class="goods-row__original">¥{{item.originalPrice}}</text>
+              <text class="goods-row__actual">¥{{item.price}}</text>
+            </view>
+          </view>
+
+          <view class="coupon-row" bindtap="handleCoupon" aria-role="button" aria-label="优惠券">
+            <text class="coupon-row__tag">券</text>
+            <text class="coupon-row__label">优惠券</text>
+            <view class="coupon-row__value">
+              <text class="coupon-row__placeholder">暂无可用优惠券</text>
+              <image class="coupon-row__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+            </view>
+          </view>
+
+          <view class="summary-row">
+            <text class="summary-row__discount">共优惠 ¥{{discountText}}</text>
+            <text class="summary-row__total">合计 ¥{{amountText}}</text>
+          </view>
+        </view>
+
+        <view class="point-card">
+          <text class="point-card__tag">积</text>
+          <text class="point-card__text">当前订单可获得{{pointCount}}积分</text>
+        </view>
+
+        <view class="disclaimer-card">
+          <text class="disclaimer-card__en">PRODUCT DISCLAIMER</text>
+          <text class="disclaimer-card__title">免责声明</text>
+          <view class="disclaimer-card__box">
+            <text class="disclaimer-card__text">奶茶属于定制饮品，一旦开始制作或制作完成就无法退款，下单前建议您认真核实门店及饮品信息，避免下错单，谢谢您的理解</text>
+            <image class="disclaimer-card__image" src="/assets/images/3x/menu-product.jpg" mode="aspectFit" />
+          </view>
+        </view>
+
+        <view class="form-card">
+          <view class="form-row">
+            <text class="form-row__label">预留电话</text>
+            <input
+              class="form-row__input"
+              type="number"
+              maxlength="11"
+              value="{{phone}}"
+              placeholder="选填，便于订单异常时联系"
+              placeholder-class="form-row__placeholder"
+              bindinput="handlePhoneInput"
+            />
+          </view>
+          <view class="form-row">
+            <text class="form-row__label">备注</text>
+            <input
+              class="form-row__input"
+              maxlength="50"
+              value="{{remark}}"
+              placeholder="口味、偏好等要求"
+              placeholder-class="form-row__placeholder"
+              bindinput="handleRemarkInput"
+            />
+          </view>
+        </view>
+      <view class="confirm-safe"></view>
+    </view>
+  </scroll-view>
+
+  <view class="confirm-bar">
+    <view class="confirm-bar__summary">
+      <view class="confirm-bar__line">
+        <text class="confirm-bar__count">共{{count}}件</text>
+        <text class="confirm-bar__label">合计</text>
+        <text class="confirm-bar__amount">¥{{amountText}}</text>
+      </view>
+      <text class="confirm-bar__discount">共优惠 ¥{{discountText}}</text>
+    </view>
+    <view class="confirm-bar__actions">
+
+      <view class="confirm-bar__submit" bindtap="handleSubmit" aria-role="button" aria-label="提交支付">
+        <text>提交支付</text>
+      </view>
+    </view>
+  </view>
+</view>

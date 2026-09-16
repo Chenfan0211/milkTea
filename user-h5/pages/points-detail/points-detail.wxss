@@ -1,0 +1,72 @@
+.points-detail-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.points-detail-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.points-record-list {
+  background: var(--card-bg);
+}
+
+.points-record {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 32rpx var(--page-gutter);
+}
+
+.points-record + .points-record {
+  border-top: 1rpx solid var(--line-color);
+}
+
+.points-record__main,
+.points-record__side {
+  display: flex;
+  flex-direction: column;
+}
+
+.points-record__main {
+  min-width: 0;
+}
+
+.points-record__side {
+  flex: none;
+  align-items: flex-end;
+  margin-left: 20rpx;
+}
+
+.points-record__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.points-record__date {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-base);
+}
+
+.points-record__amount {
+  color: var(--brand-green);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.points-record__source {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-base);
+}
+
+.points-detail-safe {
+  height: calc(20rpx + env(safe-area-inset-bottom));
+}

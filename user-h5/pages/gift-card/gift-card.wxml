@@ -1,0 +1,103 @@
+<view class="gift-page">
+  <navigation-bar title="礼品卡" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="gift-store">
+    <image class="gift-store__icon" src="/assets/icons/lucide/map-pin.svg" mode="aspectFit" />
+    <view class="gift-store__info">
+      <text class="gift-store__name">{{currentStore.name}}</text>
+      <text class="gift-store__distance">{{currentStore.distanceText}}</text>
+    </view>
+    <view class="gift-store__switch" bindtap="selectStore" aria-role="button" aria-label="切换门店">
+      <image class="gift-store__switch-icon" src="/assets/icons/lucide/rotate-ccw.svg" mode="aspectFit" />
+    </view>
+  </view>
+
+  <view class="gift-tabs">
+    <view
+      class="gift-tabs__item {{activeTab === 'buy' ? 'is-active' : ''}}"
+      data-tab="buy"
+      bindtap="switchTab"
+      aria-role="button"
+      aria-label="购买礼品卡"
+    >
+      <text>购买礼品卡</text>
+    </view>
+    <view
+      class="gift-tabs__item {{activeTab === 'mine' ? 'is-active' : ''}}"
+      data-tab="mine"
+      bindtap="switchTab"
+      aria-role="button"
+      aria-label="我的礼品卡"
+    >
+      <text>我的礼品卡</text>
+    </view>
+  </view>
+
+  <scroll-view class="gift-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="gift-scroll__inner">
+      <block wx:if="{{activeTab === 'buy'}}">
+        <image class="gift-banner" src="{{bannerImage}}" mode="aspectFill" aria-label="礼品卡主题" />
+
+        <view class="gift-search">
+          <image class="gift-search__icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+          <input
+            class="gift-search__input"
+            value="{{searchKeyword}}"
+            placeholder="搜索礼品卡名称"
+            placeholder-class="gift-search__placeholder"
+            confirm-type="search"
+            bindinput="handleSearchInput"
+            aria-label="搜索礼品卡名称"
+          />
+          <view
+            wx:if="{{searchKeyword}}"
+            class="gift-search__clear"
+            bindtap="clearSearch"
+            aria-role="button"
+            aria-label="清空搜索"
+          >
+            <image class="gift-search__clear-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+          </view>
+        </view>
+
+        <view wx:for="{{filteredGiftCardGroups}}" wx:key="id" class="gift-group">
+          <text class="gift-group__title">{{item.title}}</text>
+          <view class="gift-grid">
+            <view
+              wx:for="{{item.cards}}"
+              wx:for-item="card"
+              wx:key="id"
+              class="gift-grid__item"
+              data-id="{{card.id}}"
+              bindtap="handleCard"
+              aria-role="button"
+              aria-label="{{card.name}}"
+            >
+              <image class="gift-grid__image" src="{{card.image}}" mode="aspectFill" />
+              <text class="gift-grid__name ellipsis">{{card.name}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{!filteredGiftCardGroups.length}}" class="gift-search-empty">
+          <empty-state
+            icon="/assets/icons/lucide/search.svg"
+            title="未找到相关礼品卡"
+            description="换个礼品卡名称试试吧"
+          />
+        </view>
+      </block>
+
+      <view wx:else class="gift-empty">
+        <empty-state
+          icon="/assets/icons/lucide/gift.svg"
+          title="还没有礼品卡"
+          description="购买或受赠后，在这里查看你的礼品卡"
+        />
+        <view class="gift-empty__action" bindtap="goBuy" aria-role="button" aria-label="去购买礼品卡">
+          <text>去购买礼品卡</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

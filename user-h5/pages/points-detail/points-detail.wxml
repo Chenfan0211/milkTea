@@ -1,0 +1,27 @@
+<view class="points-detail-page">
+  <navigation-bar title="积分明细" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="points-detail-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{pointsRecords.length}}" class="points-record-list">
+      <view class="points-record" wx:for="{{pointsRecords}}" wx:key="id">
+        <view class="points-record__main">
+          <text class="points-record__title">{{item.title}}</text>
+          <text class="points-record__date">{{item.date}}</text>
+        </view>
+        <view class="points-record__side">
+          <text class="points-record__amount">{{item.amount}}</text>
+          <text class="points-record__source">{{item.source}}</text>
+        </view>
+      </view>
+    </view>
+
+    <empty-state
+      wx:else
+      icon="/assets/icons/lucide/star.svg"
+      title="暂无积分明细"
+      description="签到或完成订单后，积分变化会展示在这里"
+    />
+
+    <view class="points-detail-safe"></view>
+  </scroll-view>
+</view>

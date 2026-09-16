@@ -1,0 +1,32 @@
+<view class="store-page">
+  <navigation-bar title="选择商品适用门店" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="store-filter">
+    <view class="store-filter__location" data-label="选择定位地址" bindtap="showUnavailable" aria-role="button" aria-label="选择定位地址">
+      <image class="store-filter__pin" src="/assets/icons/lucide/map-pinned.svg" mode="aspectFit" />
+      <text class="store-filter__address ellipsis">{{currentAddress}}</text>
+      <image class="store-filter__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+    </view>
+    <view class="store-filter__city" data-label="选择城市" bindtap="showUnavailable" aria-role="button" aria-label="选择城市">
+      <text>{{currentCity}}</text>
+      <image class="store-filter__city-arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+    </view>
+  </view>
+
+  <scroll-view class="store-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="store-page__list">
+      <view class="store-card" wx:for="{{stores}}" wx:key="id">
+        <view class="store-card__head">
+          <text class="store-card__name">{{item.name}}</text>
+          <text class="store-card__distance">{{item.distanceKm}}</text>
+        </view>
+        <view class="store-card__content">
+          <text class="store-card__address">{{item.address}}</text>
+          <view class="store-card__navigate" data-id="{{item.id}}" bindtap="handleNavigate" aria-role="button" aria-label="{{item.name}}导航">
+            <image class="store-card__navigate-icon" src="/assets/icons/lucide/navigation.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

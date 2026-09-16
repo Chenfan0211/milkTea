@@ -1,0 +1,93 @@
+<view class="orders-page">
+  <navigation-bar ext-class="orders-nav" title="我的订单" background="#FFFFFF" color="#2F302D">
+    <view
+      slot="left"
+      class="invoice-entry"
+      bindtap="showInvoice"
+      aria-role="button"
+      aria-label="开发票"
+    >
+      <image class="invoice-entry__icon" src="/assets/icons/lucide/receipt.svg" mode="aspectFit" />
+      <text class="invoice-entry__label">开发票</text>
+    </view>
+  </navigation-bar>
+
+  <scroll-view class="orders-tabs" scroll-x enable-flex>
+    <view class="orders-tabs__inner">
+      <view
+        wx:for="{{orderCategories}}"
+        wx:key="id"
+        class="orders-tabs__item {{activeCategory === item.id ? 'is-active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="selectCategory"
+        aria-role="button"
+        aria-label="{{item.label}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <scroll-view class="orders-list" scroll-y>
+    <view class="orders-list__inner">
+      <view
+        wx:for="{{filteredOrders}}"
+        wx:key="id"
+        class="order-card"
+        data-id="{{item.id}}"
+        bindtap="openOrderDetail"
+        aria-role="button"
+        aria-label="{{item.storeName}}订单"
+      >
+        <view class="order-card__head">
+          <text class="order-card__type">{{item.type}}</text>
+          <text class="order-card__store ellipsis">{{item.storeName}}</text>
+          <text class="order-card__status {{item.status === '已取消' ? 'is-canceled' : ''}}">{{item.status}}</text>
+        </view>
+
+        <view class="order-card__body">
+          <view wx:if="{{item.items.length === 1}}" class="order-product-single">
+            <view class="order-product-single__media">
+              <image class="order-product-single__image" src="{{item.firstItem.image}}" mode="aspectFit" />
+              <image wx:if="{{item.firstItem.badgeIcon}}" class="order-product-single__badge" src="{{item.firstItem.badgeIcon}}" mode="aspectFit" />
+            </view>
+            <view class="order-product-single__copy">
+              <text class="order-product-single__name ellipsis">{{item.firstItem.name}}</text>
+              <text class="order-product-single__spec ellipsis">{{item.firstItem.spec}}</text>
+            </view>
+          </view>
+
+          <view wx:else class="order-product-grid">
+            <view
+              wx:for="{{item.items}}"
+              wx:for-item="product"
+              wx:key="id"
+              class="order-product-grid__item"
+            >
+              <view class="order-product-grid__media">
+                <image class="order-product-grid__image" src="{{product.image}}" mode="aspectFit" />
+                <image wx:if="{{product.badgeIcon}}" class="order-product-grid__badge" src="{{product.badgeIcon}}" mode="aspectFit" />
+              </view>
+              <text class="order-product-grid__name ellipsis">{{product.name}}</text>
+            </view>
+          </view>
+
+          <view class="order-card__amount">
+            <text class="order-card__price">¥{{item.amountText}}</text>
+            <text class="order-card__count">共{{item.count}}件</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{!filteredOrders.length}}" class="orders-empty">
+        <empty-state
+          icon="/assets/icons/lucide/orders-active.svg"
+          title="暂无订单"
+          description="该分类下还没有订单记录"
+        />
+      </view>
+
+      <view class="tabbar-safe-space"></view>
+    </view>
+  </scroll-view>
+</view>

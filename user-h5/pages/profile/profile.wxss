@@ -1,0 +1,243 @@
+.profile-scroll {
+  height: 100vh;
+  background: var(--page-bg);
+}
+
+.profile-page {
+  min-height: 100vh;
+  padding-bottom: 0;
+  background: var(--page-bg);
+}
+
+.profile-hero {
+  display: block;
+  width: 750rpx;
+  height: 437rpx;
+  overflow: hidden;
+}
+
+.profile-content {
+  position: relative;
+  z-index: 1;
+  margin-top: -127rpx;
+  padding-bottom: 20rpx;
+  background: transparent;
+}
+
+.profile-card {
+  margin-right: 20rpx;
+  margin-left: 20rpx;
+  background: #FFFFFF;
+  border-radius: 22rpx;
+  box-shadow: 0 8rpx 28rpx rgba(49, 73, 28, 0.06);
+}
+
+.user-card {
+  padding: 32rpx 40rpx 32rpx;
+}
+
+.user-card__main {
+  display: flex;
+  align-items: center;
+}
+
+.user-card__avatar {
+  flex: none;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+}
+
+.user-card__identity {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  margin-left: 24rpx;
+}
+
+.user-card__name {
+  color: var(--text-main);
+  font-size: 38rpx;
+  font-weight: 600;
+  line-height: 54rpx;
+}
+
+.user-card__vip {
+  margin-top: 8rpx;
+  padding: 4rpx 20rpx;
+  color: #FFFFFF;
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  background: var(--brand-green);
+  border-radius: 20rpx;
+}
+
+.user-card__code {
+  width: 78rpx;
+  height: 78rpx;
+}
+
+
+
+
+
+
+
+
+
+.progress {
+  position: relative;
+  margin-top: 40rpx;
+  padding: 0 0 32rpx;
+}
+
+.progress__labels {
+  position: absolute;
+  top: -33rpx;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 24rpx;
+}
+
+.progress__track {
+  height: 6rpx;
+  overflow: hidden;
+  background: var(--line-color);
+  border-radius: 3rpx;
+}
+
+.progress__value {
+  height: 100%;
+  background: var(--brand-green);
+  border-radius: 3rpx;
+}
+
+.progress__count {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  color: var(--brand-green);
+  font-size: 24rpx;
+}
+
+.stats {
+  display: flex;
+  height: 132rpx;
+  margin-top: 20rpx;
+  padding: 16rpx 0;
+}
+
+.stats__item {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.stats__item + .stats__item::before {
+  position: absolute;
+  top: 12rpx;
+  bottom: 12rpx;
+  left: 0;
+  width: 1rpx;
+  background: var(--line-color);
+  content: "";
+}
+
+.stats__value {
+  color: var(--brand-green);
+  font-size: 34rpx;
+  line-height: 44rpx;
+}
+
+.stats__label {
+  margin-top: 4rpx;
+  color: var(--text-secondary);
+  font-size: 24rpx;
+}
+
+.promo-banner {
+  display: block;
+  width: 710rpx;
+  margin: 20rpx;
+  border-radius: 14rpx;
+}
+
+.function-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.function-item {
+  display: flex;
+  flex: 0 0 25%;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.function-item__icon {
+  width: 54rpx;
+  height: 54rpx;
+}
+
+.function-item__label {
+  margin-top: 16rpx;
+  color: var(--text-secondary);
+  font-size: 24rpx;
+}
+
+.gift-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.gift-head__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.gift-head__more {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.gift-head__more-icon {
+  width: 26rpx;
+  height: 26rpx;
+  margin-left: 4rpx;
+}
+
+.gift-list {
+  display: flex;
+}
+
+.gift-card {
+  width: 290rpx;
+  height: 177rpx;
+  margin-right: 40rpx;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.gift-card:last-child {
+  margin-right: 0;
+}
+
+.gift-card__image {
+  display: block;
+  width: 290rpx;
+  height: 177rpx;
+}

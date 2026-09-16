@@ -1,0 +1,15 @@
+<view wx:if="{{!hidden}}" class="tabbar">
+  <navigator
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    class="tabbar__item {{selected === index ? 'is-active' : ''}}"
+    open-type="switchTab"
+    url="{{item.pagePath}}"
+    hover-class="none"
+    aria-role="button"
+    aria-label="{{item.text}}"
+  >
+    <image class="tabbar__icon" src="{{selected === index ? item.activeIcon : item.icon}}" mode="aspectFit" />
+    <text class="tabbar__label">{{item.text}}</text>
+  </navigator>
+</view>

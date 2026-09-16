@@ -1,0 +1,4 @@
+.placeholder-page {
+  min-height: 100vh;
+  background: #F4F5F2;
+}

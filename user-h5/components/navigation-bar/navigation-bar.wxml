@@ -1,0 +1,45 @@
+<view class="weui-navigation-bar {{extClass}} nav--{{variant}}">
+  <view
+    class="weui-navigation-bar__inner"
+    style="height: {{statusBarHeight + navBarHeight}}px; padding-top: {{statusBarHeight}}px; color: {{color}}; background-color: {{variant === 'transparent' ? 'transparent' : background}};"
+  >
+    <view class="weui-navigation-bar__left" style="top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
+      <block wx:if="{{back}}">
+      <view
+        bindtap="back"
+        class="weui-navigation-bar__btn_goback_wrapper"
+        hover-class="weui-active"
+        aria-role="button"
+        aria-label="返回"
+      >
+        <image class="weui-navigation-bar__btn_goback" src="/assets/icons/lucide/chevron-left.svg" mode="aspectFit" />
+      </view>
+      <view wx:if="{{search}}" class="weui-navigation-bar__search">
+        <view class="weui-navigation-bar__search-divider"></view>
+        <view
+          class="weui-navigation-bar__search-btn"
+          bindtap="handleSearch"
+          hover-class="weui-active"
+          aria-role="button"
+          aria-label="搜索"
+        >
+          <image class="weui-navigation-bar__search-icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+        </view>
+      </view>
+      </block>
+      <slot wx:else name="left"></slot>
+    </view>
+
+    <view class="weui-navigation-bar__center" style="top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
+      <view wx:if="{{loading}}" class="weui-navigation-bar__loading" aria-role="alert">
+        <view class="weui-loading" aria-role="img" aria-label="加载中"></view>
+      </view>
+      <text wx:if="{{title}}">{{title}}</text>
+      <slot wx:else name="center"></slot>
+    </view>
+
+    <view class="weui-navigation-bar__right" style="top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
+      <slot name="right"></slot>
+    </view>
+  </view>
+</view>

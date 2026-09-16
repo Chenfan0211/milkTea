@@ -1,0 +1,65 @@
+<view wx:if="{{visible}}" class="cart-sheet-root" catchtouchmove="noop">
+  <view class="cart-sheet__mask" bindtap="handleClose"></view>
+  <view class="cart-sheet__panel" catchtap="noop">
+    <view class="cart-sheet__discount">
+      <text>已享受折扣优惠，共减免</text>
+      <text class="cart-sheet__discount-price">¥{{summary.discount}}</text>
+      <view class="cart-sheet__info" bindtap="handleInfo" aria-role="button" aria-label="优惠说明">
+        <image class="cart-sheet__info-icon" src="/assets/icons/lucide/info.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="cart-sheet__toolbar">
+      <view class="cart-sheet__select-all" bindtap="toggleAll" aria-role="button" aria-label="全选">
+        <view class="cart-sheet__checkbox {{summary.allSelected ? 'is-checked' : ''}}">
+          <image wx:if="{{summary.allSelected}}" class="cart-sheet__check-icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+        </view>
+        <text>全选</text>
+      </view>
+      <view class="cart-sheet__clear" bindtap="clearCart" aria-role="button" aria-label="清空购物车">
+        <image class="cart-sheet__clear-icon" src="/assets/icons/lucide/trash-2.svg" mode="aspectFit" />
+        <text>清空</text>
+      </view>
+    </view>
+
+    <scroll-view class="cart-sheet__list" scroll-y show-scrollbar="{{false}}">
+      <view wx:for="{{items}}" wx:key="id" class="cart-item">
+        <view class="cart-item__check-wrap" data-id="{{item.id}}" bindtap="toggleItem" aria-role="button" aria-label="选择商品">
+          <view class="cart-sheet__checkbox {{item.selected ? 'is-checked' : ''}}">
+            <image wx:if="{{item.selected}}" class="cart-sheet__check-icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+          </view>
+        </view>
+
+        <view class="cart-item__image-wrap">
+          <image class="cart-item__image" src="{{item.image}}" mode="aspectFit" />
+          <text wx:if="{{item.isNew}}" class="cart-item__new">新</text>
+          <view class="cart-item__edit" data-id="{{item.id}}" bindtap="handleEdit" aria-role="button" aria-label="编辑规格">
+            <image class="cart-item__edit-icon" src="/assets/icons/lucide/pencil.svg" mode="aspectFit" />
+          </view>
+        </view>
+
+        <view class="cart-item__content">
+          <text class="cart-item__name">{{item.name}}</text>
+          <text class="cart-item__spec">{{item.spec}}</text>
+          <view class="cart-item__footer">
+            <view class="cart-item__price-block">
+              <text class="cart-item__price-symbol">¥</text>
+              <text class="cart-item__price">{{item.price}}</text>
+              <text class="cart-item__original">¥{{item.originalPrice}}</text>
+            </view>
+            <view class="cart-item__stepper">
+              <view class="cart-item__step cart-item__step--minus {{item.quantity <= 1 ? 'is-disabled' : ''}}" data-id="{{item.id}}" bindtap="decreaseQuantity" aria-role="button" aria-label="减少数量">
+                <image class="cart-item__minus-icon" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
+              </view>
+              <text class="cart-item__quantity">{{item.quantity}}</text>
+              <view class="cart-item__step cart-item__step--plus" data-id="{{item.id}}" bindtap="increaseQuantity" aria-role="button" aria-label="增加数量">
+                <image class="cart-item__plus-icon" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+  </view>
+</view>

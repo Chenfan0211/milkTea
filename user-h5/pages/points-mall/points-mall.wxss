@@ -1,0 +1,302 @@
+.points-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.points-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.points-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 24rpx var(--page-gutter) 32rpx;
+  background: linear-gradient(180deg, var(--brand-soft), var(--card-bg));
+}
+
+.points-hero__watermark {
+  position: absolute;
+  top: 8rpx;
+  right: 20rpx;
+  color: var(--brand-green);
+  font-size: var(--font-display);
+  font-weight: 600;
+  opacity: 0.08;
+}
+
+.points-hero__balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120rpx;
+}
+
+.points-hero__coin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  background: transparent;
+  box-shadow: none;
+}
+
+.points-hero__coin-icon {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.points-hero__value {
+  margin-left: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.points-hero__links {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+}
+
+.points-hero__link {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  text-align: center;
+}
+
+.points-store {
+  display: flex;
+  align-items: center;
+  min-height: 96rpx;
+  padding: 0 var(--page-gutter);
+  background: var(--card-bg);
+}
+
+.points-store__main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.points-store__pin {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.points-store__name {
+  max-width: 300rpx;
+  margin-left: 8rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.points-store__distance {
+  margin-left: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.points-store__switch {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.points-store__switch-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.points-body {
+  background: var(--page-bg-neutral);
+}
+
+.checkin-card {
+  display: flex;
+  align-items: center;
+  margin: 20rpx var(--page-gutter) 0;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.checkin-card__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.checkin-card__title-row {
+  display: flex;
+  align-items: baseline;
+}
+
+.checkin-card__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.checkin-card__en {
+  margin-left: 8rpx;
+  color: var(--text-main);
+  font-size: var(--font-caption);
+}
+
+.checkin-card__desc-row {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.checkin-card__desc {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.checkin-card__arrow {
+  flex: none;
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.checkin-card__icon-wrap {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 88rpx;
+  height: 88rpx;
+  margin-left: 20rpx;
+  background: transparent;
+}
+
+.checkin-card__icon {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.points-categories {
+  display: flex;
+  align-items: center;
+  padding: 20rpx var(--page-gutter) 0;
+  background: var(--page-bg-neutral);
+}
+
+.points-category {
+  position: relative;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: 16rpx 0 20rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+}
+
+.points-category.is-active {
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.points-category.is-active::after {
+  position: absolute;
+  bottom: 10rpx;
+  left: 50%;
+  width: 40rpx;
+  height: 4rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.points-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 8rpx var(--page-gutter) 0;
+}
+
+.points-product {
+  width: calc((100% - 20rpx) / 2);
+  margin-bottom: 20rpx;
+  overflow: hidden;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+}
+
+.points-product:nth-child(odd) {
+  margin-right: 20rpx;
+}
+
+.points-product__media {
+  position: relative;
+  width: 100%;
+  height: 300rpx;
+}
+
+.points-product__image {
+  width: 100%;
+  height: 100%;
+}
+
+.points-product__badge {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  padding: 4rpx 12rpx;
+  color: #FFFFFF;
+  font-size: var(--font-sm);
+  background: var(--price-red);
+  border-radius: var(--radius-xs);
+}
+
+.points-product__body {
+  padding: 16rpx;
+}
+
+.points-product__name {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 36rpx;
+}
+
+.points-product__stock {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.points-product__points {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--brand-green);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.points-product__unit {
+  margin-left: 4rpx;
+  font-size: var(--font-sm);
+}
+
+.points-safe {
+  height: calc(20rpx + env(safe-area-inset-bottom));
+}

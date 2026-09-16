@@ -1,0 +1,79 @@
+<view class="gift-purchase-page">
+  <navigation-bar title="购买礼品卡" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="gift-purchase-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="gift-purchase-scroll__inner">
+      <view class="gift-purchase-hero">
+        <image class="gift-purchase-hero__image" src="{{giftCard.image}}" mode="aspectFill" aria-label="{{giftCard.name}}礼品卡" />
+      </view>
+
+      <view class="gift-purchase-heading">
+        <text class="gift-purchase-heading__title">选择礼品卡</text>
+        <text class="gift-purchase-heading__description">购买礼品卡后可赠送好友</text>
+      </view>
+
+      <view class="gift-denomination-list">
+        <view wx:for="{{denominations}}" wx:key="id" class="gift-denomination">
+          <text class="gift-denomination__value">¥{{item.faceValue}}</text>
+          <view class="gift-denomination__info">
+            <text class="gift-denomination__price">售价：¥{{item.salePrice}}</text>
+            <text class="gift-denomination__name ellipsis">{{giftCard.name}}</text>
+          </view>
+          <view class="gift-quantity">
+            <block wx:if="{{item.quantity > 0}}">
+              <view
+                class="gift-quantity__step gift-quantity__step--minus {{item.quantity === 1 ? 'is-disabled' : ''}}"
+                data-id="{{item.id}}"
+                data-delta="-1"
+                bindtap="changeQuantity"
+                aria-role="button"
+                aria-label="减少{{item.faceValue}}元礼品卡"
+              >
+                <image class="gift-quantity__icon gift-quantity__icon--minus" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
+              </view>
+              <text class="gift-quantity__value">{{item.quantity}}</text>
+            </block>
+            <view
+              class="gift-quantity__step gift-quantity__step--plus {{item.quantity === maxQuantity ? 'is-disabled' : ''}}"
+              data-id="{{item.id}}"
+              data-delta="1"
+              bindtap="changeQuantity"
+              aria-role="button"
+              aria-label="增加{{item.faceValue}}元礼品卡"
+            >
+              <image class="gift-quantity__icon gift-quantity__icon--plus" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="gift-agreement">
+        <view
+          class="gift-agreement__check {{isAgreed ? 'is-checked' : ''}}"
+          bindtap="toggleAgreement"
+          aria-role="checkbox"
+          aria-checked="{{isAgreed}}"
+          aria-label="同意预付卡章程"
+        >
+          <image wx:if="{{isAgreed}}" class="gift-agreement__icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+        </view>
+        <text class="gift-agreement__text" bindtap="toggleAgreement">阅读并同意<text class="gift-agreement__link" catchtap="showAgreement">{{agreementTitle}}</text></text>
+      </view>
+
+      <view class="gift-purchase-safe"></view>
+    </view>
+  </scroll-view>
+
+  <view class="gift-purchase-bar">
+    <view class="gift-purchase-bar__summary">
+      <view class="gift-purchase-bar__amount-line">
+        <text class="gift-purchase-bar__symbol">¥</text>
+        <text class="gift-purchase-bar__amount">{{totalText}}</text>
+      </view>
+      <text class="gift-purchase-bar__count">共{{totalCount}}份</text>
+    </view>
+    <view class="gift-purchase-bar__button" bindtap="handlePay" aria-role="button" aria-label="购买礼品">
+      <text>购买礼品</text>
+    </view>
+  </view>
+</view>

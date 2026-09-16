@@ -1,0 +1,17 @@
+<view class="cart-bar-dock">
+  <view class="cart-bar">
+    <view class="cart-bar__cart" bindtap="handleCart" aria-role="button" aria-label="购物车">
+      <view class="cart-bar__icon">
+        <image class="cart-bar__image" src="/assets/icons/lucide/shopping-bag-white.svg" mode="aspectFit" />
+        <text class="cart-bar__badge">{{count}}</text>
+      </view>
+    </view>
+    <view class="cart-bar__total">
+      <text class="cart-bar__currency">¥</text>
+      <text>{{total}}</text>
+    </view>
+    <view class="cart-bar__checkout" bindtap="handleCheckout" aria-role="button" aria-label="去结算">
+      <text>去结算</text>
+    </view>
+  </view>
+</view>

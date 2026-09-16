@@ -1,0 +1,100 @@
+<view class="coupon-page">
+  <navigation-bar title="优惠券列表" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="coupon-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="coupon-page__body">
+      <view class="coupon-notice">
+        <text class="coupon-notice__text">开启优惠券过期/到账提醒</text>
+        <view class="coupon-notice__help" bindtap="showHelp" aria-role="button" aria-label="优惠券提醒说明">
+          <image class="coupon-notice__help-icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
+        </view>
+        <view class="coupon-notice__button" bindtap="handleSubscribe" aria-role="button" aria-label="立即订阅">立即订阅</view>
+      </view>
+
+      <view class="coupon-page__inner">
+        <view class="exchange-card" bindtap="handleExchange" aria-role="button" aria-label="兑换优惠券">
+          <image class="exchange-card__icon" src="/assets/icons/lucide/badge-japanese-yen-brand.svg" mode="aspectFit" />
+          <text class="exchange-card__text">兑换优惠券</text>
+          <image class="exchange-card__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+        </view>
+
+        <view wx:if="{{coupons.length}}" class="coupon-stack">
+          <view class="coupon-stack__layer coupon-stack__layer--third"></view>
+          <view class="coupon-stack__layer coupon-stack__layer--second"></view>
+
+          <view class="coupon-card" wx:for="{{coupons}}" wx:key="id">
+            <view class="coupon-card__count">共{{couponCount}}张</view>
+
+            <view class="coupon-card__main">
+              <view class="coupon-card__value">
+                <view class="coupon-card__discount">
+                  <text class="coupon-card__discount-label">立减</text>
+                  <text class="coupon-card__amount">{{item.amount}}</text>
+                  <text class="coupon-card__unit">元</text>
+                </view>
+                <text class="coupon-card__condition">{{item.condition}}</text>
+              </view>
+
+              <view class="coupon-card__copy">
+                <text class="coupon-card__title">{{item.title}}</text>
+                <text class="coupon-card__expiry">{{item.expiryText}}</text>
+              </view>
+            </view>
+
+            <view class="coupon-card__action-row">
+              <view class="coupon-card__rules-toggle" data-id="{{item.id}}" bindtap="toggleRules" aria-role="button" aria-label="使用规则">
+                <text>使用规则</text>
+                <image class="coupon-card__chevron {{item.expanded ? 'is-expanded' : ''}}" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+              </view>
+              <view class="coupon-card__use" bindtap="handleUse" aria-role="button" aria-label="去使用">去使用</view>
+            </view>
+
+            <view wx:if="{{item.expanded}}" class="coupon-card__details">
+              <view class="rule-row">
+                <text class="rule-row__label">优惠券ID：</text>
+                <view class="rule-row__value-group">
+                  <text class="rule-row__value rule-row__coupon-no">{{item.couponNo}}</text>
+                  <view class="rule-row__copy" data-no="{{item.couponNo}}" bindtap="copyCouponNo" aria-role="button" aria-label="复制优惠券ID">
+                    <text>复制</text>
+                  </view>
+                </view>
+              </view>
+              <view class="rule-row"><text class="rule-row__label">适用品牌：</text><text class="rule-row__value">{{item.brand}}</text></view>
+              <view class="rule-row rule-row--link" data-id="{{item.id}}" bindtap="handleViewStores" aria-role="button" aria-label="查看适用门店">
+                <text class="rule-row__label">适用门店：</text>
+                <view class="rule-row__link-wrap">
+                  <text class="rule-row__link">{{item.applicableStores}}</text>
+                  <image class="rule-row__chevron" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+                </view>
+              </view>
+              <view class="rule-row rule-row--link" data-label="查看适用商品" bindtap="showUnavailable" aria-role="button" aria-label="查看适用商品">
+                <text class="rule-row__label">门店商品：</text>
+                <view class="rule-row__link-wrap">
+                  <text class="rule-row__link">{{item.applicableProducts}}</text>
+                  <image class="rule-row__chevron" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+                </view>
+              </view>
+              <view class="rule-row"><text class="rule-row__label">使用渠道：</text><text class="rule-row__value">{{item.channel}}</text></view>
+              <view class="rule-row"><text class="rule-row__label">使用场景：</text><text class="rule-row__value">{{item.scenes}}</text></view>
+              <view class="rule-row"><text class="rule-row__label">有效期：</text><text class="rule-row__value">{{item.validityPeriod}}</text></view>
+              <view class="rule-row"><text class="rule-row__label">使用时段：</text><text class="rule-row__value">{{item.usageTime}}</text></view>
+              <view class="rule-row"><text class="rule-row__label">限制支付方式：</text><text class="rule-row__value">{{item.paymentRestriction}}</text></view>
+              <view class="rule-block"><text class="rule-block__label">优惠券说明：</text><text class="rule-block__text">{{item.description}}</text></view>
+              <view class="rule-row"><text class="rule-row__label">优惠券来源：</text><text class="rule-row__value">{{item.source}}</text></view>
+            </view>
+          </view>
+        </view>
+
+        <empty-state wx:else title="暂无可用优惠券" description="去点单页看看，新获得的优惠券会展示在这里" />
+
+        <view class="tabbar-safe-space"></view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="coupon-footer">
+    <view class="coupon-footer__item" bindtap="handleHistory" aria-role="button" aria-label="历史优惠券">历史优惠券</view>
+    <view class="coupon-footer__item" bindtap="handleBatchGift" aria-role="button" aria-label="批量赠送">批量赠送</view>
+    <view class="coupon-footer__item" bindtap="handleGiftRecord" aria-role="button" aria-label="赠送记录">赠送记录</view>
+  </view>
+</view>

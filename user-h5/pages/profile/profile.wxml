@@ -1,0 +1,94 @@
+<scroll-view class="profile-scroll" scroll-y enhanced="{{false}}">
+<view class="profile-page">
+  <image class="profile-hero" src="/assets/images/3x/profile-hero.jpg" mode="aspectFill" aria-label="五零时光新中式养生茶饮" />
+
+  <view class="profile-content">
+    <view class="profile-card user-card">
+      <view class="user-card__main">
+        <image class="user-card__avatar" src="{{userProfile.avatar}}" mode="aspectFill" />
+        <view class="user-card__identity">
+          <text class="user-card__name">{{userProfile.nickname}}</text>
+          <text class="user-card__vip">{{userProfile.vipLevel}}</text>
+        </view>
+        <image
+          class="user-card__code"
+          src="/assets/icons/lucide/qr-code.svg"
+          mode="aspectFit"
+          data-label="会员码"
+          bindtap="showUnavailable"
+          aria-role="button"
+          aria-label="会员码"
+        />
+      </view>
+
+      <view class="progress">
+        <view class="progress__labels">
+          <text>{{userProfile.vipLevel}}</text>
+          <text>{{userProfile.nextLevel}}</text>
+        </view>
+        <view class="progress__track">
+          <view class="progress__value" style="width: {{progressPercent}}%;"></view>
+        </view>
+        <text class="progress__count">{{userProfile.progressCurrent}}/{{userProfile.progressTarget}}</text>
+      </view>
+    </view>
+
+    <view class="profile-card stats">
+      <view
+        wx:for="{{stats}}"
+        wx:key="id"
+        class="stats__item"
+        data-id="{{item.id}}"
+        data-label="{{item.label}}"
+        bindtap="handleProfileAction"
+      >
+        <text class="stats__value">{{item.value}}</text>
+        <text class="stats__label">{{item.label}}</text>
+      </view>
+    </view>
+
+    <image class="promo-banner" src="/assets/images/3x/profile-banner.jpg" mode="widthFix" bindtap="openMenu" aria-label="抹茶轻茉莉新品" />
+
+    <section-card title="我的功能">
+      <view class="function-grid">
+        <view
+          wx:for="{{profileFunctions}}"
+          wx:key="id"
+          class="function-item"
+          data-id="{{item.id}}"
+          data-label="{{item.label}}"
+          bindtap="handleProfileAction"
+        >
+          <image class="function-item__icon" src="{{item.icon}}" mode="aspectFit" />
+          <text class="function-item__label">{{item.label}}</text>
+        </view>
+      </view>
+    </section-card>
+
+    <section-card>
+      <view class="gift-head">
+        <text class="gift-head__title">礼品卡</text>
+        <view class="gift-head__more" bindtap="openGiftCards" aria-role="button" aria-label="查看更多礼品卡">
+          <text>查看更多</text>
+          <image class="gift-head__more-icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+      <view class="gift-list">
+        <view
+          wx:for="{{userProfile.giftCards}}"
+          wx:key="id"
+          class="gift-card"
+          data-label="{{item.name}}"
+          bindtap="openGiftCards"
+          aria-role="button"
+          aria-label="{{item.name}}"
+        >
+          <image class="gift-card__image" src="{{item.image}}" mode="aspectFill" />
+        </view>
+      </view>
+    </section-card>
+  </view>
+
+  <view class="tabbar-safe-space"></view>
+</view>
+</scroll-view>

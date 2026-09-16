@@ -1,0 +1,58 @@
+.exchange-records-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.exchange-record-categories {
+  flex: none;
+  width: 100%;
+  background: var(--card-bg);
+}
+
+.exchange-record-categories__inner {
+  display: flex;
+  min-width: 750rpx;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.exchange-record-category {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 150rpx;
+  height: 88rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+}
+
+.exchange-record-category.is-active {
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.exchange-record-category.is-active::after {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 40rpx;
+  height: 4rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.exchange-record-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.exchange-records-safe {
+  height: calc(20rpx + env(safe-area-inset-bottom));
+}

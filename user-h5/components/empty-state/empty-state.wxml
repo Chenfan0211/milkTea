@@ -1,0 +1,7 @@
+<view class="empty-state">
+  <view class="empty-state__icon empty-state__icon--{{variant}}">
+    <image class="empty-state__image" src="{{icon}}" mode="aspectFit" />
+  </view>
+  <text class="empty-state__title">{{title}}</text>
+  <text class="empty-state__description">{{description}}</text>
+</view>

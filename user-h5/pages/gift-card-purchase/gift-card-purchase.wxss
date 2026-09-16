@@ -1,0 +1,237 @@
+.gift-purchase-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg);
+}
+
+.gift-purchase-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.gift-purchase-scroll__inner {
+  padding: 20rpx var(--page-gutter) 0;
+}
+
+.gift-purchase-hero {
+  overflow: hidden;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.gift-purchase-hero__image {
+  display: block;
+  width: 100%;
+  height: 432rpx;
+}
+
+.gift-purchase-heading {
+  display: flex;
+  align-items: baseline;
+  margin-top: 32rpx;
+}
+
+.gift-purchase-heading__title {
+  flex: none;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.gift-purchase-heading__description {
+  margin-left: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.gift-denomination-list {
+  margin-top: 20rpx;
+}
+
+.gift-denomination {
+  display: flex;
+  align-items: center;
+  min-height: 144rpx;
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.gift-denomination__value {
+  flex: none;
+  width: 150rpx;
+  color: var(--brand-green);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.gift-denomination__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.gift-denomination__price {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.gift-denomination__name {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.gift-quantity {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 180rpx;
+  margin-left: 16rpx;
+}
+
+.gift-quantity__step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+}
+
+.gift-quantity__step--minus {
+  background: var(--card-bg);
+  border: 2rpx solid var(--brand-green);
+}
+
+.gift-quantity__step--plus {
+  background: var(--brand-green);
+}
+
+.gift-quantity__step.is-disabled {
+  opacity: 0.35;
+}
+
+.gift-quantity__icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.gift-quantity__icon--minus {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.gift-quantity__value {
+  width: 64rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  text-align: center;
+}
+
+.gift-agreement {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 24rpx;
+}
+
+.gift-agreement__check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid var(--line-color);
+  border-radius: 50%;
+}
+
+.gift-agreement__check.is-checked {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+}
+
+.gift-agreement__icon {
+  width: 22rpx;
+  height: 22rpx;
+}
+
+.gift-agreement__text {
+  flex: 1;
+  min-width: 0;
+  margin-left: 12rpx;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  line-height: 34rpx;
+  word-break: break-all;
+}
+
+.gift-agreement__link {
+  color: var(--brand-green);
+}
+
+.gift-purchase-safe {
+  height: 40rpx;
+}
+
+.gift-purchase-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: calc(128rpx + env(safe-area-inset-bottom));
+  padding: 20rpx var(--page-gutter) calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  border-top: 1rpx solid var(--line-color);
+}
+
+.gift-purchase-bar__summary {
+  flex: 1;
+  min-width: 0;
+}
+
+.gift-purchase-bar__amount-line {
+  display: flex;
+  align-items: baseline;
+}
+
+.gift-purchase-bar__symbol {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.gift-purchase-bar__amount {
+  color: var(--text-main);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.gift-purchase-bar__count {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.gift-purchase-bar__button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 280rpx;
+  height: 80rpx;
+  color: #FFFFFF;
+  font-size: var(--font-md);
+  font-weight: 600;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}

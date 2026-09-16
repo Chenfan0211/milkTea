@@ -1,0 +1,67 @@
+<view class="exchange-page">
+  <navigation-bar title="兑换详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="exchange-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="exchange-scroll__inner">
+      <view class="exchange-media">
+        <swiper class="exchange-media__swiper" indicator-dots="{{false}}" circular="{{false}}">
+          <swiper-item>
+            <image class="exchange-media__image" src="{{item.image}}" mode="aspectFill" />
+          </swiper-item>
+        </swiper>
+        <text class="exchange-media__counter">1/1</text>
+      </view>
+
+      <text wx:if="{{item.limitText}}" class="exchange-limit">{{item.limitText}}</text>
+
+      <view class="exchange-info">
+        <text class="exchange-info__title">{{item.name}}</text>
+        <view class="exchange-info__meta">
+          <text class="exchange-info__points">{{item.points}}<text class="exchange-info__unit">积分</text></text>
+          <text class="exchange-info__stock">剩余{{item.stock}}件</text>
+        </view>
+      </view>
+
+      <view class="exchange-detail">
+        <text class="exchange-detail__title">商品详情</text>
+        <text class="exchange-detail__text">{{item.description}}</text>
+      </view>
+
+      <view class="exchange-safe"></view>
+    </view>
+  </scroll-view>
+
+  <view class="exchange-bar">
+    <view class="exchange-quantity">
+      <text class="exchange-quantity__label">数量</text>
+      <view class="exchange-stepper">
+        <view
+          class="exchange-stepper__button {{quantity <= 1 ? 'is-disabled' : ''}}"
+          bindtap="decreaseQuantity"
+          aria-role="button"
+          aria-label="减少数量"
+        >
+          <image class="exchange-stepper__minus" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
+        </view>
+        <text class="exchange-stepper__value">{{quantity}}</text>
+        <view
+          class="exchange-stepper__button exchange-stepper__button--plus {{quantity >= item.stock ? 'is-disabled' : ''}}"
+          bindtap="increaseQuantity"
+          aria-role="button"
+          aria-label="增加数量"
+        >
+          <image class="exchange-stepper__plus" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+
+    <view
+      class="exchange-submit {{insufficient ? 'is-disabled' : ''}}"
+      bindtap="handleExchange"
+      aria-role="button"
+      aria-label="{{insufficient ? '积分不足' : '立即兑换'}}"
+    >
+      {{insufficient ? '积分不足' : '立即兑换'}}
+    </view>
+  </view>
+</view>

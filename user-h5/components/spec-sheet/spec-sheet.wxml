@@ -1,0 +1,120 @@
+<view wx:if="{{visible}}" class="spec-sheet-root" catchtouchmove="noop">
+  <view class="spec-sheet__mask" bindtap="handleClose"></view>
+  <view class="spec-sheet__panel" catchtap="noop">
+    <view class="spec-sheet__top-actions">
+      <view class="spec-sheet__circle-button" bindtap="handleShare" aria-role="button" aria-label="分享商品">
+        <image class="spec-sheet__circle-icon" src="/assets/icons/lucide/share-2.svg" mode="aspectFit" />
+      </view>
+      <view class="spec-sheet__circle-button" bindtap="handleClose" aria-role="button" aria-label="关闭规格弹层">
+        <image class="spec-sheet__circle-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <scroll-view class="spec-sheet__scroll" scroll-y show-scrollbar="{{false}}" bindscroll="handleScroll">
+      <view class="spec-sheet__hero">
+        <view class="spec-sheet__hero-media">
+          <image class="spec-sheet__hero-image" src="{{product.specDetail.galleryImage}}" mode="aspectFit" />
+          <image wx:if="{{product.badgeIcon}}" class="spec-sheet__hero-badge" src="{{product.badgeIcon}}" mode="aspectFit" />
+        </view>
+        <text class="spec-sheet__image-note">{{product.specDetail.imageDisclaimer}}</text>
+      </view>
+
+      <view class="spec-sheet__content">
+        <text class="spec-sheet__name">{{product.name}}</text>
+
+        <view class="spec-sheet__promo-row">
+          <text class="spec-sheet__promo">{{product.specDetail.promotionText}}</text>
+          <text class="spec-sheet__price-label">{{product.specDetail.priceLabel}}</text>
+          <text class="spec-sheet__price-symbol">¥</text>
+          <text class="spec-sheet__start-price">{{product.specDetail.startPrice}}起</text>
+          <text class="spec-sheet__feature-tag">{{product.specDetail.tag}}</text>
+        </view>
+
+        <text class="spec-sheet__description">{{product.specDetail.description}}</text>
+        <text class="spec-sheet__description spec-sheet__description--secondary">（0奶精/0植脂末/0氢化植物油）</text>
+
+        <view class="spec-sheet__info-block">
+          <text class="spec-sheet__info-title">【主要原料】</text>
+          <text class="spec-sheet__info-text">{{product.specDetail.ingredients}}</text>
+        </view>
+
+        <block wx:if="{{state.expanded}}">
+          <view class="spec-sheet__info-block">
+            <text class="spec-sheet__info-title">【致敏原信息】</text>
+            <text class="spec-sheet__info-text">{{product.specDetail.allergens}}</text>
+          </view>
+          <view class="spec-sheet__info-block">
+            <text class="spec-sheet__info-title">【杯型容量】</text>
+            <text class="spec-sheet__info-text">{{product.specDetail.cupCapacity}}</text>
+          </view>
+          <view class="spec-sheet__info-block">
+            <text class="spec-sheet__info-title">【小真提示】</text>
+            <text wx:for="{{product.specDetail.tips}}" wx:key="index" class="spec-sheet__info-text">{{index + 1}}.{{item}}</text>
+          </view>
+        </block>
+
+        <view class="spec-sheet__expand" bindtap="toggleExpand" aria-role="button" aria-label="{{state.expanded ? '收起' : '展开'}}">
+          <text>{{state.expanded ? '收起' : '展开'}}</text>
+          <image class="spec-sheet__expand-icon {{state.expanded ? 'is-expanded' : ''}}" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+        </view>
+
+        <view wx:for="{{state.specGroups}}" wx:key="id" class="spec-group">
+          <text class="spec-group__label">{{item.label}}</text>
+          <view class="spec-group__options">
+            <view
+              wx:for="{{item.options}}"
+              wx:for-item="option"
+              wx:key="id"
+              class="spec-option {{option.selected ? 'is-selected' : ''}}"
+              data-group-id="{{item.id}}"
+              data-option-id="{{option.id}}"
+              bindtap="selectOption"
+              aria-role="button"
+              aria-label="{{option.label}}"
+            >
+              <image wx:if="{{option.icon === 'star'}}" class="spec-option__icon" src="/assets/icons/lucide/star.svg" mode="aspectFit" />
+              <text>{{option.label}}</text>
+              <text wx:if="{{option.priceDelta > 0}}" class="spec-option__delta">¥{{option.priceDelta}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="spec-sheet__action">
+      <view class="spec-sheet__summary">
+        <view class="spec-sheet__summary-info">
+          <view class="spec-sheet__summary-line">
+            <view class="spec-sheet__summary-price">
+              <text class="spec-sheet__member-symbol">¥</text>
+              <text class="spec-sheet__member-price">{{state.memberPrice}}</text>
+              <text class="spec-sheet__summary-original">¥{{state.originalPrice}}</text>
+            </view>
+            <view class="spec-sheet__favorite" bindtap="toggleFavorite" aria-role="button" aria-label="{{state.favorite ? '取消收藏' : '收藏商品'}}">
+              <image class="spec-sheet__favorite-icon" src="{{state.favorite ? '/assets/icons/lucide/heart-active.svg' : '/assets/icons/lucide/heart.svg'}}" mode="aspectFit" />
+            </view>
+          </view>
+          <view class="spec-sheet__spec-text">{{state.specText}}</view>
+        </view>
+        <view class="spec-sheet__stepper">
+          <view class="spec-sheet__step spec-sheet__step--minus {{state.quantity <= 1 ? 'is-disabled' : ''}}" bindtap="decreaseQuantity" aria-role="button" aria-label="减少数量">
+            <image class="spec-sheet__step-icon" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
+          </view>
+          <text class="spec-sheet__quantity">{{state.quantity}}</text>
+          <view class="spec-sheet__step spec-sheet__step--plus" bindtap="increaseQuantity" aria-role="button" aria-label="增加数量">
+            <image class="spec-sheet__step-icon" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+      <view class="spec-sheet__buttons">
+        <view class="spec-sheet__button spec-sheet__button--secondary" bindtap="handleBuy" aria-role="button" aria-label="立即购买">立即购买</view>
+        <view class="spec-sheet__button spec-sheet__button--primary" bindtap="handleAddCart" aria-role="button" aria-label="加入购物车">加入购物车</view>
+      </view>
+    </view>
+
+    <view wx:if="{{state.showTasteTip}}" class="spec-sheet__taste-tip">
+      <text>上滑调整口味</text>
+      <image class="spec-sheet__taste-icon" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+    </view>
+  </view>
+</view>

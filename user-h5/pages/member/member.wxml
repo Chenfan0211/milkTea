@@ -1,0 +1,9 @@
+<view class="placeholder-page">
+  <navigation-bar title="会员专区" background="#FFFFFF" color="#2F302D" />
+  <empty-state
+    icon="/assets/icons/lucide/member-active.svg"
+    title="会员专区待设计"
+    description="等级权益、积分明细与会员活动将在设计稿完善后接入。"
+  />
+  <view class="tabbar-safe-space"></view>
+</view>
