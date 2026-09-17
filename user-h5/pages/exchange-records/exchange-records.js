@@ -1,6 +1,7 @@
+const { withShare } = require('../../utils/share')
 const { exchangeRecordCategories, exchangeRecords } = require('../../data/mock')
 
-Page({
+Page(withShare({
   data: {
     exchangeRecordCategories,
     activeCategory: 'all',
@@ -13,4 +14,4 @@ Page({
       : exchangeRecords.filter(item => item.status === id)
     this.setData({ activeCategory: id, filteredRecords })
   }
-})
+}))

@@ -1,0 +1,100 @@
+<view class="stored-value-page">
+  <navigation-bar
+    title="会员储值"
+    back="{{true}}"
+    background="#FFFFFF"
+    color="#2F302D"
+  />
+
+  <scroll-view class="stored-value-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="stored-value-scroll__inner">
+      <view class="store-row" bindtap="selectStore" aria-role="button" aria-label="切换门店">
+        <image class="store-row__pin" src="/assets/icons/lucide/map-pin.svg" mode="aspectFit" />
+        <view class="store-row__content">
+          <text class="store-row__name ellipsis">{{currentStore.name || '请选择门店'}}</text>
+          <text class="store-row__distance">{{currentStore.displayDistance}}</text>
+        </view>
+        <image class="store-row__switch" src="/assets/icons/lucide/refresh-cw.svg" mode="aspectFit" />
+      </view>
+
+      <view class="balance-card">
+        <view class="balance-card__content">
+          <text class="balance-card__label">账户余额（元）</text>
+          <text class="balance-card__value ellipsis">{{balanceText}}</text>
+          <view class="balance-card__actions">
+            <view class="balance-card__action" bindtap="handleRecord" aria-role="button" aria-label="余额记录">
+              <image class="balance-card__action-icon" src="/assets/icons/lucide/receipt-brand.svg" mode="aspectFit" />
+              <text>记录</text>
+            </view>
+            <view class="balance-card__action" bindtap="handleManage" aria-role="button" aria-label="余额管理">
+              <image class="balance-card__action-icon" src="/assets/icons/lucide/settings-brand.svg" mode="aspectFit" />
+              <text>管理</text>
+            </view>
+          </view>
+        </view>
+        <image class="balance-card__image" src="/assets/images/3x/stored-value-banner.jpg" mode="aspectFill" aria-label="金秋入茶限定上新" />
+      </view>
+
+      <view class="section-heading section-heading--amount">
+        <text>选择充值金额</text>
+      </view>
+
+      <view class="package-card">
+        <text class="package-card__amount">¥{{storedValuePackage.amount}}</text>
+        <text class="package-card__benefit">{{storedValuePackage.couponLabel}}</text>
+        <view class="quantity-stepper">
+          <view
+            class="quantity-stepper__button quantity-stepper__button--minus {{quantity === 1 ? 'is-disabled' : ''}}"
+            data-delta="-1"
+            bindtap="changeQuantity"
+            aria-role="button"
+            aria-label="减少储值份数"
+            aria-disabled="{{quantity === 1}}"
+          >
+            <image class="quantity-stepper__icon quantity-stepper__icon--minus" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
+          </view>
+          <text class="quantity-stepper__value">{{quantity}}</text>
+          <view
+            class="quantity-stepper__button quantity-stepper__button--plus {{quantity === maxQuantity ? 'is-disabled' : ''}}"
+            data-delta="1"
+            bindtap="changeQuantity"
+            aria-role="button"
+            aria-label="增加储值份数"
+            aria-disabled="{{quantity === maxQuantity}}"
+          >
+            <image class="quantity-stepper__icon" src="/assets/icons/lucide/plus-brand.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+
+      <view class="content-section content-section--gift">
+        <view class="section-heading">
+          <image class="section-heading__icon" src="/assets/icons/lucide/gift-brand.svg" mode="aspectFit" />
+          <text>赠送优惠</text>
+        </view>
+        <view class="gift-list">
+          <view wx:for="{{giftItems}}" wx:key="id" class="gift-item">
+            <view class="gift-item__dot"></view>
+            <text>{{item.text}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="content-section">
+        <view class="section-heading">
+          <image class="section-heading__icon" src="/assets/icons/lucide/file-search-brand.svg" mode="aspectFit" />
+          <text>使用说明</text>
+        </view>
+        <view class="usage-list">
+          <text wx:for="{{usageParagraphs}}" wx:key="*this" class="usage-list__paragraph">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="stored-value-bar">
+    <view class="stored-value-bar__button" hover-class="stored-value-bar__button--pressed" bindtap="handleRecharge" aria-role="button" aria-label="立即储值{{totalText}}元">
+      <text>立即储值 ¥{{totalText}}</text>
+    </view>
+  </view>
+</view>

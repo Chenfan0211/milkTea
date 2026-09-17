@@ -1,3 +1,4 @@
+const { withShare } = require('../../utils/share')
 const { orderCategories, orders, formatOrderAmount } = require('../../data/mock')
 
 const decoratedOrders = orders.map(order => Object.assign({}, order, {
@@ -5,7 +6,7 @@ const decoratedOrders = orders.map(order => Object.assign({}, order, {
   firstItem: order.items[0]
 }))
 
-Page({
+Page(withShare({
   data: {
     orderCategories,
     orders: decoratedOrders,
@@ -32,4 +33,4 @@ Page({
   showUnavailable() {
     wx.showToast({ title: '功能暂未接入', icon: 'none' })
   }
-})
+}))

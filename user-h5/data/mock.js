@@ -11,17 +11,10 @@ function createSpecGroups() {
       ]
     },
     {
-      id: 'sweetness',
-      label: '甜度',
-      options: [
-        { id: 'seven', label: '7分甜', selected: true, priceDelta: 0, icon: 'star' },
-        { id: 'no-sugar', label: '不额外加糖', selected: false, priceDelta: 0 }
-      ]
-    },
-    {
       id: 'temperature',
       label: '温度',
       options: [
+        { id: 'standard-ice', label: '标准冰', selected: true, priceDelta: 0 },
         { id: 'less-ice', label: '少冰', selected: false, priceDelta: 0 },
         { id: 'no-ice', label: '去冰（微凉）', selected: false, priceDelta: 0 }
       ]
@@ -74,6 +67,57 @@ function createProduct(id, name, price = 13.9, originalPrice = 16, badgeIcon = '
   }
 }
 
+function createAppleMilkTea() {
+  const product = createProduct('classic-005', '红苹果乌龙冰奶', 14.9, 16)
+  const description = '浓郁苹果果香糅合岩香乌龙，丝滑冰博客融合绵柔牛乳芝士，果香茶香奶香三重交织，酸甜均衡，醇厚不腻。'
+  return {
+    ...product,
+    tags: ['年度热销', '红苹果乌龙'],
+    description,
+    specDetail: {
+      ...product.specDetail,
+      discountRate: 1,
+      originalBasePrice: 16,
+      tag: '红苹果乌龙',
+      description,
+      ingredients: '冷冻苹果杏沙棘汁+马头岩乌龙茶+牛乳芝士+双倍蛋白冰博客牛奶',
+      allergens: '饮品内含有乳制品，过敏者请谨慎选择',
+      cupCapacity: '杯型容量中杯500ml，标注容量及图片仅供参考，饮品量请以实际出品为准',
+      tips: [
+        '果酸遇乳类蛋白会产生轻微絮状分层。',
+        '此为正常现象，搅匀即可饮用。',
+        '建议2小时内饮用，开盖直饮风味更佳。'
+      ],
+      specGroups: [
+        {
+          id: 'size',
+          label: '份量',
+          options: [
+            { id: 'medium', label: '中杯', selected: true, priceDelta: 0 }
+          ]
+        },
+        {
+          id: 'temperature',
+          label: '温度',
+          options: [
+            { id: 'standard-ice', label: '标准冰', selected: true, priceDelta: 0, icon: 'star' },
+            { id: 'less-ice', label: '少冰', selected: false, priceDelta: 0 },
+            { id: 'no-ice', label: '去冰（微凉）', selected: false, priceDelta: 0 }
+          ]
+        },
+        {
+          id: 'tip',
+          label: '温馨提示',
+          options: [
+            { id: 'acid-sediment', label: '果酸遇乳类蛋白会产生轻微絮状分层', selected: false, priceDelta: 0 },
+            { id: 'normal-sediment', label: '此为正常现象 搅匀即可', selected: true, priceDelta: 0, icon: 'star' }
+          ]
+        }
+      ]
+    }
+  }
+}
+
 const classicGroups = [
   {
     id: 'recommend',
@@ -87,6 +131,7 @@ const classicGroups = [
           createProduct('classic-002', '金桂轻乳茶'),
           createProduct('classic-003', '青提茉莉冰茶', 15.9, 18),
           createProduct('classic-004', '陈皮普洱轻乳茶', 14.9, 17),
+          createAppleMilkTea(),
           createProduct('herbal-001', '桂香暖润茶', 12.9, 15),
           createProduct('herbal-002', '陈皮山楂茶', 13.9, 16),
           createProduct('herbal-003', '黑枸杞玫瑰茶', 15.9, 18, badgeMemberIcon)
@@ -138,35 +183,185 @@ const menuTabs = [
   { id: 'featured', label: '招牌主打', groups: featuredGroups }
 ]
 
+const cities = [
+  {
+    code: 'changsha',
+    name: '长沙市',
+    initial: 'C',
+    latitude: 28.2282,
+    longitude: 112.9388
+  },
+  {
+    code: 'guangzhou',
+    name: '广州市',
+    initial: 'G',
+    latitude: 23.1291,
+    longitude: 113.2644
+  },
+  {
+    code: 'shenzhen',
+    name: '深圳市',
+    initial: 'S',
+    latitude: 22.5431,
+    longitude: 114.0579
+  }
+]
+
+const STORE_PROMOTION_TEXT = '新中式养生茶系列上新'
+
 const stores = [
   {
     id: 'store-001',
+    cityCode: 'changsha',
     name: '星沙乐运魔方店',
-    distanceText: '距您2.3km',
+    distanceText: '距您2.30km',
     distanceKm: '2.30km',
+    latitude: 28.2435,
+    longitude: 113.0776,
     address: '湖南省长沙市长沙县星沙街道开元东路288号乐运魔方1层L108号铺（靠近中庭）',
-    modes: ['pickup', 'dinein']
+    phone: '0731-88880001',
+    businessHours: '10:00-22:00',
+    modes: ['pickup', 'dinein'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 3,
+    statusText: '可外卖',
   },
   {
     id: 'store-002',
+    cityCode: 'changsha',
     name: '松雅湖吾悦广场店',
-    distanceText: '距您4.8km',
+    distanceText: '距您4.80km',
     distanceKm: '4.80km',
+    latitude: 28.2396,
+    longitude: 113.0803,
     address: '湖南省长沙市长沙县东四路与滨湖东路交汇处吾悦广场1层B区B108号铺（靠近1号门）',
-    modes: ['pickup', 'dinein']
+    phone: '0731-88880002',
+    businessHours: '10:00-21:30',
+    modes: ['pickup', 'dinein'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 6,
+    statusText: '可外卖',
   },
   {
     id: 'store-003',
+    cityCode: 'changsha',
     name: '长沙高铁南站店',
-    distanceText: '距您6.1km',
+    distanceText: '距您6.10km',
     distanceKm: '6.10km',
+    latitude: 28.1540,
+    longitude: 113.0620,
     address: '湖南省长沙市雨花区花侯路长沙南站西广场1层S102号铺（地铁2号线出口旁）',
-    modes: ['pickup']
+    phone: '0731-88880003',
+    businessHours: '07:30-22:00',
+    modes: ['pickup'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 12,
+    statusText: '仅自提',
+  },
+  {
+    id: 'store-004',
+    cityCode: 'guangzhou',
+    name: '广州天河城店',
+    distanceText: '距您1.20km',
+    distanceKm: '1.20km',
+    latitude: 23.1323,
+    longitude: 113.3270,
+    address: '广东省广州市天河区天河路208号天河城购物中心B1层B108号铺',
+    phone: '020-88880004',
+    businessHours: '10:00-22:00',
+    modes: ['pickup', 'dinein'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 0,
+    statusText: '可外卖',
+  },
+  {
+    id: 'store-005',
+    cityCode: 'guangzhou',
+    name: '广州北京路店',
+    distanceText: '距您5.40km',
+    distanceKm: '5.40km',
+    latitude: 23.1256,
+    longitude: 113.2697,
+    address: '广东省广州市越秀区北京路步行街238号1层102号铺（北京路地铁站B口）',
+    phone: '020-88880005',
+    businessHours: '09:30-22:30',
+    modes: ['pickup'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 8,
+    statusText: '仅自提',
+  },
+  {
+    id: 'store-006',
+    cityCode: 'guangzhou',
+    name: '广州琶洲保利店',
+    distanceText: '距您9.10km',
+    distanceKm: '9.10km',
+    latitude: 23.0985,
+    longitude: 113.3840,
+    address: '广东省广州市海珠区阅江中路832号保利广场1层L112号铺（地铁8号线琶洲站旁）',
+    phone: '020-88880006',
+    businessHours: '10:00-21:30',
+    modes: ['pickup', 'dinein'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 4,
+    statusText: '可外卖',
+  },
+  {
+    id: 'store-007',
+    cityCode: 'shenzhen',
+    name: '深圳福田中心店',
+    distanceText: '距您0.90km',
+    distanceKm: '0.90km',
+    latitude: 22.5405,
+    longitude: 114.0588,
+    address: '广东省深圳市福田区福华一路88号中心商务大厦1层L105号铺',
+    phone: '0755-88880007',
+    businessHours: '08:00-22:00',
+    modes: ['pickup', 'dinein'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 2,
+    statusText: '可外卖',
+  },
+  {
+    id: 'store-008',
+    cityCode: 'shenzhen',
+    name: '深圳南山海岸城店',
+    distanceText: '距您11.20km',
+    distanceKm: '11.20km',
+    latitude: 22.5182,
+    longitude: 113.9365,
+    address: '广东省深圳市南山区文心五路33号海岸城购物中心B1层B120号铺',
+    phone: '0755-88880008',
+    businessHours: '10:00-22:00',
+    modes: ['pickup', 'dinein'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 11,
+    statusText: '可外卖',
+  },
+  {
+    id: 'store-009',
+    cityCode: 'shenzhen',
+    name: '深圳罗湖万象城店',
+    distanceText: '距您6.30km',
+    distanceKm: '6.30km',
+    latitude: 22.5433,
+    longitude: 114.1178,
+    address: '广东省深圳市罗湖区宝安南路1881号万象城1层L168号铺（大剧院地铁站F口）',
+    phone: '0755-88880009',
+    businessHours: '10:00-22:30',
+    modes: ['pickup', 'dinein'],
+    promotion: STORE_PROMOTION_TEXT,
+    queueCount: 7,
+    statusText: '可外卖',
   }
 ]
 
 const userProfile = {
   nickname: '微信用户',
+  phone: '13612345792',
+  gender: '',
+  birthday: '',
+  region: ['湖南省', '长沙市', '岳麓区'],
   avatar: '/assets/images/3x/profile-avatar.jpg',
   vipLevel: 'VIP1',
   nextLevel: 'VIP2',
@@ -302,6 +497,21 @@ const exchangeRecordCategories = [
 
 const exchangeRecords = []
 
+const menuActivity = {
+  tag: '会员优惠',
+  description: '周四会员日招牌饮品85折',
+  detailTitle: '周四会员日',
+  rules: [
+    { label: '活动时间', value: '每周四' },
+    { label: '活动周期', value: '长期有效' },
+    { label: '活动时段', value: '门店营业时间内' },
+    { label: '总次数限制', value: '不限制' },
+    { label: '每天参与次数', value: '不限制' }
+  ],
+  applicableProducts: '点单页标记参与活动的招牌饮品享85折优惠。',
+  excludedProducts: '礼品卡、储值套餐、配送费、包装费及未标记参与活动的商品不参与本优惠。'
+}
+
 const homeShortcuts = [
   { id: 'coupon', label: '会员领券', icon: '/assets/icons/lucide/ticket-percent.svg' },
   { id: 'stored-value', label: '储值有礼', icon: '/assets/icons/lucide/gift.svg' },
@@ -319,6 +529,20 @@ const profileFunctions = [
   { id: 'activity', label: '活动报名', icon: '/assets/icons/lucide/calendar-check.svg' },
   { id: 'cooperation', label: '加盟合作', icon: '/assets/icons/lucide/handshake.svg' }
 ]
+
+const storedValuePackages = [
+  {
+    id: 'stored-value-100',
+    amount: 100,
+    couponLabel: '赠 优惠券',
+    coupons: [
+      { id: 'stored-value-coupon-2', amount: 2, quantity: 2, description: '储值赠送-2元代金券' },
+      { id: 'stored-value-coupon-3', amount: 3, quantity: 2, description: '储值赠送-3元代金券' },
+      { id: 'stored-value-coupon-5', amount: 5, quantity: 2, description: '储值赠送-5元代金券' }
+    ]
+  }
+]
+
 
 const orderCategories = [
   { id: 'all', label: '全部订单' },
@@ -340,6 +564,25 @@ const coupons = [
     brand: '五零时光',
     couponNo: '1306715891380928513',
     applicableStoreIds: stores.map(store => store.id),
+    applicableProductIds: [
+      'classic-001',
+      'classic-002',
+      'classic-003',
+      'classic-004',
+      'classic-005',
+      'herbal-001',
+      'herbal-002',
+      'herbal-003',
+      'leaf-001',
+      'leaf-002',
+      'leaf-003',
+      'traditional-001',
+      'traditional-002',
+      'featured-002',
+      'featured-003',
+      'season-001',
+      'season-002'
+    ],
     applicableStores: '查看门店',
     applicableProducts: '查看适用商品',
     channel: '不限制',
@@ -373,8 +616,8 @@ const orders = [
     couponAmount: -3,
     count: 2,
     items: [
-      { id: 'classic-002', name: '金桂轻乳茶', spec: '中杯,5分甜,热', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1 },
-      { id: 'classic-001', name: '五窨茉莉抹茶', spec: '中杯,7分甜,冰沙', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1, badgeIcon: badgeMemberIcon }
+      { id: 'classic-002', name: '金桂轻乳茶', spec: '中杯,热', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1 },
+      { id: 'classic-001', name: '五窨茉莉抹茶', spec: '中杯,冰沙', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1, badgeIcon: badgeMemberIcon }
     ],
     mealInfo: [
       { label: '用餐方式', value: '堂食' },
@@ -405,7 +648,7 @@ const orders = [
     couponAmount: -6.1,
     count: 1,
     items: [
-      { id: 'classic-004', name: '陈皮普洱轻乳茶', spec: '大杯,3分甜,少冰', image: productImage, unitPrice: 9.9, originalPrice: 16, quantity: 1 }
+      { id: 'classic-004', name: '陈皮普洱轻乳茶', spec: '大杯,少冰', image: productImage, unitPrice: 9.9, originalPrice: 16, quantity: 1 }
     ],
     mealInfo: [
       { label: '用餐方式', value: '打包自取' },
@@ -436,10 +679,10 @@ const orders = [
     couponAmount: -9.1,
     count: 4,
     items: [
-      { id: 'classic-001', name: '五窨茉莉抹茶', spec: '中杯,7分甜,冰沙', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1, badgeIcon: badgeMemberIcon },
-      { id: 'classic-002', name: '金桂轻乳茶', spec: '中杯,5分甜,热', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1 },
-      { id: 'classic-003', name: '青提茉莉冰茶', spec: '中杯,7分甜,少冰', image: productImage, unitPrice: 15.9, originalPrice: 18, quantity: 1 },
-      { id: 'classic-004', name: '陈皮普洱轻乳茶', spec: '大杯,3分甜,少冰', image: productImage, unitPrice: 14.9, originalPrice: 17, quantity: 1 }
+      { id: 'classic-001', name: '五窨茉莉抹茶', spec: '中杯,冰沙', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1, badgeIcon: badgeMemberIcon },
+      { id: 'classic-002', name: '金桂轻乳茶', spec: '中杯,热', image: productImage, unitPrice: 13.9, originalPrice: 16, quantity: 1 },
+      { id: 'classic-003', name: '青提茉莉冰茶', spec: '中杯,少冰', image: productImage, unitPrice: 15.9, originalPrice: 18, quantity: 1 },
+      { id: 'classic-004', name: '陈皮普洱轻乳茶', spec: '大杯,少冰', image: productImage, unitPrice: 14.9, originalPrice: 17, quantity: 1 }
     ],
     mealInfo: [
       { label: '用餐方式', value: '打包自取' },
@@ -470,7 +713,7 @@ const orders = [
     couponAmount: -2,
     count: 1,
     items: [
-      { id: 'traditional-002', name: '白桃乌龙', spec: '大杯,5分甜,去冰', image: productImage, unitPrice: 18, originalPrice: 20, quantity: 1 }
+      { id: 'traditional-002', name: '白桃乌龙', spec: '大杯,去冰', image: productImage, unitPrice: 18, originalPrice: 20, quantity: 1 }
     ],
     mealInfo: [
       { label: '用餐方式', value: '堂食' },
@@ -531,8 +774,8 @@ const orders = [
     couponAmount: -13.9,
     count: 2,
     items: [
-      { id: 'classic-003', name: '青提茉莉冰茶', spec: '中杯,7分甜,少冰', image: productImage, unitPrice: 15.9, originalPrice: 18, quantity: 1 },
-      { id: 'herbal-001', name: '桂香暖润茶', spec: '中杯,5分甜,热', image: productImage, unitPrice: 12.9, originalPrice: 15, quantity: 1 }
+      { id: 'classic-003', name: '青提茉莉冰茶', spec: '中杯,少冰', image: productImage, unitPrice: 15.9, originalPrice: 18, quantity: 1 },
+      { id: 'herbal-001', name: '桂香暖润茶', spec: '中杯,热', image: productImage, unitPrice: 12.9, originalPrice: 15, quantity: 1 }
     ],
     mealInfo: [
       { label: '用餐方式', value: '打包自取' },
@@ -585,7 +828,7 @@ const orders = [
       {
         id: 'manta-001',
         name: '抹茶芝士芭乐（首创）',
-        spec: '[中杯,5分甜,少冰],加马蹄粉圆',
+        spec: '[中杯,少冰],加马蹄粉圆',
         image: productImage,
         unitPrice: 20.9,
         originalPrice: 23,
@@ -624,7 +867,7 @@ const orders = [
       {
         id: 'manta-002',
         name: '抹茶芝士芭乐（首创）',
-        spec: '[中杯,5分甜,少冰],不加马蹄粉圆',
+        spec: '[中杯,少冰],不加马蹄粉圆',
         image: productImage,
         unitPrice: 18.9,
         originalPrice: 21,
@@ -647,9 +890,11 @@ const orders = [
 
 const initialCartItems = [
   {
-    id: 'cart-001',
+    id: 'classic-005-medium-standard-ice-normal-sediment',
+    productId: 'classic-005',
+    selectedOptionIds: ['medium', 'standard-ice', 'normal-sediment'],
     name: '红苹果乌龙冰奶',
-    spec: '中杯,5分甜,标准冰，此为正常现象 搅匀即可',
+    spec: '中杯,标准冰,此为正常现象 搅匀即可',
     price: 14.9,
     originalPrice: 16,
     quantity: 1,
@@ -666,8 +911,11 @@ function formatOrderAmount(amount) {
 module.exports = {
   formatOrderAmount,
   homeShortcuts,
+  menuActivity,
   initialCartItems,
   menuTabs,
+  cities,
+  STORE_PROMOTION_TEXT,
   coupons,
   giftCardDenominations,
   giftCardGroups,
@@ -682,6 +930,7 @@ module.exports = {
   orderCategories,
   orders,
   profileFunctions,
+  storedValuePackages,
   stores,
   userProfile
 }

@@ -1,62 +1,23 @@
-function roundMoney(value, digits = 2) {
-  const factor = Math.pow(10, digits)
-  return Math.round(value * factor) / factor
-}
-
-function cloneSpecGroups(groups = []) {
-  return groups.map(group => ({
-    ...group,
-    options: group.options.map(option => ({ ...option }))
-  }))
-}
-
-function buildState(product = {}) {
-  const detail = product.specDetail || {}
-  const specGroups = cloneSpecGroups(detail.specGroups)
-  const selectedOptions = []
-  const selectedLabels = []
-
-  for (const group of specGroups) {
-    const selected = group.options.find(option => option.selected)
-    if (selected) {
-      selectedOptions.push({ groupId: group.id, ...selected })
-      selectedLabels.push(selected.label)
-    }
-  }
-
-  const addOnTotal = selectedOptions.reduce((sum, option) => sum + (option.priceDelta || 0), 0)
-  const startPrice = detail.startPrice || product.price || 0
-  const discountRate = detail.discountRate || 1
-  const memberPrice = roundMoney(startPrice * discountRate + addOnTotal)
-  const originalPrice = roundMoney(startPrice + addOnTotal)
-  const specText = selectedLabels.length > 2
-    ? `[${selectedLabels.slice(0, 2).join(',')}],${selectedLabels.slice(2).join(',')}`
-    : selectedLabels.join(',')
-
-  return {
-    expanded: false,
-    quantity: 1,
-    favorite: false,
-    showTasteTip: true,
-    specGroups,
-    selectedOptions,
-    memberPrice,
-    originalPrice,
-    specText
-  }
-}
+const { buildSpecState } = require('../../utils/spec-sheet')
 
 Component({
   properties: {
     visible: { type: Boolean, value: false },
-    product: { type: Object, value: {} }
+    product: { type: Object, value: {} },
+    mode: { type: String, value: 'add' },
+    initialQuantity: { type: Number, value: 1 },
+    initialSelectedOptionIds: { type: Array, value: [] }
   },
   data: {
-    state: buildState({})
+    state: buildSpecState({})
   },
   observers: {
-    'visible, product'(visible, product) {
-      if (visible) this.setData({ state: buildState(product) })
+    'visible, product, mode, initialQuantity, initialSelectedOptionIds'(visible, product, mode, initialQuantity, initialSelectedOptionIds) {
+      if (visible) {
+        this.setData({
+          state: buildSpecState(product, { mode, initialQuantity, initialSelectedOptionIds })
+        })
+      }
     }
   },
   methods: {
@@ -87,12 +48,15 @@ Component({
           }))
         }
       })
-      const nextState = buildState({
+      const nextState = buildSpecState({
         ...this.properties.product,
         specDetail: {
           ...this.properties.product.specDetail,
           specGroups
         }
+      }, {
+        mode: this.properties.mode,
+        initialQuantity: this.data.state.quantity
       })
       this.setData({
         state: {
@@ -121,6 +85,9 @@ Component({
     },
     handleAddCart() {
       this.triggerEvent('addcart', this.buildOrderPayload())
+    },
+    handleUpdateCart() {
+      this.triggerEvent('updatecart', this.buildOrderPayload())
     },
     buildOrderPayload() {
       return {

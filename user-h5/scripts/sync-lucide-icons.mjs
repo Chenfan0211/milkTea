@@ -19,6 +19,7 @@ const jobs = [
   { source: 'circle-user-round', output: 'profile-active', color: '#53882C' },
   { source: 'ticket-percent', output: 'ticket-percent', color: '#666762' },
   { source: 'gift', output: 'gift', color: '#666762' },
+  { source: 'gift', output: 'gift-brand', color: '#53882C' },
   { source: 'graduation-cap', output: 'graduation-cap', color: '#666762' },
   { source: 'calendar-check', output: 'calendar-check', color: '#666762' },
   { source: 'calendar-check', output: 'calendar-check-brand', color: '#53882C' },
@@ -27,14 +28,28 @@ const jobs = [
   { source: 'badge-japanese-yen', output: 'badge-japanese-yen', color: '#666762' },
   { source: 'badge-japanese-yen', output: 'badge-japanese-yen-brand', color: '#53882C' },
   { source: 'map-pinned', output: 'map-pinned', color: '#666762' },
+  { source: 'locate-fixed', output: 'locate-fixed', color: '#2F302D' },
+  { source: 'refresh-cw', output: 'refresh-cw', color: '#2F302D' },
   { source: 'headset', output: 'headset', color: '#666762' },
   { source: 'handshake', output: 'handshake', color: '#666762' },
   { source: 'receipt', output: 'receipt', color: '#666762' },
+  { source: 'receipt-text', output: 'receipt-brand', color: '#53882C' },
+  { source: 'settings', output: 'settings-brand', color: '#53882C' },
   { source: 'search', output: 'search', color: '#9B9B96' },
   { source: 'soup', output: 'dine-in', color: '#747570' },
   { source: 'package', output: 'takeaway', color: '#747570' },
   { source: 'qr-code', output: 'qr-code', color: '#53882C' },
   { source: 'star', output: 'star', color: '#747570' },
+  { source: 'star', output: 'star-brand', color: '#53882C' },
+  { source: 'star', output: 'star-gold', color: '#D4A017', fill: true },
+  { source: 'apple', output: 'apple-white', color: '#FFFFFF' },
+  { source: 'bookmark', output: 'bookmark', color: '#2F302D' },
+  { source: 'bookmark-check', output: 'bookmark-check', color: '#53882C' },
+  { source: 'cup-soda', output: 'store-marker', color: '#747570' },
+  { source: 'cup-soda', output: 'store-marker-active', color: '#53882C' },
+  { source: 'circle-dot', output: 'queue-safe', color: '#53882C', dotFill: true },
+  { source: 'circle-dot', output: 'queue-warning', color: '#E6A23C', dotFill: true },
+  { source: 'circle-dot', output: 'queue-danger', color: '#FF0000', dotFill: true },
   { source: 'map-pin', output: 'map-pin', color: '#747570' },
   { source: 'chevron-right', output: 'chevron-right', color: '#777873' },
   { source: 'chevron-right', output: 'chevron-right-brand', color: '#53882C' },
@@ -48,6 +63,7 @@ const jobs = [
   { source: 'pencil', output: 'pencil', color: '#53882C' },
   { source: 'minus', output: 'minus', color: '#53882C' },
   { source: 'plus', output: 'plus', color: '#FFFFFF' },
+  { source: 'plus', output: 'plus-brand', color: '#53882C' },
   { source: 'info', output: 'info', color: '#8D8D88' },
   { source: 'x', output: 'x', color: '#747570' },
   { source: 'heart', output: 'heart', color: '#777873' },
@@ -56,11 +72,13 @@ const jobs = [
   { source: 'send', output: 'send', color: '#53882C' },
   { source: 'copy', output: 'copy', color: '#777873' },
   { source: 'rotate-ccw', output: 'rotate-ccw', color: '#53882C' },
+  { source: 'rotate-ccw', output: 'rotate-ccw-white', color: '#FFFFFF' },
   { source: 'message-square-heart', output: 'message-square-heart', color: '#53882C' },
   { source: 'chef-hat', output: 'chef-hat', color: '#747570' },
   { source: 'circle-check-big', output: 'circle-check-big', color: '#53882C' },
   { source: 'gem', output: 'gem', color: '#53882C' },
-  { source: 'circle-help', output: 'circle-help', color: '#777873' }
+  { source: 'circle-help', output: 'circle-help', color: '#777873' },
+  { source: 'file-search', output: 'file-search-brand', color: '#53882C' }
 ]
 
 fs.mkdirSync(outputDir, { recursive: true })
@@ -71,7 +89,13 @@ for (const job of jobs) {
     throw new Error(`Lucide 图标不存在: ${job.source}`)
   }
 
-  const svg = fs.readFileSync(sourcePath, 'utf8').replaceAll('currentColor', job.color).trim()
+  let svg = fs.readFileSync(sourcePath, 'utf8').replaceAll('currentColor', job.color).trim()
+  if (job.fill) svg = svg.replace('fill="none"', `fill="${job.color}"`)
+  if (job.dotFill) {
+    svg = svg.replace('fill="none"', `fill="${job.color}"`)
+    svg = svg.replace('<circle cx="12" cy="12" r="1" />', '<circle cx="12" cy="12" r="1" fill="#FFFFFF" stroke="#FFFFFF" />')
+    svg = svg.replace('<circle cx="12" cy="12" r="10" />', `<circle cx="12" cy="12" r="10" fill="${job.color}" />`)
+  }
   fs.writeFileSync(path.join(outputDir, `${job.output}.svg`), `${svg}\n`, 'utf8')
 }
 

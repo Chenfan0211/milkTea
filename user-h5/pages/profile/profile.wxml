@@ -5,8 +5,8 @@
   <view class="profile-content">
     <view class="profile-card user-card">
       <view class="user-card__main">
-        <image class="user-card__avatar" src="{{userProfile.avatar}}" mode="aspectFill" />
-        <view class="user-card__identity">
+        <image class="user-card__avatar" src="{{userProfile.avatar}}" mode="aspectFill" bindtap="openProfileData" aria-role="button" aria-label="编辑个人资料" />
+        <view class="user-card__identity" bindtap="openProfileData" aria-role="button" aria-label="查看和编辑个人资料">
           <text class="user-card__name">{{userProfile.nickname}}</text>
           <text class="user-card__vip">{{userProfile.vipLevel}}</text>
         </view>
@@ -41,6 +41,8 @@
         data-id="{{item.id}}"
         data-label="{{item.label}}"
         bindtap="handleProfileAction"
+        aria-role="button"
+        aria-label="{{item.label}}"
       >
         <text class="stats__value">{{item.value}}</text>
         <text class="stats__label">{{item.label}}</text>

@@ -1,0 +1,135 @@
+<view class="profile-data-page">
+  <navigation-bar title="个人资料" back="{{true}}" background="#F7F7F7" color="#2F302D" />
+
+  <scroll-view class="profile-data-scroll" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
+    <view class="profile-data-scroll__inner">
+      <view class="profile-data-card">
+        <view class="profile-data-avatar-wrap" bindtap="handleAvatar" aria-role="button" aria-label="更换头像">
+          <image class="profile-data-avatar" src="{{avatar}}" mode="aspectFill" />
+          <view class="profile-data-avatar__edit">
+            <image class="profile-data-avatar__edit-icon" src="/assets/icons/lucide/rotate-ccw-white.svg" mode="aspectFit" />
+          </view>
+        </view>
+
+        <view class="profile-form">
+          <view class="profile-form__row">
+            <text class="profile-form__label">姓名</text>
+            <input
+              class="profile-form__input"
+              value="{{nickname}}"
+              maxlength="20"
+              placeholder="请输入您的姓名"
+              placeholder-class="profile-form__placeholder"
+              bindinput="handleNameInput"
+              aria-label="姓名"
+            />
+          </view>
+
+          <view class="profile-form__row">
+            <text class="profile-form__label">性别</text>
+            <view class="profile-gender">
+              <view
+                class="profile-gender__option {{gender === 'male' ? 'is-selected' : ''}}"
+                data-gender="male"
+                bindtap="selectGender"
+                aria-role="button"
+                aria-label="男"
+              >男</view>
+              <view
+                class="profile-gender__option {{gender === 'female' ? 'is-selected' : ''}}"
+                data-gender="female"
+                bindtap="selectGender"
+                aria-role="button"
+                aria-label="女"
+              >女</view>
+            </view>
+          </view>
+
+          <view class="profile-form__row">
+            <text class="profile-form__label">手机号</text>
+            <view class="profile-form__phone">
+              <text class="profile-form__value">{{phoneMasked}}</text>
+              <view class="profile-form__outline-button" bindtap="handlePhoneChange" aria-role="button" aria-label="更换手机号">更换</view>
+            </view>
+          </view>
+
+          <view class="profile-form__row profile-form__row--birthday" bindtap="openBirthdayPicker" aria-role="button" aria-label="选择生日">
+            <view class="profile-form__copy">
+              <text class="profile-form__label">生日</text>
+              <text class="profile-form__hint">{{birthdayLocked ? '已填写，不可修改' : '填写完不可修改'}}</text>
+            </view>
+            <view class="profile-birthday {{birthday ? 'is-filled' : ''}}">
+              <text>{{birthday || '完善生日，不错过惊喜'}}</text>
+              <image class="profile-birthday__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+            </view>
+          </view>
+
+          <view class="profile-form__row profile-form__row--region" bindtap="openRegionPicker" aria-role="button" aria-label="选择地区">
+            <text class="profile-form__label">详细地址</text>
+            <view class="profile-form__value-wrap">
+              <text class="profile-form__value">{{regionText || '请选择地区'}}</text>
+              <image class="profile-form__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="profile-data-actions">
+    <view class="profile-data-save" bindtap="handleSave" hover-class="profile-data-save--pressed" aria-role="button" aria-label="保存个人资料">保存</view>
+    <view class="profile-data-account" bindtap="handleAccountManagement" aria-role="button" aria-label="账号管理">账号管理</view>
+  </view>
+
+  <view wx:if="{{birthdayVisible}}" class="profile-sheet">
+    <view class="profile-sheet__mask" bindtap="closeBirthdayPicker"></view>
+    <view class="profile-sheet__panel">
+      <picker-view class="profile-birthday-picker" indicator-style="height: 80rpx;" value="{{birthdayValue}}" bindchange="handleBirthdayChange">
+        <picker-view-column>
+          <view class="profile-birthday-picker__item" wx:for="{{birthdayYears}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view class="profile-birthday-picker__item" wx:for="{{birthdayMonths}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view class="profile-birthday-picker__item" wx:for="{{birthdayDays}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+      <view class="profile-sheet__actions">
+        <view class="profile-sheet__button profile-sheet__button--secondary" bindtap="closeBirthdayPicker" aria-role="button" aria-label="取消生日选择">取消</view>
+        <view class="profile-sheet__button profile-sheet__button--primary" bindtap="confirmBirthday" aria-role="button" aria-label="确定生日">确定</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{regionVisible}}" class="profile-sheet">
+    <view class="profile-sheet__mask" bindtap="closeRegionPicker"></view>
+    <view class="profile-sheet__panel profile-sheet__panel--region">
+      <view class="region-tabs">
+        <view
+          wx:for="{{regionTabs}}"
+          wx:key="step"
+          class="region-tab {{item.active ? 'is-active' : ''}}"
+          data-step="{{item.step}}"
+          bindtap="jumpRegionStep"
+          aria-role="button"
+          aria-label="{{item.label}}"
+        >
+          <text>{{item.label}}</text>
+          <view class="region-tab__line"></view>
+        </view>
+      </view>
+      <scroll-view class="region-options" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
+        <view
+          wx:for="{{regionOptions}}"
+          wx:key="code"
+          class="region-option"
+          data-code="{{item.code}}"
+          bindtap="selectRegionOption"
+          aria-role="button"
+          aria-label="选择{{item.name}}"
+        >{{item.name}}</view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,52 @@
+.activity-rules-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+.activity-rules-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.activity-rules-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.activity-rules-section + .activity-rules-section {
+  margin-top: 40rpx;
+}
+
+.activity-rules-section__title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.activity-rule-row,
+.activity-product-rule {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 16rpx;
+  font-size: var(--font-md);
+  line-height: 44rpx;
+}
+
+.activity-rule-row__label,
+.activity-product-rule__label {
+  flex: none;
+  color: var(--text-main);
+}
+
+.activity-rule-row__value,
+.activity-product-rule__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  word-break: break-word;
+}

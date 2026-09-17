@@ -18,7 +18,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  min-height: 420rpx;
+  min-height: 460rpx;
   padding: 24rpx var(--page-gutter);
   overflow: hidden;
 }
@@ -60,7 +60,7 @@
   display: flex;
   align-items: center;
   height: 56rpx;
-  margin-top: 20rpx;
+  margin-top: 24rpx;
   padding: 0 20rpx;
   color: var(--brand-green);
   font-size: var(--font-md);
@@ -76,10 +76,10 @@
 
 .signin-hero__calendar {
   position: absolute;
-  top: 80rpx;
-  right: -28rpx;
-  width: 480rpx;
-  height: 320rpx;
+  top: 96rpx;
+  right: -24rpx;
+  width: 520rpx;
+  height: 340rpx;
 }
 
 .signin-card,
@@ -92,7 +92,7 @@
 }
 
 .signin-card {
-  margin-top: -24rpx;
+  margin-top: -32rpx;
 }
 
 .signin-card__title {
@@ -364,6 +364,7 @@
 
 .signin-modal__panel {
   width: 100%;
+  max-width: 660rpx;
   padding: 40rpx 24rpx 24rpx;
   background: var(--card-bg);
   border-radius: var(--radius-lg);
@@ -390,9 +391,25 @@
 }
 
 .signin-modal__star {
-  width: 48rpx;
-  height: 48rpx;
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.signin-modal__star-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
   margin-right: 16rpx;
+  background: var(--card-bg);
+  border: 2rpx solid var(--brand-green);
+  border-radius: 50%;
+}
+
+.signin-modal__star {
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .signin-modal__close {
@@ -479,53 +496,69 @@
 .signin-calendar-weekdays,
 .signin-calendar-grid {
   display: flex;
-  flex-wrap: wrap;
 }
 
 .signin-calendar-weekdays {
+  flex-wrap: nowrap;
+  gap: 4rpx;
   margin-top: 16rpx;
 }
 
 .signin-calendar-weekdays text {
-  width: calc(100% / 7);
+  flex: 0 0 calc((100% - 24rpx) / 7);
+  min-width: 0;
   color: var(--text-main);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   text-align: center;
 }
 
 .signin-calendar-grid {
+  flex-wrap: wrap;
+  gap: 4rpx;
   margin-top: 8rpx;
 }
 
 .signin-calendar-cell {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: calc(100% / 7);
-  height: 112rpx;
-  padding: 4rpx;
+  width: calc((100% - 24rpx) / 7);
+  height: 104rpx;
+  overflow: hidden;
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-sm);
 }
 
 .signin-calendar-cell.is-empty {
   opacity: 0;
 }
 
-.signin-calendar-cell:not(.is-empty) {
-  border: 1rpx solid var(--brand-soft);
-}
-
 .signin-calendar-cell.is-signed {
   background: var(--brand-soft);
 }
 
-.signin-calendar-cell__date {
-  color: var(--text-secondary);
-  font-size: var(--font-caption);
+.signin-calendar-cell__date-band {
+  width: 100%;
+  height: 32rpx;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 32rpx;
+  text-align: center;
+  background: var(--brand-soft);
 }
 
-.signin-calendar-cell.is-signed .signin-calendar-cell__date {
-  color: var(--brand-green);
+.signin-calendar-cell.is-signed .signin-calendar-cell__date-band {
+  color: #FFFFFF;
+  background: var(--brand-green);
+}
+
+.signin-calendar-cell__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .signin-calendar-cell__icon-wrap {
@@ -534,7 +567,6 @@
   justify-content: center;
   width: 36rpx;
   height: 36rpx;
-  margin-top: 4rpx;
 }
 
 .signin-calendar-cell__icon-wrap image {
@@ -548,6 +580,7 @@
 }
 
 .signin-calendar-cell__reward {
+  margin-top: 2rpx;
   color: var(--brand-green);
   font-size: var(--font-caption);
 }

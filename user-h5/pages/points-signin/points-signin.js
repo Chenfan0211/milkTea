@@ -1,3 +1,4 @@
+const { withShare } = require('../../utils/share')
 const { pointsSignIn, signInRewards } = require('../../data/mock')
 const { buildMonthCells, signInOnce } = require('../../utils/points-signin')
 
@@ -8,7 +9,7 @@ function buildRewards(continuousDays, expanded) {
   return expanded ? rewards : rewards.slice(0, 2)
 }
 
-Page({
+Page(withShare({
   data: {
     pointsSignIn,
     points: 0,
@@ -106,4 +107,4 @@ Page({
     wx.showToast({ title: '我的奖品暂未接入', icon: 'none' })
   },
   noop() {}
-})
+}))

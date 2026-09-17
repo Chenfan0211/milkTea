@@ -1,3 +1,4 @@
+const { withShare } = require('../../utils/share')
 const { giftCardDenominations, giftCardGroups } = require('../../data/mock')
 
 const MAX_QUANTITY = 10
@@ -47,7 +48,7 @@ function createGiftCardPaymentOrder(giftCard, selected) {
   }
 }
 
-Page({
+Page(withShare({
   data: {
     giftCard: {},
     denominations: [],
@@ -109,4 +110,4 @@ Page({
   startGiftCardPayment() {
     wx.showToast({ title: '支付暂未接入', icon: 'none' })
   }
-})
+}))

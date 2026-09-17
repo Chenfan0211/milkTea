@@ -1,6 +1,7 @@
+const { withShare } = require('../../utils/share')
 const { pointsProducts } = require('../../data/mock')
 
-Page({
+Page(withShare({
   data: {
     item: null,
     quantity: 1,
@@ -28,4 +29,4 @@ Page({
     if (this.data.insufficient) return
     wx.showToast({ title: '兑换功能暂未接入', icon: 'none' })
   }
-})
+}))

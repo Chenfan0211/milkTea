@@ -47,33 +47,35 @@
         </view>
       </view>
 
-      <view class="gift-agreement">
-        <view
-          class="gift-agreement__check {{isAgreed ? 'is-checked' : ''}}"
-          bindtap="toggleAgreement"
-          aria-role="checkbox"
-          aria-checked="{{isAgreed}}"
-          aria-label="同意预付卡章程"
-        >
-          <image wx:if="{{isAgreed}}" class="gift-agreement__icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
-        </view>
-        <text class="gift-agreement__text" bindtap="toggleAgreement">阅读并同意<text class="gift-agreement__link" catchtap="showAgreement">{{agreementTitle}}</text></text>
-      </view>
-
       <view class="gift-purchase-safe"></view>
     </view>
   </scroll-view>
 
   <view class="gift-purchase-bar">
-    <view class="gift-purchase-bar__summary">
-      <view class="gift-purchase-bar__amount-line">
-        <text class="gift-purchase-bar__symbol">¥</text>
-        <text class="gift-purchase-bar__amount">{{totalText}}</text>
+    <view class="gift-agreement">
+      <view
+        class="gift-agreement__check {{isAgreed ? 'is-checked' : ''}}"
+        bindtap="toggleAgreement"
+        aria-role="checkbox"
+        aria-checked="{{isAgreed}}"
+        aria-label="同意预付卡章程"
+      >
+        <image wx:if="{{isAgreed}}" class="gift-agreement__icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
       </view>
-      <text class="gift-purchase-bar__count">共{{totalCount}}份</text>
+      <text class="gift-agreement__text" bindtap="toggleAgreement">阅读并同意<text class="gift-agreement__link" catchtap="showAgreement">{{agreementTitle}}</text></text>
     </view>
-    <view class="gift-purchase-bar__button" bindtap="handlePay" aria-role="button" aria-label="购买礼品">
-      <text>购买礼品</text>
+
+    <view class="gift-purchase-bar__main">
+      <view class="gift-purchase-bar__summary">
+        <view class="gift-purchase-bar__amount-line">
+          <text class="gift-purchase-bar__symbol">¥</text>
+          <text class="gift-purchase-bar__amount">{{totalText}}</text>
+        </view>
+        <text class="gift-purchase-bar__count">共{{totalCount}}份</text>
+      </view>
+      <view class="gift-purchase-bar__button" bindtap="handlePay" aria-role="button" aria-label="购买礼品">
+        <text>购买礼品</text>
+      </view>
     </view>
   </view>
 </view>

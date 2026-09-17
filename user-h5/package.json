@@ -5,11 +5,22 @@
   "type": "commonjs",
   "scripts": {
     "build:images": "node scripts/build-images.mjs && node scripts/build-points-images.mjs",
-    "check": "node scripts/check-project.mjs && node scripts/acceptance-check.test.mjs",
+    "build:regions": "node scripts/build-regions.mjs",
+    "check": "node scripts/stored-value-page.test.mjs && node scripts/store-selection.test.mjs && node scripts/store-picker-page.test.mjs && node scripts/menu-spec-edit.test.mjs && node scripts/activity-sheet.test.mjs && node scripts/share.test.mjs && node scripts/favorite-stores-page.test.mjs && node scripts/coupon-products-page.test.mjs && node scripts/menu-product-image.test.mjs && node scripts/profile-data-page.test.mjs && node scripts/check-project.mjs && node scripts/acceptance-check.test.mjs",
     "icons": "node scripts/sync-lucide-icons.mjs",
-    "test:acceptance": "node scripts/acceptance-check.test.mjs"
+    "test:acceptance": "node scripts/acceptance-check.test.mjs",
+    "test:stored-value": "node scripts/stored-value-page.test.mjs",
+    "test:coupon-products": "node scripts/coupon-products-page.test.mjs",
+    "test:images": "node scripts/menu-product-image.test.mjs",
+    "test:profile-data": "node scripts/profile-data-page.test.mjs",
+    "test:store": "node scripts/store-selection.test.mjs && node scripts/store-picker-page.test.mjs",
+    "test:menu": "node scripts/menu-spec-edit.test.mjs",
+    "test:activity": "node scripts/activity-sheet.test.mjs",
+    "test:share": "node scripts/share.test.mjs",
+    "test:favorite": "node scripts/favorite-stores-page.test.mjs"
   },
   "devDependencies": {
+    "china-area-data": "5.0.1",
     "lucide-static": "1.46.0"
   }
 }

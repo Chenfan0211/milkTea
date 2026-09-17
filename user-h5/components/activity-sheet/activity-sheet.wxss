@@ -1,0 +1,179 @@
+.activity-sheet-root {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1300;
+}
+
+.activity-sheet__mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.46);
+}
+
+.activity-sheet__panel {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  height: 780rpx;
+  max-height: 80vh;
+  overflow: hidden;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.activity-sheet__header {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: 104rpx;
+  padding: 0 24rpx;
+}
+
+.activity-sheet__title {
+  color: var(--text-main);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  line-height: 48rpx;
+}
+
+.activity-sheet__close {
+  position: absolute;
+  top: 20rpx;
+  right: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.activity-sheet__close-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.activity-sheet__scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.activity-sheet__content {
+  padding: 0 var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.activity-sheet__section {
+  margin-top: 32rpx;
+}
+
+.activity-sheet__section--store {
+  margin-top: 40rpx;
+  padding-top: 40rpx;
+}
+
+.activity-sheet__section-title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.activity-sheet__promotion {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+}
+
+.activity-sheet__tag {
+  flex: none;
+  padding: 0 8rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  border: 2rpx solid var(--brand-green);
+  border-radius: var(--radius-xs);
+}
+
+.activity-sheet__description {
+  flex: 1;
+  min-width: 0;
+  margin-left: 12rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  line-height: 40rpx;
+}
+
+.activity-sheet__action {
+  flex: none;
+  margin-left: 12rpx;
+  color: var(--brand-green);
+  font-size: var(--font-base);
+  line-height: 40rpx;
+}
+
+.activity-sheet__store-row {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+}
+
+.activity-sheet__store-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-sheet__store-line {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 12rpx;
+  font-size: var(--font-base);
+  line-height: 40rpx;
+}
+
+.activity-sheet__store-label {
+  flex: none;
+  color: var(--text-main);
+}
+
+.activity-sheet__store-value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.activity-sheet__phone {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  margin-left: 16rpx;
+  background: var(--page-bg-neutral);
+  border-radius: 50%;
+}
+
+.activity-sheet__phone-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.activity-sheet__link {
+  display: flex;
+  margin-top: 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-base);
+  line-height: 40rpx;
+}

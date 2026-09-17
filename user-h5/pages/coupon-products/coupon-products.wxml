@@ -1,0 +1,24 @@
+<view class="coupon-products-page">
+  <navigation-bar title="适用商品" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="coupon-products-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="coupon-products-scroll__inner">
+      <view wx:if="{{products.length}}" class="coupon-products-content">
+        <text class="coupon-products-title">“{{storeName}}”适用商品</text>
+        <view class="coupon-product-grid">
+          <view class="coupon-product" wx:for="{{products}}" wx:key="id">
+            <view class="coupon-product__media">
+              <image class="coupon-product__image" src="{{item.image}}" mode="aspectFit" aria-label="{{item.name}}" />
+            </view>
+            <view class="coupon-product__body">
+              <text class="coupon-product__name ellipsis">{{item.name}}</text>
+              <text class="coupon-product__size">{{item.sizeText}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <empty-state wx:else title="暂无适用商品" description="该优惠券暂未设置适用饮品" />
+    </view>
+  </scroll-view>
+</view>

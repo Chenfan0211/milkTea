@@ -11,7 +11,7 @@
     </view>
 
     <scroll-view class="spec-sheet__scroll" scroll-y show-scrollbar="{{false}}" bindscroll="handleScroll">
-      <view class="spec-sheet__hero">
+      <view wx:if="{{mode !== 'edit'}}" class="spec-sheet__hero">
         <view class="spec-sheet__hero-media">
           <image class="spec-sheet__hero-image" src="{{product.specDetail.galleryImage}}" mode="aspectFit" />
           <image wx:if="{{product.badgeIcon}}" class="spec-sheet__hero-badge" src="{{product.badgeIcon}}" mode="aspectFit" />
@@ -19,10 +19,10 @@
         <text class="spec-sheet__image-note">{{product.specDetail.imageDisclaimer}}</text>
       </view>
 
-      <view class="spec-sheet__content">
-        <text class="spec-sheet__name">{{product.name}}</text>
+      <view class="spec-sheet__content {{mode === 'edit' ? 'spec-sheet__content--edit' : ''}}">
+        <text class="spec-sheet__name {{mode === 'edit' ? 'spec-sheet__name--edit' : ''}}">{{product.name}}</text>
 
-        <view class="spec-sheet__promo-row">
+        <view wx:if="{{mode !== 'edit'}}" class="spec-sheet__promo-row">
           <text class="spec-sheet__promo">{{product.specDetail.promotionText}}</text>
           <text class="spec-sheet__price-label">{{product.specDetail.priceLabel}}</text>
           <text class="spec-sheet__price-symbol">¥</text>
@@ -31,7 +31,7 @@
         </view>
 
         <text class="spec-sheet__description">{{product.specDetail.description}}</text>
-        <text class="spec-sheet__description spec-sheet__description--secondary">（0奶精/0植脂末/0氢化植物油）</text>
+        <text wx:if="{{mode !== 'edit'}}" class="spec-sheet__description spec-sheet__description--secondary">（0奶精/0植脂末/0氢化植物油）</text>
 
         <view class="spec-sheet__info-block">
           <text class="spec-sheet__info-title">【主要原料】</text>
@@ -90,11 +90,16 @@
               <text class="spec-sheet__member-price">{{state.memberPrice}}</text>
               <text class="spec-sheet__summary-original">¥{{state.originalPrice}}</text>
             </view>
-            <view class="spec-sheet__favorite" bindtap="toggleFavorite" aria-role="button" aria-label="{{state.favorite ? '取消收藏' : '收藏商品'}}">
+            <view wx:if="{{mode !== 'edit'}}" class="spec-sheet__favorite" bindtap="toggleFavorite" aria-role="button" aria-label="{{state.favorite ? '取消收藏' : '收藏商品'}}">
               <image class="spec-sheet__favorite-icon" src="{{state.favorite ? '/assets/icons/lucide/heart-active.svg' : '/assets/icons/lucide/heart.svg'}}" mode="aspectFit" />
             </view>
           </view>
-          <view class="spec-sheet__spec-text">{{state.specText}}</view>
+          <view class="spec-sheet__spec-line">
+            <view wx:if="{{mode === 'edit'}}" class="spec-sheet__favorite spec-sheet__favorite--inline" bindtap="toggleFavorite" aria-role="button" aria-label="{{state.favorite ? '取消收藏' : '收藏商品'}}">
+              <image class="spec-sheet__favorite-icon" src="{{state.favorite ? '/assets/icons/lucide/heart-active.svg' : '/assets/icons/lucide/heart.svg'}}" mode="aspectFit" />
+            </view>
+            <view class="spec-sheet__spec-text">{{state.specText}}</view>
+          </view>
         </view>
         <view class="spec-sheet__stepper">
           <view class="spec-sheet__step spec-sheet__step--minus {{state.quantity <= 1 ? 'is-disabled' : ''}}" bindtap="decreaseQuantity" aria-role="button" aria-label="减少数量">
@@ -106,7 +111,8 @@
           </view>
         </view>
       </view>
-      <view class="spec-sheet__buttons">
+      <view wx:if="{{mode === 'edit'}}" class="spec-sheet__button spec-sheet__button--confirm" bindtap="handleUpdateCart" aria-role="button" aria-label="确定修改">确定修改</view>
+      <view wx:else class="spec-sheet__buttons">
         <view class="spec-sheet__button spec-sheet__button--secondary" bindtap="handleBuy" aria-role="button" aria-label="立即购买">立即购买</view>
         <view class="spec-sheet__button spec-sheet__button--primary" bindtap="handleAddCart" aria-role="button" aria-label="加入购物车">加入购物车</view>
       </view>

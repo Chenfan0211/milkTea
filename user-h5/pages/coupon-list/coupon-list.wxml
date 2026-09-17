@@ -67,7 +67,7 @@
                   <image class="rule-row__chevron" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
                 </view>
               </view>
-              <view class="rule-row rule-row--link" data-label="查看适用商品" bindtap="showUnavailable" aria-role="button" aria-label="查看适用商品">
+              <view class="rule-row rule-row--link" data-id="{{item.id}}" bindtap="handleViewProducts" aria-role="button" aria-label="查看适用商品">
                 <text class="rule-row__label">门店商品：</text>
                 <view class="rule-row__link-wrap">
                   <text class="rule-row__link">{{item.applicableProducts}}</text>

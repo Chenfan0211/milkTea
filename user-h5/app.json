@@ -5,6 +5,10 @@
     "pages/member/member",
     "pages/orders/orders",
     "pages/profile/profile",
+    "pages/profile-data/profile-data",
+    "pages/stored-value/stored-value",
+    "pages/activity-rules/activity-rules",
+    "pages/favorite-stores/favorite-stores",
     "pages/order-detail/order-detail",
     "pages/coupon-list/coupon-list",
     "pages/points-mall/points-mall",
@@ -16,7 +20,9 @@
     "pages/gift-card/gift-card",
     "pages/gift-card-purchase/gift-card-purchase",
     "pages/order-confirm/order-confirm",
-    "pages/coupon-stores/coupon-stores"
+    "pages/coupon-stores/coupon-stores",
+    "pages/coupon-products/coupon-products",
+    "pages/city-picker/city-picker"
   ],
   "window": {
     "navigationBarTextStyle": "black",

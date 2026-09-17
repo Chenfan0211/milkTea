@@ -37,6 +37,8 @@
 | `--tag-light-bg` | `#D5F0C3` | 茶类标签底色 |
 | `--tag-light-text` | `#6E9B45` | 茶类标签文字 |
 | `--accent-orange` | `#C65A1E` | 营销提醒、限时提示（低频使用） |
+| `--queue-warning` | `#E6A23C` | 排队 6–10 杯的等待黄色状态 |
+| `--favorite-gold` | `#D4A017` | 已收藏门店的金色五角星状态 |
 
 规则：
 

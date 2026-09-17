@@ -3,7 +3,9 @@
 
   <view class="store-header">
     <view class="store-row" bindtap="selectStore" aria-role="button" aria-label="切换门店">
-      <image class="store-row__star" src="/assets/icons/lucide/star.svg" mode="aspectFit" />
+      <view class="store-row__star-button" catchtap="handleCurrentFavorite" aria-role="button" aria-label="{{currentStore.isFavorite ? '取消收藏门店' : '收藏门店'}}">
+        <image class="store-row__star" src="{{currentStore.isFavorite ? '/assets/icons/lucide/star-gold.svg' : '/assets/icons/lucide/star.svg'}}" mode="aspectFit" />
+      </view>
       <view class="store-row__content">
         <view class="store-row__title-line">
           <text class="store-row__name ellipsis">{{currentStore.name}}</text>
@@ -12,27 +14,23 @@
         <view class="store-row__distance">
           <image class="store-row__distance-icon" src="/assets/icons/lucide/map-pin.svg" mode="aspectFit" />
           <text>{{currentStore.distanceText}}</text>
+          <view wx:if="{{currentStore.id}}" class="store-row__queue">
+            <image class="store-row__queue-icon" src="{{currentStore.queueIcon}}" mode="aspectFit" />
+            <text class="store-row__queue-text">{{currentStore.queueText}}</text>
+          </view>
         </view>
       </view>
     </view>
 
     <view class="mode-switch">
-      <view
-        class="mode-switch__item {{orderMode === 'pickup' ? 'is-active' : ''}}"
-        data-mode="pickup"
-        bindtap="setOrderMode"
-      >自提</view>
-      <view
-        class="mode-switch__item {{orderMode === 'dinein' ? 'is-active' : ''}}"
-        data-mode="dinein"
-        bindtap="setOrderMode"
-      >堂食</view>
+      <view class="mode-switch__item {{orderMode === 'pickup' ? 'is-active' : ''}}" data-mode="pickup" bindtap="setOrderMode">自提</view>
+      <view class="mode-switch__item {{orderMode === 'dinein' ? 'is-active' : ''}}" data-mode="dinein" bindtap="setOrderMode">堂食</view>
     </view>
   </view>
 
   <view class="coupon-row">
-    <text class="coupon-row__text">周四会员日招牌饮品85折</text>
-    <view class="coupon-row__action" data-label="优惠详情" bindtap="showUnavailable">
+    <text class="coupon-row__text">{{menuActivity.description}}</text>
+    <view class="coupon-row__action" bindtap="openActivitySheet" aria-role="button" aria-label="查看活动优惠">
       <text>点击查看</text>
       <image class="coupon-row__chevron" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
     </view>
@@ -84,11 +82,7 @@
         <text class="ad-title">新品广告标题文字</text>
         <image class="ad-banner" src="/assets/images/3x/menu-banner.jpg" mode="widthFix" data-label="新品活动" bindtap="showUnavailable" />
 
-        <block
-          wx:for="{{activeMenu.groups}}"
-          wx:for-item="group"
-          wx:key="id"
-        >
+        <block wx:for="{{activeMenu.groups}}" wx:for-item="group" wx:key="id">
           <view
             wx:for="{{group.categories}}"
             wx:for-item="category"
@@ -113,21 +107,125 @@
   </view>
 
   <cart-bar wx:if="{{cartCount > 0}}" count="{{cartCount}}" total="{{cartTotal}}" bind:checkout="handleCheckout" bind:cart="handleCart" />
-  <cart-sheet id="cart-sheet"
-    visible="{{cartVisible}}"
-    items="{{cartItems}}"
-    bind:close="closeCart"
-    bind:change="handleCartChange"
-    bind:checkout="handleCheckout"
-    bind:edit="handleCartEdit"
-    bind:info="handleCartInfo"
-  />
+  <cart-sheet id="cart-sheet" visible="{{cartVisible}}" items="{{cartItems}}" bind:close="closeCart" bind:change="handleCartChange" bind:checkout="handleCheckout" bind:edit="handleCartEdit" bind:info="handleCartInfo" />
   <spec-sheet
     id="spec-sheet"
     visible="{{specVisible}}"
     product="{{specProduct}}"
+    mode="{{specMode}}"
+    initial-quantity="{{specInitialQuantity}}"
+    initial-selected-option-ids="{{specInitialSelectedOptionIds}}"
     bind:close="closeSpec"
     bind:favorite="handleSpecFavorite"
     bind:addcart="handleSpecAddCart"
     bind:buy="handleSpecBuy"
-  /></view>
+    bind:updatecart="handleCartUpdate"
+  />
+  <activity-sheet
+    visible="{{activityVisible}}"
+    activity="{{menuActivity}}"
+    store="{{currentStore}}"
+    bind:close="closeActivitySheet"
+    bind:phone="handleActivityPhone"
+    bind:view="openActivityRules"
+    bind:unavailable="handleActivityUnavailable"
+  />
+</view>
+
+<view wx:if="{{storePickerVisible}}" class="store-picker">
+  <map
+    class="store-picker__map"
+    latitude="{{pickerAnchor.latitude}}"
+    longitude="{{pickerAnchor.longitude}}"
+    scale="15"
+    markers="{{mapMarkers}}"
+    show-location="{{false}}"
+    enable-zoom
+    enable-scroll
+    bindmarkertap="handleMarkerTap"
+  />
+
+  <navigation-bar ext-class="store-picker__nav" variant="transparent" back="{{true}}" delta="{{0}}" bind:back="closeStorePicker">
+    <view slot="center" class="store-picker__title-group">
+      <text class="store-picker__title">附近</text>
+      <view class="store-picker__favorite" bindtap="openFavoriteStores" aria-role="button" aria-label="查看收藏门店">
+        <image class="store-picker__favorite-icon" src="/assets/icons/lucide/bookmark.svg" mode="aspectFit" />
+        <text>收藏</text>
+      </view>
+    </view>
+  </navigation-bar>
+
+  <view class="store-picker__panel">
+    <view class="store-picker__filter">
+      <view class="store-picker__city" bindtap="selectCity" aria-role="button" aria-label="选择城市">
+        <text>{{pickerCityName}}</text>
+        <image class="store-picker__city-arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+      </view>
+      <view class="store-picker__search">
+        <image class="store-picker__search-icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+        <input
+          class="store-picker__search-input"
+          value="{{pickerSearchKeyword}}"
+          placeholder="搜索门店"
+          placeholder-class="store-picker__search-placeholder"
+          confirm-type="search"
+          bindinput="handlePickerSearch"
+        />
+        <view wx:if="{{pickerSearchKeyword}}" class="store-picker__search-clear" bindtap="clearPickerSearch" aria-role="button" aria-label="清空搜索">
+          <image src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+        </view>
+      </view>
+      <view class="store-picker__locate" bindtap="handleLocate" aria-role="button" aria-label="重新定位">
+        <image class="store-picker__locate-icon" src="/assets/icons/lucide/locate-fixed.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <scroll-view class="store-picker__list" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
+      <view class="store-picker__list-inner">
+        <view
+          wx:for="{{pickerStores}}"
+          wx:key="id"
+          class="picker-store {{currentStore.id === item.id && pickerHasCurrentStore ? 'is-active' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="handleSelectPickerStore"
+          aria-role="button"
+          aria-label="选择{{item.name}}"
+        >
+          <view class="picker-store__promotion">
+            <image class="picker-store__promotion-icon" src="/assets/icons/lucide/apple-white.svg" mode="aspectFit" />
+            <text>{{item.promotion}}</text>
+          </view>
+          <view class="picker-store__body">
+            <view class="picker-store__title-row">
+              <text class="picker-store__name ellipsis">{{item.name}}</text>
+              <view class="picker-store__distance-wrap">
+                <image wx:if="{{item.isFavorite}}" class="picker-store__favorite-mark" src="/assets/icons/lucide/star-gold.svg" mode="aspectFit" />
+                <text class="picker-store__distance">{{item.distanceLabel}}</text>
+              </view>
+            </view>
+            <view class="picker-store__queue {{item.queueClass}}">
+              <image class="picker-store__queue-icon" src="{{item.queueIcon}}" mode="aspectFit" />
+              <text>{{item.queueText}}</text>
+            </view>
+            <text class="picker-store__address ellipsis-3">{{item.address}}</text>
+            <text class="picker-store__hours">{{item.businessHours}}</text>
+            <view class="picker-store__status">{{item.statusText}}</view>
+          </view>
+          <view class="picker-store__actions">
+            <view class="picker-store__action" data-phone="{{item.phone}}" catchtap="handleStorePhone" aria-role="button" aria-label="拨打{{item.name}}电话">
+              <image src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
+            </view>
+            <view class="picker-store__action" data-id="{{item.id}}" catchtap="handleStoreNavigate" aria-role="button" aria-label="导航到{{item.name}}">
+              <image src="/assets/icons/lucide/navigation.svg" mode="aspectFit" />
+            </view>
+          </view>
+          <view wx:if="{{currentStore.id === item.id && pickerHasCurrentStore}}" class="picker-store__selected">
+            <image src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+          </view>
+        </view>
+
+        <empty-state wx:if="{{!pickerStores.length}}" title="没有找到门店" description="换个关键词，或切换城市后再搜索" icon="/assets/icons/lucide/search.svg" />
+      </view>
+    </scroll-view>
+  </view>
+</view>

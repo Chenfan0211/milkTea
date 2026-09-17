@@ -1,6 +1,7 @@
+const { withShare } = require('../../utils/share')
 const { homeShortcuts, userProfile } = require('../../data/mock')
 
-Page({
+Page(withShare({
   data: {
     homeShortcuts,
     userProfile
@@ -18,6 +19,10 @@ Page({
   },
   handleShortcut(event) {
     const { id, label } = event.currentTarget.dataset
+    if (id === 'stored-value') {
+      wx.navigateTo({ url: '/pages/stored-value/stored-value' })
+      return
+    }
     if (id === 'points-mall') {
       wx.navigateTo({ url: '/pages/points-mall/points-mall' })
       return
@@ -28,4 +33,4 @@ Page({
     const label = event.currentTarget.dataset.label || '功能'
     wx.showToast({ title: `${label}暂未接入`, icon: 'none' })
   }
-})
+}))

@@ -4,6 +4,9 @@
     "product-card": "/components/product-card/product-card",
     "cart-bar": "/components/cart-bar/cart-bar",
     "cart-sheet": "/components/cart-sheet/cart-sheet",
-    "spec-sheet": "/components/spec-sheet/spec-sheet"
-  }
+    "spec-sheet": "/components/spec-sheet/spec-sheet",
+    "activity-sheet": "/components/activity-sheet/activity-sheet",
+    "empty-state": "/components/empty-state/empty-state"
+  },
+  "renderer": "webview"
 }

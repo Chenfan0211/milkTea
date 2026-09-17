@@ -1,0 +1,27 @@
+<view class="activity-rules-page">
+  <navigation-bar title="{{menuActivity.detailTitle}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="activity-rules-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="activity-rules-content">
+      <view class="activity-rules-section">
+        <text class="activity-rules-section__title">活动规则</text>
+        <view wx:for="{{menuActivity.rules}}" wx:key="label" class="activity-rule-row">
+          <text class="activity-rule-row__label">{{item.label}}：</text>
+          <text class="activity-rule-row__value">{{item.value}}</text>
+        </view>
+      </view>
+
+      <view class="activity-rules-section activity-rules-section--products">
+        <text class="activity-rules-section__title">活动商品</text>
+        <view class="activity-product-rule">
+          <text class="activity-product-rule__label">适用商品：</text>
+          <text class="activity-product-rule__value">{{menuActivity.applicableProducts}}</text>
+        </view>
+        <view class="activity-product-rule">
+          <text class="activity-product-rule__label">不适用商品：</text>
+          <text class="activity-product-rule__value">{{menuActivity.excludedProducts}}</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

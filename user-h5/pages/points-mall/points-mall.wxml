@@ -2,8 +2,6 @@
   <navigation-bar
     title="积分商城"
     back="{{true}}"
-    search="{{true}}"
-    bindsearch="handleSearch"
     background="#E9F1D9"
     color="#2F302D"
   />

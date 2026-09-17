@@ -12,6 +12,10 @@ const expectedPages = [
   'pages/member/member',
   'pages/orders/orders',
   'pages/profile/profile',
+  'pages/profile-data/profile-data',
+  'pages/stored-value/stored-value',
+  "pages/activity-rules/activity-rules",
+  'pages/favorite-stores/favorite-stores',
   'pages/order-detail/order-detail',
   'pages/coupon-list/coupon-list',
   'pages/points-mall/points-mall',
@@ -23,7 +27,9 @@ const expectedPages = [
   'pages/gift-card/gift-card',
   'pages/gift-card-purchase/gift-card-purchase',
   'pages/order-confirm/order-confirm',
-  'pages/coupon-stores/coupon-stores'
+  'pages/coupon-stores/coupon-stores',
+  'pages/coupon-products/coupon-products',
+  'pages/city-picker/city-picker'
 ]
 const expectedTabBarPages = [
   'pages/home/home',
@@ -34,11 +40,12 @@ const expectedTabBarPages = [
 ]
 const expectedRuntimeImages = new Map([
   ['assets/images/3x/home-hero.jpg', { width: 2250, height: 3120, maxBytes: 700 * 1024 }],
-  ['assets/images/3x/join-banner.jpg', { width: 2130, height: 600, maxBytes: 420 * 1024 }],
+  ['assets/images/3x/share-home.jpg', { width: 640, height: 512, maxBytes: 80 * 1024 }],
+  ['assets/images/3x/join-banner.jpg', { width: 2130, height: 600, maxBytes: 320 * 1024 }],
   ['assets/images/3x/menu-banner.jpg', { width: 1605, height: 420, maxBytes: 160 * 1024 }],
   ['assets/images/3x/menu-product.jpg', { width: 510, height: 630, maxBytes: 80 * 1024 }],
   ['assets/images/3x/profile-avatar.jpg', { width: 336, height: 336, maxBytes: 80 * 1024 }],
-  ['assets/images/3x/profile-banner.jpg', { width: 2130, height: 480, maxBytes: 180 * 1024 }],
+  ['assets/images/3x/profile-banner.jpg', { width: 2130, height: 480, maxBytes: 120 * 1024 }],
   ['assets/images/3x/profile-hero.jpg', { width: 2250, height: 1311, maxBytes: 480 * 1024 }],
   ['assets/images/3x/gift-card-matcha.jpg', { width: 960, height: 585, maxBytes: 60 * 1024 }],
   ['assets/images/3x/gift-card-jasmine.jpg', { width: 960, height: 585, maxBytes: 60 * 1024 }],
@@ -48,7 +55,8 @@ const expectedRuntimeImages = new Map([
   ['assets/images/3x/points-product-single.jpg', { width: 510, height: 456, maxBytes: 15 * 1024 }],
   ['assets/images/3x/points-product-half.jpg', { width: 510, height: 456, maxBytes: 15 * 1024 }],
   ['assets/images/3x/points-empty.jpg', { width: 650, height: 520, maxBytes: 15 * 1024 }]
-  ,['assets/images/3x/points-signin-calendar.jpg', { width: 600, height: 400, maxBytes: 80 * 1024 }]
+  ,['assets/images/3x/points-signin-calendar.jpg', { width: 600, height: 400, maxBytes: 80 * 1024 }],
+  ['assets/images/3x/stored-value-banner.jpg', { width: 1053, height: 468, maxBytes: 120 * 1024 }]
 ])
 const requiredPackIgnore = ['design/reference', 'assets/temp', 'scripts', 'docs']
 const errors = []

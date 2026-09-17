@@ -66,35 +66,6 @@
   height: 48rpx;
 }
 
-.weui-navigation-bar__search {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  margin-left: 4rpx;
-}
-
-.weui-navigation-bar__search-divider {
-  width: 1rpx;
-  height: 36rpx;
-  background: var(--line-color);
-}
-
-.weui-navigation-bar__search-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 72rpx;
-  height: 100%;
-}
-
-.weui-navigation-bar__search-btn.weui-active {
-  opacity: 0.5;
-}
-
-.weui-navigation-bar__search-icon {
-  width: 40rpx;
-  height: 40rpx;
-}
 
 .weui-navigation-bar__loading {
   display: flex;

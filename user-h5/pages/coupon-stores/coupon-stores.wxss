@@ -80,6 +80,10 @@
   box-shadow: var(--shadow-card);
 }
 
+.store-card--pressed {
+  background: var(--brand-soft);
+}
+
 .store-card + .store-card {
   margin-top: 20rpx;
 }

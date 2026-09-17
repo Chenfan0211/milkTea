@@ -1,0 +1,41 @@
+<view class="city-page">
+  <navigation-bar title="选择城市" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="city-page__tabs">
+    <text class="city-page__tab">中国</text>
+    <text class="city-page__tab is-active">城市</text>
+  </view>
+
+  <scroll-view class="city-page__scroll" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}" scroll-into-view="{{scrollIntoView}}">
+    <view class="city-page__list">
+      <view wx:for="{{cityGroups}}" wx:key="initial" wx:for-item="group" id="city-group-{{group.initial}}" class="city-group">
+        <text class="city-group__letter">{{group.initial}}</text>
+        <view
+          wx:for="{{group.cities}}"
+          wx:key="code"
+          wx:for-item="city"
+          class="city-row {{currentCityCode === city.code ? 'is-active' : ''}}"
+          data-code="{{city.code}}"
+          bindtap="handleSelectCity"
+          aria-role="button"
+          aria-label="选择{{city.name}}"
+        >
+          <text>{{city.name}}</text>
+          <image wx:if="{{currentCityCode === city.code}}" class="city-row__check" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="city-index">
+    <view
+      wx:for="{{alphabet}}"
+      wx:key="*this"
+      class="city-index__item {{currentInitial === item ? 'is-active' : ''}}"
+      data-initial="{{item}}"
+      bindtap="scrollToInitial"
+      aria-role="button"
+      aria-label="跳转到{{item}}"
+    >{{item}}</view>
+  </view>
+</view>

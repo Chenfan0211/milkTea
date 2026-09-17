@@ -1,6 +1,8 @@
-const { pointsCategories, pointsProducts, pointsSignIn, stores } = require('../../data/mock')
+const { withShare } = require('../../utils/share')
+const { pointsCategories, pointsProducts, pointsSignIn } = require('../../data/mock')
+const { resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store')
 
-Page({
+Page(withShare({
   data: {
     pointsBalance: 0,
     signedToday: false,
@@ -8,12 +10,11 @@ Page({
     pointsProducts,
     filteredProducts: pointsProducts,
     activeCategory: 'all',
-    currentStore: stores[0]
+    currentStore: {}
   },
   onLoad() {
-    const app = getApp()
-    const currentStore = stores.find(store => store.id === app.globalData.selectedStoreId) || stores[0]
-    this.setData({ currentStore })
+    const catalog = resolveStoreCatalog()
+    this.setData({ currentStore: catalog.currentStore || catalog.stores[0] || {} })
   },
   onShow() {
     const app = getApp()
@@ -39,10 +40,13 @@ Page({
     wx.navigateTo({ url: '/pages/exchange-records/exchange-records' })
   },
   selectStore() {
+    const catalog = resolveStoreCatalog()
+    const availableStores = catalog.stores
     wx.showActionSheet({
-      itemList: stores.map(store => store.name),
+      itemList: availableStores.map(store => store.name),
       success: ({ tapIndex }) => {
-        const currentStore = stores[tapIndex]
+        const currentStore = availableStores[tapIndex]
+        persistSelectedStore(currentStore.id)
         getApp().globalData.selectedStoreId = currentStore.id
         this.setData({ currentStore })
       }
@@ -54,11 +58,8 @@ Page({
   openSignInRules() {
     wx.navigateTo({ url: '/pages/points-signin-rules/points-signin-rules' })
   },
-  handleSearch() {
-    wx.showToast({ title: '搜索功能暂未接入', icon: 'none' })
-  },
   showUnavailable(event) {
     const label = event.currentTarget.dataset.label || '功能'
     wx.showToast({ title: `${label}暂未接入`, icon: 'none' })
   }
-})
+}))

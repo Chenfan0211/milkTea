@@ -1,3 +1,4 @@
+const { withShare } = require('../../utils/share')
 const { formatOrderAmount, orders } = require('../../data/mock')
 
 function decorateOrder(order) {
@@ -12,7 +13,7 @@ function decorateOrder(order) {
   }
 }
 
-Page({
+Page(withShare({
   data: {
     order: {}
   },
@@ -40,4 +41,4 @@ Page({
     if (!orderNo) return
     wx.setClipboardData({ data: orderNo })
   }
-})
+}))

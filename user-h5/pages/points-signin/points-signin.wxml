@@ -12,7 +12,7 @@
       </view>
 
       <view class="signin-points-pill">
-        <image class="signin-points-pill__icon" src="/assets/icons/lucide/star-active.svg" mode="aspectFit" />
+        <image class="signin-points-pill__icon" src="/assets/icons/lucide/star-brand.svg" mode="aspectFit" />
         <text>我的积分 {{points}}</text>
       </view>
 
@@ -92,7 +92,9 @@
     <view class="signin-modal__panel" catchtap="noop">
       <text class="signin-modal__title">签到成功！恭喜获得</text>
       <view class="signin-modal__reward">
-        <image class="signin-modal__star" src="/assets/icons/lucide/star-active.svg" mode="aspectFit" />
+        <view class="signin-modal__star-wrap">
+          <image class="signin-modal__star" src="/assets/icons/lucide/star-brand.svg" mode="aspectFit" />
+        </view>
         <text>1积分</text>
       </view>
       <view class="signin-modal__close" bindtap="closeSuccess" aria-role="button" aria-label="关闭签到成功弹窗">关闭</view>
@@ -129,12 +131,14 @@
           class="signin-calendar-cell {{item.empty ? 'is-empty' : ''}} {{item.signed ? 'is-signed' : ''}}"
         >
           <block wx:if="{{!item.empty}}">
-            <text class="signin-calendar-cell__date">{{item.signed ? '已签' : item.day}}</text>
-            <view class="signin-calendar-cell__icon-wrap">
-              <image wx:if="{{item.signed}}" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
-              <image wx:else src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+            <view class="signin-calendar-cell__date-band">{{item.signed ? '已签' : item.day}}</view>
+            <view class="signin-calendar-cell__body">
+              <view class="signin-calendar-cell__icon-wrap">
+                <image wx:if="{{item.signed}}" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+                <image wx:else src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+              </view>
+              <text class="signin-calendar-cell__reward">+1</text>
             </view>
-            <text class="signin-calendar-cell__reward">+1</text>
           </block>
         </view>
       </view>

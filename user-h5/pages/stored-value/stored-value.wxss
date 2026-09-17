@@ -1,0 +1,291 @@
+.stored-value-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+.stored-value-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.stored-value-scroll__inner {
+  padding: 0 var(--page-gutter) 40rpx;
+}
+
+.store-row {
+  display: flex;
+  align-items: center;
+  min-height: 96rpx;
+  padding: 12rpx 0;
+}
+
+.store-row__pin {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 8rpx;
+}
+
+.store-row__content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: baseline;
+}
+
+.store-row__name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.store-row__distance {
+  flex: none;
+  margin-left: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.store-row__switch {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 16rpx;
+}
+
+.balance-card {
+  position: relative;
+  height: 312rpx;
+  overflow: hidden;
+  background: var(--brand-soft);
+  border-radius: var(--radius-lg);
+}
+
+.balance-card__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 264rpx;
+  height: 100%;
+  padding: 24rpx 0 20rpx 24rpx;
+}
+
+.balance-card__label {
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.balance-card__value {
+  display: block;
+  max-width: 100%;
+  margin-top: 4rpx;
+  color: var(--text-main);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 64rpx;
+}
+
+.balance-card__actions {
+  display: flex;
+  margin-top: auto;
+}
+
+.balance-card__action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 72rpx;
+  margin-right: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.balance-card__action-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-bottom: 4rpx;
+}
+
+.balance-card__image {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  width: 100%;
+  height: 312rpx;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.section-heading--amount {
+  margin-top: 40rpx;
+}
+
+.section-heading__icon {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 8rpx;
+}
+
+.package-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 336rpx;
+  height: 224rpx;
+  margin: 32rpx 0 40rpx;
+  background: var(--brand-soft);
+  border: 2rpx solid var(--brand-green);
+  border-radius: var(--radius-md);
+}
+
+.package-card__amount {
+  color: var(--brand-green);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 56rpx;
+}
+
+.package-card__benefit {
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.quantity-stepper {
+  position: absolute;
+  bottom: -24rpx;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 136rpx;
+  height: 48rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-card);
+  transform: translateX(-50%);
+}
+
+.quantity-stepper__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.quantity-stepper__button.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.quantity-stepper__icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.quantity-stepper__icon--minus {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.quantity-stepper__value {
+  width: 40rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  text-align: center;
+}
+
+.content-section {
+  margin-top: 40rpx;
+}
+
+.content-section--gift {
+  padding-top: 20rpx;
+}
+
+
+.gift-list {
+  margin-top: 24rpx;
+}
+
+.gift-item {
+  display: flex;
+  align-items: center;
+  margin-top: 20rpx;
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  line-height: 40rpx;
+}
+
+.gift-item__dot {
+  flex: none;
+  width: 14rpx;
+  height: 14rpx;
+  margin-right: 12rpx;
+  background: var(--brand-green);
+  border-radius: 50%;
+}
+
+.usage-list {
+  margin-top: 16rpx;
+}
+
+.usage-list__paragraph {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+  word-break: break-word;
+}
+
+.usage-list__paragraph + .usage-list__paragraph {
+  margin-top: 8rpx;
+}
+
+.stored-value-bar {
+  flex: none;
+  padding: 20rpx var(--page-gutter) calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  border-top: 1rpx solid var(--line-color);
+}
+
+.stored-value-bar__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 80rpx;
+  color: #FFFFFF;
+  font-size: var(--font-md);
+  font-weight: 600;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+.stored-value-bar__button--pressed {
+  background: var(--brand-dark);
+}

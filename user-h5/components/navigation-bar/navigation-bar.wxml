@@ -14,18 +14,6 @@
       >
         <image class="weui-navigation-bar__btn_goback" src="/assets/icons/lucide/chevron-left.svg" mode="aspectFit" />
       </view>
-      <view wx:if="{{search}}" class="weui-navigation-bar__search">
-        <view class="weui-navigation-bar__search-divider"></view>
-        <view
-          class="weui-navigation-bar__search-btn"
-          bindtap="handleSearch"
-          hover-class="weui-active"
-          aria-role="button"
-          aria-label="搜索"
-        >
-          <image class="weui-navigation-bar__search-icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
-        </view>
-      </view>
       </block>
       <slot wx:else name="left"></slot>
     </view>

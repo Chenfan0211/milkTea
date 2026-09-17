@@ -1,3 +1,4 @@
+const { withShare } = require('../../utils/share')
 const { coupons } = require('../../data/mock')
 
 const couponList = coupons.map(item => Object.assign({}, item))
@@ -6,7 +7,7 @@ function countCoupons(list) {
   return list.reduce((sum, item) => sum + item.quantity, 0)
 }
 
-Page({
+Page(withShare({
   data: {
     coupons: couponList,
     couponCount: countCoupons(couponList)
@@ -42,6 +43,10 @@ Page({
     const { id } = event.currentTarget.dataset
     wx.navigateTo({ url: `/pages/coupon-stores/coupon-stores?couponId=${id}` })
   },
+  handleViewProducts(event) {
+    const { id } = event.currentTarget.dataset
+    wx.navigateTo({ url: `/pages/coupon-stores/coupon-stores?couponId=${id}&next=products` })
+  },
   handleHistory() {
     wx.showToast({ title: '历史优惠券暂未接入', icon: 'none' })
   },
@@ -51,4 +56,4 @@ Page({
   handleGiftRecord() {
     wx.showToast({ title: '赠送记录暂未接入', icon: 'none' })
   }
-})
+}))

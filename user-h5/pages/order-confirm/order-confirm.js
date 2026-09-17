@@ -1,4 +1,6 @@
-const { formatOrderAmount, stores } = require('../../data/mock')
+const { withShare } = require('../../utils/share')
+const { formatOrderAmount } = require('../../data/mock')
+const { resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store')
 
 function roundMoney(value) {
   return Math.round(value * 10) / 10
@@ -15,7 +17,7 @@ function summarize(items) {
   }
 }
 
-Page({
+Page(withShare({
   data: {
     store: {},
     items: [],
@@ -36,7 +38,8 @@ Page({
       setTimeout(() => wx.navigateBack(), 800)
       return
     }
-    const store = stores.find(item => item.id === pending.storeId) || stores[0]
+    const catalog = resolveStoreCatalog()
+    const store = catalog.stores.find(item => item.id === pending.storeId) || catalog.currentStore || catalog.stores[0]
     const orderMode = pending.orderMode || app.globalData.orderMode || 'pickup'
     this.applyOrder(pending.items, store, orderMode)
   },
@@ -77,10 +80,13 @@ Page({
     this.setData({ orderMode: mode })
   },
   selectStore() {
+    const catalog = resolveStoreCatalog()
+    const availableStores = catalog.stores
     wx.showActionSheet({
-      itemList: stores.map(store => store.name),
+      itemList: availableStores.map(store => store.name),
       success: ({ tapIndex }) => {
-        const store = stores[tapIndex]
+        const store = availableStores[tapIndex]
+        persistSelectedStore(store.id)
         const app = getApp()
         app.globalData.selectedStoreId = store.id
         let orderMode = this.data.orderMode
@@ -103,4 +109,4 @@ Page({
   handleSubmit() {
     wx.showToast({ title: '支付暂未接入', icon: 'none' })
   }
-})
+}))

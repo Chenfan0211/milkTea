@@ -1,4 +1,6 @@
-const { giftCardGroups, stores } = require('../../data/mock')
+const { withShare } = require('../../utils/share')
+const { giftCardGroups } = require('../../data/mock')
+const { resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store')
 
 function filterGiftCardGroups(keyword) {
   const normalizedKeyword = String(keyword || '').trim().toLowerCase()
@@ -13,27 +15,29 @@ function filterGiftCardGroups(keyword) {
     .filter(group => group.cards.length)
 }
 
-Page({
+Page(withShare({
   data: {
     activeTab: 'buy',
     filteredGiftCardGroups: giftCardGroups,
     searchKeyword: '',
     bannerImage: giftCardGroups[0].cards[0].image,
-    currentStore: stores[0]
+    currentStore: {}
   },
   onLoad() {
-    const app = getApp()
-    const currentStore = stores.find(store => store.id === app.globalData.selectedStoreId) || stores[0]
-    this.setData({ currentStore })
+    const catalog = resolveStoreCatalog()
+    this.setData({ currentStore: catalog.currentStore || catalog.stores[0] || {} })
   },
   switchTab(event) {
     this.setData({ activeTab: event.currentTarget.dataset.tab })
   },
   selectStore() {
+    const catalog = resolveStoreCatalog()
+    const availableStores = catalog.stores
     wx.showActionSheet({
-      itemList: stores.map(store => store.name),
+      itemList: availableStores.map(store => store.name),
       success: ({ tapIndex }) => {
-        const currentStore = stores[tapIndex]
+        const currentStore = availableStores[tapIndex]
+        persistSelectedStore(currentStore.id)
         getApp().globalData.selectedStoreId = currentStore.id
         this.setData({ currentStore })
       }
@@ -60,4 +64,4 @@ Page({
       filteredGiftCardGroups: giftCardGroups
     })
   }
-})
+}))

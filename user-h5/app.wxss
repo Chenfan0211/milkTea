@@ -15,6 +15,8 @@ page {
   --dark-fill: #2D2D2D;
   /* 功能色 */
   --accent-orange: #C65A1E;
+  --queue-warning: #E6A23C;
+  --favorite-gold: #D4A017;
   --price-red: #FF0000;
   --tag-hot-bg: #FFE0E1;
   --tag-light-bg: #D5F0C3;

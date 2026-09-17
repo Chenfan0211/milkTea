@@ -1,0 +1,52 @@
+<view wx:if="{{visible}}" class="activity-sheet-root" catchtouchmove="noop">
+  <view class="activity-sheet__mask" bindtap="handleClose"></view>
+  <view class="activity-sheet__panel" catchtap="noop">
+    <view class="activity-sheet__header">
+      <text class="activity-sheet__title">活动优惠</text>
+      <view class="activity-sheet__close" bindtap="handleClose" aria-role="button" aria-label="关闭活动优惠">
+        <image class="activity-sheet__close-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <scroll-view class="activity-sheet__scroll" scroll-y show-scrollbar="{{false}}">
+      <view class="activity-sheet__content">
+        <view class="activity-sheet__section">
+          <text class="activity-sheet__section-title">优惠活动</text>
+          <view class="activity-sheet__promotion">
+            <text class="activity-sheet__tag">{{activity.tag}}</text>
+            <text class="activity-sheet__description">{{activity.description}}</text>
+            <view class="activity-sheet__action" bindtap="handleView" aria-role="button" aria-label="查看优惠详情">
+              <text>查看</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="activity-sheet__section activity-sheet__section--store">
+          <text class="activity-sheet__section-title">门店信息</text>
+          <view class="activity-sheet__store-row">
+            <view class="activity-sheet__store-info">
+              <view class="activity-sheet__store-line">
+                <text class="activity-sheet__store-label">地址：</text>
+                <text class="activity-sheet__store-value">{{store.address}}</text>
+              </view>
+              <view class="activity-sheet__store-line">
+                <text class="activity-sheet__store-label">门店营业时间：</text>
+                <text class="activity-sheet__store-value">{{store.businessHours}}</text>
+              </view>
+            </view>
+            <view class="activity-sheet__phone" bindtap="handlePhone" aria-role="button" aria-label="拨打门店电话">
+              <image class="activity-sheet__phone-icon" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
+            </view>
+          </view>
+
+          <view class="activity-sheet__link" data-label="门店服务资质" bindtap="handleUnavailable" aria-role="button" aria-label="查看门店服务资质">
+            <text>查看门店服务资质</text>
+          </view>
+          <view class="activity-sheet__link" data-label="食品安全档案" bindtap="handleUnavailable" aria-role="button" aria-label="查看食品安全档案">
+            <text>查看食品安全档案</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

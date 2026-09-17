@@ -92,12 +92,24 @@
   padding: 0 var(--page-gutter) 40rpx;
 }
 
+.spec-sheet__content--edit {
+  padding-top: 24rpx;
+  padding-bottom: 24rpx;
+}
+
 .spec-sheet__name {
   display: block;
   color: var(--text-main);
   font-size: var(--font-xl);
   font-weight: 600;
   line-height: 54rpx;
+}
+
+.spec-sheet__name--edit {
+  padding-right: 152rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spec-sheet__promo-row {
@@ -298,14 +310,33 @@
   height: 34rpx;
 }
 
+.spec-sheet__favorite--inline {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 4rpx;
+  margin-left: 0;
+}
+
 .spec-sheet__spec-text {
   display: block;
+  flex: 1;
+  min-width: 0;
   margin-top: 4rpx;
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.spec-sheet__spec-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.spec-sheet__spec-line .spec-sheet__spec-text {
+  margin-top: 4rpx;
 }
 
 .spec-sheet__stepper {
@@ -371,6 +402,14 @@
 }
 
 .spec-sheet__button--primary {
+  color: #FFFFFF;
+  background: var(--brand-green);
+}
+
+.spec-sheet__button--confirm {
+  flex: none;
+  width: 100%;
+  margin-top: 16rpx;
   color: #FFFFFF;
   background: var(--brand-green);
 }

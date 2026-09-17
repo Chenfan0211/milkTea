@@ -1,0 +1,51 @@
+<view class="favorite-page">
+  <navigation-bar title="收藏门店" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="favorite-page__summary">
+    <text class="favorite-page__city">{{currentCityName}}</text>
+    <text class="favorite-page__count">{{favoriteStores.length}} 家收藏</text>
+  </view>
+
+  <scroll-view class="favorite-page__scroll" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
+    <view class="favorite-page__list">
+      <view
+        wx:for="{{favoriteStores}}"
+        wx:key="id"
+        class="favorite-store"
+        data-id="{{item.id}}"
+        bindtap="handleSelectFavoriteStore"
+        aria-role="button"
+        aria-label="选择收藏门店{{item.name}}"
+      >
+        <view class="favorite-store__head">
+          <text class="favorite-store__name ellipsis">{{item.name}}</text>
+          <view
+            class="favorite-store__star"
+            data-id="{{item.id}}"
+            catchtap="handleRemoveFavorite"
+            aria-role="button"
+            aria-label="取消收藏{{item.name}}"
+          >
+            <image src="/assets/icons/lucide/star-gold.svg" mode="aspectFit" />
+          </view>
+        </view>
+        <view class="favorite-store__meta">
+          <text class="favorite-store__distance">{{item.distanceLabel}}</text>
+          <view class="favorite-store__queue {{item.queueClass}}">
+            <image src="{{item.queueIcon}}" mode="aspectFit" />
+            <text>{{item.queueText}}</text>
+          </view>
+        </view>
+        <text class="favorite-store__address ellipsis-3">{{item.address}}</text>
+        <text class="favorite-store__hours">{{item.businessHours}}</text>
+      </view>
+
+      <empty-state
+        wx:if="{{!favoriteStores.length}}"
+        title="当前城市暂无收藏门店"
+        description="返回点单页，点击门店名称前的五角星即可收藏"
+        icon="/assets/icons/lucide/star.svg"
+      />
+    </view>
+  </scroll-view>
+</view>

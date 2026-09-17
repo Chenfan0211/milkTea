@@ -1,7 +1,8 @@
+const { withShare } = require('../../utils/share')
 const { signInRules } = require('../../data/mock')
 
-Page({
+Page(withShare({
   data: {
     signInRules
   }
-})
+}))

@@ -7,7 +7,6 @@ Component({
     background: { type: String, value: '#FFFFFF' },
     color: { type: String, value: '#2F302D' },
     back: { type: Boolean, value: false },
-    search: { type: Boolean, value: false },
     loading: { type: Boolean, value: false },
     delta: { type: Number, value: 1 }
   },
@@ -30,9 +29,6 @@ Component({
     back() {
       if (this.data.delta) wx.navigateBack({ delta: this.data.delta })
       this.triggerEvent('back', { delta: this.data.delta })
-    },
-    handleSearch() {
-      this.triggerEvent('search')
     }
   }
 })
