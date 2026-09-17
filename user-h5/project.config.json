@@ -40,6 +40,10 @@
       {
         "value": "docs",
         "type": "folder"
+      },
+      {
+        "value": ".git.backup",
+        "type": "folder"
       }
     ],
     "include": []
