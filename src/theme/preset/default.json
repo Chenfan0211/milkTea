@@ -7,7 +7,7 @@
   "grayscale": false,
   "colourWeakness": false,
   "recommendColor": false,
-  "themeColor": "#646cff",
+  "themeColor": "#53882C",
   "otherColor": {
     "info": "#2080f0",
     "success": "#52c41a",
@@ -61,7 +61,7 @@
   },
   "watermark": {
     "visible": false,
-    "text": "SoybeanAdmin",
+    "text": "五零时光",
     "enableUserName": false,
     "enableTime": false,
     "timeFormat": "YYYY-MM-DD HH:mm"

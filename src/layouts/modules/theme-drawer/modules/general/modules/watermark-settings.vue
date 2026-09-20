@@ -47,7 +47,7 @@ const isWatermarkTextVisible = computed(
         type="text"
         size="small"
         class="w-120px"
-        placeholder="SoybeanAdmin"
+        placeholder="五零时光"
       />
     </SettingItem>
   </TransitionGroup>

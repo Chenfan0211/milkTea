@@ -2,6 +2,7 @@ import type { LocationQueryRaw, RouteLocationNormalized, RouteLocationRaw, Route
 import type { RouteKey, RoutePath } from '@elegant-router/types';
 import { useAuthStore } from '@/store/modules/auth';
 import { useRouteStore } from '@/store/modules/route';
+import { useAdminStore } from '@/store/modules/admin';
 import { localStg } from '@/utils/storage';
 import { getRouteName } from '@/router/elegant/transform';
 
@@ -49,6 +50,16 @@ export function createRouteGuard(router: Router) {
     // if the user is logged in but does not have authorization, then switch to the 403 page
     if (!hasAuth) {
       return { name: noAuthorizationRoute };
+    }
+
+    // feature flag guard: block routes whose feature flag is not enabled
+    const featureFlag = to.meta.featureFlag;
+    if (featureFlag) {
+      const adminStore = useAdminStore();
+      const enabled = new Set(adminStore.features.filter(f => f.currentStatus === '开启').map(f => f.code));
+      if (!enabled.has(featureFlag)) {
+        return { name: noAuthorizationRoute };
+      }
     }
 
     // switch route normally

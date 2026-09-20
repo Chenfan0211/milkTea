@@ -1,6 +1,6 @@
 const local: App.I18n.Schema = {
   system: {
-    title: 'Soybean 管理系统',
+    title: '五零时光运营后台',
     updateTitle: '系统版本更新通知',
     updateContent: '检测到系统有新版本发布，是否立即刷新页面？',
     updateConfirm: '立即刷新',
@@ -95,7 +95,7 @@ const local: App.I18n.Schema = {
         applySuccess: '预设应用成功',
         default: {
           name: '默认预设',
-          desc: 'Soybean 默认主题预设'
+          desc: '五零时光默认主题预设'
         },
         dark: {
           name: '暗色预设',
@@ -225,7 +225,47 @@ const local: App.I18n.Schema = {
     404: '页面不存在',
     500: '服务器错误',
     'iframe-page': '外链页面',
-    home: '首页'
+    home: '首页',
+    subject: '主体管理',
+    subject_platform: '平台主体',
+    subject_store: '门店管理',
+    subject_channel: '渠道管理',
+    subject_investor: '投资人管理',
+    subject_supplier: '供应商管理',
+    auth: '授权中心',
+    auth_role: '角色与权限',
+    auth_wechat: '微信账号绑定',
+    auth_grant: '角色授权记录',
+    product: '商品中心',
+    product_list: '商品管理',
+    product_spec: '规格管理',
+    product_split: '分账规则',
+    trade: '交易中心',
+    trade_order: '订单管理',
+    trade_payment: '支付记录',
+    trade_refund: '退款管理',
+    trade_verify: '核销记录',
+    finance: '财务中心',
+    finance_snapshot: '分账快照',
+    finance_execute: '分账执行',
+    finance_ledger: '资金台账',
+    finance_reconcile: '对账异常池',
+    finance_withdraw: '提现管理',
+    'trade_verify-pool': '待核销池',
+    system: '系统审计',
+    system_audit: '审计日志',
+    system_feature: '功能开关',
+    marketing: '营销中心',
+    marketing_coupon: '优惠券管理',
+    marketing_stored: '储值套餐',
+    marketing_gift: '礼品卡',
+    marketing_points: '积分商城',
+    marketing_member: '会员等级',
+    marketing_comment: '评论审核',
+    user: '用户管理',
+    user_list: '用户列表',
+    review: '申请审核',
+    review_role: '角色开通审核'
   },
   page: {
     login: {
@@ -249,10 +289,7 @@ const local: App.I18n.Schema = {
         forgetPassword: '忘记密码？',
         register: '注册账号',
         otherAccountLogin: '其他账号登录',
-        otherLoginMode: '其他登录方式',
-        superAdmin: '超级管理员',
-        admin: '管理员',
-        user: '普通用户'
+        otherLoginMode: '其他登录方式'
       },
       codeLogin: {
         title: '验证码登录',
@@ -273,35 +310,6 @@ const local: App.I18n.Schema = {
       bindWeChat: {
         title: '绑定微信'
       }
-    },
-    home: {
-      branchDesc:
-        '为了方便大家开发和更新合并，我们对main分支的代码进行了精简，只保留了首页菜单，其余内容已移至example分支进行维护。预览地址显示的内容即为example分支的内容。',
-      greeting: '早安，{userName}, 今天又是充满活力的一天!',
-      weatherDesc: '今日多云转晴，20℃ - 25℃!',
-      projectCount: '项目数',
-      todo: '待办',
-      message: '消息',
-      downloadCount: '下载量',
-      registerCount: '注册量',
-      schedule: '作息安排',
-      study: '学习',
-      work: '工作',
-      rest: '休息',
-      entertainment: '娱乐',
-      visitCount: '访问量',
-      turnover: '成交额',
-      dealCount: '成交量',
-      projectNews: {
-        title: '项目动态',
-        moreNews: '更多动态',
-        desc1: 'Soybean 在2021年5月28日创建了开源项目 soybean-admin!',
-        desc2: 'Yanbowe 向 soybean-admin 提交了一个bug，多标签栏不会自适应。',
-        desc3: 'Soybean 准备为 soybean-admin 的发布做充分的准备工作!',
-        desc4: 'Soybean 正在忙于为soybean-admin写项目说明文档！',
-        desc5: 'Soybean 刚才把工作台页面随便写了一些，凑合能看了！'
-      },
-      creativity: '创意'
     }
   },
   form: {

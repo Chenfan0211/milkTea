@@ -3,6 +3,7 @@ import type { ElegantConstRoute, LastLevelRouteKey, RouteKey, RouteMap } from '@
 import { isDev } from '@/constants/env';
 import { useSvgIcon } from '@/hooks/common/icon';
 import { $t } from '@/locales';
+import { useAdminStore } from '@/store/modules/admin';
 
 /**
  * Filter auth routes by roles
@@ -116,13 +117,22 @@ export function sortRoutesByOrder(routes: ElegantConstRoute[]) {
  * @param routes Auth routes
  */
 export function getGlobalMenusByAuthRoutes(routes: ElegantConstRoute[]) {
+  const adminStore = useAdminStore();
+  const enabled = new Set(adminStore.features.filter(f => f.currentStatus === '开启').map(f => f.code));
+
+  function isEnabled(route: ElegantConstRoute): boolean {
+    const flag = route.meta?.featureFlag;
+    if (!flag) return true;
+    return enabled.has(flag);
+  }
+
   const menus: App.Global.Menu[] = [];
 
   routes.forEach(route => {
-    if (!route.meta?.hideInMenu) {
+    if (!route.meta?.hideInMenu && isEnabled(route)) {
       const menu = getGlobalMenuByBaseRoute(route);
 
-      if (route.children?.some(child => !child.meta?.hideInMenu)) {
+      if (route.children?.some(child => !child.meta?.hideInMenu && isEnabled(child))) {
         menu.children = getGlobalMenusByAuthRoutes(route.children);
       }
 

@@ -1,6 +1,6 @@
 const local: App.I18n.Schema = {
   system: {
-    title: 'SoybeanAdmin',
+    title: '五零时光运营后台',
     updateTitle: 'System Version Update Notification',
     updateContent: 'A new version of the system has been detected. Do you want to refresh the page immediately?',
     updateConfirm: 'Refresh immediately',
@@ -229,7 +229,47 @@ const local: App.I18n.Schema = {
     404: 'Page Not Found',
     500: 'Server Error',
     'iframe-page': 'Iframe',
-    home: 'Home'
+    home: 'Home',
+    subject: 'Subject',
+    subject_platform: 'Platform',
+    subject_store: 'Store',
+    subject_channel: 'Channel',
+    subject_investor: 'Investor',
+    subject_supplier: 'Supplier',
+    auth: 'Authorization',
+    auth_role: 'Role & Permission',
+    auth_wechat: 'Wechat Binding',
+    auth_grant: 'Role Grants',
+    product: 'Product',
+    product_list: 'Products',
+    product_spec: 'Specs',
+    product_split: 'Split Rules',
+    trade: 'Trade',
+    trade_order: 'Orders',
+    trade_payment: 'Payments',
+    trade_refund: 'Refunds',
+    trade_verify: 'Verifications',
+    finance: 'Finance',
+    finance_snapshot: 'Snapshots',
+    finance_execute: 'Executions',
+    finance_ledger: 'Ledger',
+    finance_reconcile: 'Reconcile',
+    finance_withdraw: 'Withdraw',
+    'trade_verify-pool': 'Verify Pool',
+    system: 'System Audit',
+    system_audit: 'Audit Logs',
+    system_feature: 'Feature Flags',
+    marketing: 'Marketing',
+    marketing_coupon: 'Coupons',
+    marketing_stored: 'Stored Value',
+    marketing_gift: 'Gift Cards',
+    marketing_points: 'Points Mall',
+    marketing_member: 'Member Levels',
+    marketing_comment: 'Reviews',
+    user: 'User',
+    user_list: 'Users',
+    review: 'Review',
+    review_role: 'Role Review'
   },
   page: {
     login: {
@@ -253,10 +293,7 @@ const local: App.I18n.Schema = {
         forgetPassword: 'Forget password?',
         register: 'Register',
         otherAccountLogin: 'Other Account Login',
-        otherLoginMode: 'Other Login Mode',
-        superAdmin: 'Super Admin',
-        admin: 'Admin',
-        user: 'User'
+        otherLoginMode: 'Other Login Mode'
       },
       codeLogin: {
         title: 'Verification Code Login',
@@ -277,35 +314,6 @@ const local: App.I18n.Schema = {
       bindWeChat: {
         title: 'Bind WeChat'
       }
-    },
-    home: {
-      branchDesc:
-        'For the convenience of everyone in developing and updating the merge, we have streamlined the code of the main branch, only retaining the homepage menu, and the rest of the content has been moved to the example branch for maintenance. The preview address displays the content of the example branch.',
-      greeting: 'Good morning, {userName}, today is another day full of vitality!',
-      weatherDesc: 'Today is cloudy to clear, 20℃ - 25℃!',
-      projectCount: 'Project Count',
-      todo: 'Todo',
-      message: 'Message',
-      downloadCount: 'Download Count',
-      registerCount: 'Register Count',
-      schedule: 'Work and rest Schedule',
-      study: 'Study',
-      work: 'Work',
-      rest: 'Rest',
-      entertainment: 'Entertainment',
-      visitCount: 'Visit Count',
-      turnover: 'Turnover',
-      dealCount: 'Deal Count',
-      projectNews: {
-        title: 'Project News',
-        moreNews: 'More News',
-        desc1: 'Soybean created the open source project soybean-admin on May 28, 2021!',
-        desc2: 'Yanbowe submitted a bug to soybean-admin, the multi-tab bar will not adapt.',
-        desc3: 'Soybean is ready to do sufficient preparation for the release of soybean-admin!',
-        desc4: 'Soybean is busy writing project documentation for soybean-admin!',
-        desc5: 'Soybean just wrote some of the workbench pages casually, and it was enough to see!'
-      },
-      creativity: 'Creativity'
     }
   },
   form: {

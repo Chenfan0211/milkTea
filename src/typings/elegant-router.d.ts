@@ -20,9 +20,49 @@ declare module "@elegant-router/types" {
     "403": "/403";
     "404": "/404";
     "500": "/500";
+    "auth": "/auth";
+    "auth_grant": "/auth/grant";
+    "auth_role": "/auth/role";
+    "auth_wechat": "/auth/wechat";
+    "finance": "/finance";
+    "finance_execute": "/finance/execute";
+    "finance_ledger": "/finance/ledger";
+    "finance_reconcile": "/finance/reconcile";
+    "finance_snapshot": "/finance/snapshot";
+    "finance_withdraw": "/finance/withdraw";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
+    "marketing": "/marketing";
+    "marketing_comment": "/marketing/comment";
+    "marketing_coupon": "/marketing/coupon";
+    "marketing_gift": "/marketing/gift";
+    "marketing_member": "/marketing/member";
+    "marketing_points": "/marketing/points";
+    "marketing_stored": "/marketing/stored";
+    "product": "/product";
+    "product_list": "/product/list";
+    "product_spec": "/product/spec";
+    "product_split": "/product/split";
+    "review": "/review";
+    "review_role": "/review/role";
+    "subject": "/subject";
+    "subject_channel": "/subject/channel";
+    "subject_investor": "/subject/investor";
+    "subject_platform": "/subject/platform";
+    "subject_store": "/subject/store";
+    "subject_supplier": "/subject/supplier";
+    "system": "/system";
+    "system_audit": "/system/audit";
+    "system_feature": "/system/feature";
+    "trade": "/trade";
+    "trade_order": "/trade/order";
+    "trade_payment": "/trade/payment";
+    "trade_refund": "/trade/refund";
+    "trade_verify": "/trade/verify";
+    "trade_verify-pool": "/trade/verify-pool";
+    "user": "/user";
+    "user_list": "/user/list";
   };
 
   /**
@@ -57,9 +97,18 @@ declare module "@elegant-router/types" {
     | "403"
     | "404"
     | "500"
+    | "auth"
+    | "finance"
     | "home"
     | "iframe-page"
     | "login"
+    | "marketing"
+    | "product"
+    | "review"
+    | "subject"
+    | "system"
+    | "trade"
+    | "user"
   >;
 
   /**
@@ -81,7 +130,38 @@ declare module "@elegant-router/types" {
     | "500"
     | "iframe-page"
     | "login"
+    | "auth_grant"
+    | "auth_role"
+    | "auth_wechat"
+    | "finance_execute"
+    | "finance_ledger"
+    | "finance_reconcile"
+    | "finance_snapshot"
+    | "finance_withdraw"
     | "home"
+    | "marketing_comment"
+    | "marketing_coupon"
+    | "marketing_gift"
+    | "marketing_member"
+    | "marketing_points"
+    | "marketing_stored"
+    | "product_list"
+    | "product_spec"
+    | "product_split"
+    | "review_role"
+    | "subject_channel"
+    | "subject_investor"
+    | "subject_platform"
+    | "subject_store"
+    | "subject_supplier"
+    | "system_audit"
+    | "system_feature"
+    | "trade_order"
+    | "trade_payment"
+    | "trade_refund"
+    | "trade_verify-pool"
+    | "trade_verify"
+    | "user_list"
   >;
 
   /**
@@ -153,7 +233,7 @@ declare module "@elegant-router/types" {
         component: `view.${K}`;
       }
     : never;
-
+  
   /**
    * the center level route
    */
@@ -176,7 +256,7 @@ declare module "@elegant-router/types" {
         children: (CenterLevelRoute<GetChildRouteKey<K>> | LastLevelRoute<GetChildRouteKey<K>>)[];
       }
     : never;
-
+  
   /**
    * the custom first level route
    */

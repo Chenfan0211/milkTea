@@ -40,6 +40,122 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'auth',
+    path: '/auth',
+    component: 'layout.base',
+    meta: {
+      title: '授权中心',
+      icon: 'mdi:shield-account',
+      order: 20,
+      roles: ['R_SUPER', 'R_OPERATION'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'auth_grant',
+        path: '/auth/grant',
+        component: 'view.auth_grant',
+        meta: {
+          title: '角色授权记录',
+          order: 3,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'auth_role',
+        path: '/auth/role',
+        component: 'view.auth_role',
+        meta: {
+          title: '角色与权限',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'auth_wechat',
+        path: '/auth/wechat',
+        component: 'view.auth_wechat',
+        meta: {
+          title: '微信账号绑定',
+          order: 2,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
+    name: 'finance',
+    path: '/finance',
+    component: 'layout.base',
+    meta: {
+      title: '财务中心',
+      icon: 'mdi:wallet',
+      order: 50,
+      roles: ['R_SUPER', 'R_FINANCE'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'finance_execute',
+        path: '/finance/execute',
+        component: 'view.finance_execute',
+        meta: {
+          title: '分账执行',
+          order: 2,
+          roles: ['R_SUPER', 'R_FINANCE'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'finance_ledger',
+        path: '/finance/ledger',
+        component: 'view.finance_ledger',
+        meta: {
+          title: '资金台账',
+          order: 3,
+          roles: ['R_SUPER', 'R_FINANCE'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'finance_reconcile',
+        path: '/finance/reconcile',
+        component: 'view.finance_reconcile',
+        meta: {
+          title: '对账异常池',
+          order: 4,
+          roles: ['R_SUPER', 'R_FINANCE'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'finance_snapshot',
+        path: '/finance/snapshot',
+        component: 'view.finance_snapshot',
+        meta: {
+          title: '分账快照',
+          order: 1,
+          roles: ['R_SUPER', 'R_FINANCE'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'finance_withdraw',
+        path: '/finance/withdraw',
+        component: 'view.finance_withdraw',
+        meta: {
+          title: '提现管理',
+          order: 5,
+          roles: ['R_SUPER', 'R_FINANCE'],
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
     name: 'home',
     path: '/home',
     component: 'layout.base$view.home',
@@ -74,5 +190,362 @@ export const generatedRoutes: GeneratedRoute[] = [
       constant: true,
       hideInMenu: true
     }
+  },
+  {
+    name: 'marketing',
+    path: '/marketing',
+    component: 'layout.base',
+    meta: {
+      title: '营销中心',
+      icon: 'mdi:bullhorn',
+      order: 45,
+      roles: ['R_SUPER', 'R_OPERATION'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'marketing_comment',
+        path: '/marketing/comment',
+        component: 'view.marketing_comment',
+        meta: {
+          title: '评论审核',
+          order: 6,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_REVIEW',
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_coupon',
+        path: '/marketing/coupon',
+        component: 'view.marketing_coupon',
+        meta: {
+          title: '优惠券管理',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_COUPON',
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_gift',
+        path: '/marketing/gift',
+        component: 'view.marketing_gift',
+        meta: {
+          title: '礼品卡',
+          order: 3,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_STORED_VALUE',
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_member',
+        path: '/marketing/member',
+        component: 'view.marketing_member',
+        meta: {
+          title: '会员等级',
+          order: 5,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_STORED_VALUE',
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_points',
+        path: '/marketing/points',
+        component: 'view.marketing_points',
+        meta: {
+          title: '积分商城',
+          order: 4,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_STORED_VALUE',
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_stored',
+        path: '/marketing/stored',
+        component: 'view.marketing_stored',
+        meta: {
+          title: '储值套餐',
+          order: 2,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_STORED_VALUE',
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
+    name: 'product',
+    path: '/product',
+    component: 'layout.base',
+    meta: {
+      title: '商品中心',
+      icon: 'mdi:cup-outline',
+      order: 30,
+      roles: ['R_SUPER', 'R_OPERATION'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'product_list',
+        path: '/product/list',
+        component: 'view.product_list',
+        meta: {
+          title: '商品管理',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'product_spec',
+        path: '/product/spec',
+        component: 'view.product_spec',
+        meta: {
+          title: '规格管理',
+          order: 2,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'product_split',
+        path: '/product/split',
+        component: 'view.product_split',
+        meta: {
+          title: '分账规则',
+          order: 3,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
+    name: 'review',
+    path: '/review',
+    component: 'layout.base',
+    meta: {
+      title: '申请审核',
+      icon: 'mdi:clipboard-text-clock',
+      order: 25,
+      roles: ['R_SUPER', 'R_OPERATION'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'review_role',
+        path: '/review/role',
+        component: 'view.review_role',
+        meta: {
+          title: '角色开通审核',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
+    name: 'subject',
+    path: '/subject',
+    component: 'layout.base',
+    meta: {
+      title: '主体管理',
+      icon: 'mdi:domain',
+      order: 10,
+      roles: ['R_SUPER', 'R_OPERATION'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'subject_channel',
+        path: '/subject/channel',
+        component: 'view.subject_channel',
+        meta: {
+          title: '渠道管理',
+          order: 3,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'subject_investor',
+        path: '/subject/investor',
+        component: 'view.subject_investor',
+        meta: {
+          title: '投资人管理',
+          order: 4,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'subject_platform',
+        path: '/subject/platform',
+        component: 'view.subject_platform',
+        meta: {
+          title: '平台主体',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'subject_store',
+        path: '/subject/store',
+        component: 'view.subject_store',
+        meta: {
+          title: '门店管理',
+          order: 2,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'subject_supplier',
+        path: '/subject/supplier',
+        component: 'view.subject_supplier',
+        meta: {
+          title: '供应商管理',
+          order: 5,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
+    name: 'system',
+    path: '/system',
+    component: 'layout.base',
+    meta: {
+      title: '系统审计',
+      icon: 'mdi:shield',
+      order: 60,
+      roles: ['R_SUPER', 'R_AUDIT'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'system_audit',
+        path: '/system/audit',
+        component: 'view.system_audit',
+        meta: {
+          title: '审计日志',
+          order: 1,
+          roles: ['R_SUPER', 'R_AUDIT'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'system_feature',
+        path: '/system/feature',
+        component: 'view.system_feature',
+        meta: {
+          title: '功能开关',
+          order: 2,
+          roles: ['R_SUPER', 'R_AUDIT'],
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
+    name: 'trade',
+    path: '/trade',
+    component: 'layout.base',
+    meta: {
+      title: '交易中心',
+      icon: 'mdi:receipt-text',
+      order: 40,
+      roles: ['R_SUPER', 'R_OPERATION'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'trade_order',
+        path: '/trade/order',
+        component: 'view.trade_order',
+        meta: {
+          title: '订单管理',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'trade_payment',
+        path: '/trade/payment',
+        component: 'view.trade_payment',
+        meta: {
+          title: '支付记录',
+          order: 2,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'trade_refund',
+        path: '/trade/refund',
+        component: 'view.trade_refund',
+        meta: {
+          title: '退款管理',
+          order: 3,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'trade_verify',
+        path: '/trade/verify',
+        component: 'view.trade_verify',
+        meta: {
+          title: '核销记录',
+          order: 5,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      },
+      {
+        name: 'trade_verify-pool',
+        path: '/trade/verify-pool',
+        component: 'view.trade_verify-pool',
+        meta: {
+          title: '待核销池',
+          order: 4,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      }
+    ]
+  },
+  {
+    name: 'user',
+    path: '/user',
+    component: 'layout.base',
+    meta: {
+      title: '用户管理',
+      icon: 'mdi:account-group',
+      order: 15,
+      roles: ['R_SUPER', 'R_OPERATION'],
+      i18nKey: null
+    },
+    children: [
+      {
+        name: 'user_list',
+        path: '/user/list',
+        component: 'view.user_list',
+        meta: {
+          title: '用户列表',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          i18nKey: null
+        }
+      }
+    ]
   }
 ];

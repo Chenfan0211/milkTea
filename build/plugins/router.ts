@@ -1,6 +1,7 @@
 import type { RouteMeta } from 'vue-router';
 import ElegantVueRouter from '@elegant-router/vue/vite';
 import type { RouteKey } from '@elegant-router/types';
+import { adminRouteMeta } from '../../src/constants/admin';
 
 export function setupElegantRouter() {
   return ElegantVueRouter({
@@ -33,6 +34,16 @@ export function setupElegantRouter() {
 
       if (constantRoutes.includes(key)) {
         meta.constant = true;
+      }
+
+      const adminMeta = adminRouteMeta[key];
+      if (adminMeta) {
+        meta.title = adminMeta.title;
+        meta.i18nKey = null;
+        if (adminMeta.icon) meta.icon = adminMeta.icon;
+        if (adminMeta.order != null) meta.order = adminMeta.order;
+        if (adminMeta.roles) meta.roles = [...adminMeta.roles];
+        if (adminMeta.featureFlag) meta.featureFlag = adminMeta.featureFlag;
       }
 
       return meta;

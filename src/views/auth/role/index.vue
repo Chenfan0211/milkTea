@@ -1,0 +1,72 @@
+<script setup lang="ts">
+import AdminListPage from '@/views/_shared/AdminListPage.vue';
+import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
+import type { DataTableColumns } from 'naive-ui';
+import { useAdminStore } from '@/store/modules/admin';
+
+const store = useAdminStore();
+
+const columns: DataTableColumns<any> = [
+  { title: '角色编码', key: 'code', width: 140 },
+  { title: '名称', key: 'name', width: 140 },
+  { title: '数据范围', key: 'dataScope', width: 120 },
+  { title: '创建时间', key: 'createTime', width: 180 }
+];
+const searchFields: SearchField[] = [
+  { key: 'name', label: '角色', placeholder: '角色名称' },
+  {
+    key: 'dataScope',
+    label: '数据范围',
+    type: 'select',
+    options: [
+      { label: '平台级', value: '平台级' },
+      { label: '门店级', value: '门店级' }
+    ]
+  }
+];
+const formFields: FormField[] = [
+  { key: 'code', label: '编码' },
+  { key: 'name', label: '名称' },
+  {
+    key: 'dataScope',
+    label: '数据范围',
+    type: 'select',
+    options: [
+      { label: '平台级', value: '平台级' },
+      { label: '门店级', value: '门店级' }
+    ]
+  }
+];
+const toolbar: RowAction[] = [{ label: '新增角色', type: 'primary', modal: 'add' }];
+const rowActions: RowAction[] = [
+  { label: '编辑', type: 'primary', modal: 'edit' },
+  {
+    label: '删除',
+    type: 'error',
+    confirm: '确认删除该角色？',
+    handler: row => store.remove('roles', row.id, '授权中心', 'name')
+  }
+];
+const config: AdminListConfig = {
+  title: '角色与权限',
+  columns,
+  searchFields,
+  toolbar,
+  rowActions,
+  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.roles, search, page, pageSize),
+  form: {
+    title: '角色',
+    fields: formFields,
+    onSubmit: (data, editing) => {
+      if (editing) store.update('roles', editing.id, data, '授权中心', 'name');
+      else store.add('roles', data, '授权中心', 'name');
+    }
+  }
+};
+</script>
+
+<template>
+  <AdminListPage :config="config" />
+</template>
+
+<style scoped></style>

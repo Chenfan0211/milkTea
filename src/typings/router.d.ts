@@ -75,5 +75,6 @@ declare module 'vue-router' {
      * "dynamic"
      */
     isDev?: boolean;
+    featureFlag?: string | null;
   }
 }

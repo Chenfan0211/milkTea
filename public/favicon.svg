@@ -23,38 +23,38 @@
   <defs>
     <linearGradient gradientTransform="matrix(104.391 -73.3432 73.3432 104.391 277.441 710.122)"
       gradientUnits="userSpaceOnUse" id="LinearGradient" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#373ebf" />
-      <stop offset="1" stop-color="#5058e6" />
+      <stop offset="0" stop-color="#3F6E1F" />
+      <stop offset="1" stop-color="#3F6E1F" />
     </linearGradient>
     <linearGradient gradientTransform="matrix(-173.747 557.324 -557.324 -173.747 508.829 258.172)"
       gradientUnits="userSpaceOnUse" id="LinearGradient_2" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#c2d6ff" />
-      <stop offset="1" stop-color="#646cff" />
+      <stop offset="0" stop-color="#E9F1D9" />
+      <stop offset="1" stop-color="#53882C" />
     </linearGradient>
     <linearGradient gradientTransform="matrix(157.951 295.666 -295.666 157.951 382.944 193.642)"
       gradientUnits="userSpaceOnUse" id="LinearGradient_3" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#5058e6" />
-      <stop offset="1" stop-color="#373ebf" />
+      <stop offset="0" stop-color="#3F6E1F" />
+      <stop offset="1" stop-color="#3F6E1F" />
     </linearGradient>
     <linearGradient gradientTransform="matrix(-44.3023 219.578 -219.578 -44.3023 619.69 469.652)"
       gradientUnits="userSpaceOnUse" id="LinearGradient_4" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#91a7ff" />
-      <stop offset="1" stop-color="#5058e6" />
+      <stop offset="0" stop-color="#9B9B96" />
+      <stop offset="1" stop-color="#3F6E1F" />
     </linearGradient>
     <linearGradient gradientTransform="matrix(125.52 334.256 -334.256 125.52 539.723 235.139)"
       gradientUnits="userSpaceOnUse" id="LinearGradient_5" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#646cff" />
-      <stop offset="1" stop-color="#c2d6ff" />
+      <stop offset="0" stop-color="#53882C" />
+      <stop offset="1" stop-color="#E9F1D9" />
     </linearGradient>
     <linearGradient gradientTransform="matrix(-241.23 357.206 -357.206 -241.23 754.054 449.312)"
       gradientUnits="userSpaceOnUse" id="LinearGradient_6" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#c2d6ff" />
-      <stop offset="1" stop-color="#646cff" />
+      <stop offset="0" stop-color="#E9F1D9" />
+      <stop offset="1" stop-color="#53882C" />
     </linearGradient>
     <linearGradient gradientTransform="matrix(125.978 210.065 -210.065 125.978 596.433 613.665)"
       gradientUnits="userSpaceOnUse" id="LinearGradient_7" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#373ebf" />
-      <stop offset="1" stop-color="#5058e6" />
+      <stop offset="0" stop-color="#3F6E1F" />
+      <stop offset="1" stop-color="#3F6E1F" />
     </linearGradient>
   </defs>
 </svg>

@@ -93,6 +93,13 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     menus.value = updateLocaleOfGlobalMenus(menus.value);
   }
 
+  /** Rebuild menus (used when feature flags change) */
+  function refreshGlobalMenus() {
+    const allRoutes = filterRoutesByDev([...constantRoutes.value, ...authRoutes.value]);
+    const sortRoutes = sortRoutesByOrder(allRoutes);
+    getGlobalMenus(sortRoutes);
+  }
+
   /** Cache routes */
   const cacheRoutes = ref<RouteKey[]>([]);
 
@@ -332,6 +339,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     menus,
     searchMenus,
     updateGlobalMenusByLocale,
+    refreshGlobalMenus,
     cacheRoutes,
     excludeCacheRoutes,
     resetRouteCache,
