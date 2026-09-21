@@ -205,7 +205,7 @@
   align-items: center;
   justify-content: center;
   height: 80rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-lg);
   font-weight: 600;
   background: var(--brand-green);
@@ -288,7 +288,7 @@
 }
 
 .profile-sheet__button--primary {
-  color: #FFFFFF;
+  color: #ffffff;
   background: var(--brand-green);
 }
 

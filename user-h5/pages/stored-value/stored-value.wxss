@@ -226,7 +226,6 @@
   padding-top: 20rpx;
 }
 
-
 .gift-list {
   margin-top: 24rpx;
 }
@@ -280,7 +279,7 @@
   justify-content: center;
   width: 100%;
   height: 80rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-md);
   font-weight: 600;
   background: var(--brand-green);

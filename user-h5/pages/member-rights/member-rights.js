@@ -1,7 +1,5 @@
 const { withShare } = require('../../utils/share');
-const api = require('../../utils/api');
 const { getUserProfile } = require('../../utils/user-profile');
-const { memberLevels } = require('../../data/mock');
 const { buildLevelMeta } = require('../../utils/member-level');
 
 Page(
@@ -17,7 +15,6 @@ Page(
     },
     onShow() {
       this.syncMember();
-      if (this.getTabBar) this.getTabBar().setData({ selected: 2 });
     },
     syncMember() {
       const meta = buildLevelMeta(getUserProfile());
@@ -36,4 +33,3 @@ Page(
     }
   })
 );
-

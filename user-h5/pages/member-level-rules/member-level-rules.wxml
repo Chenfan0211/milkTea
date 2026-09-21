@@ -1,0 +1,38 @@
+<view class="level-rules-page">
+  <navigation-bar title="等级说明" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="level-rules-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="level-rules-content" aria-role="article" aria-label="会员等级说明">
+      <text class="level-rules-intro">下单实付金额每 1 元累积 1 成长值，成长值决定会员等级；同时每 1 元可获得 1 时光币。</text>
+
+      <view
+        wx:for="{{levels}}"
+        wx:key="level"
+        class="level-rule-card {{index === currentIndex ? 'is-current' : ''}}"
+      >
+        <view class="level-rule-card__head">
+          <text class="level-rule-card__level">{{item.level}}</text>
+          <text class="level-rule-card__name">{{item.name}}</text>
+          <text wx:if="{{index === currentIndex}}" class="level-rule-card__current">当前等级</text>
+        </view>
+
+        <view class="level-rule-card__row">
+          <text class="level-rule-card__label">升级条件</text>
+          <text class="level-rule-card__value">{{item.condition}}</text>
+        </view>
+        <view class="level-rule-card__row">
+          <text class="level-rule-card__label">会员价折扣</text>
+          <text class="level-rule-card__value">{{item.discount}}</text>
+        </view>
+
+        <text class="level-rule-card__subtitle">核心权益</text>
+        <view class="level-rule-card__benefits">
+          <view wx:for="{{item.benefits}}" wx:for-item="benefit" wx:key="text" class="level-benefit">
+            <image class="level-benefit__icon" src="/assets/icons/lucide/{{benefit.icon}}.svg" mode="aspectFit" />
+            <text class="level-benefit__text">{{benefit.count ? 'x' + benefit.count + ' ' : ''}}{{benefit.text}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

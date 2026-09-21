@@ -1,4 +1,4 @@
-.member-page {
+.member-rights-page {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -7,11 +7,11 @@
   background: var(--page-bg-neutral);
 }
 
-.member-scroll {
+.member-rights-scroll {
   flex: 1;
   min-height: 0;
 }
 
-.member-content {
-  padding: 0 0 24rpx;
+.member-rights-content {
+  padding: 0 0 calc(40rpx + env(safe-area-inset-bottom));
 }

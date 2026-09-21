@@ -1,0 +1,124 @@
+.level-rules-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.level-rules-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.level-rules-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.level-rules-intro {
+  display: block;
+  padding: 0 8rpx 24rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.level-rule-card {
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.level-rule-card + .level-rule-card {
+  margin-top: 20rpx;
+}
+
+.level-rule-card.is-current {
+  border: 2rpx solid var(--brand-green);
+}
+
+.level-rule-card__head {
+  display: flex;
+  align-items: center;
+}
+
+.level-rule-card__level {
+  color: var(--brand-green);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.level-rule-card__name {
+  margin-left: 12rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.level-rule-card__current {
+  margin-left: auto;
+  padding: 0 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-caption);
+  line-height: 36rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.level-rule-card__row {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 16rpx;
+}
+
+.level-rule-card__label {
+  flex: none;
+  width: 140rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.level-rule-card__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.level-rule-card__subtitle {
+  display: block;
+  margin-top: 20rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.level-rule-card__benefits {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12rpx;
+}
+
+.level-benefit {
+  display: flex;
+  align-items: center;
+  padding: 8rpx 0;
+}
+
+.level-benefit__icon {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.level-benefit__text {
+  margin-left: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}

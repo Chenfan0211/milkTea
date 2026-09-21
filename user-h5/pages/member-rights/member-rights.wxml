@@ -1,8 +1,8 @@
-<view class="member-page">
-  <navigation-bar title="会员专区" background="#FFFFFF" color="#2F302D" />
+<view class="member-rights-page">
+  <navigation-bar title="会员权益" back="{{true}}" background="#FFFFFF" color="#2F302D" />
 
-  <scroll-view class="member-scroll" scroll-y show-scrollbar="{{false}}">
-    <view class="member-content">
+  <scroll-view class="member-rights-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="member-rights-content">
       <member-panel
         levels="{{levels}}"
         axis="{{axis}}"
@@ -13,7 +13,6 @@
         growth="{{currentGrowth}}"
         bind:openrules="openLevelRules"
       />
-      <view class="tabbar-safe-space"></view>
     </view>
   </scroll-view>
 </view>
