@@ -1,0 +1,11 @@
+.qrcode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qrcode__canvas {
+  display: block;
+  background: #ffffff;
+  border-radius: var(--radius-sm);
+}

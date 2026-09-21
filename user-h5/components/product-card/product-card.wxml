@@ -12,12 +12,17 @@
     <text class="product-card__description">{{product.description}}</text>
     <view class="product-card__footer">
       <view class="product-card__price-block">
-        <view class="product-card__price-main">
-          <text class="product-card__price-label">券后价</text>
+        <view class="product-card__price-row">
+          <text class="product-card__price-label">会员价</text>
           <text class="product-card__price-symbol">¥</text>
-          <text class="product-card__price">{{product.price}}</text>
+          <text class="product-card__price">{{displayPrice}}</text>
+          <text class="product-card__original">¥{{product.originalPrice}}</text>
         </view>
-        <text class="product-card__original">¥{{product.originalPrice}}</text>
+        <view class="product-card__price-row product-card__price-row--sub">
+          <text class="product-card__price-sub-label">储值付款到手价</text>
+          <text class="product-card__price-sub-symbol">¥</text>
+          <text class="product-card__price-sub">{{product.storedValuePrice}}</text>
+        </view>
       </view>
       <view class="product-card__action" bindtap="handleSpec" aria-role="button" aria-label="选规格">
         <text>选规格</text>

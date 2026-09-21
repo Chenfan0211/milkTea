@@ -1,0 +1,88 @@
+<view class="member-panel">
+  <view class="member-panel__head">
+    <text class="member-panel__title">{{currentLevel}} 会员</text>
+    <view class="member-panel__help" bindtap="openRules" aria-role="button" aria-label="等级说明">
+      <text>等级说明</text>
+      <image class="member-panel__help-icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+    </view>
+  </view>
+
+  <view class="member-axis">
+    <view class="member-axis__track" style="left: {{axisInsetPercent}}%; right: {{axisInsetPercent}}%;">
+      <view class="member-axis__fill" style="width: {{axisFillPercent}}%;"></view>
+    </view>
+    <view class="member-axis__nodes">
+      <view
+        wx:for="{{axis}}"
+        wx:key="index"
+        class="member-axis__node {{item.reached ? 'is-reached' : ''}}"
+      >
+        <text class="member-axis__value">{{item.value}}</text>
+        <view class="member-axis__dot"></view>
+        <text class="member-axis__label">{{item.level}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="member-growth">
+    <text class="member-growth__label">当前成长值</text>
+    <text class="member-growth__value">{{growth}}</text>
+    <text class="member-growth__hint">{{progressLabel}}</text>
+  </view>
+
+  <scroll-view
+    class="member-cards"
+    scroll-x
+    enhanced="{{true}}"
+    show-scrollbar="{{false}}"
+  >
+    <view class="member-cards__track">
+      <view
+        wx:for="{{levels}}"
+        wx:key="level"
+        class="member-card {{index === activeIndex ? 'is-active' : ''}} {{item.isCurrent ? 'is-current' : ''}} {{item.isReached ? '' : 'is-locked'}}"
+        data-index="{{index}}"
+        bindtap="selectCard"
+        aria-role="button"
+        aria-label="{{item.level}} {{item.name}} 会员卡"
+      >
+        <view wx:if="{{item.isCurrent}}" class="member-card__badge">
+          <text>当前等级</text>
+        </view>
+        <view wx:elif="{{item.isReached === false}}" class="member-card__badge member-card__badge--lock">
+          <image class="member-card__lock" src="/assets/icons/lucide/lock-muted.svg" mode="aspectFit" />
+          <text>未达成</text>
+        </view>
+        <view class="member-card__top">
+          <text class="member-card__level">{{item.level}}</text>
+          <text class="member-card__pill">会员</text>
+        </view>
+        <text class="member-card__brand">五零时光</text>
+        <view class="member-card__stamp">
+  <image class="member-card__crown" src="/assets/icons/lucide/{{item.isReached ? 'crown-gold' : 'member'}}.svg" mode="aspectFit" />
+  <text class="member-card__stamp-text">时光</text>
+</view>
+        <view wx:if="{{item.isReached}}" class="member-card__badge--permanent">
+          <text class="member-card__badge--permanent-text">永久有效</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="member-privilege">
+    <text class="member-privilege__title">{{privilegesTitle}}</text>
+    <view class="member-privilege__card">
+      <view class="member-privilege__tag {{activeReached ? '' : 'is-muted'}}"><text>会员特权</text></view>
+      <view wx:if="{{activeReached === false}}" class="member-privilege__preview">未达成等级，权益预览</view>
+      <view class="member-privilege__list">
+        <view wx:for="{{privileges}}" wx:key="text" class="privilege-item {{activeReached ? '' : 'is-muted'}}">
+          <view class="privilege-item__media">
+            <image class="privilege-item__icon" src="/assets/icons/lucide/{{activeReached ? item.icon : item.mutedIcon}}.svg" mode="aspectFit" />
+            <text wx:if="{{item.count}}" class="privilege-item__count">x{{item.count}}</text>
+          </view>
+          <text class="privilege-item__text">{{item.text}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

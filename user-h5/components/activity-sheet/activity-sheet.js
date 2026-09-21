@@ -7,17 +7,17 @@ Component({
   methods: {
     noop() {},
     handleClose() {
-      this.triggerEvent('close')
+      this.triggerEvent('close');
     },
     handlePhone() {
-      this.triggerEvent('phone')
+      this.triggerEvent('phone');
     },
     handleView() {
-      this.triggerEvent('view')
+      this.triggerEvent('view');
     },
     handleUnavailable(event) {
-      const label = event.currentTarget.dataset.label || '功能'
-      this.triggerEvent('unavailable', { label })
+      const label = event.currentTarget.dataset.label || '功能';
+      this.triggerEvent('unavailable', { label });
     }
   }
-})
+});

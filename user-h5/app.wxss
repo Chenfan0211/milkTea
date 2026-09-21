@@ -21,6 +21,20 @@ page {
   --tag-hot-bg: #FFE0E1;
   --tag-light-bg: #D5F0C3;
   --tag-light-text: #6E9B45;
+  --tag-gold-text: #9a6b00;
+  --tag-gold-bg: #fff8df;
+  --tag-gold-bg-strong: #fff3b8;
+  /* 门店卡 · 方案 D 鲜绿活力风（参考图固化值） */
+  --store-page-mint: #EAF4E1;
+  --store-card-title: #245C2B;
+  --store-card-ink: #75886A;
+  --store-card-accent: #2E8B40;
+  --store-pill-bg: #EDF5E2;
+  --store-promo-from: #429E46;
+  --store-promo-to: #2E7D3A;
+  --store-action-from: #3B9544;
+  --store-action-to: #32843D;
+  --store-decor-leaf: #A6C685;
   /* 字号档位 */
   --font-caption: 20rpx;
   --font-sm: 24rpx;
@@ -44,7 +58,7 @@ page {
   min-height: 100%;
   background: var(--page-bg);
   color: var(--text-main);
-  font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  font-family: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
   font-size: 28rpx;
 }
 
@@ -52,7 +66,9 @@ view,
 scroll-view,
 image,
 text,
-button {
+button,
+input,
+textarea {
   box-sizing: border-box;
 }
 
@@ -76,7 +92,7 @@ button::after {
 .card {
   background: var(--card-bg);
   border-radius: 24rpx;
-  box-shadow: 0 8rpx 28rpx rgba(49, 73, 28, 0.06);
+  box-shadow: var(--shadow-card);
 }
 
 .section-title {
@@ -97,11 +113,4 @@ button::after {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.ellipsis-2 {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }

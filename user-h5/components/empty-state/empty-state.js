@@ -5,4 +5,4 @@ Component({
     icon: { type: String, value: '/assets/icons/lucide/empty-design.svg' },
     variant: { type: String, value: 'icon' }
   }
-})
+});

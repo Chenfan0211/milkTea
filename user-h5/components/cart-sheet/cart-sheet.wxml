@@ -39,7 +39,10 @@
         </view>
 
         <view class="cart-item__content">
-          <text class="cart-item__name">{{item.name}}</text>
+          <view class="cart-item__title">
+            <text class="cart-item__name">{{item.name}}</text>
+            <text wx:if="{{item.listed === false}}" class="cart-item__unlisted">已下架</text>
+          </view>
           <text class="cart-item__spec">{{item.spec}}</text>
           <view class="cart-item__footer">
             <view class="cart-item__price-block">

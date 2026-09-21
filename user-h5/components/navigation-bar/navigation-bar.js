@@ -16,19 +16,17 @@ Component({
   },
   lifetimes: {
     attached() {
-      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
-      const rect = wx.getMenuButtonBoundingClientRect()
-      const statusBarHeight = windowInfo.statusBarHeight || 0
-      const navBarHeight = rect && rect.height
-        ? Math.max(rect.height + (rect.top - statusBarHeight) * 2, 44)
-        : 44
-      this.setData({ statusBarHeight, navBarHeight })
+      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+      const rect = wx.getMenuButtonBoundingClientRect();
+      const statusBarHeight = windowInfo.statusBarHeight || 0;
+      const navBarHeight = rect && rect.height ? Math.max(rect.height + (rect.top - statusBarHeight) * 2, 44) : 44;
+      this.setData({ statusBarHeight, navBarHeight });
     }
   },
   methods: {
     back() {
-      if (this.data.delta) wx.navigateBack({ delta: this.data.delta })
-      this.triggerEvent('back', { delta: this.data.delta })
+      if (this.data.delta) wx.navigateBack({ delta: this.data.delta });
+      this.triggerEvent('back', { delta: this.data.delta });
     }
   }
-})
+});

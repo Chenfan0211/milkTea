@@ -1,0 +1,51 @@
+<view
+  class="store-list-card {{selected ? 'is-selected' : ''}}"
+  bindtap="handleSelect"
+  hover-class="store-list-card--pressed"
+  aria-role="button"
+  aria-label="选择{{store.name}}"
+>
+  <image class="store-list-card__decor" src="/assets/icons/lucide/store-decor-sprout.svg" mode="aspectFit" />
+
+  <view class="store-list-card__body">
+    <view wx:if="{{store.promotion}}" class="store-list-card__promotion">
+      <image class="store-list-card__promotion-icon" src="/assets/icons/lucide/leaf-white.svg" mode="aspectFit" />
+      <text>{{store.promotion}}</text>
+    </view>
+
+    <view class="store-list-card__title-row">
+      <text class="store-list-card__name ellipsis">{{store.name}}</text>
+      <view class="store-list-card__distance-wrap">
+        <view
+          wx:if="{{store.isFavorite && favoriteInteractive}}"
+          class="store-list-card__favorite"
+          catchtap="handleFavorite"
+          aria-role="button"
+          aria-label="取消收藏{{store.name}}"
+        >
+          <image src="/assets/icons/lucide/star-gold.svg" mode="aspectFit" />
+        </view>
+        <image wx:elif="{{store.isFavorite}}" class="store-list-card__favorite-mark" src="/assets/icons/lucide/star-gold.svg" mode="aspectFit" />
+        <text class="store-list-card__distance">{{store.distanceLabel}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{store.queueText}}" class="store-list-card__queue {{store.queueClass}}">
+      <image class="store-list-card__queue-icon" src="{{store.queueIcon}}" mode="aspectFit" />
+      <text>{{store.queueText}}</text>
+    </view>
+
+    <text class="store-list-card__address">{{store.address}}</text>
+    <text class="store-list-card__hours">{{store.businessHours}}</text>
+  </view>
+
+  <view class="store-list-card__actions">
+    <view class="store-list-card__action" catchtap="handlePhone" aria-role="button" aria-label="拨打{{store.name}}电话">
+      <image src="/assets/icons/lucide/phone-white.svg" mode="aspectFit" />
+    </view>
+    <view class="store-list-card__action" catchtap="handleNavigate" aria-role="button" aria-label="导航到{{store.name}}">
+      <image src="/assets/icons/lucide/navigation-white.svg" mode="aspectFit" />
+    </view>
+  </view>
+
+</view>

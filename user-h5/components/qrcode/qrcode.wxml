@@ -1,0 +1,8 @@
+<view class="qrcode" aria-role="img" aria-label="核销二维码">
+  <canvas
+    type="2d"
+    id="qrcode-canvas"
+    class="qrcode__canvas"
+    style="width: {{size}}rpx; height: {{size}}rpx;"
+  />
+</view>

@@ -16,6 +16,5 @@
     "checkInvalidKey": true,
     "ignoreDevUnusedFiles": true,
     "bigPackageSizeSupport": false
-  },
-  "libVersion": "3.17.2"
+  }
 }

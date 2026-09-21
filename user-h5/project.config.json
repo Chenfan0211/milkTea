@@ -14,7 +14,7 @@
     "useCompilerPlugins": false,
     "minifyWXML": true,
     "compileWorklet": false,
-    "uploadWithSourceMap": true,
+    "uploadWithSourceMap": false,
     "packNpmManually": false,
     "minifyWXSS": true,
     "localPlugins": false,
@@ -48,6 +48,7 @@
     ],
     "include": []
   },
-  "appid": "wx4942e19ae41bc1b4",
-  "editorSetting": {}
+  "appid": "wx7d78d69cd175812e",
+  "editorSetting": {},
+  "isGameTourist": false
 }

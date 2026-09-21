@@ -47,15 +47,22 @@
             <text class="spec-sheet__info-title">【杯型容量】</text>
             <text class="spec-sheet__info-text">{{product.specDetail.cupCapacity}}</text>
           </view>
-          <view class="spec-sheet__info-block">
-            <text class="spec-sheet__info-title">【小真提示】</text>
-            <text wx:for="{{product.specDetail.tips}}" wx:key="index" class="spec-sheet__info-text">{{index + 1}}.{{item}}</text>
-          </view>
+
         </block>
 
         <view class="spec-sheet__expand" bindtap="toggleExpand" aria-role="button" aria-label="{{state.expanded ? '收起' : '展开'}}">
           <text>{{state.expanded ? '收起' : '展开'}}</text>
           <image class="spec-sheet__expand-icon {{state.expanded ? 'is-expanded' : ''}}" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+        </view>
+
+        <view wx:if="{{product.specDetail.tips.length}}" class="spec-sheet__tip">
+          <text class="spec-sheet__tip-label">温馨提示</text>
+          <text
+            wx:for="{{product.specDetail.tips}}"
+            wx:for-item="tip"
+            wx:key="index"
+            class="spec-sheet__tip-text"
+          >{{tip}}{{index < product.specDetail.tips.length - 1 ? '；' : ''}}</text>
         </view>
 
         <view wx:for="{{state.specGroups}}" wx:key="id" class="spec-group">
@@ -85,6 +92,7 @@
       <view class="spec-sheet__summary">
         <view class="spec-sheet__summary-info">
           <view class="spec-sheet__summary-line">
+            <text class="spec-sheet__member-label">会员价</text>
             <view class="spec-sheet__summary-price">
               <text class="spec-sheet__member-symbol">¥</text>
               <text class="spec-sheet__member-price">{{state.memberPrice}}</text>
@@ -93,6 +101,12 @@
             <view wx:if="{{mode !== 'edit'}}" class="spec-sheet__favorite" bindtap="toggleFavorite" aria-role="button" aria-label="{{state.favorite ? '取消收藏' : '收藏商品'}}">
               <image class="spec-sheet__favorite-icon" src="{{state.favorite ? '/assets/icons/lucide/heart-active.svg' : '/assets/icons/lucide/heart.svg'}}" mode="aspectFit" />
             </view>
+          </view>
+          <view class="spec-sheet__estimate-line">
+            <text class="spec-sheet__estimate-label">储值付款到手价</text>
+            <text class="spec-sheet__estimate-symbol">¥</text>
+            <text class="spec-sheet__estimate-price">{{state.storedValuePrice}}</text>
+            <image class="spec-sheet__estimate-icon" src="/assets/icons/lucide/info.svg" mode="aspectFit" />
           </view>
           <view class="spec-sheet__spec-line">
             <view wx:if="{{mode === 'edit'}}" class="spec-sheet__favorite spec-sheet__favorite--inline" bindtap="toggleFavorite" aria-role="button" aria-label="{{state.favorite ? '取消收藏' : '收藏商品'}}">

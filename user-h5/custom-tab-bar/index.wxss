@@ -9,7 +9,7 @@
   height: calc(112rpx + env(safe-area-inset-bottom));
   padding: 10rpx 12rpx env(safe-area-inset-bottom);
   background: rgba(255, 255, 255, 0.98);
-  border-top: 1rpx solid #ECEDE8;
+  border-top: 1rpx solid var(--line-color);
 }
 
 .tabbar__item {
@@ -19,13 +19,13 @@
   align-items: center;
   justify-content: center;
   min-width: 0;
-  color: #9B9B96;
+  color: #9b9b96;
   text-decoration: none;
   pointer-events: auto;
 }
 
 .tabbar__item.is-active {
-  color: #53882C;
+  color: #53882c;
 }
 
 .tabbar__icon {
