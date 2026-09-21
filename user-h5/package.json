@@ -6,21 +6,24 @@
   "scripts": {
     "build:images": "node scripts/build-images.mjs && node scripts/build-points-images.mjs",
     "build:regions": "node scripts/build-regions.mjs",
-    "check": "node scripts/stored-value-page.test.mjs && node scripts/store-selection.test.mjs && node scripts/store-picker-page.test.mjs && node scripts/menu-spec-edit.test.mjs && node scripts/activity-sheet.test.mjs && node scripts/share.test.mjs && node scripts/favorite-stores-page.test.mjs && node scripts/coupon-products-page.test.mjs && node scripts/menu-product-image.test.mjs && node scripts/profile-data-page.test.mjs && node scripts/check-project.mjs && node scripts/acceptance-check.test.mjs",
+    "check": "node scripts/member-rights-page.test.mjs && node scripts/member-level-rules-page.test.mjs && node scripts/order-accrual.test.mjs && node scripts/stored-value-page.test.mjs && node scripts/store-selection.test.mjs && node scripts/store-picker-page.test.mjs && node scripts/store-list-card.test.mjs && node scripts/menu-spec-edit.test.mjs && node scripts/activity-sheet.test.mjs && node scripts/share.test.mjs && node scripts/favorite-stores-page.test.mjs && node scripts/coupon-products-page.test.mjs && node scripts/menu-product-image.test.mjs && node scripts/badge-solid-icon.test.mjs && node scripts/profile-data-page.test.mjs && node scripts/orders-pending-payment.test.mjs && node scripts/role-center-page.test.mjs && node scripts/role-function-pages.test.mjs && node scripts/share-referral-page.test.mjs && node scripts/points-exchange.test.mjs && node scripts/check-project.mjs && node scripts/acceptance-check.test.mjs",
     "icons": "node scripts/sync-lucide-icons.mjs",
     "test:acceptance": "node scripts/acceptance-check.test.mjs",
-    "test:stored-value": "node scripts/stored-value-page.test.mjs",
-    "test:coupon-products": "node scripts/coupon-products-page.test.mjs",
-    "test:images": "node scripts/menu-product-image.test.mjs",
-    "test:profile-data": "node scripts/profile-data-page.test.mjs",
-    "test:store": "node scripts/store-selection.test.mjs && node scripts/store-picker-page.test.mjs",
-    "test:menu": "node scripts/menu-spec-edit.test.mjs",
     "test:activity": "node scripts/activity-sheet.test.mjs",
+    "test:coupon-products": "node scripts/coupon-products-page.test.mjs",
+    "test:favorite": "node scripts/favorite-stores-page.test.mjs",
+    "test:images": "node scripts/menu-product-image.test.mjs",
+    "test:member-rights": "node scripts/member-rights-page.test.mjs && node scripts/member-level-rules-page.test.mjs",
+    "test:menu": "node scripts/menu-spec-edit.test.mjs",
+    "test:orders": "node scripts/orders-pending-payment.test.mjs && node scripts/order-accrual.test.mjs && node scripts/role-center-page.test.mjs",
+    "test:profile-data": "node scripts/profile-data-page.test.mjs",
     "test:share": "node scripts/share.test.mjs",
-    "test:favorite": "node scripts/favorite-stores-page.test.mjs"
+    "test:store": "node scripts/store-selection.test.mjs && node scripts/store-picker-page.test.mjs && node scripts/store-list-card.test.mjs",
+    "test:stored-value": "node scripts/stored-value-page.test.mjs"
   },
   "devDependencies": {
     "china-area-data": "5.0.1",
-    "lucide-static": "1.46.0"
+    "lucide-static": "1.46.0",
+    "qrcode-generator": "2.0.4"
   }
 }
