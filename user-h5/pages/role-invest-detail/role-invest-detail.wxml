@@ -1,0 +1,101 @@
+<view class="invest-detail-page">
+  <navigation-bar title="申请详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="invest-detail-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="invest-detail-empty">
+      <empty-state
+        title="记录不存在"
+        description="该申请记录已失效或不属于当前投资人"
+        icon="/assets/icons/lucide/file-search-brand.svg"
+      />
+    </view>
+
+    <view wx:else class="invest-detail-content">
+      <view class="invest-detail-hero invest-detail-hero--{{record.status}}">
+        <text class="invest-detail-hero__status">{{record.statusLabel}}</text>
+        <text class="invest-detail-hero__store">{{record.storeName}}</text>
+        <text class="invest-detail-hero__note">{{record.statusNote}}</text>
+      </view>
+
+      <view wx:if="{{record.failReason}}" class="detail-alert">
+        <image class="detail-alert__icon" src="/assets/icons/lucide/circle-alert-warning.svg" mode="aspectFit" />
+        <text class="detail-alert__text">{{record.failReason}}</text>
+      </view>
+
+      <view class="detail-card">
+        <view class="detail-card__head">
+          <image class="detail-card__icon" src="/assets/icons/lucide/trending-up-brand.svg" mode="aspectFit" />
+          <text class="detail-card__title">申请流转</text>
+        </view>
+        <view class="detail-timeline">
+          <view wx:for="{{record.timeline}}" wx:key="id" class="timeline-item timeline-item--{{item.state}}">
+            <view class="timeline-item__rail">
+              <image
+                class="timeline-item__dot"
+                src="{{item.state === 'todo' ? '/assets/icons/lucide/circle-dot-muted.svg' : '/assets/icons/lucide/circle-dot-brand.svg'}}"
+                mode="aspectFit"
+              />
+              <view wx:if="{{index !== record.timeline.length - 1}}" class="timeline-item__line"></view>
+            </view>
+            <view class="timeline-item__body">
+              <view class="timeline-item__head">
+                <text class="timeline-item__title">{{item.title}}</text>
+                <text class="timeline-item__time">{{item.time || '待处理'}}</text>
+              </view>
+              <text class="timeline-item__desc">{{item.description}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="detail-card">
+        <view class="detail-card__head">
+          <image class="detail-card__icon" src="/assets/icons/lucide/receipt-brand.svg" mode="aspectFit" />
+          <text class="detail-card__title">申请信息</text>
+        </view>
+
+        <view class="detail-row">
+          <text class="detail-row__label">申请单号</text>
+          <view class="detail-row__copy" bindtap="copyOrderNo" aria-role="button" aria-label="复制申请单号">
+            <text class="detail-row__value">{{record.orderNo}}</text>
+            <image class="detail-row__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+          </view>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">投资点位</text>
+          <text class="detail-row__value">{{record.storeName}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">点位城市</text>
+          <text class="detail-row__value">{{record.cityName}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">点位地址</text>
+          <text class="detail-row__value">{{record.address}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">投资预算</text>
+          <text class="detail-row__value detail-row__value--strong">¥{{record.budget}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">联系人</text>
+          <text class="detail-row__value">{{record.contact}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">联系电话</text>
+          <text class="detail-row__value">{{record.phoneText}}</text>
+        </view>
+        <view wx:if="{{record.remark}}" class="detail-row">
+          <text class="detail-row__label">意向说明</text>
+          <text class="detail-row__value">{{record.remark}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">申请时间</text>
+          <text class="detail-row__value">{{record.time}}</text>
+        </view>
+      </view>
+
+      <view class="invest-detail-safe"></view>
+    </view>
+  </scroll-view>
+</view>

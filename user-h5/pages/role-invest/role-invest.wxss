@@ -1,0 +1,367 @@
+.invest-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg);
+}
+
+.invest-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.invest-empty {
+  padding: 20rpx;
+}
+
+.invest-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* ① 概览 */
+.invest-hero {
+  padding: 40rpx 32rpx 32rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-lg);
+}
+
+.invest-hero__main {
+  display: flex;
+  flex-direction: column;
+}
+
+.invest-hero__label {
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  opacity: 0.82;
+}
+
+.invest-hero__value {
+  margin-top: 8rpx;
+  color: var(--card-bg);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 72rpx;
+}
+
+.invest-hero__metrics {
+  display: flex;
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.24);
+}
+
+.invest-hero__metric {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.invest-hero__metric-value {
+  color: var(--card-bg);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.invest-hero__metric-label {
+  margin-top: 4rpx;
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  opacity: 0.82;
+}
+
+/* ② 申请流程 */
+.invest-flow-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.invest-flow {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+}
+
+.invest-flow__index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  background: var(--brand-soft);
+  border-radius: 50%;
+}
+
+.invest-flow__label {
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  text-align: center;
+}
+
+/* ③ 入口 */
+.invest-links {
+  margin-top: 20rpx;
+  padding: 0 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.invest-link {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+}
+
+.invest-link__icon {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 20rpx;
+}
+
+.invest-link__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.invest-link__title {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.invest-link__desc {
+  margin-top: 4rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.invest-link__arrow {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 16rpx;
+}
+
+/* ④ 点位列表 */
+.invest-section {
+  margin-top: 32rpx;
+}
+
+.invest-section__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.invest-section__icon {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 8rpx;
+}
+
+.invest-section__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.invest-search {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  padding: 0 20rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-pill);
+}
+
+.invest-search__icon {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+}
+
+.invest-search__input {
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.invest-search__placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-base);
+}
+
+.invest-search__clear {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  margin-left: 8rpx;
+}
+
+.invest-search__clear-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.invest-tabs-scroll {
+  width: 100%;
+  height: 92rpx;
+  margin-top: 12rpx;
+  overflow: hidden;
+}
+
+.invest-tabs {
+  display: inline-flex;
+  align-items: center;
+  height: 92rpx;
+  white-space: nowrap;
+}
+
+.invest-tab {
+  flex: none;
+  height: 56rpx;
+  margin-right: 12rpx;
+  padding: 0 24rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 56rpx;
+  white-space: nowrap;
+  background: var(--card-bg);
+  border-radius: var(--radius-pill);
+}
+
+.invest-tab:last-child {
+  margin-right: 0;
+}
+
+.invest-tab.is-active {
+  color: var(--card-bg);
+  font-weight: 600;
+  background: var(--brand-green);
+}
+
+.invest-spots {
+  margin-top: 8rpx;
+}
+
+.spot-card {
+  position: relative;
+  margin-bottom: 16rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.spot-card--signed {
+  border-left: 6rpx solid var(--brand-green);
+}
+
+.spot-card--disabled {
+  opacity: 0.6;
+}
+
+.spot-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.spot-card__name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 44rpx;
+}
+
+.spot-card__badge {
+  flex: none;
+  margin-left: 16rpx;
+  padding: 0 12rpx;
+  font-size: var(--font-caption);
+  line-height: 36rpx;
+  border-radius: var(--radius-xs);
+}
+
+.spot-card__badge--available {
+  color: var(--brand-green);
+  background: var(--brand-soft);
+}
+
+.spot-card__badge--pending {
+  color: var(--queue-warning);
+  background: var(--tag-gold-bg);
+}
+
+.spot-card__badge--signed {
+  color: var(--brand-green);
+  background: var(--brand-soft);
+}
+
+.spot-card__badge--occupied,
+.spot-card__badge--disabled {
+  color: var(--text-muted);
+  background: var(--page-bg-neutral);
+}
+
+.spot-card__meta {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.spot-card__city {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.spot-card__distance {
+  margin-left: 16rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.spot-card__address {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+.invest-safe {
+  height: 20rpx;
+}

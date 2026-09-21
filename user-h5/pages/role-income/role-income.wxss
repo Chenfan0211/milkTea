@@ -1,0 +1,243 @@
+.income-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg);
+}
+
+.income-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.income-empty {
+  padding: 20rpx;
+}
+
+.income-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* ① 收益 Hero */
+.income-hero {
+  padding: 40rpx 32rpx 32rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-lg);
+}
+
+.income-hero__label {
+  display: block;
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  opacity: 0.82;
+}
+
+.income-hero__value {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--card-bg);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 72rpx;
+}
+
+.income-hero__metrics {
+  display: flex;
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.24);
+}
+
+.income-hero__metric {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.income-hero__metric-value {
+  color: var(--card-bg);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.income-hero__metric-label {
+  margin-top: 4rpx;
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  opacity: 0.82;
+}
+
+/* ② 汇总卡 */
+.income-summary {
+  display: flex;
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.income-summary__item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.income-summary__item + .income-summary__item {
+  padding-left: 24rpx;
+  border-left: 1rpx solid var(--line-color);
+}
+
+.income-summary__label {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.income-summary__value {
+  margin-top: 4rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+/* ③ 入口卡 */
+.income-links {
+  margin-top: 20rpx;
+  padding: 0 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.income-link {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.income-link:last-child {
+  border-bottom: none;
+}
+
+.income-link__icon {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 20rpx;
+}
+
+.income-link__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.income-link__title {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.income-link__desc {
+  margin-top: 4rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.income-link__arrow {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 16rpx;
+}
+
+/* ④ 趋势 */
+.income-section {
+  margin-top: 32rpx;
+}
+
+.income-section__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.income-section__icon {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 8rpx;
+}
+
+.income-section__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.income-trend-card {
+  padding: 8rpx 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.income-trend {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.income-trend:last-child {
+  border-bottom: none;
+}
+
+.income-trend__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.income-trend__label {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.income-trend__bar-track {
+  height: 12rpx;
+  margin-top: 8rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.income-trend__bar {
+  height: 100%;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
+.income-trend__value {
+  flex: none;
+  width: 160rpx;
+  margin-left: 20rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  text-align: right;
+}

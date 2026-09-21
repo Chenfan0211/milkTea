@@ -1,0 +1,133 @@
+<view class="invest-page">
+  <navigation-bar title="点位投资申请" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="invest-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="invest-empty">
+      <empty-state
+        title="暂无权限"
+        description="仅投资人角色可申请点位投资"
+        icon="/assets/icons/lucide/users.svg"
+      />
+    </view>
+
+    <view wx:else class="invest-content">
+      <view class="invest-hero">
+        <view class="invest-hero__main">
+          <text class="invest-hero__label">可投点位</text>
+          <text class="invest-hero__value">{{stats.available}}</text>
+        </view>
+        <view class="invest-hero__metrics">
+          <view class="invest-hero__metric">
+            <text class="invest-hero__metric-value">{{stats.signed}}</text>
+            <text class="invest-hero__metric-label">已签约</text>
+          </view>
+          <view class="invest-hero__metric">
+            <text class="invest-hero__metric-value">{{stats.pending}}</text>
+            <text class="invest-hero__metric-label">审核中</text>
+          </view>
+          <view class="invest-hero__metric">
+            <text class="invest-hero__metric-value">{{stats.rejected}}</text>
+            <text class="invest-hero__metric-label">已驳回</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="invest-flow-card">
+        <view wx:for="{{flowSteps}}" wx:key="id" class="invest-flow">
+          <view class="invest-flow__index">{{item.index}}</view>
+          <text class="invest-flow__label">{{item.label}}</text>
+        </view>
+      </view>
+
+      <view class="invest-links">
+        <view
+          class="invest-link"
+          bindtap="openRecords"
+          aria-role="button"
+          aria-label="查看投资申请记录"
+        >
+          <image class="invest-link__icon" src="/assets/icons/lucide/receipt-brand.svg" mode="aspectFit" />
+          <view class="invest-link__body">
+            <text class="invest-link__title">申请记录</text>
+            <text class="invest-link__desc">{{recordsSummary}}</text>
+          </view>
+          <image class="invest-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view class="invest-section">
+        <view class="invest-section__head">
+          <image class="invest-section__icon" src="/assets/icons/lucide/map-pinned.svg" mode="aspectFit" />
+          <text class="invest-section__title">可投点位</text>
+        </view>
+
+        <view class="invest-search">
+          <image class="invest-search__icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+          <input
+            class="invest-search__input"
+            value="{{keyword}}"
+            placeholder="搜索点位名称或地址"
+            placeholder-class="invest-search__placeholder"
+            bindinput="handleKeyword"
+            aria-label="搜索点位名称或地址"
+          />
+          <view
+            wx:if="{{keyword}}"
+            class="invest-search__clear"
+            bindtap="clearKeyword"
+            aria-role="button"
+            aria-label="清空搜索"
+          >
+            <image class="invest-search__clear-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+          </view>
+        </view>
+
+        <scroll-view class="invest-tabs-scroll" scroll-x show-scrollbar="{{false}}">
+          <view class="invest-tabs">
+            <view
+              wx:for="{{cityTabs}}"
+              wx:key="id"
+              class="invest-tab {{activeCityId === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
+              data-id="{{item.id}}"
+              bindtap="switchCity"
+              aria-role="button"
+              aria-label="{{item.label}} {{item.count}} 个"
+            >{{item.label}} {{item.count}}</view>
+          </view>
+        </scroll-view>
+
+        <view class="invest-spots">
+          <view
+            wx:for="{{filteredSpots}}"
+            wx:key="id"
+            class="spot-card spot-card--{{item.spotStatus}}"
+            data-id="{{item.id}}"
+            bindtap="openSpot"
+            aria-role="button"
+            aria-label="查看点位 {{item.name}}"
+          >
+            <view class="spot-card__head">
+              <text class="spot-card__name ellipsis">{{item.name}}</text>
+              <text class="spot-card__badge spot-card__badge--{{item.spotStatus}}">{{item.statusLabel}}</text>
+            </view>
+            <view class="spot-card__meta">
+              <text class="spot-card__city">{{item.cityName}}</text>
+              <text class="spot-card__distance">{{item.distanceKm}}</text>
+            </view>
+            <text class="spot-card__address ellipsis">{{item.address}}</text>
+          </view>
+        </view>
+
+        <empty-state
+          wx:if="{{!filteredSpots.length}}"
+          variant="illustration"
+          icon="/assets/images/3x/points-empty.jpg"
+          title="没有匹配的点位"
+          description="换个点位名称或切换城市试试"
+        />
+      </view>
+
+      <view class="invest-safe"></view>
+    </view>
+  </scroll-view>
+</view>

@@ -1,0 +1,168 @@
+<view class="invest-records-page">
+  <navigation-bar title="投资申请记录" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="invest-record-toolbar">
+    <view class="invest-record-search">
+      <image class="invest-record-search__icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+      <input
+        class="invest-record-search__input"
+        value="{{keyword}}"
+        placeholder="搜索申请单号或点位"
+        placeholder-class="invest-record-search__placeholder"
+        bindinput="handleKeyword"
+        aria-label="搜索申请单号或点位"
+      />
+      <view
+        wx:if="{{keyword}}"
+        class="invest-record-search__clear"
+        bindtap="clearKeyword"
+        aria-role="button"
+        aria-label="清空搜索"
+      >
+        <image class="invest-record-search__clear-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="invest-record-dates">
+      <view
+        class="invest-record-date {{dateStart ? 'is-set' : ''}}"
+        bindtap="openDatePicker"
+        data-field="start"
+        aria-role="button"
+        aria-label="选择开始时间"
+      >
+        <image class="invest-record-date__icon" src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+        <text class="invest-record-date__text">{{dateStartLabel}}</text>
+      </view>
+      <text class="invest-record-dates__sep">至</text>
+      <view
+        class="invest-record-date {{dateEnd ? 'is-set' : ''}}"
+        bindtap="openDatePicker"
+        data-field="end"
+        aria-role="button"
+        aria-label="选择结束时间"
+      >
+        <image class="invest-record-date__icon" src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+        <text class="invest-record-date__text">{{dateEndLabel}}</text>
+      </view>
+      <view
+        wx:if="{{dateStart || dateEnd}}"
+        class="invest-record-dates__reset"
+        bindtap="resetDates"
+        aria-role="button"
+        aria-label="清除时间筛选"
+      >
+        <image class="invest-record-dates__reset-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <scroll-view class="invest-record-categories" scroll-x show-scrollbar="{{false}}">
+      <view class="invest-record-categories__inner">
+        <view
+          wx:for="{{categories}}"
+          wx:key="id"
+          class="invest-record-category {{activeCategory === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
+          data-id="{{item.id}}"
+          bindtap="switchCategory"
+          aria-role="button"
+          aria-label="{{item.label}} {{item.count}} 条"
+        >
+          <text>{{item.label}}</text>
+          <text class="invest-record-category__count">{{item.count}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <scroll-view class="invest-record-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{filteredRecords.length}}" class="invest-record-list">
+      <view
+        class="invest-record"
+        wx:for="{{filteredRecords}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="openDetail"
+        aria-role="button"
+        aria-label="查看申请 {{item.orderNo}} 详情"
+      >
+        <view class="invest-record__head">
+          <text class="invest-record__store ellipsis">{{item.storeName}}</text>
+          <text class="invest-record__status invest-record__status--{{item.status}}">{{item.statusLabel}}</text>
+        </view>
+
+        <view class="invest-record__order">
+          <text class="invest-record__order-no">单号 {{item.orderNo}}</text>
+          <view
+            class="invest-record__copy"
+            data-order-no="{{item.orderNo}}"
+            catchtap="copyOrderNo"
+            aria-role="button"
+            aria-label="复制申请单号"
+          >
+            <image class="invest-record__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+            <text>复制</text>
+          </view>
+        </view>
+
+        <view class="invest-record__row">
+          <text class="invest-record__label">点位城市</text>
+          <text class="invest-record__value">{{item.cityName}}</text>
+        </view>
+        <view class="invest-record__row">
+          <text class="invest-record__label">投资预算</text>
+          <text class="invest-record__value invest-record__value--strong">¥{{item.budget}}</text>
+        </view>
+
+        <view class="invest-record__foot">
+          <text class="invest-record__time">{{item.time}}</text>
+          <image class="invest-record__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+
+    <empty-state
+      wx:elif="{{hasFilter}}"
+      variant="illustration"
+      icon="/assets/images/3x/points-empty.jpg"
+      title="没有匹配的申请记录"
+      description="换个单号或调整时间范围试试"
+    />
+
+    <empty-state
+      wx:else
+      variant="illustration"
+      icon="/assets/images/3x/points-empty.jpg"
+      title="暂无申请记录"
+      description="选择点位提交投资申请后，可在这里查看进度"
+    />
+
+    <view class="invest-records-safe"></view>
+  </scroll-view>
+
+  <view wx:if="{{datePickerVisible}}" class="invest-date-sheet">
+    <view class="invest-date-sheet__mask" bindtap="closeDatePicker"></view>
+    <view class="invest-date-sheet__panel">
+      <view class="invest-date-sheet__head">
+        <text class="invest-date-sheet__cancel" bindtap="closeDatePicker" aria-role="button" aria-label="取消时间选择">取消</text>
+        <text class="invest-date-sheet__title">{{datePickerTitle}}</text>
+        <text class="invest-date-sheet__confirm" bindtap="confirmDate" aria-role="button" aria-label="确定时间">确定</text>
+      </view>
+      <picker-view
+        class="invest-date-picker"
+        indicator-class="invest-date-picker__indicator"
+        value="{{pickerValue}}"
+        bindchange="handleDateChange"
+      >
+        <picker-view-column>
+          <view class="invest-date-picker__item" wx:for="{{pickerYears}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view class="invest-date-picker__item" wx:for="{{pickerMonths}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view class="invest-date-picker__item" wx:for="{{pickerDays}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+</view>

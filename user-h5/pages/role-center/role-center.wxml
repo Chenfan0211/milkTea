@@ -1,0 +1,47 @@
+<view class="role-center-page">
+  <navigation-bar title="模拟角色切换" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="role-center-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="role-center-content" aria-role="article" aria-label="模拟角色切换">
+      <view class="role-tip">
+        <text class="role-tip__title">模拟角色切换</text>
+        <text class="role-tip__desc">点击任意经营角色即模拟切换为对应身份，并拥有该角色的运营权限。</text>
+      </view>
+
+      <view class="role-section">
+        <text class="role-section__title">经营角色</text>
+        <view
+          wx:for="{{roles}}"
+          wx:key="id"
+          class="role-card {{currentRoleId === item.id ? 'is-current' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="switchRole"
+          aria-role="button"
+          aria-label="切换到{{item.label}}"
+        >
+          <image class="role-card__icon" src="{{item.brandIcon}}" mode="aspectFit" />
+          <view class="role-card__body">
+            <view class="role-card__head">
+              <text class="role-card__label">{{item.label}}</text>
+              <text wx:if="{{currentRoleId === item.id}}" class="role-card__current">当前</text>
+            </view>
+            <text class="role-card__desc">{{item.description}}</text>
+          </view>
+          <image wx:if="{{currentRoleId === item.id}}" class="role-card__check" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
+        </view>
+
+        <view class="role-card role-card--consumer {{!currentRoleId ? 'is-current' : ''}}" bindtap="switchConsumer" aria-role="button" aria-label="切回消费端">
+          <image class="role-card__icon" src="/assets/icons/lucide/users.svg" mode="aspectFit" />
+          <view class="role-card__body">
+            <view class="role-card__head">
+              <text class="role-card__label">消费端</text>
+              <text wx:if="{{!currentRoleId}}" class="role-card__current">当前</text>
+            </view>
+            <text class="role-card__desc">普通用户身份，无经营角色权限</text>
+          </view>
+          <image wx:if="{{!currentRoleId}}" class="role-card__check" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

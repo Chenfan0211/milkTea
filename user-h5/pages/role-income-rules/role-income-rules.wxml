@@ -1,0 +1,31 @@
+<view class="income-rules-page">
+  <navigation-bar title="结算说明" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="income-rules-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="income-rules-empty">
+      <empty-state title="暂无权限" description="请先开通并选择经营角色" icon="/assets/icons/lucide/users.svg" />
+    </view>
+
+    <view wx:else class="income-rules-content">
+      <view class="income-rules-lead">
+        <text class="income-rules-lead__title">结算说明</text>
+        <text class="income-rules-lead__desc">分账口径、结算周期与退款冲正规则以平台后台配置为准，以下为当前生效规则。</text>
+      </view>
+
+      <view class="income-rules-list">
+        <view wx:for="{{ruleItems}}" wx:key="id" class="income-rule">
+          <image class="income-rule__icon" src="{{item.icon}}" mode="aspectFit" />
+          <view class="income-rule__body">
+            <text class="income-rule__title">{{item.title}}</text>
+            <text class="income-rule__desc">{{item.description}}</text>
+            <text wx:if="{{item.extra}}" class="income-rule__extra">{{item.extra}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="income-rules-foot">
+        <text wx:for="{{ruleFootnotes}}" wx:key="*this" class="income-rules-foot__line">{{item}}</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

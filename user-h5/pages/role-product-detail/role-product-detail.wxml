@@ -1,0 +1,116 @@
+<view class="product-detail-page">
+  <navigation-bar title="商品详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="product-detail-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="product-detail-empty">
+      <empty-state
+        title="商品不存在"
+        description="该商品可能未在运营后台启用，或已被移除"
+        icon="/assets/icons/lucide/file-search-brand.svg"
+      />
+    </view>
+
+    <view wx:else class="product-detail-content">
+      <view class="detail-hero">
+        <image class="detail-hero__image" src="{{product.galleryImage}}" mode="aspectFit" aria-label="{{product.name}}" />
+        <image wx:if="{{product.badgeIcon}}" class="detail-hero__badge" src="{{product.badgeIcon}}" mode="aspectFit" />
+      </view>
+      <text class="detail-hero__note">{{product.imageDisclaimer}}</text>
+
+      <view class="detail-card detail-card--main">
+        <text class="detail-name">{{product.name}}</text>
+        <view class="detail-tags">
+          <text wx:for="{{product.tags}}" wx:key="*this" class="detail-tag">{{item}}</text>
+        </view>
+        <view class="detail-price">
+          <text class="detail-price__symbol">¥</text>
+          <text class="detail-price__value">{{product.price}}</text>
+          <text class="detail-price__original">¥{{product.originalPrice}}</text>
+        </view>
+        <text wx:if="{{product.description}}" class="detail-desc">{{product.description}}</text>
+        <text wx:if="{{product.promotionText}}" class="detail-promo">{{product.promotionText}}</text>
+      </view>
+
+      <view class="detail-card">
+        <view class="detail-card__head">
+          <image class="detail-card__icon" src="/assets/icons/lucide/info.svg" mode="aspectFit" />
+          <text class="detail-card__title">基础信息</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">商品编号</text>
+          <view class="detail-row__copy" bindtap="copyProductId" aria-role="button" aria-label="复制商品编号">
+            <text class="detail-row__value">{{product.id}}</text>
+            <image class="detail-row__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+          </view>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">商品分类</text>
+          <text class="detail-row__value">{{product.categoryLabel}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">所属菜单</text>
+          <text class="detail-row__value">{{product.tabLabel}} / {{product.groupLabel}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">运营后台</text>
+          <text class="detail-row__value detail-row__value--listed">{{product.platformListed ? '已上架' : '已下架'}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-row__label">门店状态</text>
+          <text class="detail-row__value {{product.listed ? 'detail-row__value--listed' : 'detail-row__value--unlisted'}}">{{product.listed ? '已上架' : '已下架'}}</text>
+        </view>
+        <view wx:if="{{product.cupCapacity}}" class="detail-row">
+          <text class="detail-row__label">杯型容量</text>
+          <text class="detail-row__value">{{product.cupCapacity}}</text>
+        </view>
+        <view wx:if="{{product.ingredients}}" class="detail-row">
+          <text class="detail-row__label">主要原料</text>
+          <text class="detail-row__value">{{product.ingredients}}</text>
+        </view>
+        <view wx:if="{{product.allergens}}" class="detail-row">
+          <text class="detail-row__label">过敏原</text>
+          <text class="detail-row__value">{{product.allergens}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{product.specGroups.length}}" class="detail-card">
+        <view class="detail-card__head">
+          <image class="detail-card__icon" src="/assets/icons/lucide/settings-brand.svg" mode="aspectFit" />
+          <text class="detail-card__title">规格信息</text>
+        </view>
+        <view wx:for="{{product.specGroups}}" wx:key="id" class="spec-group">
+          <text class="spec-group__label">{{item.label}}</text>
+          <view class="spec-group__options">
+            <view wx:for="{{item.options}}" wx:for-item="option" wx:key="id" class="spec-option">
+              <text class="spec-option__label">{{option.label}}</text>
+              <text wx:if="{{option.priceDelta}}" class="spec-option__delta">+¥{{option.priceDelta}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{product.tips}}" class="detail-card">
+        <view class="detail-card__head">
+          <image class="detail-card__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
+          <text class="detail-card__title">温馨提示</text>
+        </view>
+        <text class="detail-tips">{{product.tips}}</text>
+      </view>
+
+      <view class="product-detail-safe"></view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{ready}}" class="product-detail-bar">
+    <view class="product-detail-bar__status">
+      <text class="product-detail-bar__label">门店状态</text>
+      <text class="product-detail-bar__value {{product.listed ? 'is-listed' : 'is-unlisted'}}">{{product.listed ? '已上架' : '已下架'}}</text>
+    </view>
+    <view
+      class="product-detail-bar__button {{product.listed ? 'is-unlist' : 'is-list'}}"
+      bindtap="toggleListing"
+      aria-role="button"
+      aria-label="{{product.listed ? '下架该商品' : '上架该商品'}}"
+    >{{product.listed ? '下架该商品' : '上架该商品'}}</view>
+  </view>
+</view>

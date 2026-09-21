@@ -1,0 +1,166 @@
+<view class="income-records-page">
+  <navigation-bar title="收益记录" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="income-record-toolbar">
+    <view class="income-record-search">
+      <image class="income-record-search__icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+      <input
+        class="income-record-search__input"
+        value="{{keyword}}"
+        placeholder="搜索收益单号"
+        placeholder-class="income-record-search__placeholder"
+        bindinput="handleKeyword"
+        aria-label="搜索收益单号"
+      />
+      <view
+        wx:if="{{keyword}}"
+        class="income-record-search__clear"
+        bindtap="clearKeyword"
+        aria-role="button"
+        aria-label="清空搜索"
+      >
+        <image class="income-record-search__clear-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="income-record-dates">
+      <view
+        class="income-record-date {{dateStart ? 'is-set' : ''}}"
+        bindtap="openDatePicker"
+        data-field="start"
+        aria-role="button"
+        aria-label="选择开始时间"
+      >
+        <image class="income-record-date__icon" src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+        <text class="income-record-date__text">{{dateStartLabel}}</text>
+      </view>
+      <text class="income-record-dates__sep">至</text>
+      <view
+        class="income-record-date {{dateEnd ? 'is-set' : ''}}"
+        bindtap="openDatePicker"
+        data-field="end"
+        aria-role="button"
+        aria-label="选择结束时间"
+      >
+        <image class="income-record-date__icon" src="/assets/icons/lucide/calendar-check.svg" mode="aspectFit" />
+        <text class="income-record-date__text">{{dateEndLabel}}</text>
+      </view>
+      <view
+        wx:if="{{dateStart || dateEnd}}"
+        class="income-record-dates__reset"
+        bindtap="resetDates"
+        aria-role="button"
+        aria-label="清除时间筛选"
+      >
+        <image class="income-record-dates__reset-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <scroll-view class="income-record-categories" scroll-x enhanced="{{false}}" show-scrollbar="{{false}}">
+      <view class="income-record-categories__inner">
+        <view
+          wx:for="{{categories}}"
+          wx:key="id"
+          class="income-record-category {{activeCategory === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
+          data-id="{{item.id}}"
+          bindtap="switchCategory"
+          aria-role="button"
+          aria-label="{{item.label}} {{item.count}} 笔"
+        >
+          <text>{{item.label}}</text>
+          <text class="income-record-category__count">{{item.count}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <scroll-view class="income-record-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{filteredRecords.length}}" class="income-record-list">
+      <view
+        class="income-record"
+        wx:for="{{filteredRecords}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="openDetail"
+        aria-role="button"
+        aria-label="查看收益单 {{item.orderNo}} 详情"
+      >
+        <view class="income-record__head">
+          <text class="income-record__title ellipsis">{{item.title}}</text>
+          <text class="income-record__amount income-record__amount--{{item.direction}}">{{item.amount}}</text>
+        </view>
+
+        <view class="income-record__order">
+          <text class="income-record__order-no">单号 {{item.orderNo}}</text>
+          <view
+            class="income-record__copy"
+            data-order-no="{{item.orderNo}}"
+            catchtap="copyOrderNo"
+            aria-role="button"
+            aria-label="复制收益单号"
+          >
+            <image class="income-record__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+            <text>复制</text>
+          </view>
+        </view>
+
+        <text class="income-record__source">{{item.source}}</text>
+
+        <view class="income-record__foot">
+          <text class="income-record__time">{{item.time}}</text>
+          <text class="income-record__status income-record__status--{{item.status}}">{{item.statusLabel}}</text>
+        </view>
+
+        <view class="income-record__arrow-row">
+          <image class="income-record__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+
+    <empty-state
+      wx:elif="{{hasFilter}}"
+      variant="illustration"
+      icon="/assets/images/3x/points-empty.jpg"
+      title="没有匹配的收益记录"
+      description="换个收益单号或调整时间范围试试"
+    />
+
+    <empty-state
+      wx:else
+      variant="illustration"
+      icon="/assets/images/3x/points-empty.jpg"
+      title="暂无收益记录"
+      description="订单核销完成后，收益会记录在这里"
+    />
+
+    <view class="income-records-safe"></view>
+  </scroll-view>
+
+  <view wx:if="{{datePickerVisible}}" class="income-date-sheet">
+    <view class="income-date-sheet__mask" bindtap="closeDatePicker"></view>
+    <view class="income-date-sheet__panel">
+      <view class="income-date-sheet__head">
+        <text class="income-date-sheet__cancel" bindtap="closeDatePicker" aria-role="button" aria-label="取消时间选择">取消</text>
+        <text class="income-date-sheet__title">{{datePickerTitle}}</text>
+        <text class="income-date-sheet__confirm" bindtap="confirmDate" aria-role="button" aria-label="确定时间">确定</text>
+      </view>
+
+      <picker-view
+        class="income-date-picker"
+        indicator-class="income-date-picker__indicator"
+        value="{{pickerValue}}"
+        bindchange="handleDateChange"
+      >
+        <picker-view-column>
+          <view class="income-date-picker__item" wx:for="{{pickerYears}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view class="income-date-picker__item" wx:for="{{pickerMonths}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view class="income-date-picker__item" wx:for="{{pickerDays}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+</view>

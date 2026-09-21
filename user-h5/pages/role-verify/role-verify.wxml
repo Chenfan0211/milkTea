@@ -1,0 +1,63 @@
+<view class="function-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="function-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="function-empty">
+      <empty-state title="暂无权限" description="请先开通并选择经营角色" icon="/assets/icons/lucide/users.svg" />
+    </view>
+
+    <view wx:else class="function-content">
+      <view class="verify-tabs">
+        <view class="verify-tab {{mode === 'order' ? 'is-active' : ''}}" data-mode="order" bindtap="switchMode" aria-role="button" aria-label="点单核销">点单核销</view>
+        <view class="verify-tab {{mode === 'exchange' ? 'is-active' : ''}}" data-mode="exchange" bindtap="switchMode" aria-role="button" aria-label="兑换核销">兑换核销</view>
+      </view>
+
+      <view wx:if="{{mode === 'order'}}" class="verify-entry">
+        <view class="verify-entry__scan" bindtap="handleScan" aria-role="button" aria-label="扫码核销">
+          <image class="verify-entry__icon" src="/assets/icons/lucide/scan-line.svg" mode="aspectFit" />
+          <text class="verify-entry__label">扫码核销</text>
+        </view>
+        <view class="verify-entry__divider" />
+        <view class="verify-entry__input">
+          <input class="verify-entry__field" value="{{keyword}}" placeholder="输入取餐号或订单号" bindinput="handleInput" />
+          <view class="verify-entry__query" bindtap="handleQuery" aria-role="button" aria-label="查询订单">查询</view>
+        </view>
+      </view>
+
+      <view wx:else class="verify-entry">
+        <view class="verify-entry__scan" bindtap="handleScan" aria-role="button" aria-label="扫码核销兑换">
+          <image class="verify-entry__icon" src="/assets/icons/lucide/scan-line.svg" mode="aspectFit" />
+          <text class="verify-entry__label">扫码核销</text>
+        </view>
+        <view class="verify-entry__divider" />
+        <view class="verify-entry__input">
+          <input class="verify-entry__field" value="{{exchangeKeyword}}" placeholder="输入兑换自提码" bindinput="handleExchangeInput" />
+          <view class="verify-entry__query" bindtap="handleExchangeQuery" aria-role="button" aria-label="核销兑换">核销</view>
+        </view>
+      </view>
+
+      <view class="function-section">
+        <text class="function-section__title">今日已核销</text>
+        <view class="function-card">
+          <view wx:for="{{records}}" wx:key="id" class="record-row">
+            <image wx:if="{{item.image}}" class="record-row__image" src="{{item.image}}" mode="aspectFit" aria-label="{{item.title}}商品图片" />
+            <view class="record-row__body">
+              <view class="record-row__head">
+                <text class="record-row__title ellipsis">{{item.title}}</text>
+                <text class="record-row__type {{item.type === 'exchange' ? 'is-exchange' : ''}}">{{item.type === 'exchange' ? '兑换' : '奶茶'}}</text>
+              </view>
+              <text wx:if="{{item.orderNo}}" class="record-row__meta ellipsis">订单号 {{item.orderNo}}</text>
+              <text class="record-row__meta">{{item.meta}}</text>
+              <text class="record-row__time">核销时间 {{item.time}}</text>
+            </view>
+          </view>
+          <text wx:if="{{!records.length}}" class="function-empty-text">暂无核销记录</text>
+        </view>
+      </view>
+
+      <view class="function-note">
+        <text>演示数据，核销仅写入本地，需接入后端接口。</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

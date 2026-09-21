@@ -1,0 +1,66 @@
+<view class="invest-apply-page">
+  <navigation-bar title="填写投资申请" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="invest-apply-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="invest-apply-empty">
+      <empty-state title="点位不可申请" description="该点位已停用、已绑定或不存在" icon="/assets/icons/lucide/map-pinned.svg" />
+    </view>
+
+    <view wx:else class="invest-apply-content">
+      <view class="apply-spot">
+        <image class="apply-spot__icon" src="/assets/icons/lucide/map-pinned.svg" mode="aspectFit" />
+        <view class="apply-spot__body">
+          <text class="apply-spot__name">{{spot.name}}</text>
+          <text class="apply-spot__meta">{{spot.cityName}} · {{spot.distanceKm}}</text>
+          <text class="apply-spot__address">{{spot.address}}</text>
+        </view>
+      </view>
+
+      <view class="apply-card">
+        <view class="apply-card__head">
+          <image class="apply-card__icon" src="/assets/icons/lucide/user-plus.svg" mode="aspectFit" />
+          <text class="apply-card__title">申请信息</text>
+        </view>
+
+        <view wx:for="{{fields}}" wx:key="id" class="apply-field">
+          <text class="apply-field__label">{{item.label}}</text>
+          <input
+            class="apply-field__input"
+            type="{{item.type}}"
+            value="{{form[item.id]}}"
+            placeholder="{{item.placeholder}}"
+            placeholder-class="apply-field__placeholder"
+            data-field="{{item.id}}"
+            bindinput="handleInput"
+          />
+        </view>
+      </view>
+
+      <view class="apply-card">
+        <view class="apply-card__head">
+          <image class="apply-card__icon" src="/assets/icons/lucide/info.svg" mode="aspectFit" />
+          <text class="apply-card__title">申请须知</text>
+        </view>
+        <view wx:for="{{notes}}" wx:key="id" class="apply-note">
+          <image class="apply-note__icon" src="{{item.icon}}" mode="aspectFit" />
+          <view class="apply-note__body">
+            <text class="apply-note__title">{{item.title}}</text>
+            <text class="apply-note__desc">{{item.description}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="invest-apply-safe"></view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{ready}}" class="invest-apply-bar">
+    <view
+      class="invest-apply-bar__button {{canSubmit ? '' : 'is-disabled'}}"
+      bindtap="submit"
+      aria-role="button"
+      aria-label="提交投资申请"
+      aria-disabled="{{!canSubmit}}"
+    >提交申请</view>
+  </view>
+</view>

@@ -1,0 +1,116 @@
+.role-center-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg);
+}
+
+.role-center-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.role-center-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.role-tip {
+  padding: 24rpx;
+  background: var(--brand-tint);
+  border-radius: var(--radius-lg);
+}
+
+.role-tip__title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.role-tip__desc {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+.role-section {
+  margin-top: 20rpx;
+}
+
+.role-section__title {
+  display: block;
+  margin-bottom: 12rpx;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.role-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border: 2rpx solid var(--line-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.role-card + .role-card {
+  margin-top: 20rpx;
+}
+
+.role-card.is-current {
+  border-color: var(--brand-green);
+}
+
+.role-card__icon {
+  flex: none;
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.role-card__body {
+  flex: 1;
+  min-width: 0;
+  margin-left: 20rpx;
+}
+
+.role-card__head {
+  display: flex;
+  align-items: center;
+}
+
+.role-card__label {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.role-card__current {
+  margin-left: 12rpx;
+  padding: 4rpx 12rpx;
+  color: var(--tag-light-text);
+  font-size: var(--font-caption);
+  background: var(--tag-light-bg);
+  border-radius: var(--radius-pill);
+}
+
+.role-card__desc {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+.role-card__check {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 12rpx;
+}

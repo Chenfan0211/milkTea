@@ -1,0 +1,89 @@
+<view class="workbench-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="workbench-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="workbench-empty">
+      <empty-state
+        title="暂无权限访问该工作台"
+        description="当前账号没有可用的经营角色，返回角色中心查看或申请"
+        icon="/assets/icons/lucide/users.svg"
+      />
+    </view>
+
+    <view wx:else class="workbench-content" aria-role="article" aria-label="{{title}}">
+      <view class="workbench-hero">
+        <image class="workbench-hero__icon" src="{{role.whiteIcon}}" mode="aspectFit" />
+        <view class="workbench-hero__body">
+          <text class="workbench-hero__label">{{role.label}}工作台</text>
+          <text class="workbench-hero__desc">{{role.description}}</text>
+        </view>
+      </view>
+
+      <view class="metric-grid">
+        <view wx:for="{{dashboard.metrics}}" wx:key="id" class="metric-card">
+          <image class="metric-card__icon" src="{{item.icon}}" mode="aspectFit" />
+          <text class="metric-card__value">{{item.value}}</text>
+          <text class="metric-card__label">{{item.label}}</text>
+        </view>
+      </view>
+
+      <view class="action-section">
+        <text class="action-section__title">功能</text>
+        <view class="action-card">
+          <view
+            wx:for="{{dashboard.actions}}"
+            wx:key="id"
+            id="action-{{item.id}}"
+            class="action-row {{dashboard._highlightId === item.id ? 'is-highlight' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="handleAction"
+            aria-role="button"
+            aria-label="{{item.label}}"
+          >
+            <image class="action-row__icon" src="{{item.icon}}" mode="aspectFit" />
+            <view class="action-row__body">
+              <text class="action-row__label">{{item.label}}</text>
+              <text class="action-row__desc">{{item.description}}</text>
+            </view>
+            <image class="action-row__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+
+      <view class="action-section">
+        <text class="action-section__title">资金与规则</text>
+        <view class="action-card">
+          <view
+            class="action-row"
+            bindtap="openIncomeRules"
+            aria-role="button"
+            aria-label="查看分账与结算说明"
+          >
+            <image class="action-row__icon" src="/assets/icons/lucide/badge-percent.svg" mode="aspectFit" />
+            <view class="action-row__body">
+              <text class="action-row__label">分账与结算说明</text>
+              <text class="action-row__desc">分账口径、结算周期与退款冲正规则</text>
+            </view>
+            <image class="action-row__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+          </view>
+
+          <view
+            class="action-row"
+            bindtap="openWithdrawRules"
+            aria-role="button"
+            aria-label="查看提现规则"
+          >
+            <image class="action-row__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
+            <view class="action-row__body">
+              <text class="action-row__label">提现规则</text>
+              <text class="action-row__desc">到账时效、审核标准与费用说明</text>
+            </view>
+            <image class="action-row__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+
+      <view class="workbench-safe"></view>
+    </view>
+  </scroll-view>
+</view>

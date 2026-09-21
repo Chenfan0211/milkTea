@@ -1,0 +1,394 @@
+.invest-records-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+/* 工具栏：搜索 + 时间范围 + 状态筛选 */
+.invest-record-toolbar {
+  flex: none;
+  background: var(--card-bg);
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.invest-record-search {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  margin: 20rpx var(--page-gutter) 12rpx;
+  padding: 0 20rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-pill);
+}
+
+.invest-record-search__icon {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+}
+
+.invest-record-search__input {
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.invest-record-search__placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-base);
+}
+
+.invest-record-search__clear {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  margin-left: 8rpx;
+}
+
+.invest-record-search__clear-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+/* 时间范围选择 */
+.invest-record-dates {
+  display: flex;
+  align-items: center;
+  margin: 0 var(--page-gutter) 12rpx;
+}
+
+.invest-record-date {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 64rpx;
+  padding: 0 16rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
+.invest-record-date.is-set {
+  background: var(--brand-soft);
+}
+
+.invest-record-date__icon {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+}
+
+.invest-record-date__text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.invest-record-date.is-set .invest-record-date__text {
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.invest-record-dates__sep {
+  flex: none;
+  margin: 0 16rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.invest-record-dates__reset {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 64rpx;
+  margin-left: 12rpx;
+}
+
+.invest-record-dates__reset-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.invest-record-categories {
+  width: 100%;
+}
+
+.invest-record-categories__inner {
+  display: flex;
+  min-width: 750rpx;
+}
+
+.invest-record-category {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 150rpx;
+  height: 88rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+}
+
+.invest-record-category.is-empty {
+  color: var(--text-muted);
+}
+
+.invest-record-category.is-active {
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.invest-record-category.is-active::after {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 40rpx;
+  height: 4rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.invest-record-category__count {
+  margin-left: 6rpx;
+  font-size: var(--font-sm);
+}
+
+.invest-record-category.is-active .invest-record-category__count {
+  color: var(--brand-green);
+}
+
+/* 列表 */
+.invest-record-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.invest-record-list {
+  padding: 20rpx var(--page-gutter);
+}
+
+.invest-record {
+  position: relative;
+  margin-bottom: 16rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.invest-record__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.invest-record__store {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 48rpx;
+}
+
+.invest-record__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8rpx;
+}
+
+.invest-record__label {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.invest-record__value {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  text-align: right;
+}
+
+.invest-record__value--strong {
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.invest-record__status {
+  flex: none;
+  margin-left: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.invest-record__arrow {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.invest-record__status--signed {
+  color: var(--brand-green);
+}
+
+.invest-record__status--pending {
+  color: var(--queue-warning);
+}
+
+.invest-record__status--rejected {
+  color: var(--accent-orange);
+}
+
+.invest-record__order {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  padding: 12rpx 16rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
+.invest-record__order-no {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.invest-record__copy {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-left: 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+}
+
+.invest-record__copy-icon {
+  width: 26rpx;
+  height: 26rpx;
+  margin-right: 4rpx;
+}
+
+.invest-record__note {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+.invest-record__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--line-color);
+}
+
+.invest-record__time {
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.invest-records-safe {
+  height: calc(20rpx + env(safe-area-inset-bottom));
+}
+
+/* 时间选择弹层 */
+.invest-date-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1200;
+}
+
+.invest-date-sheet__mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.invest-date-sheet__panel {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.invest-date-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 96rpx;
+  padding: 0 var(--page-gutter);
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.invest-date-sheet__title {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.invest-date-sheet__cancel {
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.invest-date-sheet__confirm {
+  color: var(--brand-green);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.invest-date-picker {
+  width: 100%;
+  height: 420rpx;
+}
+
+.invest-date-picker__indicator {
+  height: 80rpx;
+}
+
+.invest-date-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+}

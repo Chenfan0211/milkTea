@@ -1,0 +1,102 @@
+<view class="withdraw-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="withdraw-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="withdraw-empty">
+      <empty-state title="暂无权限" description="请先开通并选择经营角色" icon="/assets/icons/lucide/users.svg" />
+    </view>
+
+    <view wx:else class="withdraw-content">
+      <view class="withdraw-hero">
+        <text class="withdraw-hero__label">可提现余额（元）</text>
+        <text class="withdraw-hero__value">{{data.balance}}</text>
+
+        <view class="withdraw-hero__metrics">
+          <view class="withdraw-hero__metric">
+            <text class="withdraw-hero__metric-value">{{data.pending}}</text>
+            <text class="withdraw-hero__metric-label">待结算</text>
+          </view>
+          <view class="withdraw-hero__metric">
+            <text class="withdraw-hero__metric-value">{{data.deposit}}</text>
+            <text class="withdraw-hero__metric-label">押金</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="withdraw-form">
+        <view class="withdraw-form__head">
+          <text class="withdraw-form__title">提现金额</text>
+          <text class="withdraw-form__hint">可用 {{data.balance}}</text>
+        </view>
+
+        <view class="withdraw-form__field">
+          <text class="withdraw-form__prefix">¥</text>
+          <input
+            class="withdraw-form__input"
+            type="digit"
+            value="{{amount}}"
+            placeholder="输入提现金额"
+            placeholder-class="withdraw-form__placeholder"
+            bindinput="handleAmount"
+          />
+          <text
+            class="withdraw-form__all"
+            bindtap="fillAll"
+            aria-role="button"
+            aria-label="全部提现"
+          >全部</text>
+        </view>
+
+        <view class="withdraw-form__summary">
+          <view class="withdraw-form__summary-item">
+            <text class="withdraw-form__summary-label">本次到账</text>
+            <text class="withdraw-form__summary-value">¥{{arrivalText}}</text>
+          </view>
+          <view class="withdraw-form__summary-item">
+            <text class="withdraw-form__summary-label">手续费</text>
+            <text class="withdraw-form__summary-value">¥{{feeText}}</text>
+          </view>
+        </view>
+
+        <view
+          class="withdraw-form__submit {{canSubmit ? '' : 'is-disabled'}}"
+          bindtap="submit"
+          aria-role="button"
+          aria-label="提交提现"
+          aria-disabled="{{!canSubmit}}"
+        >提交提现</view>
+      </view>
+
+      <view class="withdraw-links">
+        <view
+          class="withdraw-link"
+          bindtap="openRules"
+          aria-role="button"
+          aria-label="查看提现规则"
+        >
+          <image class="withdraw-link__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
+          <view class="withdraw-link__body">
+            <text class="withdraw-link__title">提现规则</text>
+            <text class="withdraw-link__desc">到账时效、审核标准与费用说明</text>
+          </view>
+          <image class="withdraw-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+
+        <view
+          class="withdraw-link"
+          bindtap="openRecords"
+          aria-role="button"
+          aria-label="查看提现记录"
+        >
+          <image class="withdraw-link__icon" src="/assets/icons/lucide/receipt.svg" mode="aspectFit" />
+          <view class="withdraw-link__body">
+            <text class="withdraw-link__title">提现记录</text>
+            <text class="withdraw-link__desc">{{recordsSummary}}</text>
+          </view>
+          <image class="withdraw-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>
+

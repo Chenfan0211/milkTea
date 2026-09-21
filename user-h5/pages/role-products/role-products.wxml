@@ -1,0 +1,151 @@
+<view class="products-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="products-toolbar">
+    <view class="products-search">
+      <image class="products-search__icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+      <input
+        class="products-search__input"
+        value="{{keyword}}"
+        placeholder="搜索商品名称或编号"
+        placeholder-class="products-search__placeholder"
+        bindinput="handleKeyword"
+        aria-label="搜索商品名称或编号"
+      />
+      <view
+        wx:if="{{keyword}}"
+        class="products-search__clear"
+        bindtap="clearKeyword"
+        aria-role="button"
+        aria-label="清空搜索"
+      >
+        <image class="products-search__clear-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <scroll-view class="products-tabs-scroll" scroll-x show-scrollbar="{{false}}">
+      <view class="products-tabs">
+        <view
+          wx:for="{{catTabs}}"
+          wx:key="id"
+          class="products-tab {{activeCatId === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
+          data-id="{{item.id}}"
+          bindtap="switchCat"
+          aria-role="button"
+          aria-label="{{item.label}} {{item.count}} 个"
+        >{{item.label}} {{item.count}}</view>
+      </view>
+    </scroll-view>
+
+    <view class="products-status">
+      <view
+        wx:for="{{statusTabs}}"
+        wx:key="id"
+        class="products-status__item {{activeStatusId === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
+        data-id="{{item.id}}"
+        bindtap="switchStatus"
+        aria-role="button"
+        aria-label="{{item.label}} {{item.count}} 个"
+      >{{item.label}} {{item.count}}</view>
+    </view>
+
+    <view class="products-summary">
+      <text class="products-summary__text">共 {{stats.total}} 个可选商品 · 已上架 {{stats.listed}} · 已下架 {{stats.unlisted}}</text>
+      <text
+        wx:if="{{selectedCount}}"
+        class="products-summary__clear"
+        bindtap="clearSelection"
+        aria-role="button"
+        aria-label="取消选择"
+      >取消选择</text>
+    </view>
+  </view>
+
+  <scroll-view class="products-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{filteredProducts.length}}" class="products-list">
+      <view
+        wx:for="{{filteredProducts}}"
+        wx:key="id"
+        class="product-row {{item.selected ? 'is-selected' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="openDetail"
+        aria-role="button"
+        aria-label="查看商品 {{item.name}} 详情"
+      >
+        <view
+          class="product-row__check {{item.selected ? 'is-checked' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="toggleSelect"
+          aria-role="button"
+          aria-label="{{item.selected ? '取消选择' : '选择'}}{{item.name}}"
+        >
+          <image wx:if="{{item.selected}}" class="product-row__check-icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+        </view>
+
+        <image class="product-row__image" src="{{item.image}}" mode="aspectFill" aria-label="{{item.name}}" />
+
+        <view class="product-row__body">
+          <text class="product-row__name ellipsis">{{item.name}}</text>
+          <text class="product-row__meta ellipsis">{{item.categoryLabel}} · {{item.id}}</text>
+          <view class="product-row__foot">
+            <text class="product-row__price">¥{{item.price}}</text>
+            <text class="product-row__badge {{item.listed ? 'is-listed' : 'is-unlisted'}}">{{item.listed ? '已上架' : '已下架'}}</text>
+          </view>
+        </view>
+
+        <image class="product-row__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+
+        <view
+          class="product-row__switch {{item.listed ? 'is-on' : 'is-off'}}"
+          data-id="{{item.id}}"
+          catchtap="toggleListing"
+          aria-role="button"
+          aria-label="{{item.listed ? '下架' : '上架'}}{{item.name}}"
+        >
+          <view class="product-row__switch-knob"></view>
+        </view>
+      </view>
+    </view>
+
+    <empty-state
+      wx:elif="{{hasFilter}}"
+      variant="illustration"
+      icon="/assets/images/3x/points-empty.jpg"
+      title="没有匹配的商品"
+      description="换个商品名称、编号或分类试试"
+    />
+
+    <empty-state
+      wx:else
+      variant="illustration"
+      icon="/assets/images/3x/points-empty.jpg"
+      title="暂无可选商品"
+      description="运营后台已上架的商品会展示在这里"
+    />
+
+    <view class="products-safe"></view>
+  </scroll-view>
+
+  <view wx:if="{{selectedCount}}" class="products-bar">
+    <view class="products-bar__info">
+      <text class="products-bar__count">已选 {{selectedCount}} 个</text>
+      <text class="products-bar__hint">上架 {{selectedListedCount}} · 下架 {{selectedUnlistedCount}}</text>
+    </view>
+    <view class="products-bar__actions">
+      <view
+        class="products-bar__button products-bar__button--secondary"
+        data-listed="false"
+        bindtap="batchUpdate"
+        aria-role="button"
+        aria-label="批量下架"
+      >批量下架</view>
+      <view
+        class="products-bar__button products-bar__button--primary"
+        data-listed="true"
+        bindtap="batchUpdate"
+        aria-role="button"
+        aria-label="批量上架"
+      >批量上架</view>
+    </view>
+  </view>
+</view>

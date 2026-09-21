@@ -1,0 +1,86 @@
+<view class="income-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="income-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="income-empty">
+      <empty-state title="暂无权限" description="请先开通并选择经营角色" icon="/assets/icons/lucide/users.svg" />
+    </view>
+
+    <view wx:else class="income-content">
+      <view class="income-hero">
+        <text class="income-hero__label">{{metricLabel}}</text>
+        <text class="income-hero__value">{{metricValue}}</text>
+
+        <view class="income-hero__metrics">
+          <view class="income-hero__metric">
+            <text class="income-hero__metric-value">{{income.pending}}</text>
+            <text class="income-hero__metric-label">待结算</text>
+          </view>
+          <view class="income-hero__metric">
+            <text class="income-hero__metric-value">{{income.settled}}</text>
+            <text class="income-hero__metric-label">可结算</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="income-summary">
+        <view class="income-summary__item">
+          <text class="income-summary__label">{{summaryLabel}}</text>
+          <text class="income-summary__value">{{summaryValue}}</text>
+        </view>
+        <view class="income-summary__item">
+          <text class="income-summary__label">累计收益</text>
+          <text class="income-summary__value">{{income.total}}</text>
+        </view>
+      </view>
+
+      <view class="income-links">
+        <view
+          class="income-link"
+          bindtap="openRecords"
+          aria-role="button"
+          aria-label="查看收益记录"
+        >
+          <image class="income-link__icon" src="/assets/icons/lucide/receipt.svg" mode="aspectFit" />
+          <view class="income-link__body">
+            <text class="income-link__title">收益记录</text>
+            <text class="income-link__desc">{{recordsSummary}}</text>
+          </view>
+          <image class="income-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+
+        <view
+          class="income-link"
+          bindtap="openRules"
+          aria-role="button"
+          aria-label="查看结算说明"
+        >
+          <image class="income-link__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
+          <view class="income-link__body">
+            <text class="income-link__title">结算说明</text>
+            <text class="income-link__desc">分账口径、结算周期与退款冲正规则</text>
+          </view>
+          <image class="income-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view class="income-section">
+        <view class="income-section__head">
+          <image class="income-section__icon" src="/assets/icons/lucide/trending-up-brand.svg" mode="aspectFit" />
+          <text class="income-section__title">收益趋势</text>
+        </view>
+        <view class="income-trend-card">
+          <view wx:for="{{income.trend}}" wx:key="id" class="income-trend">
+            <view class="income-trend__body">
+              <text class="income-trend__label">{{item.label}}</text>
+              <view class="income-trend__bar-track">
+                <view class="income-trend__bar" style="width: {{item.percent}}%"></view>
+              </view>
+            </view>
+            <text class="income-trend__value">{{item.value}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

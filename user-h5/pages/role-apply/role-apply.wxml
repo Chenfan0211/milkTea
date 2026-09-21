@@ -1,0 +1,66 @@
+<view class="role-apply-page">
+  <navigation-bar title="加盟合作申请" back="{{true}}" background="#F7F7F7" color="#2F302D" />
+
+  <scroll-view class="role-apply-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="role-apply-content">
+      <text class="role-apply-tip">请选择希望开通的经营角色，并填写对应信息。提交后需运营审核。</text>
+
+      <text class="role-apply-section-title">选择经营角色</text>
+      <view class="role-select">
+        <view
+          wx:for="{{roles}}"
+          wx:key="id"
+          class="role-select__card {{selectedRoleId === item.id ? 'is-active' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="selectRole"
+          aria-role="button"
+          aria-label="选择{{item.label}}"
+        >
+          <image class="role-select__icon" src="{{item.icon}}" mode="aspectFit" />
+          <view class="role-select__body">
+            <text class="role-select__label">{{item.label}}</text>
+            <text class="role-select__desc">{{item.description}}</text>
+          </view>
+          <image wx:if="{{selectedRoleId === item.id}}" class="role-select__check" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view wx:if="{{fields.length}}">
+        <text class="role-apply-section-title">填写申请信息</text>
+        <view class="role-form">
+          <view wx:for="{{fields}}" wx:key="id" class="role-form__row">
+            <text class="role-form__label">{{item.label}}</text>
+            <picker
+              wx:if="{{item.type === 'select'}}"
+              class="role-form__input"
+              mode="selector"
+              range="{{item.options}}"
+              range-key="name"
+              data-field="{{item.id}}"
+              bindchange="handleSelect"
+            >
+              <view class="role-form__input {{form[item.id] ? '' : 'role-form__placeholder'}}">{{form[item.id] || item.placeholder}}</view>
+            </picker>
+            <input
+              wx:else
+              class="role-form__input"
+              type="{{item.type}}"
+              value="{{form[item.id]}}"
+              placeholder="{{item.placeholder}}"
+              placeholder-class="role-form__placeholder"
+              data-field="{{item.id}}"
+              bindinput="handleInput"
+            />
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="role-apply-bar">
+    <view class="role-apply-submit" bindtap="submit" hover-class="role-apply-submit--pressed" aria-role="button" aria-label="提交申请">
+      <text>提交申请</text>
+    </view>
+  </view>
+</view>
+

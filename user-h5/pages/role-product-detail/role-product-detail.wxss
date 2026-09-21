@@ -1,0 +1,334 @@
+.product-detail-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.product-detail-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.product-detail-empty {
+  padding: 20rpx;
+}
+
+.product-detail-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* 商品主视觉 */
+.detail-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 480rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-lg);
+}
+
+.detail-hero__image {
+  width: 400rpx;
+  height: 400rpx;
+}
+
+.detail-hero__badge {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.detail-hero__note {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+  line-height: 32rpx;
+  text-align: center;
+}
+
+/* 卡片 */
+.detail-card {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.detail-card--main {
+  margin-top: 20rpx;
+}
+
+.detail-card__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.detail-card__icon {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 8rpx;
+}
+
+.detail-card__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+/* 商品主信息 */
+.detail-name {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  line-height: 52rpx;
+}
+
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.detail-tag {
+  margin-right: 8rpx;
+  margin-bottom: 8rpx;
+  padding: 0 12rpx;
+  color: var(--tag-light-text);
+  font-size: var(--font-caption);
+  line-height: 36rpx;
+  background: var(--tag-light-bg);
+  border-radius: var(--radius-xs);
+}
+
+.detail-price {
+  display: flex;
+  align-items: baseline;
+  margin-top: 16rpx;
+}
+
+.detail-price__symbol {
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.detail-price__value {
+  color: var(--text-main);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 64rpx;
+}
+
+.detail-price__original {
+  margin-left: 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-decoration: line-through;
+}
+
+.detail-desc {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.detail-promo {
+  display: block;
+  margin-top: 12rpx;
+  padding: 12rpx 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-sm);
+}
+
+/* 信息行 */
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detail-row__label {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.detail-row__value {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  text-align: right;
+  word-break: break-all;
+}
+
+.detail-row__value--listed {
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.detail-row__value--unlisted {
+  color: var(--accent-orange);
+  font-weight: 600;
+}
+
+.detail-row__copy {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  margin-left: 24rpx;
+}
+
+.detail-row__copy-icon {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+  margin-left: 8rpx;
+}
+
+/* 规格 */
+.spec-group {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.spec-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.spec-group__label {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.spec-group__options {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.spec-option {
+  display: flex;
+  align-items: baseline;
+  margin-right: 12rpx;
+  margin-bottom: 12rpx;
+  padding: 8rpx 16rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
+.spec-option__label {
+  color: var(--text-main);
+  font-size: var(--font-sm);
+}
+
+.spec-option__delta {
+  margin-left: 6rpx;
+  color: var(--brand-green);
+  font-size: var(--font-caption);
+}
+
+.detail-tips {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.product-detail-safe {
+  height: 20rpx;
+}
+
+/* 底部操作条 */
+.product-detail-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx var(--page-gutter) calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  border-top: 1rpx solid var(--line-color);
+}
+
+.product-detail-bar__status {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.product-detail-bar__label {
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+  line-height: 28rpx;
+}
+
+.product-detail-bar__value {
+  margin-top: 4rpx;
+  font-size: var(--font-base);
+  font-weight: 600;
+  line-height: 36rpx;
+}
+
+.product-detail-bar__value.is-listed {
+  color: var(--brand-green);
+}
+
+.product-detail-bar__value.is-unlisted {
+  color: var(--accent-orange);
+}
+
+.product-detail-bar__button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 240rpx;
+  height: 80rpx;
+  padding: 0 40rpx;
+  font-size: var(--font-md);
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+}
+
+.product-detail-bar__button.is-list {
+  color: var(--card-bg);
+  background: var(--brand-green);
+}
+
+.product-detail-bar__button.is-unlist {
+  color: var(--text-main);
+  background: var(--card-bg);
+  border: 2rpx solid var(--line-color);
+}

@@ -1,0 +1,192 @@
+<view class="resource-orders-page">
+  <navigation-bar title="门店提成订单" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="resource-orders-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="resource-orders-empty">
+      <empty-state
+        title="暂无权限"
+        description="仅资源方角色可查看绑定门店提成"
+        icon="/assets/icons/lucide/users.svg"
+      />
+    </view>
+
+    <view wx:else class="resource-orders-content">
+      <view class="orders-hero">
+        <text class="orders-hero__label">提成合计（元）</text>
+        <text class="orders-hero__value">{{totalText}}</text>
+        <view class="orders-hero__metrics">
+          <view class="orders-hero__metric">
+            <text class="orders-hero__metric-value">{{count}}</text>
+            <text class="orders-hero__metric-label">提成订单</text>
+          </view>
+          <view class="orders-hero__metric">
+            <text class="orders-hero__metric-value">{{pendingCount}}</text>
+            <text class="orders-hero__metric-label">待结算</text>
+          </view>
+          <view class="orders-hero__metric">
+            <text class="orders-hero__metric-value">{{stores.length}}</text>
+            <text class="orders-hero__metric-label">绑定门店</text>
+          </view>
+        </view>
+      </view>
+
+      <scroll-view class="orders-tabs-scroll" scroll-x show-scrollbar="{{false}}">
+        <view class="orders-tabs">
+          <view
+            wx:for="{{storeTabs}}"
+            wx:key="id"
+            class="orders-tab {{activeStoreId === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
+            data-id="{{item.id}}"
+            bindtap="switchStore"
+            aria-role="button"
+            aria-label="{{item.label}} {{item.count}} 单"
+          >{{item.label}} {{item.count}}</view>
+        </view>
+      </scroll-view>
+
+      <view wx:if="{{groups.length}}" class="orders-groups">
+        <view wx:for="{{groups}}" wx:key="id" class="order-group">
+          <view class="order-group__head">
+            <view class="order-group__title-wrap">
+              <image class="order-group__icon" src="/assets/icons/lucide/store-brand.svg" mode="aspectFit" />
+              <text class="order-group__name">{{item.name}}</text>
+            </view>
+            <text class="order-group__summary">{{item.count}} 单 · {{item.totalText}}</text>
+          </view>
+
+          <view class="order-group__list">
+            <view
+              wx:for="{{item.orders}}"
+              wx:for-item="order"
+              wx:key="id"
+              class="order-card"
+              data-id="{{order.id}}"
+              bindtap="openOrder"
+              aria-role="button"
+              aria-label="查看订单 {{order.orderNo}} 详情"
+            >
+              <view class="order-card__head">
+                <text class="order-card__title ellipsis">{{order.title}}</text>
+                <text class="order-card__amount order-card__amount--{{order.status === 'reversed' ? 'out' : 'in'}}">{{order.amount}}</text>
+              </view>
+              <text class="order-card__spec ellipsis">{{order.spec}} · x{{order.quantity}}</text>
+
+              <view class="order-card__order">
+                <text class="order-card__order-no">订单 {{order.orderNo}}</text>
+                <view
+                  class="order-card__copy"
+                  data-order-no="{{order.orderNo}}"
+                  catchtap="copyOrderNo"
+                  aria-role="button"
+                  aria-label="复制订单号"
+                >
+                  <image class="order-card__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+                  <text>复制</text>
+                </view>
+              </view>
+
+              <view class="order-card__foot">
+                <text class="order-card__time">{{order.time}}</text>
+                <text class="order-card__status order-card__status--{{order.status}}">{{order.statusLabel}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <empty-state
+        wx:else
+        variant="illustration"
+        icon="/assets/images/3x/points-empty.jpg"
+        title="暂无提成订单"
+        description="绑定门店产生订单后，提成会展示在这里"
+      />
+
+      <view class="resource-orders-safe"></view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{detailVisible}}" class="order-sheet">
+    <view class="order-sheet__mask" bindtap="closeOrder"></view>
+    <view class="order-sheet__panel">
+      <view class="order-sheet__head">
+        <text class="order-sheet__title">提成订单详情</text>
+        <view class="order-sheet__close" bindtap="closeOrder" aria-role="button" aria-label="关闭详情">
+          <image class="order-sheet__close-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <scroll-view class="order-sheet__scroll" scroll-y show-scrollbar="{{false}}">
+        <view class="order-sheet__amount-wrap">
+          <text class="order-sheet__amount order-sheet__amount--{{detail.status === 'reversed' ? 'out' : 'in'}}">{{detail.amount}}</text>
+          <text class="order-sheet__status order-sheet__status--{{detail.status}}">{{detail.statusLabel}}</text>
+        </view>
+        <text class="order-sheet__note">{{detail.note}}</text>
+
+        <view wx:if="{{detail.failReason}}" class="order-sheet__alert">
+          <image class="order-sheet__alert-icon" src="/assets/icons/lucide/circle-alert-warning.svg" mode="aspectFit" />
+          <text class="order-sheet__alert-text">{{detail.failReason}}</text>
+        </view>
+
+        <view class="order-sheet__card">
+          <view class="order-sheet__row">
+            <text class="order-sheet__label">订单编号</text>
+            <text class="order-sheet__value">{{detail.orderNo}}</text>
+          </view>
+          <view class="order-sheet__row">
+            <text class="order-sheet__label">所属门店</text>
+            <text class="order-sheet__value">{{detail.storeName}}</text>
+          </view>
+          <view class="order-sheet__row">
+            <text class="order-sheet__label">商品</text>
+            <text class="order-sheet__value">{{detail.title}} x{{detail.quantity}}</text>
+          </view>
+          <view class="order-sheet__row">
+            <text class="order-sheet__label">规格</text>
+            <text class="order-sheet__value">{{detail.spec}}</text>
+          </view>
+          <view class="order-sheet__row">
+            <text class="order-sheet__label">订单金额</text>
+            <text class="order-sheet__value">{{detail.orderAmount}}</text>
+          </view>
+          <view class="order-sheet__row">
+            <text class="order-sheet__label">提成金额</text>
+            <text class="order-sheet__value order-sheet__value--strong">{{detail.amount}}</text>
+          </view>
+          <view class="order-sheet__row">
+            <text class="order-sheet__label">下单时间</text>
+            <text class="order-sheet__value">{{detail.time}}</text>
+          </view>
+        </view>
+
+        <view class="order-sheet__card">
+          <view class="order-sheet__card-head">
+            <image class="order-sheet__card-icon" src="/assets/icons/lucide/trending-up-brand.svg" mode="aspectFit" />
+            <text class="order-sheet__card-title">结算流转</text>
+          </view>
+          <view class="order-timeline">
+            <view wx:for="{{detail.timeline}}" wx:key="id" class="timeline-item timeline-item--{{item.state}}">
+              <view class="timeline-item__rail">
+                <image
+                  class="timeline-item__dot"
+                  src="{{item.state === 'todo' ? '/assets/icons/lucide/circle-dot-muted.svg' : '/assets/icons/lucide/circle-dot-brand.svg'}}"
+                  mode="aspectFit"
+                />
+                <view wx:if="{{index !== detail.timeline.length - 1}}" class="timeline-item__line"></view>
+              </view>
+              <view class="timeline-item__body">
+                <view class="timeline-item__head">
+                  <text class="timeline-item__title">{{item.title}}</text>
+                  <text class="timeline-item__time">{{item.time || '待处理'}}</text>
+                </view>
+                <text class="timeline-item__desc">{{item.description}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="order-sheet__safe"></view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

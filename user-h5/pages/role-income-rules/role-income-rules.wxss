@@ -1,0 +1,111 @@
+.income-rules-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.income-rules-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.income-rules-empty {
+  padding: 20rpx;
+}
+
+.income-rules-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.income-rules-lead {
+  display: flex;
+  flex-direction: column;
+  padding: 24rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-lg);
+}
+
+.income-rules-lead__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.income-rules-lead__desc {
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.income-rules-list {
+  margin-top: 20rpx;
+  padding: 8rpx 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.income-rule {
+  display: flex;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.income-rule:last-child {
+  border-bottom: none;
+}
+
+.income-rule__icon {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 16rpx;
+}
+
+.income-rule__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.income-rule__title {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.income-rule__desc {
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.income-rule__extra {
+  margin-top: 8rpx;
+  padding: 12rpx 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-sm);
+}
+
+.income-rules-foot {
+  margin-top: 24rpx;
+  padding: 0 8rpx;
+}
+
+.income-rules-foot__line {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
