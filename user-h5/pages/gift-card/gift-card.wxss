@@ -86,7 +86,7 @@
   height: 4rpx;
   background: var(--brand-green);
   border-radius: var(--radius-xs);
-  content: "";
+  content: '';
   transform: translateX(-50%);
 }
 
@@ -161,7 +161,7 @@
   width: 320rpx;
   height: 80rpx;
   margin: 0 auto 40rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-md);
   font-weight: 600;
   background: var(--brand-green);

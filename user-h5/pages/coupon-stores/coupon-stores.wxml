@@ -1,5 +1,5 @@
 <view class="store-page">
-  <navigation-bar title="选择商品适用门店" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
 
   <view class="store-filter">
     <view class="store-filter__location" data-label="选择定位地址" bindtap="showUnavailable" aria-role="button" aria-label="选择定位地址">
@@ -15,18 +15,15 @@
 
   <scroll-view class="store-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="store-page__list">
-      <view class="store-card" wx:for="{{stores}}" wx:key="id" data-id="{{item.id}}" bindtap="handleSelectStore" hover-class="store-card--pressed" aria-role="button" aria-label="选择{{item.name}}">
-        <view class="store-card__head">
-          <text class="store-card__name">{{item.name}}</text>
-          <text class="store-card__distance">{{item.distanceKm}}</text>
-        </view>
-        <view class="store-card__content">
-          <text class="store-card__address">{{item.address}}</text>
-          <view class="store-card__navigate" data-id="{{item.id}}" catchtap="handleNavigate" aria-role="button" aria-label="{{item.name}}导航">
-            <image class="store-card__navigate-icon" src="/assets/icons/lucide/navigation.svg" mode="aspectFit" />
-          </view>
-        </view>
-      </view>
+      <store-list-card
+        wx:for="{{stores}}"
+        wx:key="id"
+        store="{{item}}"
+        selected="{{item.id === selectedStoreId}}"
+        bind:select="handleSelectStore"
+        bind:phone="handlePhone"
+        bind:navigate="handleNavigate"
+      />
     </view>
   </scroll-view>
 </view>

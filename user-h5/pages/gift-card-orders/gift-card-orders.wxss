@@ -1,0 +1,246 @@
+.gift-orders-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg);
+}
+
+.gift-orders-toolbar {
+  flex: none;
+  background: var(--card-bg);
+}
+
+.gift-orders-search {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  margin: 20rpx var(--page-gutter) 0;
+  padding: 0 24rpx;
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-pill);
+}
+
+.gift-orders-search__icon {
+  flex: none;
+  width: 30rpx;
+  height: 30rpx;
+  margin-right: 12rpx;
+}
+
+.gift-orders-search__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+}
+
+.gift-orders-search__placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.gift-orders-search__clear {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  margin-left: 8rpx;
+}
+
+.gift-orders-search__clear-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.gift-orders-status {
+  width: 100%;
+  height: 88rpx;
+  white-space: nowrap;
+}
+
+.gift-orders-status__inner {
+  display: inline-flex;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 var(--page-gutter);
+}
+
+.gift-orders-status__item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 120rpx;
+  height: 56rpx;
+  margin-right: 16rpx;
+  padding: 0 20rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-sm);
+}
+
+.gift-orders-status__item.is-active {
+  color: var(--brand-green);
+  font-weight: 600;
+  background: var(--brand-soft);
+  border-color: var(--brand-green);
+}
+
+.gift-orders-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.gift-orders-list__inner {
+  padding: 20rpx var(--page-gutter) 40rpx;
+}
+
+.gift-order-card {
+  margin-bottom: 16rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.gift-order-card__head {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.gift-order-card__main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 24rpx;
+}
+
+.gift-order-card__image {
+  display: block;
+  flex: none;
+  width: 160rpx;
+  height: 104rpx;
+  background: var(--page-bg);
+  border-radius: var(--radius-sm);
+}
+
+.gift-order-card__info {
+  margin-top: 16rpx;
+}
+
+.gift-order-card__status-wrap {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 16rpx;
+  color: var(--brand-green);
+}
+
+.gift-order-card__title {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.gift-order-card__status {
+  flex: none;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.gift-order-card__countdown {
+  margin-top: 4rpx;
+  font-size: var(--font-sm);
+}
+
+.gift-order-card.is-canceled .gift-order-card__status-wrap {
+  color: var(--text-muted);
+}
+
+.gift-order-card__meta {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.gift-order-card__amount {
+  flex: none;
+  margin-left: 16rpx;
+}
+
+.gift-order-card__price {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.gift-order-card__verify {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--page-bg);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-md);
+}
+
+.gift-order-card__verify-code {
+  margin-top: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.gift-order-card__verify-hint {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.gift-order-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20rpx;
+}
+
+.gift-order-card__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160rpx;
+  height: 48rpx;
+  padding: 0 24rpx;
+  font-size: var(--font-sm);
+  border-radius: var(--radius-pill);
+}
+
+.gift-order-card__action--secondary {
+  margin-right: 16rpx;
+  color: var(--text-main);
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+}
+
+.gift-order-card__action--primary {
+  color: var(--card-bg);
+  background: var(--brand-green);
+}
+
+.gift-orders-empty {
+  padding: 40rpx 0 0;
+}

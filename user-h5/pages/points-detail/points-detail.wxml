@@ -1,5 +1,5 @@
 <view class="points-detail-page">
-  <navigation-bar title="积分明细" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+  <navigation-bar title="时光币明细" back="{{true}}" background="#FFFFFF" color="#2F302D" />
 
   <scroll-view class="points-detail-scroll" scroll-y show-scrollbar="{{false}}">
     <view wx:if="{{pointsRecords.length}}" class="points-record-list">
@@ -18,8 +18,8 @@
     <empty-state
       wx:else
       icon="/assets/icons/lucide/star.svg"
-      title="暂无积分明细"
-      description="签到或完成订单后，积分变化会展示在这里"
+      title="暂无时光币明细"
+      description="签到或完成订单后，时光币变化会展示在这里"
     />
 
     <view class="points-detail-safe"></view>

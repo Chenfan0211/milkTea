@@ -235,7 +235,7 @@
   justify-content: center;
   width: 280rpx;
   height: 80rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-md);
   font-weight: 600;
   background: var(--brand-green);

@@ -1,6 +1,6 @@
 <view class="points-page">
   <navigation-bar
-    title="积分商城"
+    title="时光币商城"
     back="{{true}}"
     background="#E9F1D9"
     color="#2F302D"
@@ -17,8 +17,8 @@
       </view>
 
       <view class="points-hero__links">
-        <view class="points-hero__link" bindtap="openPointsDetail" aria-role="button" aria-label="积分明细">积分明细</view>
-        <view class="points-hero__link" bindtap="openSignInRules" aria-role="button" aria-label="积分规则">积分规则</view>
+        <view class="points-hero__link" bindtap="openPointsDetail" aria-role="button" aria-label="时光币明细">时光币明细</view>
+        <view class="points-hero__link" bindtap="openSignInRules" aria-role="button" aria-label="时光币规则">时光币规则</view>
         <view class="points-hero__link" bindtap="openExchangeRecords" aria-role="button" aria-label="兑换记录">兑换记录</view>
       </view>
     </view>
@@ -42,7 +42,7 @@
             <text class="checkin-card__en">CHECK-IN</text>
           </view>
           <view class="checkin-card__desc-row">
-            <text class="checkin-card__desc">{{signedToday ? '今日已签到，明日再来领取积分' : '签到领积分 连续签到得买一送一券'}}</text>
+            <text class="checkin-card__desc">{{signedToday ? '今日已签到，明日再来领取时光币' : '签到领时光币 连续签到得奖励'}}</text>
             <image class="checkin-card__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
           </view>
         </view>
@@ -82,7 +82,7 @@
           <view class="points-product__body">
             <text class="points-product__name ellipsis">{{item.name}}</text>
             <text class="points-product__stock">剩余{{item.stock}}件</text>
-            <text class="points-product__points">{{item.points}}<text class="points-product__unit">积分</text></text>
+            <text class="points-product__points">{{item.points}}<text class="points-product__unit">时光币</text></text>
           </view>
         </view>
       </view>

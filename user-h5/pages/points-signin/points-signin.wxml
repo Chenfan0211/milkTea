@@ -13,7 +13,7 @@
 
       <view class="signin-points-pill">
         <image class="signin-points-pill__icon" src="/assets/icons/lucide/star-brand.svg" mode="aspectFit" />
-        <text>我的积分 {{points}}</text>
+        <text>我的时光币 {{points}}</text>
       </view>
 
       <image class="signin-hero__calendar" src="/assets/images/3x/points-signin-calendar.jpg" mode="aspectFit" />
@@ -21,7 +21,7 @@
 
     <view class="signin-card">
       <text class="signin-card__title">已连续签到<text class="signin-card__days">{{continuousDays}}</text>天</text>
-      <text class="signin-card__hint">连续签到7天获得“5积分”</text>
+      <text class="signin-card__hint">{{hint}}</text>
 
       <view class="signin-week">
         <view
@@ -95,7 +95,7 @@
         <view class="signin-modal__star-wrap">
           <image class="signin-modal__star" src="/assets/icons/lucide/star-brand.svg" mode="aspectFit" />
         </view>
-        <text>1积分</text>
+        <text>{{awardText}}</text>
       </view>
       <view class="signin-modal__close" bindtap="closeSuccess" aria-role="button" aria-label="关闭签到成功弹窗">关闭</view>
     </view>

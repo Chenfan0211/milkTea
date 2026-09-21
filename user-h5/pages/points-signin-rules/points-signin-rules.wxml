@@ -3,9 +3,8 @@
 
   <scroll-view class="signin-rules-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="signin-rules-content">
-      <text class="signin-rules-content__title">签到得积分：</text>
+      <text class="signin-rules-content__title">签到得时光币：</text>
       <text class="signin-rules-content__line" wx:for="{{signInRules}}" wx:key="*this">{{item}}</text>
-      <text class="signin-rules-content__line">注：连续签到30天后，签到周期重新计算，买一送一券领取当日起15天内有效。</text>
       <text class="signin-rules-content__line">活动有任何疑问可通过微信【五零时光】小程序-【我的】-【联系客服】咨询客服。</text>
       <text class="signin-rules-content__line">活动最终解释权归五零时光所有。</text>
     </view>

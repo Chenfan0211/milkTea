@@ -140,7 +140,7 @@
   min-width: 120rpx;
   height: 44rpx;
   padding: 0 16rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-sm);
   line-height: 44rpx;
   text-align: center;
@@ -179,6 +179,10 @@
   font-size: var(--font-display);
   font-weight: 600;
   line-height: 1;
+}
+
+.coupon-card__amount--text {
+  font-size: var(--font-lg);
 }
 
 .coupon-card__condition {
@@ -242,7 +246,7 @@
   justify-content: center;
   width: 128rpx;
   height: 48rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-base);
   font-weight: 600;
   background: var(--brand-green);

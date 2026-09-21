@@ -17,8 +17,8 @@
       <view class="exchange-info">
         <text class="exchange-info__title">{{item.name}}</text>
         <view class="exchange-info__meta">
-          <text class="exchange-info__points">{{item.points}}<text class="exchange-info__unit">积分</text></text>
-          <text class="exchange-info__stock">剩余{{item.stock}}件</text>
+          <text class="exchange-info__points">{{item.points}}<text class="exchange-info__unit">时光币</text></text>
+          <text class="exchange-info__stock">剩余{{stock}}件</text>
         </view>
       </view>
 
@@ -45,7 +45,7 @@
         </view>
         <text class="exchange-stepper__value">{{quantity}}</text>
         <view
-          class="exchange-stepper__button exchange-stepper__button--plus {{quantity >= item.stock ? 'is-disabled' : ''}}"
+          class="exchange-stepper__button exchange-stepper__button--plus {{quantity >= maxQuantity ? 'is-disabled' : ''}}"
           bindtap="increaseQuantity"
           aria-role="button"
           aria-label="增加数量"
@@ -59,9 +59,10 @@
       class="exchange-submit {{insufficient ? 'is-disabled' : ''}}"
       bindtap="handleExchange"
       aria-role="button"
-      aria-label="{{insufficient ? '积分不足' : '立即兑换'}}"
+      aria-label="{{insufficient ? '时光币不足' : '立即兑换'}}"
     >
-      {{insufficient ? '积分不足' : '立即兑换'}}
+      {{insufficient ? '时光币不足' : '立即兑换'}}
     </view>
   </view>
 </view>
+

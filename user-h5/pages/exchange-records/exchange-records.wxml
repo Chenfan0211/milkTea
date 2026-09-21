@@ -20,7 +20,11 @@
   <scroll-view class="exchange-record-scroll" scroll-y show-scrollbar="{{false}}">
     <view wx:if="{{filteredRecords.length}}" class="exchange-record-list">
       <view class="exchange-record" wx:for="{{filteredRecords}}" wx:key="id">
-        <text>{{item.name}}</text>
+        <view class="exchange-record__main">
+          <text class="exchange-record__name">{{item.name}}</text>
+          <text wx:if="{{item.pickupCode}}" class="exchange-record__code">自提码 {{item.pickupCode}}</text>
+        </view>
+        <text class="exchange-record__status">{{item.statusLabel}}</text>
       </view>
     </view>
 
@@ -29,7 +33,7 @@
       variant="illustration"
       icon="/assets/images/3x/points-empty.jpg"
       title="暂无兑换记录"
-      description="去积分商城看看可以兑换的好物"
+      description="去时光币商城看看可以兑换的好物"
     />
 
     <view class="exchange-records-safe"></view>

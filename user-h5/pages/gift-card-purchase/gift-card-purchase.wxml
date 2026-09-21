@@ -62,7 +62,7 @@
       >
         <image wx:if="{{isAgreed}}" class="gift-agreement__icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
       </view>
-      <text class="gift-agreement__text" bindtap="toggleAgreement">阅读并同意<text class="gift-agreement__link" catchtap="showAgreement">{{agreementTitle}}</text></text>
+      <text class="gift-agreement__text" bindtap="toggleAgreement" aria-role="button" aria-label="同意预付卡章程">阅读并同意<text class="gift-agreement__link" catchtap="showAgreement" aria-role="button" aria-label="查看{{agreementTitle}}">{{agreementTitle}}</text></text>
     </view>
 
     <view class="gift-purchase-bar__main">
@@ -79,3 +79,4 @@
     </view>
   </view>
 </view>
+

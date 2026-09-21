@@ -23,14 +23,19 @@
           <view class="coupon-stack__layer coupon-stack__layer--second"></view>
 
           <view class="coupon-card" wx:for="{{coupons}}" wx:key="id">
-            <view class="coupon-card__count">共{{couponCount}}张</view>
+            <view class="coupon-card__count">共{{item.quantity}}张</view>
 
             <view class="coupon-card__main">
               <view class="coupon-card__value">
                 <view class="coupon-card__discount">
-                  <text class="coupon-card__discount-label">立减</text>
-                  <text class="coupon-card__amount">{{item.amount}}</text>
-                  <text class="coupon-card__unit">元</text>
+                  <block wx:if="{{item.displayType === 'buyone' || item.displayType === 'halfprice'}}">
+                    <text class="coupon-card__amount coupon-card__amount--text">{{item.displayType === 'buyone' ? '买一送一' : '第二杯半价'}}</text>
+                  </block>
+                  <block wx:else>
+                    <text class="coupon-card__discount-label">立减</text>
+                    <text class="coupon-card__amount">{{item.amount}}</text>
+                    <text class="coupon-card__unit">元</text>
+                  </block>
                 </view>
                 <text class="coupon-card__condition">{{item.condition}}</text>
               </view>

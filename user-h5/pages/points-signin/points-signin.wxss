@@ -57,6 +57,8 @@
 }
 
 .signin-points-pill {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   height: 56rpx;
@@ -92,7 +94,7 @@
 }
 
 .signin-card {
-  margin-top: -32rpx;
+  margin-top: -40rpx;
 }
 
 .signin-card__title {
@@ -102,8 +104,10 @@
 }
 
 .signin-card__days {
+  display: inline-block;
   color: var(--brand-green);
-  font-size: var(--font-display);
+  font-size: var(--font-xl);
+  vertical-align: -4rpx;
 }
 
 .signin-card__hint {
@@ -151,7 +155,7 @@
 }
 
 .signin-week__item.is-signed .signin-week__date {
-  color: #FFFFFF;
+  color: #ffffff;
   background: var(--brand-green);
 }
 
@@ -176,6 +180,14 @@
 
 .signin-week__calendar {
   justify-content: center;
+  padding-top: 0;
+}
+.signin-week__calendar::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 28rpx;
+  background: transparent;
 }
 
 .signin-week__calendar-icon-wrap {
@@ -197,7 +209,7 @@
 .signin-week__calendar-arrow {
   width: 20rpx;
   height: 20rpx;
-  margin-left: 2rpx;
+  margin-left: 4rpx;
 }
 
 .signin-submit {
@@ -206,7 +218,7 @@
   justify-content: center;
   height: 80rpx;
   margin-top: 20rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-lg);
   font-weight: 600;
   background: var(--brand-green);
@@ -308,7 +320,7 @@
   justify-content: center;
   min-width: 128rpx;
   height: 48rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-sm);
   background: var(--brand-green);
   border-radius: var(--radius-pill);
@@ -418,7 +430,7 @@
   justify-content: center;
   height: 80rpx;
   margin-top: 32rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-lg);
   font-weight: 600;
   background: var(--brand-green);
@@ -549,7 +561,7 @@
 }
 
 .signin-calendar-cell.is-signed .signin-calendar-cell__date-band {
-  color: #FFFFFF;
+  color: #ffffff;
   background: var(--brand-green);
 }
 
@@ -580,7 +592,7 @@
 }
 
 .signin-calendar-cell__reward {
-  margin-top: 2rpx;
+  margin-top: 4rpx;
   color: var(--brand-green);
   font-size: var(--font-caption);
 }

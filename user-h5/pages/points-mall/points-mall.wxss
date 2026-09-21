@@ -260,7 +260,7 @@
   top: 16rpx;
   right: 16rpx;
   padding: 4rpx 12rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-sm);
   background: var(--price-red);
   border-radius: var(--radius-xs);

@@ -48,6 +48,46 @@
   transform: translateX(-50%);
 }
 
+.exchange-record-list {
+  padding: 20rpx var(--page-gutter);
+}
+
+.exchange-record {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.exchange-record__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.exchange-record__name {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.exchange-record__code {
+  margin-top: 8rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+}
+
+.exchange-record__status {
+  flex: none;
+  margin-left: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
 .exchange-record-scroll {
   flex: 1;
   min-height: 0;
