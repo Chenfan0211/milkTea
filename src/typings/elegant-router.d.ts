@@ -25,10 +25,12 @@ declare module "@elegant-router/types" {
     "auth_role": "/auth/role";
     "auth_wechat": "/auth/wechat";
     "finance": "/finance";
-    "finance_execute": "/finance/execute";
-    "finance_ledger": "/finance/ledger";
+    "finance_account": "/finance/account";
+    "finance_flow": "/finance/flow";
+    "finance_pool": "/finance/pool";
     "finance_reconcile": "/finance/reconcile";
     "finance_snapshot": "/finance/snapshot";
+    "finance_snapshot-detail": "/finance/snapshot-detail";
     "finance_withdraw": "/finance/withdraw";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
@@ -36,16 +38,22 @@ declare module "@elegant-router/types" {
     "marketing": "/marketing";
     "marketing_comment": "/marketing/comment";
     "marketing_coupon": "/marketing/coupon";
+    "marketing_exchange": "/marketing/exchange";
     "marketing_gift": "/marketing/gift";
+    "marketing_gift-order": "/marketing/gift-order";
     "marketing_member": "/marketing/member";
     "marketing_points": "/marketing/points";
+    "marketing_points-rule": "/marketing/points-rule";
+    "marketing_referral": "/marketing/referral";
     "marketing_stored": "/marketing/stored";
     "product": "/product";
+    "product_category": "/product/category";
     "product_list": "/product/list";
     "product_spec": "/product/spec";
     "product_split": "/product/split";
     "review": "/review";
     "review_role": "/review/role";
+    "review_role-detail": "/review/role-detail";
     "subject": "/subject";
     "subject_channel": "/subject/channel";
     "subject_investor": "/subject/investor";
@@ -54,12 +62,16 @@ declare module "@elegant-router/types" {
     "subject_supplier": "/subject/supplier";
     "system": "/system";
     "system_audit": "/system/audit";
+    "system_city": "/system/city";
+    "system_dict": "/system/dict";
     "system_feature": "/system/feature";
     "trade": "/trade";
     "trade_order": "/trade/order";
+    "trade_order-detail": "/trade/order-detail";
     "trade_payment": "/trade/payment";
     "trade_refund": "/trade/refund";
     "trade_verify": "/trade/verify";
+    "trade_verify-detail": "/trade/verify-detail";
     "trade_verify-pool": "/trade/verify-pool";
     "user": "/user";
     "user_list": "/user/list";
@@ -133,21 +145,29 @@ declare module "@elegant-router/types" {
     | "auth_grant"
     | "auth_role"
     | "auth_wechat"
-    | "finance_execute"
-    | "finance_ledger"
+    | "finance_account"
+    | "finance_flow"
+    | "finance_pool"
     | "finance_reconcile"
+    | "finance_snapshot-detail"
     | "finance_snapshot"
     | "finance_withdraw"
     | "home"
     | "marketing_comment"
     | "marketing_coupon"
+    | "marketing_exchange"
+    | "marketing_gift-order"
     | "marketing_gift"
     | "marketing_member"
+    | "marketing_points-rule"
     | "marketing_points"
+    | "marketing_referral"
     | "marketing_stored"
+    | "product_category"
     | "product_list"
     | "product_spec"
     | "product_split"
+    | "review_role-detail"
     | "review_role"
     | "subject_channel"
     | "subject_investor"
@@ -155,10 +175,14 @@ declare module "@elegant-router/types" {
     | "subject_store"
     | "subject_supplier"
     | "system_audit"
+    | "system_city"
+    | "system_dict"
     | "system_feature"
+    | "trade_order-detail"
     | "trade_order"
     | "trade_payment"
     | "trade_refund"
+    | "trade_verify-detail"
     | "trade_verify-pool"
     | "trade_verify"
     | "user_list"

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'auth_role'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -10,7 +15,7 @@ const columns: DataTableColumns<any> = [
   { title: '角色编码', key: 'code', width: 140 },
   { title: '名称', key: 'name', width: 140 },
   { title: '数据范围', key: 'dataScope', width: 120 },
-  { title: '创建时间', key: 'createTime', width: 180 }
+  { title: '创建时间', key: 'createTime', width: 150 }
 ];
 const searchFields: SearchField[] = [
   { key: 'name', label: '角色', placeholder: '角色名称' },
@@ -43,12 +48,13 @@ const rowActions: RowAction[] = [
   {
     label: '删除',
     type: 'error',
-    confirm: '确认删除该角色？',
-    handler: row => store.remove('roles', row.id, '授权中心', 'name')
+    reasonPrompt: '确认删除该角色？（请填写备注）',
+    handler: (row, reason) => store.remove('roles', row.id, '授权中心', 'name', reason)
   }
 ];
 const config: AdminListConfig = {
   title: '角色与权限',
+  remoteKey: 'roles',
   columns,
   searchFields,
   toolbar,
@@ -70,3 +76,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

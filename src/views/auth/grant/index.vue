@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'auth_grant'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -13,7 +18,7 @@ const columns: DataTableColumns<any> = [
   { title: '主体', key: 'subject', minWidth: 160 },
   { title: '数据范围', key: 'dataScope', width: 110 },
   { title: '授权人', key: 'grantBy', width: 110 },
-  { title: '授权时间', key: 'grantTime', width: 180 },
+  { title: '授权时间', key: 'grantTime', width: 150 },
   {
     title: '状态',
     key: 'status',
@@ -41,7 +46,7 @@ const formFields: FormField[] = [
     type: 'select',
     options: [
       { label: '门店', value: '门店' },
-      { label: '渠道', value: '渠道' },
+      { label: '资源方', value: '资源方' },
       { label: '投资人', value: '投资人' },
       { label: '供应商', value: '供应商' }
     ]
@@ -54,12 +59,13 @@ const rowActions: RowAction[] = [
   {
     label: '撤销',
     type: 'error',
-    confirm: '确认撤销该授权？',
-    handler: row => store.patch('grants', row.id, { status: 'revoked' }, '授权中心', '撤销授权', 'subject')
+    reasonPrompt: '确认撤销该授权？（请填写备注）',
+    handler: (row, reason) => store.patch('grants', row.id, { status: 'revoked' }, '授权中心', '撤销授权', 'subject', reason)
   }
 ];
 const config: AdminListConfig = {
   title: '角色授权记录',
+  remoteKey: 'grants',
   columns,
   searchFields,
   toolbar,
@@ -94,3 +100,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

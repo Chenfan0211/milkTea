@@ -1,4 +1,10 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'review_role'
+});
+
+import { useRouter } from 'vue-router';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -6,8 +12,9 @@ import { useAdminStore } from '@/store/modules/admin';
 import { renderTag, statusMap } from '@/views/_shared/render';
 
 const store = useAdminStore();
+const router = useRouter();
 
-const roleLabel = (v: string) => ({ store: '门店', investor: '投资人', channel: '渠道' })[v] ?? v;
+const roleLabel = (v: string) => ({ store: '门店', investor: '投资人', resource: '资源方' })[v] ?? v;
 
 const columns: DataTableColumns<any> = [
   { title: '申请人', key: 'nickName', width: 140 },
@@ -18,14 +25,14 @@ const columns: DataTableColumns<any> = [
   {
     title: '状态',
     key: 'status',
-    width: 110,
+    width: 95,
     render: renderTag(
       'status',
       statusMap({ pending: ['待审核', 'warning'], approved: ['已通过', 'success'], rejected: ['已驳回', 'error'] })
     )
   },
-  { title: '申请时间', key: 'applyTime', width: 180 },
-  { title: '审核人', key: 'reviewer', width: 110, render: (row: any) => row.reviewer || '—' }
+  { title: '申请时间', key: 'applyTime', width: 150 },
+  { title: '审核人', key: 'reviewer', width: 95, render: (row: any) => row.reviewer || '—' }
 ];
 
 const searchFields: SearchField[] = [
@@ -45,37 +52,26 @@ const searchFields: SearchField[] = [
 const toolbar: RowAction[] = [];
 
 const rowActions: RowAction[] = [
-  {
-    label: '详情',
-    type: 'info',
-    handler: row => {
-      const extra =
-        row.roleType === 'store'
-          ? `门店：${row.storeName ?? '—'}，地址：${row.storeAddress ?? '—'}`
-          : row.roleType === 'investor'
-            ? `投资点位：${row.investLocation ?? '—'}，预算：${row.investBudget ?? '—'}`
-            : `推广渠道：${row.promoteChannel ?? '—'}，预期粉丝：${row.expectFans ?? '—'}`;
-      window.$message?.info(`姓名：${row.name ?? '—'}，手机：${row.phone ?? '—'}；${extra}`);
-    }
-  },
+  { label: '详情', type: 'info', handler: row => router.push({ path: '/review/role-detail', query: { id: row.id } }) },
   {
     label: '通过',
     type: 'success',
-    confirm: '确认通过该申请并绑定其提交的主体？',
-    handler: row => store.reviewApplication(row.id, true, row.subjectId, row.subjectName),
+    reasonPrompt: '确认通过该申请？（请填写备注）',
+    handler: (row, reason) => store.reviewApplication(row.id, true, row.subjectId, row.subjectName, reason),
     visible: row => row.status === 'pending'
   },
   {
     label: '驳回',
     type: 'error',
-    confirm: '确认驳回该申请？',
-    handler: row => store.reviewApplication(row.id, false, null, null),
+    reasonPrompt: '确认驳回该申请？（请填写备注）',
+    handler: (row, reason) => store.reviewApplication(row.id, false, null, null, reason),
     visible: row => row.status === 'pending'
   }
 ];
 
 const config: AdminListConfig = {
   title: '角色开通审核',
+  remoteKey: 'roleApplications',
   columns,
   searchFields,
   toolbar,
@@ -89,3 +85,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

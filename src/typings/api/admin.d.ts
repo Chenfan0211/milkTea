@@ -36,9 +36,10 @@ declare namespace Api {
     interface Channel {
       code: string;
       name: string;
-      channelCode: string;
-      boundUserCount: number;
-      bindStatus: string;
+      location: string;
+      storeType: string;
+      boundStoreIds: string[];
+      boundStoreCount: number;
       createTime: string;
     }
 
@@ -86,14 +87,24 @@ declare namespace Api {
     }
 
     interface Product {
+      id: number;
+      /** 与小程序 user-h5/data/mock.js 商品 ID 对齐，如 classic-001 */
+      productId: string;
       code: string;
       name: string;
       category: string;
       specCount: number;
       price: number;
+      originalPrice: number;
+      description: string;
       store: string;
+      stores: string[];
       onSale: string;
       splitReady: string;
+      /** 逻辑删除标记，删除数据保留但不展示 */
+      deleted?: boolean;
+      deletedAt?: string;
+      deleteReason?: string;
     }
 
     interface Spec {
@@ -116,13 +127,16 @@ declare namespace Api {
     }
 
     interface Order {
+      id: number;
+      /** 订单号，与小程序 orderInfo.orderNo 对齐，如 WX202609160001 */
       orderNo: string;
       store: string;
       user: string;
       summary: string;
+      /** 实付金额（分），与小程序 amount(元)*100 对齐 */
       paidAmount: number;
-      status: string;
-      payStatus: string;
+      status: 'CREATED' | 'PAID' | 'VERIFIED' | 'COMPLETED' | 'REFUNDED';
+      payStatus: 'PAID' | 'UNPAID';
       pickupCode: string;
       createTime: string;
     }
@@ -151,6 +165,7 @@ declare namespace Api {
       store: string;
       operator: string;
       device: string;
+      /** 核销类型：'订单'=点单奶茶, '兑换'=兑换礼品 */
       type: string;
       result: string;
       time: string;
@@ -168,24 +183,6 @@ declare namespace Api {
       totalCheck: string;
       status: string;
       createTime: string;
-    }
-
-    interface SplitExecute {
-      executeNo: string;
-      snapshotNo: string;
-      thirdRequestNo: string;
-      status: string;
-      executeTime: string;
-    }
-
-    interface Ledger {
-      subject: string;
-      role: string;
-      orderNo: string;
-      amount: number;
-      status: string;
-      carryTime: string;
-      flowNo: string;
     }
 
     interface ReconcileIssue {

@@ -57,8 +57,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.auth_grant',
         meta: {
           title: '角色授权记录',
+          icon: 'mdi:clipboard-list',
           order: 3,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -68,8 +70,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.auth_role',
         meta: {
           title: '角色与权限',
+          icon: 'mdi:shield-key',
           order: 1,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -79,8 +83,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.auth_wechat',
         meta: {
           title: '微信账号绑定',
+          icon: 'mdi:wechat',
           order: 2,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       }
@@ -99,24 +105,41 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
-        name: 'finance_execute',
-        path: '/finance/execute',
-        component: 'view.finance_execute',
+        name: 'finance_account',
+        path: '/finance/account',
+        component: 'view.finance_account',
         meta: {
-          title: '分账执行',
+          title: '经营方账户',
+          icon: 'mdi:wallet-outline',
           order: 2,
           roles: ['R_SUPER', 'R_FINANCE'],
+          keepAlive: true,
           i18nKey: null
         }
       },
       {
-        name: 'finance_ledger',
-        path: '/finance/ledger',
-        component: 'view.finance_ledger',
+        name: 'finance_flow',
+        path: '/finance/flow',
+        component: 'view.finance_flow',
         meta: {
-          title: '资金台账',
+          title: '资金流水',
+          icon: 'mdi:swap-horizontal',
           order: 3,
           roles: ['R_SUPER', 'R_FINANCE'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'finance_pool',
+        path: '/finance/pool',
+        component: 'view.finance_pool',
+        meta: {
+          title: '资金池',
+          icon: 'mdi:database',
+          order: 1,
+          roles: ['R_SUPER', 'R_FINANCE'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -126,8 +149,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.finance_reconcile',
         meta: {
           title: '对账异常池',
+          icon: 'mdi:alert-circle',
           order: 4,
           roles: ['R_SUPER', 'R_FINANCE'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -137,8 +162,21 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.finance_snapshot',
         meta: {
           title: '分账快照',
+          icon: 'mdi:camera',
           order: 1,
           roles: ['R_SUPER', 'R_FINANCE'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'finance_snapshot-detail',
+        path: '/finance/snapshot-detail',
+        component: 'view.finance_snapshot-detail',
+        meta: {
+          title: '分账快照详情',
+          roles: ['R_SUPER', 'R_FINANCE'],
+          hideInMenu: true,
           i18nKey: null
         }
       },
@@ -148,8 +186,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.finance_withdraw',
         meta: {
           title: '提现管理',
+          icon: 'mdi:cash',
           order: 5,
           roles: ['R_SUPER', 'R_FINANCE'],
+          keepAlive: true,
           i18nKey: null
         }
       }
@@ -209,9 +249,11 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_comment',
         meta: {
           title: '评论审核',
+          icon: 'mdi:comment',
           order: 6,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_REVIEW',
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -221,9 +263,25 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_coupon',
         meta: {
           title: '优惠券管理',
+          icon: 'mdi:ticket-percent',
           order: 1,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_COUPON',
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_exchange',
+        path: '/marketing/exchange',
+        component: 'view.marketing_exchange',
+        meta: {
+          title: '兑换记录',
+          icon: 'mdi:swap-horizontal-bold',
+          order: 8,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_STORED_VALUE',
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -233,9 +291,25 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_gift',
         meta: {
           title: '礼品卡',
+          icon: 'mdi:credit-card-outline',
           order: 3,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_gift-order',
+        path: '/marketing/gift-order',
+        component: 'view.marketing_gift-order',
+        meta: {
+          title: '礼品卡订单',
+          icon: 'mdi:gift-open',
+          order: 7,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_STORED_VALUE',
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -245,9 +319,11 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_member',
         meta: {
           title: '会员等级',
+          icon: 'mdi:account-star',
           order: 5,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -257,9 +333,33 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_points',
         meta: {
           title: '积分商城',
+          icon: 'mdi:star',
           order: 4,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_points-rule',
+        path: '/marketing/points-rule',
+        component: 'view.marketing_points-rule',
+        meta: {
+          title: 'marketing_points-rule',
+          i18nKey: 'route.marketing_points-rule'
+        }
+      },
+      {
+        name: 'marketing_referral',
+        path: '/marketing/referral',
+        component: 'view.marketing_referral',
+        meta: {
+          title: '分享有礼',
+          icon: 'mdi:share-variant',
+          order: 9,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -269,9 +369,11 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_stored',
         meta: {
           title: '储值套餐',
+          icon: 'mdi:gift',
           order: 2,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
+          keepAlive: true,
           i18nKey: null
         }
       }
@@ -290,13 +392,28 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'product_category',
+        path: '/product/category',
+        component: 'view.product_category',
+        meta: {
+          title: '分类管理',
+          icon: 'mdi:shape',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
         name: 'product_list',
         path: '/product/list',
         component: 'view.product_list',
         meta: {
           title: '商品管理',
+          icon: 'mdi:cup',
           order: 1,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -306,8 +423,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.product_spec',
         meta: {
           title: '规格管理',
+          icon: 'mdi:ruler',
           order: 2,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -317,8 +436,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.product_split',
         meta: {
           title: '分账规则',
+          icon: 'mdi:percent',
           order: 3,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       }
@@ -342,8 +463,21 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.review_role',
         meta: {
           title: '角色开通审核',
+          icon: 'mdi:clipboard-check',
           order: 1,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'review_role-detail',
+        path: '/review/role-detail',
+        component: 'view.review_role-detail',
+        meta: {
+          title: '角色开通审核详情',
+          roles: ['R_SUPER', 'R_OPERATION'],
+          hideInMenu: true,
           i18nKey: null
         }
       }
@@ -367,8 +501,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.subject_channel',
         meta: {
           title: '渠道管理',
+          icon: 'mdi:share-variant',
           order: 3,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -378,8 +514,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.subject_investor',
         meta: {
           title: '投资人管理',
+          icon: 'mdi:account-tie',
           order: 4,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -389,8 +527,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.subject_platform',
         meta: {
           title: '平台主体',
+          icon: 'mdi:office-building',
           order: 1,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -400,8 +540,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.subject_store',
         meta: {
           title: '门店管理',
+          icon: 'mdi:store',
           order: 2,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -411,8 +553,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.subject_supplier',
         meta: {
           title: '供应商管理',
+          icon: 'mdi:factory',
           order: 5,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       }
@@ -436,8 +580,36 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.system_audit',
         meta: {
           title: '审计日志',
+          icon: 'mdi:file-document',
           order: 1,
           roles: ['R_SUPER', 'R_AUDIT'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'system_city',
+        path: '/system/city',
+        component: 'view.system_city',
+        meta: {
+          title: '城市管理',
+          icon: 'mdi:map-marker',
+          order: 4,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'system_dict',
+        path: '/system/dict',
+        component: 'view.system_dict',
+        meta: {
+          title: '数据字典',
+          icon: 'mdi:book',
+          order: 3,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -447,8 +619,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.system_feature',
         meta: {
           title: '功能开关',
+          icon: 'mdi:toggle-switch',
           order: 2,
           roles: ['R_SUPER', 'R_AUDIT'],
+          keepAlive: true,
           i18nKey: null
         }
       }
@@ -472,8 +646,21 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.trade_order',
         meta: {
           title: '订单管理',
+          icon: 'mdi:receipt',
           order: 1,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'trade_order-detail',
+        path: '/trade/order-detail',
+        component: 'view.trade_order-detail',
+        meta: {
+          title: '订单详情',
+          roles: ['R_SUPER', 'R_OPERATION'],
+          hideInMenu: true,
           i18nKey: null
         }
       },
@@ -483,8 +670,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.trade_payment',
         meta: {
           title: '支付记录',
+          icon: 'mdi:credit-card',
           order: 2,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -494,8 +683,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.trade_refund',
         meta: {
           title: '退款管理',
+          icon: 'mdi:cash-refund',
           order: 3,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       },
@@ -505,8 +696,21 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.trade_verify',
         meta: {
           title: '核销记录',
+          icon: 'mdi:check-circle',
           order: 5,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'trade_verify-detail',
+        path: '/trade/verify-detail',
+        component: 'view.trade_verify-detail',
+        meta: {
+          title: '核销记录详情',
+          roles: ['R_SUPER', 'R_OPERATION'],
+          hideInMenu: true,
           i18nKey: null
         }
       },
@@ -516,8 +720,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.trade_verify-pool',
         meta: {
           title: '待核销池',
+          icon: 'mdi:qrcode-scan',
           order: 4,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       }
@@ -541,8 +747,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.user_list',
         meta: {
           title: '用户列表',
+          icon: 'mdi:account',
           order: 1,
           roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
           i18nKey: null
         }
       }

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'system_feature'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -10,7 +15,7 @@ const store = useAdminStore();
 const routeStore = useRouteStore();
 
 const columns: DataTableColumns<any> = [
-  { title: '开关编码', key: 'code', width: 180 },
+  { title: '开关编码', key: 'code', width: 150 },
   { title: '名称', key: 'name', width: 120 },
   {
     title: '默认状态',
@@ -32,24 +37,25 @@ const rowActions: RowAction[] = [
   {
     label: '开启',
     type: 'success',
-    confirm: '确认开启该功能开关？',
-    handler: row => {
-      store.toggleFeature(row.id, true);
+    reasonPrompt: '确认开启该功能开关？（请填写备注）',
+    handler: (row, reason) => {
+      store.toggleFeature(row.id, true, reason);
       routeStore.refreshGlobalMenus();
     }
   },
   {
     label: '关闭',
     type: 'error',
-    confirm: '确认关闭该功能开关？',
-    handler: row => {
-      store.toggleFeature(row.id, false);
+    reasonPrompt: '确认关闭该功能开关？（请填写备注）',
+    handler: (row, reason) => {
+      store.toggleFeature(row.id, false, reason);
       routeStore.refreshGlobalMenus();
     }
   }
 ];
 const config: AdminListConfig = {
   title: '功能开关',
+  remoteKey: 'features',
   columns,
   searchFields,
   toolbar,
@@ -63,3 +69,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

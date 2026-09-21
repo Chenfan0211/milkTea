@@ -28,7 +28,9 @@ export function setupUnplugin(viteEnv: Env.ImportMeta) {
       defaultClass: 'inline-block'
     }),
     Components({
-      dts: 'src/typings/components.d.ts',
+      // 生产构建无需生成 dts（那是给 IDE 类型提示用的），
+      // 且 Windows 上该文件可能被编辑器占用导致构建失败。
+      dts: process.env.NODE_ENV === 'production' ? false : 'src/typings/components.d.ts',
       types: [{ from: 'vue-router', names: ['RouterLink', 'RouterView'] }],
       resolvers: [
         NaiveUiResolver(),
@@ -45,3 +47,4 @@ export function setupUnplugin(viteEnv: Env.ImportMeta) {
 
   return plugins;
 }
+

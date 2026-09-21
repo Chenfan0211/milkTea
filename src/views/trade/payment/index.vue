@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'trade_payment'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -8,7 +13,7 @@ import { renderTag, statusMap, renderMoney } from '@/views/_shared/render';
 const store = useAdminStore();
 
 const columns: DataTableColumns<any> = [
-  { title: '商户订单号', key: 'merchantOrderNo', width: 170 },
+  { title: '商户订单号', key: 'merchantOrderNo', width: 145 },
   { title: '支付单号', key: 'paymentNo', width: 150 },
   { title: '金额(元)', key: 'amount', width: 110, align: 'right', render: renderMoney('amount') },
   { title: '支付渠道', key: 'channel', width: 110 },
@@ -24,7 +29,7 @@ const columns: DataTableColumns<any> = [
     width: 120,
     render: renderTag('standardStatus', statusMap({ PAID: ['已支付', 'primary'], PAYING: ['支付中', 'info'] }))
   },
-  { title: '回调时间', key: 'callbackTime', width: 180 }
+  { title: '回调时间', key: 'callbackTime', width: 150 }
 ];
 const searchFields: SearchField[] = [
   { key: 'merchantOrderNo', label: '订单号', placeholder: '商户订单号' },
@@ -48,20 +53,22 @@ const rowActions: RowAction[] = [
   {
     label: '异常重试',
     type: 'warning',
-    confirm: '确认重新发起三方查询？',
-    handler: row =>
+    reasonPrompt: '确认重新发起三方查询？（请填写备注）',
+    handler: (row, reason) =>
       store.patch(
         'payments',
         row.id,
         { standardStatus: 'PAID', thirdStatus: 'SUCCESS' },
         '交易中心',
         '异常重试',
-        'paymentNo'
+        'paymentNo',
+        reason
       )
   }
 ];
 const config: AdminListConfig = {
   title: '支付记录',
+  remoteKey: 'payments',
   columns,
   searchFields,
   toolbar,
@@ -75,3 +82,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

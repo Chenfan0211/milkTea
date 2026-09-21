@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'finance_reconcile'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -25,7 +30,7 @@ const columns: DataTableColumns<any> = [
   { title: '系统值', key: 'systemValue', width: 110 },
   { title: '三方值', key: 'thirdValue', width: 110 },
   { title: '差异金额(元)', key: 'diffAmount', width: 120, align: 'right' as const, render: renderMoney('diffAmount') },
-  { title: '发现时间', key: 'foundTime', width: 180 },
+  { title: '发现时间', key: 'foundTime', width: 150 },
   {
     title: '处理状态',
     key: 'status',
@@ -46,17 +51,25 @@ const searchFields: SearchField[] = [
   }
 ];
 const toolbar: RowAction[] = [
-  { label: '重新对账', type: 'primary', handler: () => window.$message?.success('已触发重新对账') }
+  {
+    label: '重新对账',
+    type: 'primary',
+    reasonPrompt: '确认触发重新对账？（请填写备注）',
+    handler: () => window.$message?.success('已触发重新对账')
+  }
 ];
 const rowActions: RowAction[] = [
   {
     label: '标记处理',
     type: 'success',
-    handler: row => store.patch('reconciles', row.id, { status: 'resolved' }, '财务中心', '标记处理', 'orderNo')
+    reasonPrompt: '确认标记处理该异常？（请填写备注）',
+    handler: (row, reason) =>
+      store.patch('reconciles', row.id, { status: 'resolved' }, '财务中心', '标记处理', 'orderNo', reason)
   }
 ];
 const config: AdminListConfig = {
   title: '对账异常池',
+  remoteKey: 'reconciles',
   columns,
   searchFields,
   toolbar,
@@ -70,3 +83,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

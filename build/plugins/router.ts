@@ -44,6 +44,8 @@ export function setupElegantRouter() {
         if (adminMeta.order != null) meta.order = adminMeta.order;
         if (adminMeta.roles) meta.roles = [...adminMeta.roles];
         if (adminMeta.featureFlag) meta.featureFlag = adminMeta.featureFlag;
+        if (adminMeta.keepAlive) meta.keepAlive = adminMeta.keepAlive;
+        if (adminMeta.hideInMenu) meta.hideInMenu = true;
       }
 
       return meta;

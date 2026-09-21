@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'auth_wechat'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -16,7 +21,7 @@ const columns: DataTableColumns<any> = [
     width: 120,
     render: (row: any) =>
       row.businessRole
-        ? ({ store: '门店', investor: '投资人', channel: '渠道' } as Record<string, string>)[row.businessRole]
+        ? ({ store: '门店', investor: '投资人', resource: '资源方' } as Record<string, string>)[row.businessRole]
         : '未绑定'
   },
   { title: '绑定状态', key: 'businessRole', width: 110, render: (row: any) => (row.businessRole ? '已绑定' : '未绑定') }
@@ -35,8 +40,8 @@ const rowActions: RowAction[] = [
   {
     label: '解绑',
     type: 'error',
-    confirm: '解绑后旧角色会话立即失效，确认解绑？',
-    handler: row => store.unbindUserRole(row.id)
+    reasonPrompt: '解绑后旧角色会话立即失效，确认解绑？（请填写备注）',
+    handler: (row, reason) => store.unbindUserRole(row.id, reason)
   }
 ];
 const formFields: FormField[] = [
@@ -46,6 +51,7 @@ const formFields: FormField[] = [
 ];
 const config: AdminListConfig = {
   title: '微信账号绑定',
+  remoteKey: 'users',
   columns,
   searchFields,
   toolbar,
@@ -67,3 +73,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

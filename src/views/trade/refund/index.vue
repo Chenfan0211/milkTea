@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'trade_refund'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -18,14 +23,12 @@ const columns: DataTableColumns<any> = [
     render: renderTag(
       'status',
       statusMap({
-        PENDING: ['待审核', 'info'],
-        APPROVED: ['已通过', 'primary'],
         SUCCESS: ['退款成功', 'success'],
         REJECTED: ['已驳回', 'error']
       })
     )
   },
-  { title: '申请时间', key: 'applyTime', width: 180 }
+  { title: '申请时间', key: 'applyTime', width: 150 }
 ];
 const searchFields: SearchField[] = [
   { key: 'orderNo', label: '订单号', placeholder: '原订单号' },
@@ -34,30 +37,16 @@ const searchFields: SearchField[] = [
     label: '状态',
     type: 'select',
     options: [
-      { label: '待审核', value: 'PENDING' },
-      { label: '已通过', value: 'APPROVED' },
       { label: '退款成功', value: 'SUCCESS' },
       { label: '已驳回', value: 'REJECTED' }
     ]
   }
 ];
 const toolbar: RowAction[] = [];
-const rowActions: RowAction[] = [
-  {
-    label: '审核通过',
-    type: 'success',
-    handler: row => store.refundAudit(row.id, true),
-    visible: row => row.status === 'PENDING'
-  },
-  {
-    label: '驳回',
-    type: 'error',
-    handler: row => store.refundAudit(row.id, false),
-    visible: row => row.status === 'PENDING'
-  }
-];
+const rowActions: RowAction[] = [];
 const config: AdminListConfig = {
   title: '退款管理',
+  remoteKey: 'refunds',
   columns,
   searchFields,
   toolbar,
@@ -71,3 +60,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

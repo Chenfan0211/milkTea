@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'marketing_comment'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -20,7 +25,7 @@ const columns: DataTableColumns<any> = [
       statusMap({ pending: ['待审核', 'warning'], approved: ['已通过', 'success'], rejected: ['已驳回', 'error'] })
     )
   },
-  { title: '时间', key: 'time', width: 180 }
+  { title: '时间', key: 'time', width: 150 }
 ];
 const searchFields: SearchField[] = [
   { key: 'product', label: '商品', placeholder: '商品名称' },
@@ -40,13 +45,15 @@ const rowActions: RowAction[] = [
   {
     label: '通过',
     type: 'success',
-    handler: row => store.reviewComment(row.id, true),
+    reasonPrompt: '确认通过该评论？（请填写备注）',
+    handler: (row, reason) => store.reviewComment(row.id, true, reason),
     visible: row => row.status === 'pending'
   },
   {
     label: '驳回',
     type: 'error',
-    handler: row => store.reviewComment(row.id, false),
+    reasonPrompt: '确认驳回该评论？（请填写备注）',
+    handler: (row, reason) => store.reviewComment(row.id, false, reason),
     visible: row => row.status === 'pending'
   }
 ];

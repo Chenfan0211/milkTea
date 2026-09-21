@@ -1,4 +1,9 @@
 <script setup lang="ts">
+
+defineOptions({
+  name: 'product_spec'
+});
+
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -8,7 +13,7 @@ const store = useAdminStore();
 
 const columns: DataTableColumns<any> = [
   { title: '规格组', key: 'group', width: 120 },
-  { title: '名称', key: 'name', width: 180 },
+  { title: '名称', key: 'name', width: 150 },
   { title: '可选值', key: 'options', minWidth: 240, render: (row: any) => (row.options || []).join(' / ') },
   { title: '排序', key: 'order', width: 90, align: 'right' }
 ];
@@ -24,12 +29,13 @@ const rowActions: RowAction[] = [
   {
     label: '删除',
     type: 'error',
-    confirm: '确认删除该规格？',
-    handler: row => store.remove('specs', row.id, '商品中心', 'name')
+    reasonPrompt: '确认删除该规格？（请填写备注）',
+    handler: (row, reason) => store.remove('specs', row.id, '商品中心', 'name', reason)
   }
 ];
 const config: AdminListConfig = {
   title: '规格管理',
+  remoteKey: 'specs',
   columns,
   searchFields,
   toolbar,
@@ -51,3 +57,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+
