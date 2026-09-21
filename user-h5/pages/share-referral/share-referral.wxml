@@ -1,0 +1,57 @@
+<view class="share-referral-page">
+  <navigation-bar title="分享有礼" back="{{true}}" background="#F7F7F7" color="#2F302D" />
+
+  <scroll-view class="share-referral-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="share-referral-content">
+      <view class="invite-card">
+        <view class="invite-card__head">
+          <image class="invite-card__icon" src="/assets/icons/lucide/share-2.svg" mode="aspectFit" />
+          <view class="invite-card__copy">
+            <text class="invite-card__title">我的专属邀请码</text>
+            <text class="invite-card__code">{{inviteCode}}</text>
+          </view>
+          <view class="invite-card__copy-btn" bindtap="copyCode" aria-role="button" aria-label="复制邀请码">
+            <image class="invite-card__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+            <text>复制</text>
+          </view>
+        </view>
+        <view class="invite-card__footer">
+          <text class="invite-card__hint">好友通过链接注册并完成首单，双方各得 3 时光币 + 1 张 3 元无门槛券</text>
+        </view>
+      </view>
+
+      <view class="progress-card">
+        <view class="progress-card__head">
+          <text class="progress-card__title">邀请进度</text>
+          <text class="progress-card__count">已邀请 {{invitedCount}} 人</text>
+        </view>
+        <view class="progress-card__track">
+          <view class="progress-card__value" style="width: {{invitedCount * 10}}%;"></view>
+        </view>
+        <text class="progress-card__hint">累计邀请满 10 人即可升级「时光推荐官」</text>
+      </view>
+
+      <view class="reward-card">
+        <text class="reward-card__title">奖励规则</text>
+        <view wx:for="{{rewards}}" wx:key="id" class="reward-row">
+          <image class="reward-row__icon" src="{{item.id === 'social-star' ? '/assets/icons/lucide/award.svg' : item.id === 'recommender' ? '/assets/icons/lucide/medal.svg' : '/assets/icons/lucide/gift-brand.svg'}}" mode="aspectFit" />
+          <view class="reward-row__body">
+            <text class="reward-row__title">{{item.title}}</text>
+            <text class="reward-row__desc">{{item.desc}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="earning-card">
+        <text class="earning-card__label">到账规则</text>
+        <text class="earning-card__text">{{earningNote}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="share-referral-bar">
+    <view class="share-referral-btn" bindtap="invite" hover-class="share-referral-btn--pressed" aria-role="button" aria-label="立即邀请好友">
+      <text>立即邀请好友</text>
+    </view>
+  </view>
+</view>

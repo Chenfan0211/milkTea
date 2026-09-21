@@ -1,0 +1,218 @@
+.service-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.service-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.service-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* 在线客服 */
+.service-hero {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-lg);
+}
+
+.service-hero__icon {
+  flex: none;
+  width: 56rpx;
+  height: 56rpx;
+  margin-right: 20rpx;
+}
+
+.service-hero__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.service-hero__title {
+  color: var(--card-bg);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 44rpx;
+}
+
+.service-hero__desc {
+  margin-top: 4rpx;
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  line-height: 34rpx;
+  opacity: 0.86;
+}
+
+.service-hero__note {
+  margin-top: 4rpx;
+  color: var(--card-bg);
+  font-size: var(--font-caption);
+  line-height: 30rpx;
+  opacity: 0.7;
+}
+
+/* 原生客服按钮：重置 button 默认样式，与设计系统一致 */
+.service-hero__button {
+  flex: none;
+  min-width: 168rpx;
+  height: 72rpx;
+  margin: 0 0 0 20rpx;
+  padding: 0 24rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 72rpx;
+  background: var(--card-bg);
+  border: none;
+  border-radius: var(--radius-pill);
+}
+
+.service-hero__button::after {
+  border: none;
+}
+
+/* 卡片 */
+.service-card {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.service-card__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.service-card__icon {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 8rpx;
+}
+
+.service-card__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+/* 行 */
+.service-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.service-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.service-row--store {
+  align-items: flex-start;
+}
+
+.service-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.service-row__label {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.service-row__meta {
+  margin-top: 4rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.service-row__action {
+  flex: none;
+  margin-left: 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.service-tip {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+/* 常见问题 */
+.faq-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.faq-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.faq-item__question {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  line-height: 40rpx;
+}
+
+.faq-item__arrow {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+  margin-left: 16rpx;
+}
+
+.faq-item.is-open .faq-item__arrow {
+  transform: rotate(180deg);
+}
+
+.faq-item__answer {
+  display: block;
+  margin-top: 12rpx;
+  padding: 16rpx 20rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
+.service-safe {
+  height: 20rpx;
+}

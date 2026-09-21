@@ -1,0 +1,43 @@
+<view class="legal-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="legal-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!doc}}" class="legal-empty">
+      <empty-state
+        title="文档不存在"
+        description="请从登录页或「我的」页重新进入"
+        icon="/assets/icons/lucide/file-search-brand.svg"
+      />
+    </view>
+
+    <view wx:else class="legal-content">
+      <view class="legal-head">
+        <text class="legal-head__title">{{doc.title}}</text>
+        <view class="legal-head__meta">
+          <text class="legal-head__meta-item">生效日期：{{doc.updatedAt}}</text>
+          <text class="legal-head__meta-item">适用主体：{{doc.subject}}</text>
+        </view>
+      </view>
+
+      <text class="legal-lead">{{doc.lead}}</text>
+
+      <view class="legal-sections">
+        <view wx:for="{{doc.sections}}" wx:key="id" class="legal-section">
+          <text class="legal-section__title">{{item.title}}</text>
+          <text
+            wx:for="{{item.clauses}}"
+            wx:for-item="clause"
+            wx:key="*this"
+            class="legal-section__clause"
+          >{{clause}}</text>
+        </view>
+      </view>
+
+      <view class="legal-foot">
+        <text wx:for="{{doc.footnotes}}" wx:key="*this" class="legal-foot__line">{{item}}</text>
+      </view>
+
+      <view class="legal-safe"></view>
+    </view>
+  </scroll-view>
+</view>

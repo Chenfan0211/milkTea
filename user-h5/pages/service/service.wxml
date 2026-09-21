@@ -1,0 +1,81 @@
+<view class="service-page">
+  <navigation-bar title="客服中心" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="service-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="service-content">
+      <view class="service-hero">
+        <image class="service-hero__icon" src="/assets/icons/lucide/headset.svg" mode="aspectFit" />
+        <view class="service-hero__body">
+          <text class="service-hero__title">在线客服</text>
+          <text class="service-hero__desc">服务时间 {{serviceHours}}</text>
+          <text class="service-hero__note">{{onlineNote}}</text>
+        </view>
+        <!-- 微信原生客服会话必须使用 button open-type="contact"，无法用 view 替代 -->
+        <button
+          class="service-hero__button"
+          open-type="contact"
+          aria-role="button"
+          aria-label="联系在线客服"
+        >联系客服</button>
+      </view>
+
+      <view class="service-card">
+        <view class="service-card__head">
+          <image class="service-card__icon" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
+          <text class="service-card__title">客服热线</text>
+        </view>
+        <view class="service-row" data-phone="{{info.hotline}}" bindtap="callPhone" aria-role="button" aria-label="拨打客服热线">
+          <text class="service-row__label">{{info.hotline}}</text>
+          <text class="service-row__action">拨打</text>
+        </view>
+        <text class="service-tip">{{info.serviceHours}} · {{info.responseNote}}</text>
+      </view>
+
+      <view class="service-card">
+        <view class="service-card__head">
+          <image class="service-card__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
+          <text class="service-card__title">常见问题</text>
+        </view>
+        <view
+          wx:for="{{faqs}}"
+          wx:key="id"
+          class="faq-item {{expandedFaqId === item.id ? 'is-open' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="toggleFaq"
+          aria-role="button"
+          aria-label="{{item.question}}"
+        >
+          <view class="faq-item__head">
+            <text class="faq-item__question">{{item.question}}</text>
+            <image class="faq-item__arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+          </view>
+          <text wx:if="{{expandedFaqId === item.id}}" class="faq-item__answer">{{item.answer}}</text>
+        </view>
+      </view>
+
+      <view class="service-card">
+        <view class="service-card__head">
+          <image class="service-card__icon" src="/assets/icons/lucide/store-brand.svg" mode="aspectFit" />
+          <text class="service-card__title">门店电话</text>
+        </view>
+        <view
+          wx:for="{{storeList}}"
+          wx:key="id"
+          class="service-row service-row--store"
+          data-phone="{{item.phone}}"
+          bindtap="callPhone"
+          aria-role="button"
+          aria-label="拨打{{item.name}}电话"
+        >
+          <view class="service-row__body">
+            <text class="service-row__label">{{item.name}}</text>
+            <text class="service-row__meta">{{item.businessHours}}</text>
+          </view>
+          <text class="service-row__action">{{item.phone}}</text>
+        </view>
+      </view>
+
+      <view class="service-safe"></view>
+    </view>
+  </scroll-view>
+</view>
