@@ -1,14 +1,19 @@
 <scroll-view class="profile-scroll" scroll-y enhanced="{{false}}">
-<view class="profile-page">
-  <image class="profile-hero" src="/assets/images/3x/profile-hero.jpg" mode="aspectFill" aria-label="五零时光新中式养生茶饮" />
+  <view class="profile-page">
+    <image class="profile-hero" src="/assets/images/3x/profile-hero.jpg" mode="aspectFill" aria-label="五零时光新中式养生茶饮" />
 
-  <view class="profile-content">
-    <view class="profile-card user-card">
-      <view class="user-card__main">
-        <image class="user-card__avatar" src="{{userProfile.avatar}}" mode="aspectFill" bindtap="openProfileData" aria-role="button" aria-label="编辑个人资料" />
-        <view class="user-card__identity" bindtap="openProfileData" aria-role="button" aria-label="查看和编辑个人资料">
-          <text class="user-card__name">{{userProfile.nickname}}</text>
-          <text class="user-card__vip">{{userProfile.vipLevel}}</text>
+    <view class="profile-content">
+      <view class="profile-card user-card">
+        <view class="user-card__main">
+          <image class="user-card__avatar" src="{{userProfile.avatar}}" mode="aspectFill" bindtap="openProfileData" aria-role="button" aria-label="编辑个人资料" />
+          <view class="user-card__identity" bindtap="openProfileData" aria-role="button" aria-label="查看和编辑个人资料">
+            <text class="user-card__name">{{loggedIn ? userProfile.nickname : '点击登录'}}</text>
+            <text wx:if="{{loggedIn && phoneMasked}}" class="user-card__phone">{{phoneMasked}}</text>
+            <text wx:elif="{{loggedIn}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
+            <view class="user-card__badges">
+              <text class="user-card__vip">{{userProfile.vipLevel}}</text>
+              <text wx:if="{{businessRole}}" class="user-card__role-badge">{{businessRole.label}}</text>
+          </view>
         </view>
         <image
           class="user-card__code"
@@ -21,15 +26,15 @@
         />
       </view>
 
-      <view class="progress">
+      <view class="progress" bindtap="openMemberRights" aria-role="button" aria-label="查看会员权益">
         <view class="progress__labels">
-          <text>{{userProfile.vipLevel}}</text>
-          <text>{{userProfile.nextLevel}}</text>
+          <text>{{vipLevel}}</text>
+          <text>{{nextLevel}}</text>
         </view>
         <view class="progress__track">
           <view class="progress__value" style="width: {{progressPercent}}%;"></view>
         </view>
-        <text class="progress__count">{{userProfile.progressCurrent}}/{{userProfile.progressTarget}}</text>
+        <text class="progress__count">{{progressCurrent}}/{{progressTarget}}</text>
       </view>
     </view>
 
@@ -49,6 +54,20 @@
       </view>
     </view>
 
+    <view wx:if="{{pendingRoleCount > 0}}" class="pending-notice">
+      <image class="pending-notice__icon" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
+      <text class="pending-notice__text">您有 {{pendingRoleCount}} 个角色申请审核中</text>
+    </view>
+
+    <view class="profile-card role-entry" bindtap="openRoleCenter" aria-role="button" aria-label="进入角色中心">
+      <image class="role-entry__icon" src="/assets/icons/lucide/users-brand.svg" mode="aspectFit" />
+      <view class="role-entry__body">
+        <text class="role-entry__title">角色中心</text>
+        <text class="role-entry__desc">{{businessRole ? '切换当前经营角色' : '尚未开通经营角色'}}</text>
+      </view>
+      <image class="role-entry__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+    </view>
+
     <image class="promo-banner" src="/assets/images/3x/profile-banner.jpg" mode="widthFix" bindtap="openMenu" aria-label="抹茶轻茉莉新品" />
 
     <section-card title="我的功能">
@@ -64,6 +83,18 @@
           <image class="function-item__icon" src="{{item.icon}}" mode="aspectFit" />
           <text class="function-item__label">{{item.label}}</text>
         </view>
+        <view
+          wx:for="{{roleFunctions}}"
+          wx:key="id"
+          class="function-item function-item--role"
+          data-action="{{item.actionId}}"
+          bindtap="openRoleFunction"
+          aria-role="button"
+          aria-label="{{item.label}}"
+        >
+          <image class="function-item__icon" src="{{item.icon}}" mode="aspectFit" />
+          <text class="function-item__label">{{item.label}}</text>
+        </view>
       </view>
     </section-card>
 
@@ -75,22 +106,26 @@
           <image class="gift-head__more-icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
         </view>
       </view>
-      <view class="gift-list">
+      <view wx:if="{{giftCards.length}}" class="gift-list">
         <view
-          wx:for="{{userProfile.giftCards}}"
+          wx:for="{{giftCards}}"
           wx:key="id"
-          class="gift-card"
-          data-label="{{item.name}}"
+          class="gift-card-item"
+          data-id="{{item.id}}"
           bindtap="openGiftCards"
           aria-role="button"
-          aria-label="{{item.name}}"
+          aria-label="{{item.name}}礼品卡"
         >
-          <image class="gift-card__image" src="{{item.image}}" mode="aspectFill" />
+          <image class="gift-card-item__image" src="{{item.image}}" mode="aspectFill" />
+          <text class="gift-card-item__name ellipsis">{{item.name}}</text>
         </view>
       </view>
+      <view wx:else class="gift-card-empty">暂无礼品卡</view>
     </section-card>
   </view>
 
   <view class="tabbar-safe-space"></view>
 </view>
 </scroll-view>
+
+

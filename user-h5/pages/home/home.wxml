@@ -1,24 +1,24 @@
 <scroll-view class="home-scroll" scroll-y enhanced="{{false}}">
-<view class="home-page">
-  <view class="hero-wrap">
-    <image class="home-hero" src="/assets/images/3x/home-hero.jpg" mode="widthFix" aria-label="金秋入茶限定上新" />
+  <view class="home-page">
+    <view class="hero-wrap">
+      <image class="home-hero" src="/assets/images/3x/home-hero.jpg" mode="widthFix" aria-label="金秋入茶限定上新" />
   </view>
 
   <view class="home-card">
     <view class="user-strip">
       <text>{{userProfile.nickname}}</text>
-      <view class="coupon-link" bindtap="openCoupons">
+      <view class="coupon-link" bindtap="openCoupons" aria-role="button" aria-label="查看优惠券">
         <text>优惠券{{userProfile.couponCount || 5}}张</text>
         <image class="coupon-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
       </view>
     </view>
 
     <view class="order-modes">
-      <view class="order-mode" data-mode="dinein" bindtap="selectOrderMode">
+      <view class="order-mode" data-mode="dinein" bindtap="selectOrderMode" aria-role="button" aria-label="选择店内堂食">
         <text class="order-mode__title">店内堂食</text>
         <text class="order-mode__description">领券下单享优惠</text>
       </view>
-      <view class="order-mode" data-mode="pickup" bindtap="selectOrderMode">
+      <view class="order-mode" data-mode="pickup" bindtap="selectOrderMode" aria-role="button" aria-label="选择打包自取">
         <text class="order-mode__title">打包自取</text>
         <text class="order-mode__description">到店自取免排队</text>
       </view>
@@ -33,6 +33,8 @@
         class="shortcut-item"
         data-id="{{item.id}}"
         data-label="{{item.label}}"
+        aria-role="button"
+        aria-label="{{item.label}}"
         bindtap="handleShortcut"
       >
         <image class="shortcut-item__icon" src="{{item.icon}}" mode="aspectFit" />
@@ -44,7 +46,7 @@
   <view
     class="join-card"
     data-label="加盟合作"
-    bindtap="showUnavailable"
+    bindtap="openJoinApply"
     aria-role="button"
     aria-label="加入我们，新中式养生茶饮连锁品牌，点击合作"
   >

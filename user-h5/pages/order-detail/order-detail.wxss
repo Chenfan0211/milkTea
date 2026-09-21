@@ -18,7 +18,6 @@
 
 .detail-card,
 .status-card,
-.coupon-banner,
 .reward-card {
   margin-bottom: 20rpx;
   background: var(--card-bg);
@@ -62,6 +61,11 @@
   text-align: center;
 }
 
+.status-card__countdown {
+  margin-top: 12rpx;
+  color: var(--brand-green);
+  font-size: var(--font-md);
+}
 .status-card__actions {
   display: flex;
   gap: 20rpx;
@@ -85,7 +89,7 @@
 }
 
 .status-action--primary {
-  color: #FFFFFF;
+  color: #ffffff;
   background: var(--brand-green);
 }
 
@@ -132,89 +136,6 @@
   color: var(--brand-green);
   font-weight: 600;
 }
-.coupon-banner {
-  position: relative;
-  display: flex;
-  min-height: 220rpx;
-  padding: 24rpx;
-  overflow: hidden;
-  background: var(--brand-soft);
-}
-
-.coupon-banner__copy {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  width: 170rpx;
-  color: var(--text-main);
-}
-
-.coupon-banner__title,
-.coupon-banner__amount {
-  font-weight: 600;
-}
-
-.coupon-banner__title {
-  font-size: var(--font-md);
-}
-
-.coupon-banner__amount {
-  color: var(--brand-green);
-  font-size: var(--font-display);
-  line-height: 62rpx;
-}
-
-.coupon-banner__action {
-  margin-top: 16rpx;
-  color: var(--text-main);
-  font-size: var(--font-sm);
-}
-
-.coupon-banner__list {
-  display: flex;
-  flex: 1;
-  gap: 8rpx;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.coupon-chip {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 96rpx;
-  color: var(--text-main);
-  background: var(--card-bg);
-  border: 2rpx solid var(--line-color);
-  border-radius: var(--radius-sm);
-}
-
-.coupon-chip__value {
-  color: var(--brand-green);
-  font-size: var(--font-md);
-  font-weight: 600;
-}
-
-.coupon-chip__note,
-.coupon-chip__tag {
-  font-size: var(--font-caption);
-}
-
-.coupon-chip__tag {
-  color: var(--text-secondary);
-}
-
-.coupon-banner__image {
-  position: absolute;
-  right: 16rpx;
-  bottom: 16rpx;
-  width: 120rpx;
-  height: 120rpx;
-  opacity: 0.85;
-}
-
 .reward-card {
   display: flex;
   flex-wrap: wrap;
@@ -380,7 +301,7 @@
   justify-content: center;
   width: 42rpx;
   height: 42rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-sm);
   background: var(--brand-green);
   border-radius: var(--radius-xs);
@@ -461,4 +382,68 @@
 
 .order-detail__safe {
   height: calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.verify-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32rpx 24rpx;
+  text-align: center;
+}
+
+.verify-card__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.verify-card__qrcode {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-md);
+}
+
+.verify-card__code {
+  margin-top: 24rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.verify-card__hint {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.verify-card__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 24rpx;
+}
+
+.verify-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 200rpx;
+  height: 56rpx;
+  padding: 0 32rpx;
+  font-size: var(--font-sm);
+  border-radius: var(--radius-pill);
+}
+
+.verify-action--secondary {
+  margin-right: 20rpx;
+  color: var(--text-main);
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+}
+
+.verify-action--primary {
+  color: #ffffff;
+  background: var(--brand-green);
 }

@@ -10,12 +10,32 @@
           <text class="status-card__label">取单号</text>
         </block>
         <text class="status-card__note">{{order.statusNote}}</text>
+        <text wx:if="{{order.isPendingPayment}}" class="status-card__countdown">剩余支付时间 {{order.countdownText}}</text>
+        <view wx:if="{{order.isPendingPayment}}" class="status-card__actions">
+          <view class="status-action status-action--secondary" data-id="{{order.id}}" catchtap="cancelOrder" aria-role="button" aria-label="取消订单">取消订单</view>
+          <view class="status-action status-action--primary" data-id="{{order.id}}" catchtap="handlePay" aria-role="button" aria-label="立即支付">立即支付</view>
+        </view>
+        <view wx:if="{{order.isPaidCancellable}}" class="status-card__actions">
+          <view class="status-action status-action--secondary" data-id="{{order.id}}" catchtap="cancelPaidOrder" aria-role="button" aria-label="取消订单">取消订单</view>
+        </view>
         <view wx:if="{{order.orderStatus === 'completed'}}" class="status-card__actions">
           <view class="status-action status-action--secondary" bindtap="handleReorder" aria-role="button" aria-label="再来一单">再来一单</view>
           <view class="status-action status-action--primary" bindtap="handleReview" aria-role="button" aria-label="立即评价">立即评价</view>
         </view>
       </view>
 
+      <view wx:if="{{order.orderStatus === 'pending_verify' && order.pickupCode}}" class="detail-card verify-card">
+        <text class="verify-card__title">核销码</text>
+        <view class="verify-card__qrcode">
+          <qrcode value="{{order.pickupCode}}" size="{{320}}" />
+        </view>
+        <text class="verify-card__code">{{order.pickupCode}}</text>
+        <text class="verify-card__hint">请向门店出示此二维码核销</text>
+        <view class="verify-card__actions">
+          <view class="verify-action verify-action--secondary" bindtap="copyVerifyCode" aria-role="button" aria-label="复制核销码">复制核销码</view>
+          <view class="verify-action verify-action--primary" bindtap="scanVerifyCode" aria-role="button" aria-label="扫码核销">扫码核销</view>
+        </view>
+      </view>
       <block wx:if="{{order.orderStatus === 'paid_pickup'}}">
         <view class="detail-card progress-card">
           <view class="progress-step" wx:for="{{order.progressSteps}}" wx:key="id">
@@ -24,23 +44,6 @@
             </view>
             <text class="progress-step__label {{item.active ? 'is-active' : ''}}">{{item.label}}</text>
           </view>
-        </view>
-
-        <view class="coupon-banner" bindtap="handleCoupon" aria-role="button" aria-label="入群领30元券包">
-          <view class="coupon-banner__copy">
-            <text class="coupon-banner__title">入群领</text>
-            <text class="coupon-banner__amount">30元</text>
-            <text class="coupon-banner__title">券包</text>
-            <text class="coupon-banner__action">{{order.couponBanner.actionText}}</text>
-          </view>
-          <view class="coupon-banner__list">
-            <view class="coupon-chip" wx:for="{{order.couponBanner.coupons}}" wx:key="id">
-              <text class="coupon-chip__value">{{item.value}}</text>
-              <text class="coupon-chip__note">{{item.note}}</text>
-              <text class="coupon-chip__tag">{{item.tag}}</text>
-            </view>
-          </view>
-          <image class="coupon-banner__image" src="/assets/images/3x/menu-product.jpg" mode="aspectFit" />
         </view>
 
         <view class="reward-card">
