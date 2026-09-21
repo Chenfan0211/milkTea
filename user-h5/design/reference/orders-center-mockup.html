@@ -1,120 +1,547 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>我的订单 - 二维码核销效果图</title>
-<style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; width: 100%; height: 100%; background: #E7EAE3; }
-  body { display: grid; place-items: center; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; color: #2F302D; }
-  .phone { position: relative; width: 375px; height: 834px; overflow: hidden; background: #F4F5F2; }
-  .status { height: 44px; padding: 0 19px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 650; }
-  .status-right { display: flex; align-items: center; gap: 5px; }
-  .signal { letter-spacing: -2px; font-size: 13px; }
-  .battery { padding: 1px 5px; color: white; background: #53882C; border-radius: 4px; font-size: 11px; }
-  .nav { height: 52px; padding: 0 14px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; background: #FFFFFF; }
-  .invoice { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; color: #5F625B; border: 1px solid #D9DDD5; border-radius: 20px; font-size: 13px; }
-  .invoice svg { width: 17px; height: 17px; stroke: #71766D; }
-  .page-title { font-size: 20px; font-weight: 650; letter-spacing: .2px; }
-  .capsule { justify-self: end; width: 86px; height: 32px; display: flex; align-items: center; justify-content: space-around; border: 1px solid #E0E3DC; border-radius: 18px; }
-  .capsule .dots { font-size: 17px; letter-spacing: 1px; line-height: 1; }
-  .capsule .circle { width: 17px; height: 17px; border: 2px solid #111; border-radius: 50%; position: relative; }
-  .capsule .circle::after { content: ""; position: absolute; inset: 4px; background: #111; border-radius: 50%; }
-  .filters { height: 51px; display: flex; align-items: stretch; gap: 23px; padding: 0 14px; overflow: hidden; background: #FFFFFF; border-bottom: 1px solid #F0F1ED; white-space: nowrap; }
-  .filter { position: relative; display: flex; align-items: center; color: #3E403B; font-size: 15.5px; }
-  .filter.active { color: #53882C; font-weight: 650; }
-  .filter.active::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 3px; background: #53882C; border-radius: 2px; }
-  .list { height: calc(834px - 44px - 52px - 51px - 70px); overflow: hidden; padding: 10px 12px 0; }
-  .order-card { position: relative; margin-bottom: 10px; padding: 13px 13px 11px; background: #FFFFFF; border-radius: 18px; box-shadow: 0 5px 16px rgba(45, 65, 35, .045); overflow: hidden; }
-  .card-head { display: flex; align-items: center; min-width: 0; }
-  .type { flex: none; padding: 3px 7px 2px; color: #53882C; border: 1.5px solid #53882C; border-radius: 5px; font-size: 12px; line-height: 1.15; }
-  .store { min-width: 0; margin-left: 7px; overflow: hidden; color: #2F302D; font-size: 16px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-  .order-status { flex: none; margin-left: auto; color: #53882C; font-size: 13px; font-weight: 600; }
-  .order-status.done { color: #7B7E77; }
-  .order-content { display: grid; grid-template-columns: 92px minmax(0, 1fr) 74px; gap: 10px; align-items: center; margin-top: 12px; }
-  .qr-box { position: relative; width: 90px; height: 90px; padding: 5px; background: #FFFFFF; border: 1px solid #E4E7E0; border-radius: 12px; }
-  .qr-box img { display: block; width: 78px; height: 78px; image-rendering: pixelated; }
-  .qr-box.muted { opacity: .42; filter: grayscale(.25); }
-  .qr-check { position: absolute; right: -5px; bottom: -5px; width: 25px; height: 25px; display: grid; place-items: center; color: #FFFFFF; background: #53882C; border: 3px solid #FFFFFF; border-radius: 50%; font-size: 15px; font-weight: 700; }
-  .qr-caption { margin-top: 4px; color: #8A8D86; font-size: 10.5px; text-align: center; }
-  .product { min-width: 0; display: flex; align-items: center; gap: 8px; }
-  .product img { flex: none; width: 47px; height: 62px; object-fit: cover; border-radius: 8px; background: #F5F6F2; }
-  .product-copy { min-width: 0; }
-  .product-name { overflow: hidden; color: #30312E; font-size: 13.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-  .product-spec { margin-top: 5px; overflow: hidden; color: #8B8E87; font-size: 11.5px; line-height: 17px; text-overflow: ellipsis; white-space: nowrap; }
-  .pickup { text-align: right; }
-  .pickup-label { color: #858981; font-size: 11px; }
-  .pickup-number { margin-top: 1px; color: #53882C; font-size: 27px; font-weight: 750; line-height: 32px; letter-spacing: -.5px; }
-  .pickup-note { margin-top: 2px; color: #9A9D95; font-size: 10px; }
-  .card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 9px; border-top: 1px solid #F0F1ED; color: #8C8F88; font-size: 11.5px; }
-  .amount { color: #30312E; font-size: 14px; font-weight: 650; }
-  .amount small { color: #8C8F88; font-size: 11px; font-weight: 400; }
-  .chevron { margin-left: 5px; color: #A3A69F; }
-  .tabbar { position: absolute; right: 0; bottom: 0; left: 0; height: 70px; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; padding: 7px 9px 8px; background: rgba(255,255,255,.98); border-top: 1px solid #ECEDE8; }
-  .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; color: #9B9B96; font-size: 11px; }
-  .tab img { width: 25px; height: 25px; object-fit: contain; }
-  .tab.active { color: #53882C; font-weight: 600; }
-  .tab.active .icon-shell { display: grid; place-items: center; width: 34px; height: 25px; background: #53882C; border-radius: 5px; }
-  .tab.active .icon-shell img { width: 25px; height: 25px; filter: brightness(0) invert(1); }
-  .home-indicator { position: absolute; bottom: 6px; left: 50%; width: 132px; height: 4px; background: #101010; border-radius: 3px; transform: translateX(-50%); }
-</style>
-</head>
-<body>
-<div class="phone">
-  <div class="status">
-    <span>13:08</span>
-    <span class="status-right"><span class="signal">▮▮▮</span><span>⌁</span><span class="battery">97%</span></span>
-  </div>
-  <div class="nav">
-    <div class="invoice"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Z"/><path d="M9 7h6M9 11h6"/></svg>开发票</div>
-    <div class="page-title">我的订单</div>
-    <div class="capsule"><span class="dots">•••</span><span class="circle"></span></div>
-  </div>
-  <div class="filters">
-    <div class="filter active">全部订单</div>
-    <div class="filter">到店取餐</div>
-    <div class="filter">到店堂食</div>
-    <div class="filter">待核销</div>
-    <div class="filter">已完成</div>
-  </div>
-  <div class="list">
-    <div class="order-card">
-      <div class="card-head"><span class="type">打包</span><span class="store">星沙乐运魔方店</span><span class="order-status">待核销</span></div>
-      <div class="order-content">
-        <div><div class="qr-box"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeCAIAAADdBSngAAAENUlEQVR42u3dwW0cMQwFUDlIFwZSQfqvJBUESB3jAnIZCPokZ/ze2Ym9ux8SuNRQH9d1LZjnh7cA0QTRRDRBNBFNEE0QTUQTRBPRhGo/7/zQr9+fjX/i3z//Nv6e///V3iu98/9Uvj933o1pf/Pep2PVxIYOoologmiiQj9VYe3prRxz78adOnqv1q58FZWfqVUTGzqIJqIJookKvbIK26sKT/XHT9XauZMAe7/9VKVf+ZlaNbGhg2gimiCaqNCf+EdX9qN7q9TcKXerJogmogmiiWiCCr3rPPap8/On6t+9rvpb63GrJqIJoologmiiQp//FHNlV7238z6tHu/9TK2a2NBBNBFNEE1U6PPnuVXW42/9mfkz+qya2NBBNBFNEE1U6GtYLzXXa879zPyJ9PM/U6smogmiiWiCaKJCP9WzzlWyvXedn6ptT72rudvfKpNg1cSGDqKJaIJo8u19XNc1qt7sPbOdq/1zc+py70+u+rZqYkMH0UQ0QTQhV6HnurSr9ex3Zdd4Wq2dm0ivh44NHUQT0QTRhBWbFFd5B9m0TnflafneEwWV3wZYNbGhg2gimiCaLD30Q7Pcc/eU5ar43hq5smav/Cz00LGhg2gimiCa0Fuhr9aJ4r2n03Od99Xawa/85sGqiQ0dRBPRBNFEhZ67f7y30q886d17u1nuXvXKV2rVxIYOoologmiiQn/iWfTK+XLzv52YPwXOqokNHUQT0QTRhFM99Pl1Yu40+PwZ9b333Fk1saGDaIJoIpqwYrPcp3WEK2fQrWGz7u/8rtwJ9sqn+62a2NBBNBFNEE1U6L2T0HLPUO/VkpW97726/s7rylXWue8irJrY0EE0EU0QTVToldPApp0P7+2Y986Nr7z9XA8dGzqIJqIJogkrNilu/vPavXPPpn3PUDndXYWODR1EE9EE0YTe29ZOVbuVndzeGXTT6vre2XpWTWzoIJqIJogmKvQ17A7uyu58rrM8vxef65jroWNDB9FENEE0YcWeQ8+diM7NItubqDb/RH3uZELv52XVxIYOoologmiy9NBjJ7Sf2OmufPJ6/vPsZrmDaCKaIJqIJsw/5b7Gz06vnISW+1bhiRMA9NCxoYNoIpogmrBa70PvnVd26saxad88nPosTt29nnsPrZrY0EE0EU0QTVTolWe2c/d933nGPHcS/tT945XP+0/rqls1saGDaCKaIJqo0Hsr695/laua3zEBvnLanlUTGzqIJqIJookKfT3wOfRcj7i3Ru7tj1fec2fVxIYOoologmiiQn/Hy5h293pucl1lF/vU+2xSHDZ0EE1EE0QTKiv0yhlreyfGK0+n507mV76KU2cVPIeODR1EE9EE0YQVuw99veIO7srZ6b2n7itPp5vljg0dRBNEE9GE73MfOlZNEE0QTUQTRBPRBNFENEE0QTQRTQj4AktTIq4o1JSwAAAAAElFTkSuQmCC" alt="核销二维码" /></div><div class="qr-caption">到店出示</div></div>
-        <div class="product"><img src="../../assets/images/3x/menu-product.jpg" alt="商品图" /><div class="product-copy"><div class="product-name">五窨茉莉抹茶</div><div class="product-spec">中杯 · 三分糖 · 少冰</div><div class="product-spec">今天 13:02 · 共1件</div></div></div>
-        <div class="pickup"><div class="pickup-label">取餐号</div><div class="pickup-number">A038</div><div class="pickup-note">前面还有1杯</div></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>我的订单 - 二维码核销效果图</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #e7eae3;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        color: #2f302d;
+      }
+      .phone {
+        position: relative;
+        width: 375px;
+        height: 834px;
+        overflow: hidden;
+        background: #f4f5f2;
+      }
+      .status {
+        height: 44px;
+        padding: 0 19px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 14px;
+        font-weight: 650;
+      }
+      .status-right {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .signal {
+        letter-spacing: -2px;
+        font-size: 13px;
+      }
+      .battery {
+        padding: 1px 5px;
+        color: white;
+        background: #53882c;
+        border-radius: 4px;
+        font-size: 11px;
+      }
+      .nav {
+        height: 52px;
+        padding: 0 14px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        background: #ffffff;
+      }
+      .invoice {
+        justify-self: start;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        color: #5f625b;
+        border: 1px solid #d9ddd5;
+        border-radius: 20px;
+        font-size: 13px;
+      }
+      .invoice svg {
+        width: 17px;
+        height: 17px;
+        stroke: #71766d;
+      }
+      .page-title {
+        font-size: 20px;
+        font-weight: 650;
+        letter-spacing: 0.2px;
+      }
+      .capsule {
+        justify-self: end;
+        width: 86px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        border: 1px solid #e0e3dc;
+        border-radius: 18px;
+      }
+      .capsule .dots {
+        font-size: 17px;
+        letter-spacing: 1px;
+        line-height: 1;
+      }
+      .capsule .circle {
+        width: 17px;
+        height: 17px;
+        border: 2px solid #111;
+        border-radius: 50%;
+        position: relative;
+      }
+      .capsule .circle::after {
+        content: '';
+        position: absolute;
+        inset: 4px;
+        background: #111;
+        border-radius: 50%;
+      }
+      .filters {
+        height: 51px;
+        display: flex;
+        align-items: stretch;
+        gap: 23px;
+        padding: 0 14px;
+        overflow: hidden;
+        background: #ffffff;
+        border-bottom: 1px solid #f0f1ed;
+        white-space: nowrap;
+      }
+      .filter {
+        position: relative;
+        display: flex;
+        align-items: center;
+        color: #3e403b;
+        font-size: 15.5px;
+      }
+      .filter.active {
+        color: #53882c;
+        font-weight: 650;
+      }
+      .filter.active::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: #53882c;
+        border-radius: 2px;
+      }
+      .list {
+        height: calc(834px - 44px - 52px - 51px - 70px);
+        overflow: hidden;
+        padding: 10px 12px 0;
+      }
+      .order-card {
+        position: relative;
+        margin-bottom: 10px;
+        padding: 13px 13px 11px;
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: 0 5px 16px rgba(45, 65, 35, 0.045);
+        overflow: hidden;
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+      }
+      .type {
+        flex: none;
+        padding: 3px 7px 2px;
+        color: #53882c;
+        border: 1.5px solid #53882c;
+        border-radius: 5px;
+        font-size: 12px;
+        line-height: 1.15;
+      }
+      .store {
+        min-width: 0;
+        margin-left: 7px;
+        overflow: hidden;
+        color: #2f302d;
+        font-size: 16px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .order-status {
+        flex: none;
+        margin-left: auto;
+        color: #53882c;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .order-status.done {
+        color: #7b7e77;
+      }
+      .order-content {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr) 74px;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+      }
+      .qr-box {
+        position: relative;
+        width: 90px;
+        height: 90px;
+        padding: 5px;
+        background: #ffffff;
+        border: 1px solid #e4e7e0;
+        border-radius: 12px;
+      }
+      .qr-box img {
+        display: block;
+        width: 78px;
+        height: 78px;
+        image-rendering: pixelated;
+      }
+      .qr-box.muted {
+        opacity: 0.42;
+        filter: grayscale(0.25);
+      }
+      .qr-check {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        width: 25px;
+        height: 25px;
+        display: grid;
+        place-items: center;
+        color: #ffffff;
+        background: #53882c;
+        border: 3px solid #ffffff;
+        border-radius: 50%;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .qr-caption {
+        margin-top: 4px;
+        color: #8a8d86;
+        font-size: 10.5px;
+        text-align: center;
+      }
+      .product {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .product img {
+        flex: none;
+        width: 47px;
+        height: 62px;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #f5f6f2;
+      }
+      .product-copy {
+        min-width: 0;
+      }
+      .product-name {
+        overflow: hidden;
+        color: #30312e;
+        font-size: 13.5px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .product-spec {
+        margin-top: 5px;
+        overflow: hidden;
+        color: #8b8e87;
+        font-size: 11.5px;
+        line-height: 17px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pickup {
+        text-align: right;
+      }
+      .pickup-label {
+        color: #858981;
+        font-size: 11px;
+      }
+      .pickup-number {
+        margin-top: 1px;
+        color: #53882c;
+        font-size: 27px;
+        font-weight: 750;
+        line-height: 32px;
+        letter-spacing: -0.5px;
+      }
+      .pickup-note {
+        margin-top: 2px;
+        color: #9a9d95;
+        font-size: 10px;
+      }
+      .card-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 10px;
+        padding-top: 9px;
+        border-top: 1px solid #f0f1ed;
+        color: #8c8f88;
+        font-size: 11.5px;
+      }
+      .amount {
+        color: #30312e;
+        font-size: 14px;
+        font-weight: 650;
+      }
+      .amount small {
+        color: #8c8f88;
+        font-size: 11px;
+        font-weight: 400;
+      }
+      .chevron {
+        margin-left: 5px;
+        color: #a3a69f;
+      }
+      .tabbar {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 70px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        align-items: center;
+        padding: 7px 9px 8px;
+        background: rgba(255, 255, 255, 0.98);
+        border-top: 1px solid #ecede8;
+      }
+      .tab {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        color: #9b9b96;
+        font-size: 11px;
+      }
+      .tab img {
+        width: 25px;
+        height: 25px;
+        object-fit: contain;
+      }
+      .tab.active {
+        color: #53882c;
+        font-weight: 600;
+      }
+      .tab.active .icon-shell {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 25px;
+        background: #53882c;
+        border-radius: 5px;
+      }
+      .tab.active .icon-shell img {
+        width: 25px;
+        height: 25px;
+        filter: brightness(0) invert(1);
+      }
+      .home-indicator {
+        position: absolute;
+        bottom: 6px;
+        left: 50%;
+        width: 132px;
+        height: 4px;
+        background: #101010;
+        border-radius: 3px;
+        transform: translateX(-50%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone">
+      <div class="status">
+        <span>13:08</span>
+        <span class="status-right">
+          <span class="signal">▮▮▮</span>
+          <span>⌁</span>
+          <span class="battery">97%</span>
+        </span>
       </div>
-      <div class="card-foot"><span>订单号 WX202609160038</span><span class="amount">¥13.9 <small>· 详情 ›</small></span></div>
-    </div>
-    <div class="order-card">
-      <div class="card-head"><span class="type">堂食</span><span class="store">松雅湖吾悦广场店</span><span class="order-status">已核销</span></div>
-      <div class="order-content">
-        <div><div class="qr-box muted"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeCAIAAADdBSngAAAEJ0lEQVR42u3dwY3cMAwFUG2QLgKkgvRfyVYQIHVMCsghC4P8pD3vnQezXs+HBFoW9fF6vQ7s880tQDRBNBFNEE1EE0QTRBPRBNFENCHt+1c+9PPXj8FL/P3557/X8+9nrrn2zcn7U3U3tv2mRk1M6CCaiCaIJir0vgqrqkbuq6yT9eZXrnD/f5H8TY2amNBBNBFNEE1U6Mkq7FpV+JXatu96qr656llE3/OK5G9q1MSEDqKJaIJookK/40UnK8fZKnX2nX+jJogmogmiiWiCCj1Ta19b166qf6/99afW40ZNRBNEE9EE0USFvn8Xc1X1nazHq/qwPXVnulETEzqIJqIJoglVFfpsJ/C+rmvXvueOn9n2mxo1MaGDaCKaIJqo0M/6tdS+tea+z2yrdu/4mxo1EU0QTUQTRBMVenIH97Y+bMn3zKvuat/pb7N7+Y2amNBBNBFNEE1U6CfYdfy09U+ruuZk3Vp1f/o66Z3gEwyjJiZ0EE1EE0QTFXqyHk+e9111PbMr1Ml1/74nKtbQMaGDaCKaIJrQ1yluWx+25FOF/dV38v5U3VWjJiZ0EE1EE0STN/Pxer1ivdNna+3k/vGq9ehtO+WtoYNoIpogmogmzFbop63rWt96dHJPd3LlfXYFP/nkwaiJCR1EE9EE0eR4y320Iq6qJZM70/v6z/etqs92kjdqYkIH0UQ0QTThFK2h71+hTu46f8b/lXyD3aiJCR1EE9EE0YSqfejJOvG0dZvvW33uq8dnO7wlT6I3amJCB9FENEE0Od5yX1YDJs8OO2077vtq22s7BfrOntMpDhM6iCaIJqIJfRV68m3nZ/R733aG3bbeekZNTOggmogmiCac0V7us2d+3bFb2mw39dlz5YyamNBBNBFNEE2ONfTRSm3bnvfkqWSzq/N9zyuMmpjQQTQRTRBN6NuH3lftJs9xS3aKS54Hlzwzrq+uN2piQgfRRDRBNDnecl9W8T3j3PD9a/Hb3kwwamJCB9FENEE0OdbQl9WJVX89+RZ3soqf7Wzf946BURMTOogmogmiybGGPnrGVtWe92073J+xn10vdxBNRBNEE9GEd+7lvq2K31bbJnu5W0MH0UQ0QTQRTTjLermfZf3l7vg9yVq77+z1vis0amJCB9FENEE0UaHvr1L7atJrq+pV1W7yScj+VXWjJiZ0EE1EE0QTFfpsL/cT7MOWfFv+GR3gq061M2piQgfRRDRBNGH2PPTZpwF9q+Gz17zt7Lmq/8KoiQkdRBPRBNFEhX5HVavYVTXp7Fr8tn53OsVhQgfRRDRBNCFZofftTE/u4O7r9973Pn/fO/azJ+gZNTGhg2gimiCaHKetPfQM7jueh953Ilvf2+l6uWNCB9EE0UQ04X3OQ8eoCaIJoologmgimiCaiCaIJogmogkN/gKMhwa/79Jz4AAAAABJRU5ErkJggg==" alt="已核销二维码" /><span class="qr-check">✓</span></div><div class="qr-caption">已核销</div></div>
-        <div class="product"><img src="../../assets/images/3x/menu-product.jpg" alt="商品图" /><div class="product-copy"><div class="product-name">金桂轻乳茶</div><div class="product-spec">中杯 · 五分糖 · 热</div><div class="product-spec">今天 11:46 · 共2件</div></div></div>
-        <div class="pickup"><div class="pickup-label">取餐号</div><div class="pickup-number">A026</div><div class="pickup-note">已取餐</div></div>
+      <div class="nav">
+        <div class="invoice">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Z" />
+            <path d="M9 7h6M9 11h6" />
+          </svg>
+          开发票
+        </div>
+        <div class="page-title">我的订单</div>
+        <div class="capsule">
+          <span class="dots">•••</span>
+          <span class="circle"></span>
+        </div>
       </div>
-      <div class="card-foot"><span>订单号 WX202609160026</span><span class="amount">¥25.9 <small>· 详情 ›</small></span></div>
-    </div>
-    <div class="order-card">
-      <div class="card-head"><span class="type">打包</span><span class="store">星沙乐运魔方店</span><span class="order-status done">已完成</span></div>
-      <div class="order-content">
-        <div><div class="qr-box muted"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeCAIAAADdBSngAAAEJ0lEQVR42u3dwY3cMAwFUG2QLgKkgvRfyVYQIHVMCsghC4P8pD3vnQezXs+HBFoW9fF6vQ7s880tQDRBNBFNEE1EE0QTRBPRBNFENCHt+1c+9PPXj8FL/P3557/X8+9nrrn2zcn7U3U3tv2mRk1M6CCaiCaIJir0vgqrqkbuq6yT9eZXrnD/f5H8TY2amNBBNBFNEE1U6Mkq7FpV+JXatu96qr656llE3/OK5G9q1MSEDqKJaIJookK/40UnK8fZKnX2nX+jJogmogmiiWiCCj1Ta19b166qf6/99afW40ZNRBNEE9EE0USFvn8Xc1X1nazHq/qwPXVnulETEzqIJqIJoglVFfpsJ/C+rmvXvueOn9n2mxo1MaGDaCKaIJqo0M/6tdS+tea+z2yrdu/4mxo1EU0QTUQTRBMVenIH97Y+bMn3zKvuat/pb7N7+Y2amNBBNBFNEE1U6CfYdfy09U+ruuZk3Vp1f/o66Z3gEwyjJiZ0EE1EE0QTFXqyHk+e9111PbMr1Ml1/74nKtbQMaGDaCKaIJrQ1yluWx+25FOF/dV38v5U3VWjJiZ0EE1EE0STN/Pxer1ivdNna+3k/vGq9ehtO+WtoYNoIpogmogmzFbop63rWt96dHJPd3LlfXYFP/nkwaiJCR1EE9EE0eR4y320Iq6qJZM70/v6z/etqs92kjdqYkIH0UQ0QTThFK2h71+hTu46f8b/lXyD3aiJCR1EE9EE0YSqfejJOvG0dZvvW33uq8dnO7wlT6I3amJCB9FENEE0Od5yX1YDJs8OO2077vtq22s7BfrOntMpDhM6iCaIJqIJfRV68m3nZ/R733aG3bbeekZNTOggmogmiCac0V7us2d+3bFb2mw39dlz5YyamNBBNBFNEE2ONfTRSm3bnvfkqWSzq/N9zyuMmpjQQTQRTRBN6NuH3lftJs9xS3aKS54Hlzwzrq+uN2piQgfRRDRBNDnecl9W8T3j3PD9a/Hb3kwwamJCB9FENEE0OdbQl9WJVX89+RZ3soqf7Wzf946BURMTOogmogmiybGGPnrGVtWe92073J+xn10vdxBNRBNEE9GEd+7lvq2K31bbJnu5W0MH0UQ0QTQRTTjLermfZf3l7vg9yVq77+z1vis0amJCB9FENEE0UaHvr1L7atJrq+pV1W7yScj+VXWjJiZ0EE1EE0QTFfpsL/cT7MOWfFv+GR3gq061M2piQgfRRDRBNGH2PPTZpwF9q+Gz17zt7Lmq/8KoiQkdRBPRBNFEhX5HVavYVTXp7Fr8tn53OsVhQgfRRDRBNCFZofftTE/u4O7r9973Pn/fO/azJ+gZNTGhg2gimiCaHKetPfQM7jueh953Ilvf2+l6uWNCB9EE0UQ04X3OQ8eoCaIJoologmgimiCaiCaIJogmogkN/gKMhwa/79Jz4AAAAABJRU5ErkJggg==" alt="已完成二维码" /></div><div class="qr-caption">已完成</div></div>
-        <div class="product"><img src="../../assets/images/3x/menu-product.jpg" alt="商品图" /><div class="product-copy"><div class="product-name">陈皮普洱轻乳茶</div><div class="product-spec">大杯 · 三分糖 · 少冰</div><div class="product-spec">昨天 18:22 · 共1件</div></div></div>
-        <div class="pickup"><div class="pickup-label">取餐号</div><div class="pickup-number">B012</div><div class="pickup-note">已取餐</div></div>
+      <div class="filters">
+        <div class="filter active">全部订单</div>
+        <div class="filter">到店取餐</div>
+        <div class="filter">到店堂食</div>
+        <div class="filter">待核销</div>
+        <div class="filter">已完成</div>
       </div>
-      <div class="card-foot"><span>订单号 WX202609150012</span><span class="amount">¥14.9 <small>· 详情 ›</small></span></div>
+      <div class="list">
+        <div class="order-card">
+          <div class="card-head">
+            <span class="type">打包</span>
+            <span class="store">星沙乐运魔方店</span>
+            <span class="order-status">待核销</span>
+          </div>
+          <div class="order-content">
+            <div>
+              <div class="qr-box">
+                <img
+                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeCAIAAADdBSngAAAENUlEQVR42u3dwW0cMQwFUDlIFwZSQfqvJBUESB3jAnIZCPokZ/ze2Ym9ux8SuNRQH9d1LZjnh7cA0QTRRDRBNBFNEE0QTUQTRBPRhGo/7/zQr9+fjX/i3z//Nv6e///V3iu98/9Uvj933o1pf/Pep2PVxIYOoologmiiQj9VYe3prRxz78adOnqv1q58FZWfqVUTGzqIJqIJookKvbIK26sKT/XHT9XauZMAe7/9VKVf+ZlaNbGhg2gimiCaqNCf+EdX9qN7q9TcKXerJogmogmiiWiCCr3rPPap8/On6t+9rvpb63GrJqIJoologmiiQp//FHNlV7238z6tHu/9TK2a2NBBNBFNEE1U6PPnuVXW42/9mfkz+qya2NBBNBFNEE1U6GtYLzXXa879zPyJ9PM/U6smogmiiWiCaKJCP9WzzlWyvXedn6ptT72rudvfKpNg1cSGDqKJaIJo8u19XNc1qt7sPbOdq/1zc+py70+u+rZqYkMH0UQ0QTQhV6HnurSr9ex3Zdd4Wq2dm0ivh44NHUQT0QTRhBWbFFd5B9m0TnflafneEwWV3wZYNbGhg2gimiCaLD30Q7Pcc/eU5ar43hq5smav/Cz00LGhg2gimiCa0Fuhr9aJ4r2n03Od99Xawa/85sGqiQ0dRBPRBNFEhZ67f7y30q886d17u1nuXvXKV2rVxIYOoologmiiQn/iWfTK+XLzv52YPwXOqokNHUQT0QTRhFM99Pl1Yu40+PwZ9b333Fk1saGDaIJoIpqwYrPcp3WEK2fQrWGz7u/8rtwJ9sqn+62a2NBBNBFNEE1U6L2T0HLPUO/VkpW97726/s7rylXWue8irJrY0EE0EU0QTVToldPApp0P7+2Y986Nr7z9XA8dGzqIJqIJogkrNilu/vPavXPPpn3PUDndXYWODR1EE9EE0YTe29ZOVbuVndzeGXTT6vre2XpWTWzoIJqIJogmKvQ17A7uyu58rrM8vxef65jroWNDB9FENEE0YcWeQ8+diM7NItubqDb/RH3uZELv52XVxIYOoologmiy9NBjJ7Sf2OmufPJ6/vPsZrmDaCKaIJqIJsw/5b7Gz06vnISW+1bhiRMA9NCxoYNoIpogmrBa70PvnVd26saxad88nPosTt29nnsPrZrY0EE0EU0QTVTolWe2c/d933nGPHcS/tT945XP+0/rqls1saGDaCKaIJqo0Hsr695/laua3zEBvnLanlUTGzqIJqIJookKfT3wOfRcj7i3Ru7tj1fec2fVxIYOoologmiiQn/Hy5h293pucl1lF/vU+2xSHDZ0EE1EE0QTKiv0yhlreyfGK0+n507mV76KU2cVPIeODR1EE9EE0YQVuw99veIO7srZ6b2n7itPp5vljg0dRBNEE9GE73MfOlZNEE0QTUQTRBPRBNFENEE0QTQRTQj4AktTIq4o1JSwAAAAAElFTkSuQmCC"
+                  alt="核销二维码"
+                />
+              </div>
+              <div class="qr-caption">到店出示</div>
+            </div>
+            <div class="product">
+              <img src="../../assets/images/3x/menu-product.jpg" alt="商品图" />
+              <div class="product-copy">
+                <div class="product-name">五窨茉莉抹茶</div>
+                <div class="product-spec">中杯 · 三分糖 · 少冰</div>
+                <div class="product-spec">今天 13:02 · 共1件</div>
+              </div>
+            </div>
+            <div class="pickup">
+              <div class="pickup-label">取餐号</div>
+              <div class="pickup-number">A038</div>
+              <div class="pickup-note">前面还有1杯</div>
+            </div>
+          </div>
+          <div class="card-foot">
+            <span>订单号 WX202609160038</span>
+            <span class="amount">
+              ¥13.9
+              <small>· 详情 ›</small>
+            </span>
+          </div>
+        </div>
+        <div class="order-card">
+          <div class="card-head">
+            <span class="type">堂食</span>
+            <span class="store">松雅湖吾悦广场店</span>
+            <span class="order-status">已核销</span>
+          </div>
+          <div class="order-content">
+            <div>
+              <div class="qr-box muted">
+                <img
+                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeCAIAAADdBSngAAAEJ0lEQVR42u3dwY3cMAwFUG2QLgKkgvRfyVYQIHVMCsghC4P8pD3vnQezXs+HBFoW9fF6vQ7s880tQDRBNBFNEE1EE0QTRBPRBNFENCHt+1c+9PPXj8FL/P3557/X8+9nrrn2zcn7U3U3tv2mRk1M6CCaiCaIJir0vgqrqkbuq6yT9eZXrnD/f5H8TY2amNBBNBFNEE1U6Mkq7FpV+JXatu96qr656llE3/OK5G9q1MSEDqKJaIJookK/40UnK8fZKnX2nX+jJogmogmiiWiCCj1Ta19b166qf6/99afW40ZNRBNEE9EE0USFvn8Xc1X1nazHq/qwPXVnulETEzqIJqIJoglVFfpsJ/C+rmvXvueOn9n2mxo1MaGDaCKaIJqo0M/6tdS+tea+z2yrdu/4mxo1EU0QTUQTRBMVenIH97Y+bMn3zKvuat/pb7N7+Y2amNBBNBFNEE1U6CfYdfy09U+ruuZk3Vp1f/o66Z3gEwyjJiZ0EE1EE0QTFXqyHk+e9111PbMr1Ml1/74nKtbQMaGDaCKaIJrQ1yluWx+25FOF/dV38v5U3VWjJiZ0EE1EE0STN/Pxer1ivdNna+3k/vGq9ehtO+WtoYNoIpogmogmzFbop63rWt96dHJPd3LlfXYFP/nkwaiJCR1EE9EE0eR4y320Iq6qJZM70/v6z/etqs92kjdqYkIH0UQ0QTThFK2h71+hTu46f8b/lXyD3aiJCR1EE9EE0YSqfejJOvG0dZvvW33uq8dnO7wlT6I3amJCB9FENEE0Od5yX1YDJs8OO2077vtq22s7BfrOntMpDhM6iCaIJqIJfRV68m3nZ/R733aG3bbeekZNTOggmogmiCac0V7us2d+3bFb2mw39dlz5YyamNBBNBFNEE2ONfTRSm3bnvfkqWSzq/N9zyuMmpjQQTQRTRBN6NuH3lftJs9xS3aKS54Hlzwzrq+uN2piQgfRRDRBNDnecl9W8T3j3PD9a/Hb3kwwamJCB9FENEE0OdbQl9WJVX89+RZ3soqf7Wzf946BURMTOogmogmiybGGPnrGVtWe92073J+xn10vdxBNRBNEE9GEd+7lvq2K31bbJnu5W0MH0UQ0QTQRTTjLermfZf3l7vg9yVq77+z1vis0amJCB9FENEE0UaHvr1L7atJrq+pV1W7yScj+VXWjJiZ0EE1EE0QTFfpsL/cT7MOWfFv+GR3gq061M2piQgfRRDRBNGH2PPTZpwF9q+Gz17zt7Lmq/8KoiQkdRBPRBNFEhX5HVavYVTXp7Fr8tn53OsVhQgfRRDRBNCFZofftTE/u4O7r9973Pn/fO/azJ+gZNTGhg2gimiCaHKetPfQM7jueh953Ilvf2+l6uWNCB9EE0UQ04X3OQ8eoCaIJoologmgimiCaiCaIJogmogkN/gKMhwa/79Jz4AAAAABJRU5ErkJggg=="
+                  alt="已核销二维码"
+                />
+                <span class="qr-check">✓</span>
+              </div>
+              <div class="qr-caption">已核销</div>
+            </div>
+            <div class="product">
+              <img src="../../assets/images/3x/menu-product.jpg" alt="商品图" />
+              <div class="product-copy">
+                <div class="product-name">金桂轻乳茶</div>
+                <div class="product-spec">中杯 · 五分糖 · 热</div>
+                <div class="product-spec">今天 11:46 · 共2件</div>
+              </div>
+            </div>
+            <div class="pickup">
+              <div class="pickup-label">取餐号</div>
+              <div class="pickup-number">A026</div>
+              <div class="pickup-note">已取餐</div>
+            </div>
+          </div>
+          <div class="card-foot">
+            <span>订单号 WX202609160026</span>
+            <span class="amount">
+              ¥25.9
+              <small>· 详情 ›</small>
+            </span>
+          </div>
+        </div>
+        <div class="order-card">
+          <div class="card-head">
+            <span class="type">打包</span>
+            <span class="store">星沙乐运魔方店</span>
+            <span class="order-status done">已完成</span>
+          </div>
+          <div class="order-content">
+            <div>
+              <div class="qr-box muted">
+                <img
+                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeCAIAAADdBSngAAAEJ0lEQVR42u3dwY3cMAwFUG2QLgKkgvRfyVYQIHVMCsghC4P8pD3vnQezXs+HBFoW9fF6vQ7s880tQDRBNBFNEE1EE0QTRBPRBNFENCHt+1c+9PPXj8FL/P3557/X8+9nrrn2zcn7U3U3tv2mRk1M6CCaiCaIJir0vgqrqkbuq6yT9eZXrnD/f5H8TY2amNBBNBFNEE1U6Mkq7FpV+JXatu96qr656llE3/OK5G9q1MSEDqKJaIJookK/40UnK8fZKnX2nX+jJogmogmiiWiCCj1Ta19b166qf6/99afW40ZNRBNEE9EE0USFvn8Xc1X1nazHq/qwPXVnulETEzqIJqIJoglVFfpsJ/C+rmvXvueOn9n2mxo1MaGDaCKaIJqo0M/6tdS+tea+z2yrdu/4mxo1EU0QTUQTRBMVenIH97Y+bMn3zKvuat/pb7N7+Y2amNBBNBFNEE1U6CfYdfy09U+ruuZk3Vp1f/o66Z3gEwyjJiZ0EE1EE0QTFXqyHk+e9111PbMr1Ml1/74nKtbQMaGDaCKaIJrQ1yluWx+25FOF/dV38v5U3VWjJiZ0EE1EE0STN/Pxer1ivdNna+3k/vGq9ehtO+WtoYNoIpogmogmzFbop63rWt96dHJPd3LlfXYFP/nkwaiJCR1EE9EE0eR4y320Iq6qJZM70/v6z/etqs92kjdqYkIH0UQ0QTThFK2h71+hTu46f8b/lXyD3aiJCR1EE9EE0YSqfejJOvG0dZvvW33uq8dnO7wlT6I3amJCB9FENEE0Od5yX1YDJs8OO2077vtq22s7BfrOntMpDhM6iCaIJqIJfRV68m3nZ/R733aG3bbeekZNTOggmogmiCac0V7us2d+3bFb2mw39dlz5YyamNBBNBFNEE2ONfTRSm3bnvfkqWSzq/N9zyuMmpjQQTQRTRBN6NuH3lftJs9xS3aKS54Hlzwzrq+uN2piQgfRRDRBNDnecl9W8T3j3PD9a/Hb3kwwamJCB9FENEE0OdbQl9WJVX89+RZ3soqf7Wzf946BURMTOogmogmiybGGPnrGVtWe92073J+xn10vdxBNRBNEE9GEd+7lvq2K31bbJnu5W0MH0UQ0QTQRTTjLermfZf3l7vg9yVq77+z1vis0amJCB9FENEE0UaHvr1L7atJrq+pV1W7yScj+VXWjJiZ0EE1EE0QTFfpsL/cT7MOWfFv+GR3gq061M2piQgfRRDRBNGH2PPTZpwF9q+Gz17zt7Lmq/8KoiQkdRBPRBNFEhX5HVavYVTXp7Fr8tn53OsVhQgfRRDRBNCFZofftTE/u4O7r9973Pn/fO/azJ+gZNTGhg2gimiCaHKetPfQM7jueh953Ilvf2+l6uWNCB9EE0UQ04X3OQ8eoCaIJoologmgimiCaiCaIJogmogkN/gKMhwa/79Jz4AAAAABJRU5ErkJggg=="
+                  alt="已完成二维码"
+                />
+              </div>
+              <div class="qr-caption">已完成</div>
+            </div>
+            <div class="product">
+              <img src="../../assets/images/3x/menu-product.jpg" alt="商品图" />
+              <div class="product-copy">
+                <div class="product-name">陈皮普洱轻乳茶</div>
+                <div class="product-spec">大杯 · 三分糖 · 少冰</div>
+                <div class="product-spec">昨天 18:22 · 共1件</div>
+              </div>
+            </div>
+            <div class="pickup">
+              <div class="pickup-label">取餐号</div>
+              <div class="pickup-number">B012</div>
+              <div class="pickup-note">已取餐</div>
+            </div>
+          </div>
+          <div class="card-foot">
+            <span>订单号 WX202609150012</span>
+            <span class="amount">
+              ¥14.9
+              <small>· 详情 ›</small>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab">
+          <img src="../../assets/icons/lucide/home.svg" />
+          <span>首页</span>
+        </div>
+        <div class="tab">
+          <img src="../../assets/icons/lucide/menu.svg" />
+          <span>点单</span>
+        </div>
+        <div class="tab">
+          <img src="../../assets/icons/lucide/member.svg" />
+          <span>会员专区</span>
+        </div>
+        <div class="tab active">
+          <span class="icon-shell"><img src="../../assets/icons/lucide/orders-active.svg" /></span>
+          <span>订单</span>
+        </div>
+        <div class="tab">
+          <img src="../../assets/icons/lucide/profile.svg" />
+          <span>我的</span>
+        </div>
+      </div>
+      <div class="home-indicator"></div>
     </div>
-  </div>
-  <div class="tabbar">
-    <div class="tab"><img src="../../assets/icons/lucide/home.svg" /><span>首页</span></div>
-    <div class="tab"><img src="../../assets/icons/lucide/menu.svg" /><span>点单</span></div>
-    <div class="tab"><img src="../../assets/icons/lucide/member.svg" /><span>会员专区</span></div>
-    <div class="tab active"><span class="icon-shell"><img src="../../assets/icons/lucide/orders-active.svg" /></span><span>订单</span></div>
-    <div class="tab"><img src="../../assets/icons/lucide/profile.svg" /><span>我的</span></div>
-  </div>
-  <div class="home-indicator"></div>
-</div>
-</body>
+  </body>
 </html>

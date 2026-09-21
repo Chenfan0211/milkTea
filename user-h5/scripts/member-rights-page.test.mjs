@@ -1,0 +1,236 @@
+﻿import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const storage = {};
+let memberRightsDefinition;
+let memberDefinition;
+
+globalThis.wx = {
+  showShareMenu() {},
+  navigateTo() {},
+  switchTab() {},
+  getStorageSync(key) {
+    return storage[key] || '';
+  },
+  setStorageSync(key, value) {
+    storage[key] = value;
+  }
+};
+globalThis.getApp = () => ({ globalData: { points: 0 } });
+
+// ---- 会员权益页（我的页入口） ----
+globalThis.Page = page => {
+  memberRightsDefinition = page;
+};
+assert.doesNotThrow(
+  () => require(path.join(root, 'pages/member-rights/member-rights.js')),
+  '会员权益页脚本必须能正常加载'
+);
+assert.ok(memberRightsDefinition && memberRightsDefinition.data, '会员权益页必须注册 Page 实例');
+
+const rightsWxml = fs.readFileSync(path.join(root, 'pages/member-rights/member-rights.wxml'), 'utf8');
+const rightsJson = JSON.parse(fs.readFileSync(path.join(root, 'pages/member-rights/member-rights.json'), 'utf8'));
+
+// ---- 会员专区 Tab ----
+globalThis.Page = page => {
+  memberDefinition = page;
+};
+assert.doesNotThrow(() => require(path.join(root, 'pages/member/member.js')), '会员专区脚本必须能正常加载');
+const memberWxml = fs.readFileSync(path.join(root, 'pages/member/member.wxml'), 'utf8');
+const memberJson = JSON.parse(fs.readFileSync(path.join(root, 'pages/member/member.json'), 'utf8'));
+const memberJs = fs.readFileSync(path.join(root, 'pages/member/member.js'), 'utf8');
+
+// ---- 共享会员面板组件 ----
+const panelRoot = path.join(root, 'components/member-panel/member-panel');
+for (const extension of ['js', 'json', 'wxml', 'wxss']) {
+  assert.ok(fs.existsSync(`${panelRoot}.${extension}`), `缺少会员面板组件: member-panel.${extension}`);
+}
+const panelWxml = fs.readFileSync(`${panelRoot}.wxml`, 'utf8');
+const panelWxss = fs.readFileSync(`${panelRoot}.wxss`, 'utf8');
+
+// 两页都必须通过同一组件渲染，且含等级说明入口
+for (const [label, wxml, json] of [
+  ['会员权益页', rightsWxml, rightsJson],
+  ['会员专区', memberWxml, memberJson]
+]) {
+  assert.ok(wxml.includes('<member-panel'), `${label}必须使用会员面板组件`);
+  assert.ok(json.usingComponents && json.usingComponents['member-panel'], `${label}必须注册会员面板组件`);
+  assert.ok(wxml.includes('bind:openrules="openLevelRules"'), `${label}必须接通等级说明入口`);
+}
+assert.ok(panelWxml.includes('等级说明'), '会员面板必须包含等级说明入口');
+assert.ok(panelWxml.includes('当前等级'), '会员卡必须标记当前等级');
+assert.ok(panelWxss.includes('.member-card__badge') && panelWxss.includes('background: var(--brand-green)') && panelWxss.includes('font-weight: 600'), '当前等级角标必须使用品牌绿高对比样式');
+assert.ok(panelWxml.includes('永久有效'), '会员卡必须展示永久有效');
+assert.ok(panelWxml.includes('member-card__badge--permanent'), '永久有效必须改为胶囊标签');
+assert.ok(panelWxml.includes('wx:if="{{item.isReached}}"'), '永久有效只应在已达成等级显示');
+assert.ok(!panelWxml.includes('member-card__foot'), '永久有效不得再使用整条底部深色背景');
+assert.ok(panelWxml.includes('五零时光') && panelWxml.includes('时光'), '会员卡必须使用自有品牌字标与印章');
+assert.ok(panelWxml.includes('member-card__crown'), '会员卡必须包含皇冠勋章图标');
+assert.ok(panelWxml.includes("item.isReached ? 'crown-gold' : 'member'"), '锁定等级必须替换为灰色皇冠');
+assert.ok(panelWxml.includes('is-active') && panelWxml.includes('is-locked'), '会员卡必须渲染选中与锁定状态');
+assert.ok(panelWxml.includes('lock-muted.svg'), '未达成等级卡片必须使用灰色锁图标');
+assert.ok(!panelWxml.includes('真茶屋'), '会员卡不得照搬参考图品牌');
+
+// 横向卡组与进度轴
+assert.ok(panelWxml.includes('class="member-cards"') && panelWxml.includes('scroll-x') && panelWxml.includes('show-scrollbar="{{false}}"'), '会员卡必须使用 scroll-view 横向滑动且关闭滚动条');
+assert.ok(panelWxml.includes('member-cards__track'), '会员卡必须为横向滑动卡组');
+const memberCardsRule = panelWxss.match(/\.member-cards\s*\{[\s\S]*?\}/)?.[0] || '';
+assert.ok(
+  memberCardsRule.includes('width: 100%') &&
+    memberCardsRule.includes('white-space: nowrap'),
+  '会员卡横向容器必须为全宽且不换行'
+);
+assert.ok(panelWxml.includes('wx:for="{{axis}}"'), '会员面板必须渲染成长值进度轴');
+assert.ok(panelWxml.includes('member-axis__dot'), '进度轴必须绘制节点');
+assert.ok(panelWxml.includes('当前成长值'), '会员面板必须展示当前成长值');
+
+// 特权区
+assert.ok(panelWxml.includes('会员特权'), '会员面板必须包含会员特权区块');
+assert.ok(panelWxml.includes('wx:for="{{privileges}}"'), '会员面板必须渲染特权列表');
+assert.ok(
+  panelWxml.includes('privilege-item__icon') && panelWxml.includes('privilege-item__count'),
+  '特权项必须包含图标与数量角标'
+);
+assert.ok(
+  panelWxml.includes('activeReached') && panelWxml.includes('未达成等级，权益预览'),
+  '未达成等级特权区必须显示预览提示与灰态'
+);
+assert.ok(panelWxml.includes('item.mutedIcon'), '未达成等级特权图标必须切换到灰色图标');
+
+// 页面必须移除旧的成长值渠道与时光币规则区块
+for (const [label, wxml] of [
+  ['会员权益页', rightsWxml],
+  ['会员专区', memberWxml]
+]) {
+  assert.ok(!wxml.includes('消费杯数成长值'), `${label}不得展示消费杯数渠道`);
+  assert.ok(!wxml.includes('pointsEarningRules'), `${label}不得展示时光币获取方式区块`);
+}
+
+// 我的页入口
+const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
+const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
+assert.ok(
+  profileWxml.includes('bindtap="openMemberRights"') && profileWxml.includes('aria-label="查看会员权益"'),
+  '我的页 VIP 区域必须可点击并有无障碍标签'
+);
+assert.ok(
+  profileJs.includes('openMemberRights') && profileJs.includes('/pages/member-rights/member-rights'),
+  '我的页必须跳转会员权益页'
+);
+
+// 页面注册
+const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
+assert.ok(appJson.pages.includes('pages/member-rights/member-rights'), 'app.json 必须注册会员权益页');
+assert.ok(appJson.pages.includes('pages/member-level-rules/member-level-rules'), 'app.json 必须注册等级说明页');
+
+// ---- 等级数据与成长值逻辑 ----
+const { memberLevels } = require(path.join(root, 'data/mock.js'));
+assert.equal(memberLevels.length, 3, '会员等级必须为三档');
+assert.equal(memberLevels.map(item => item.name).join('|'), '时光卡|星享卡|挚友卡', '等级名称必须完整');
+assert.equal(
+  memberLevels.map(item => item.condition).join('|'),
+  '注册即得|累计消费满300元|累计消费满2000元',
+  '升级条件必须只按金额且完整'
+);
+assert.equal(memberLevels.map(item => item.discount).join('|'), '8折|7折|6折', '折扣必须完整');
+for (const level of memberLevels) {
+  assert.ok(Array.isArray(level.benefits) && level.benefits.length, `${level.level} 必须包含结构化权益`);
+  for (const benefit of level.benefits) {
+    assert.ok(
+      benefit.icon && typeof benefit.text === 'string' && benefit.text,
+      `${level.level} 权益必须包含图标与文案`
+    );
+  }
+}
+assert.ok(!memberLevels.some(item => item.cupTarget !== undefined), '等级数据不得再包含杯数阈值');
+assert.ok(!memberLevels.some(item => item.growthTarget !== undefined), '等级数据不得再包含冗余成长值阈值');
+const lv3Benefits = memberLevels.find(item => item.level === 'Lv3').benefits.map(item => item.text);
+assert.ok(
+  lv3Benefits.includes('专属优惠券') && lv3Benefits.includes('时光币1.5倍') && lv3Benefits.includes('生日免费饮品'),
+  'Lv3 核心权益必须完整'
+);
+assert.ok(!lv3Benefits.some(text => text.includes('3张')), 'Lv3 不得叠加 Lv2 的 3 张券');
+
+const { buildLevelMeta } = require(path.join(root, 'utils/member-level.js'));
+const cases = [
+  [{ totalSpend: 10 }, '时光卡'],
+  [{ totalSpend: 320 }, '星享卡'],
+  [{ totalSpend: 2000 }, '挚友卡'],
+  [{ totalSpend: 0 }, '时光卡']
+];
+for (const [profile, expected] of cases) {
+  const meta = buildLevelMeta(profile);
+  assert.equal(meta.currentName, expected, `实付累计 ${profile.totalSpend} 元应判定为 ${expected}`);
+  assert.equal(meta.currentGrowth, Math.floor(profile.totalSpend), '成长值必须等于累计实付金额向下取整');
+}
+const metaLv2 = buildLevelMeta({ totalSpend: 320 });
+assert.equal(metaLv2.progressTarget, 2000, 'Lv2 进度目标必须为下一档 2000');
+assert.equal(metaLv2.progressLabel, '再消费 1680 元升级', 'Lv2 升级提示必须为金额差');
+assert.equal(metaLv2.levels.length, 3, '等级列表必须为三档');
+assert.equal(metaLv2.axis.map(item => item.value).join(','), '0,300,2000', '进度轴必须为 0/300/2000 三节点');
+assert.ok(metaLv2.privileges.length > 0 && metaLv2.privilegesTitle.includes('星享卡'), '当前档特权必须可渲染');
+assert.ok(
+  metaLv2.privileges.every(item => item.mutedIcon && item.mutedIcon.endsWith('-muted')),
+  '每档权益必须包含灰色图标变体'
+);
+
+// 页面数据装配
+function createPage(definition) {
+  const instance = Object.assign({}, definition);
+  instance.data = JSON.parse(JSON.stringify(definition.data));
+  instance.setData = function setData(updates) {
+    this.data = Object.assign({}, this.data, updates);
+  };
+  return instance;
+}
+const { saveUserProfile } = require(path.join(root, 'utils/user-profile.js'));
+saveUserProfile({ totalSpend: 320, points: 0 });
+const rightsPage = createPage(memberRightsDefinition);
+memberRightsDefinition.onShow.call(rightsPage);
+assert.equal(rightsPage.data.currentLevel, 'Lv2', '会员权益页必须同步当前等级');
+assert.equal(rightsPage.data.levels.length, 3, '会员权益页必须下发三档等级');
+assert.equal(rightsPage.data.axis.length, 3, '会员权益页必须下发三个进度节点');
+
+const memberPage = createPage(memberDefinition);
+memberDefinition.onShow.call(memberPage);
+assert.equal(memberPage.data.currentLevel, 'Lv2', '会员专区必须同步当前等级');
+assert.ok(memberJs.includes('selected: 2'), '会员专区必须同步 Tab 选中态');
+assert.ok(!memberJs.includes('pointsEarningRules'), '会员专区不得再引用时光币规则数据');
+
+// 设计规范
+assert.ok(!panelWxml.includes('<button'), '会员面板不得使用原生 button');
+assert.ok(
+  panelWxss.includes('var(--brand-green)') &&
+    panelWxss.includes('var(--radius-lg)') &&
+    panelWxss.includes('var(--shadow-card)'),
+  '会员面板必须遵守设计 token'
+);
+assert.ok(
+  panelWxss.includes('.member-card.is-locked') && panelWxss.includes('.member-card.is-active'),
+  '会员面板 WXSS 必须包含锁定与选中态规则'
+);
+assert.ok(panelWxss.includes('height: 320rpx'), '会员卡高度必须增加到 320rpx');
+assert.ok(!panelWxss.includes('translateY'), '选中态不得位移以避免描边被裁切');
+assert.ok(
+  panelWxss.includes('.member-privilege__preview') && panelWxss.includes('.privilege-item.is-muted'),
+  '会员面板 WXSS 必须包含特权预览与灰态规则'
+);
+assert.ok(
+  panelWxss.includes('color: var(--text-main)') && panelWxss.includes('color: var(--dark-fill)'),
+  '卡片等级与品牌文字必须使用深色提高对比度'
+);
+assert.ok(
+  panelWxss.includes('.member-card__badge--permanent') &&
+    panelWxss.includes('color: #ffffff') &&
+    panelWxss.includes('background: var(--brand-green)') &&
+    panelWxss.includes('font-weight: 600'),
+  '永久有效胶囊必须使用品牌绿高对比样式'
+);
+assert.ok(!/\b\d+px\b/.test(panelWxss), '会员面板 WXSS 不得使用 px');
+
+console.log('会员专区样式、等级说明入口、成长值逻辑与特权渲染测试通过');
