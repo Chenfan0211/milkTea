@@ -2,7 +2,7 @@
 -- 五零时光 基线数据
 -- =============================================================
 
--- 后台账号 admin / Admin@123
+-- 后台初始账号：admin（密码为 BCrypt 哈希，初始密码见部署文档，首次登录后请立即修改）
 INSERT INTO sys_user (id, username, password, nick_name, status) VALUES
 (1, 'admin', '$2a$10$tW4gWMzHu/ulbz5eKI7kiuZzZoPtxMvJNyFGsePuRY1dlL0lcyHgC', '超级管理员', 1);
 
