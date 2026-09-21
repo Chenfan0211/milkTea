@@ -22,6 +22,7 @@
 ### Task 1: 写入高清素材验收测试
 
 **Files:**
+
 - Create: `user-h5/scripts/acceptance-check.test.mjs`
 
 - [x] 写入关键图片尺寸、图片总量、运行引用、包体排除和首页结构断言。
@@ -30,6 +31,7 @@
 ### Task 2: 素材流水线、包体配置与项目校验
 
 **Files:**
+
 - Create: `user-h5/scripts/build-images.mjs`
 - Modify: `user-h5/scripts/check-project.mjs`
 - Modify: `user-h5/project.config.json`
@@ -42,6 +44,7 @@
 ### Task 3: 统一页面高清素材引用
 
 **Files:**
+
 - Modify: `user-h5/data/mock.js`
 - Modify: `user-h5/pages/menu/menu.wxml`
 - Modify: `user-h5/pages/profile/profile.wxml`
@@ -52,6 +55,7 @@
 ### Task 4: 重建首页
 
 **Files:**
+
 - Modify: `user-h5/pages/home/home.wxml`
 - Modify: `user-h5/pages/home/home.wxss`
 
@@ -62,6 +66,7 @@
 ### Task 5: 开发环境排查文档与规范
 
 **Files:**
+
 - Create: `user-h5/docs/development-tool-troubleshooting.md`
 - Modify: `AGENTS.md`
 

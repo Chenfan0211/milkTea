@@ -35,3 +35,20 @@ yarn.lock
 .VSCodeCounter
 src-tauri/target
 .codegraph
+
+# backend
+server/target/
+server/*.log
+
+
+# backend secrets (不要提交)
+server/src/main/resources/application-local.yml
+server/src/main/resources/application-prod.yml
+
+# 部署实际口令（模板见 deploy/dev/.env.example）
+deploy/dev/.env
+deploy/**/.env
+
+# 构建产物与临时文件
+dist.tar.gz
+.tmp-*
