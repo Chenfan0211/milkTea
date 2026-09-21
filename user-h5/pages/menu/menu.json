@@ -6,6 +6,7 @@
     "cart-sheet": "/components/cart-sheet/cart-sheet",
     "spec-sheet": "/components/spec-sheet/spec-sheet",
     "activity-sheet": "/components/activity-sheet/activity-sheet",
+    "store-list-card": "/components/store-list-card/store-list-card",
     "empty-state": "/components/empty-state/empty-state"
   },
   "renderer": "webview"

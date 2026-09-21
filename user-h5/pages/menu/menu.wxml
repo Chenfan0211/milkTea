@@ -23,8 +23,8 @@
     </view>
 
     <view class="mode-switch">
-      <view class="mode-switch__item {{orderMode === 'pickup' ? 'is-active' : ''}}" data-mode="pickup" bindtap="setOrderMode">自提</view>
-      <view class="mode-switch__item {{orderMode === 'dinein' ? 'is-active' : ''}}" data-mode="dinein" bindtap="setOrderMode">堂食</view>
+      <view class="mode-switch__item {{orderMode === 'pickup' ? 'is-active' : ''}}" data-mode="pickup" bindtap="setOrderMode" aria-role="button" aria-label="切换为自提">自提</view>
+      <view class="mode-switch__item {{orderMode === 'dinein' ? 'is-active' : ''}}" data-mode="dinein" bindtap="setOrderMode" aria-role="button" aria-label="切换为堂食">堂食</view>
     </view>
   </view>
 
@@ -42,6 +42,8 @@
       wx:key="id"
       class="menu-tabs__item {{activeMenuIndex === index ? 'is-active' : ''}}"
       data-index="{{index}}"
+      aria-role="button"
+      aria-label="{{item.label}}"
       bindtap="selectMenuTab"
     >
       <text>{{item.label}}</text>
@@ -63,6 +65,8 @@
           wx:key="id"
           class="category-item {{selectedCategoryId === category.id ? 'is-active' : ''}}"
           data-id="{{category.id}}"
+          aria-role="button"
+          aria-label="{{category.label}}"
           bindtap="selectCategory"
         >
           <text class="category-item__label">{{category.label}}</text>
@@ -80,7 +84,7 @@
     >
       <view class="product-scroll__inner" id="product-top">
         <text class="ad-title">新品广告标题文字</text>
-        <image class="ad-banner" src="/assets/images/3x/menu-banner.jpg" mode="widthFix" data-label="新品活动" bindtap="showUnavailable" />
+        <image class="ad-banner" src="/assets/images/3x/menu-banner.jpg" mode="widthFix" data-label="新品活动" bindtap="showUnavailable" aria-role="button" aria-label="新品活动" />
 
         <block wx:for="{{activeMenu.groups}}" wx:for-item="group" wx:key="id">
           <view
@@ -182,47 +186,15 @@
 
     <scroll-view class="store-picker__list" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
       <view class="store-picker__list-inner">
-        <view
+        <store-list-card
           wx:for="{{pickerStores}}"
           wx:key="id"
-          class="picker-store {{currentStore.id === item.id && pickerHasCurrentStore ? 'is-active' : ''}}"
-          data-id="{{item.id}}"
-          bindtap="handleSelectPickerStore"
-          aria-role="button"
-          aria-label="选择{{item.name}}"
-        >
-          <view class="picker-store__promotion">
-            <image class="picker-store__promotion-icon" src="/assets/icons/lucide/apple-white.svg" mode="aspectFit" />
-            <text>{{item.promotion}}</text>
-          </view>
-          <view class="picker-store__body">
-            <view class="picker-store__title-row">
-              <text class="picker-store__name ellipsis">{{item.name}}</text>
-              <view class="picker-store__distance-wrap">
-                <image wx:if="{{item.isFavorite}}" class="picker-store__favorite-mark" src="/assets/icons/lucide/star-gold.svg" mode="aspectFit" />
-                <text class="picker-store__distance">{{item.distanceLabel}}</text>
-              </view>
-            </view>
-            <view class="picker-store__queue {{item.queueClass}}">
-              <image class="picker-store__queue-icon" src="{{item.queueIcon}}" mode="aspectFit" />
-              <text>{{item.queueText}}</text>
-            </view>
-            <text class="picker-store__address ellipsis-3">{{item.address}}</text>
-            <text class="picker-store__hours">{{item.businessHours}}</text>
-            <view class="picker-store__status">{{item.statusText}}</view>
-          </view>
-          <view class="picker-store__actions">
-            <view class="picker-store__action" data-phone="{{item.phone}}" catchtap="handleStorePhone" aria-role="button" aria-label="拨打{{item.name}}电话">
-              <image src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
-            </view>
-            <view class="picker-store__action" data-id="{{item.id}}" catchtap="handleStoreNavigate" aria-role="button" aria-label="导航到{{item.name}}">
-              <image src="/assets/icons/lucide/navigation.svg" mode="aspectFit" />
-            </view>
-          </view>
-          <view wx:if="{{currentStore.id === item.id && pickerHasCurrentStore}}" class="picker-store__selected">
-            <image src="/assets/icons/lucide/check.svg" mode="aspectFit" />
-          </view>
-        </view>
+          store="{{item}}"
+          selected="{{currentStore.id === item.id && pickerHasCurrentStore}}"
+          bind:select="handleSelectPickerStore"
+          bind:phone="handleStorePhone"
+          bind:navigate="handleStoreNavigate"
+        />
 
         <empty-state wx:if="{{!pickerStores.length}}" title="没有找到门店" description="换个关键词，或切换城市后再搜索" icon="/assets/icons/lucide/search.svg" />
       </view>

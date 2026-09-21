@@ -207,7 +207,7 @@
   left: 0;
   height: 1rpx;
   background: var(--line-color);
-  content: "";
+  content: '';
 }
 
 .goods-row__media {
@@ -230,11 +230,11 @@
   min-width: 36rpx;
   height: 36rpx;
   padding: 0 4rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-caption);
   line-height: 36rpx;
   text-align: center;
-  background: var(--brand-green);
+  background: var(--favorite-gold);
   border-radius: var(--radius-pill);
 }
 
@@ -312,7 +312,7 @@
   justify-content: center;
   width: 36rpx;
   height: 36rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-caption);
   background: var(--brand-green);
   border-radius: var(--radius-xs);
@@ -364,6 +364,79 @@
   font-weight: 600;
 }
 
+.payment-card {
+  position: relative;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.payment-card__head {
+  display: flex;
+  align-items: center;
+}
+
+.payment-card__title {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.payment-option {
+  display: flex;
+  align-items: center;
+  height: 96rpx;
+  margin-top: 16rpx;
+  padding: 0 16rpx;
+  border: 2rpx solid var(--line-color);
+  border-radius: var(--radius-sm);
+}
+
+.payment-option.is-active {
+  border-color: var(--brand-green);
+}
+
+.payment-option__icon {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 12rpx;
+}
+
+.payment-option__label {
+  flex: none;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.payment-option__hint {
+  flex: 1;
+  min-width: 0;
+  margin-left: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: right;
+}
+
+.payment-option__check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36rpx;
+  height: 36rpx;
+  margin-left: 12rpx;
+  background: var(--brand-green);
+  border-radius: 50%;
+}
+
+.payment-option__check-icon {
+  width: 22rpx;
+  height: 22rpx;
+}
+
 .point-card {
   display: flex;
   align-items: center;
@@ -376,7 +449,7 @@
   justify-content: center;
   width: 36rpx;
   height: 36rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-caption);
   background: var(--brand-green);
   border-radius: var(--radius-xs);
@@ -524,14 +597,13 @@
   align-items: center;
 }
 
-
 .confirm-bar__submit {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 280rpx;
   height: 80rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-md);
   font-weight: 600;
   background: var(--brand-green);

@@ -52,13 +52,13 @@
             </view>
             <view class="goods-row__content">
               <text class="goods-row__name">{{item.name}}</text>
-              <text class="goods-row__price-label">小程序价</text>
+              <text class="goods-row__price-label">{{paymentMethod === 'stored-value' ? '储值价' : '小程序价'}}</text>
               <text class="goods-row__spec">{{item.spec}}</text>
               <text class="goods-row__quantity">x{{item.quantity}}</text>
             </view>
             <view class="goods-row__price">
               <text class="goods-row__original">¥{{item.originalPrice}}</text>
-              <text class="goods-row__actual">¥{{item.price}}</text>
+              <text class="goods-row__actual">¥{{paymentMethod === 'stored-value' ? (item.storedValuePrice || item.price) : item.price}}</text>
             </view>
           </view>
 
@@ -77,9 +77,31 @@
           </view>
         </view>
 
+        <view class="payment-card">
+          <view class="payment-card__head">
+            <text class="payment-card__title">支付方式</text>
+          </view>
+          <view class="payment-option {{paymentMethod === 'wechat' ? 'is-active' : ''}}" data-method="wechat" bindtap="selectPaymentMethod" aria-role="button" aria-label="微信支付">
+            <image class="payment-option__icon" src="/assets/icons/lucide/qr-code.svg" mode="aspectFit" />
+            <text class="payment-option__label">微信支付</text>
+            <text class="payment-option__hint">使用微信支付</text>
+            <view wx:if="{{paymentMethod === 'wechat'}}" class="payment-option__check">
+              <image class="payment-option__check-icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+            </view>
+          </view>
+          <view class="payment-option {{paymentMethod === 'stored-value' ? 'is-active' : ''}}" data-method="stored-value" bindtap="selectPaymentMethod" aria-role="button" aria-label="储值支付">
+            <image class="payment-option__icon" src="/assets/icons/lucide/wallet.svg" mode="aspectFit" />
+            <text class="payment-option__label">储值支付</text>
+            <text class="payment-option__hint">储值价 ¥{{storedAmountText}}</text>
+            <view wx:if="{{paymentMethod === 'stored-value'}}" class="payment-option__check">
+              <image class="payment-option__check-icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+            </view>
+          </view>
+        </view>
+
         <view class="point-card">
           <text class="point-card__tag">积</text>
-          <text class="point-card__text">当前订单可获得{{pointCount}}积分</text>
+          <text class="point-card__text">当前订单可获得{{pointCount}}时光币</text>
         </view>
 
         <view class="disclaimer-card">
