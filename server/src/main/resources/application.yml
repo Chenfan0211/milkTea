@@ -1,0 +1,73 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: wuling-server
+  profiles:
+    active: dev
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+app:
+  # 微信小程序配置
+  # app-secret 请通过环境变量 WX_APP_SECRET 注入，不要写进仓库
+  wx:
+    app-id: ${WX_APP_ID:wx7d78d69cd175812e}
+    app-secret: ${WX_APP_SECRET:}
+    code2session-url: https://api.weixin.qq.com/sns/jscode2session
+  # Redis 命名空间与库号映射
+  # mode=single  ：按 database 映射连接不同 db（auth/sms/cache/biz）
+  # mode=cluster ：忽略 database（集群仅支持 db0），统一走 key 前缀，保证可扩展
+  redis:
+    mode: ${REDIS_MODE:single}
+    database:
+      auth: ${REDIS_DB_AUTH:0}
+      sms: ${REDIS_DB_SMS:1}
+      cache: ${REDIS_DB_CACHE:2}
+      biz: ${REDIS_DB_BIZ:3}
+  # 消息队列配置
+  mq:
+    # 订单超时时间（毫秒），默认 15 分钟
+    order-timeout-ms: ${MQ_ORDER_TIMEOUT_MS:900000}
+    # 消费失败最大重试次数，超过后转入死信队列
+    max-retry: ${MQ_MAX_RETRY:3}
+    # 消费端并发数
+    consumer-concurrency: ${MQ_CONSUMER_CONCURRENCY:2}
+    # 单次预取消息数
+    prefetch-count: ${MQ_PREFETCH_COUNT:10}
+  # 短信通道配置（降级登录方案）
+  # enabled=false 时使用 ConsoleSmsProvider（验证码输出到日志，不真实发送）
+  # 上线接入腾讯云后：enabled=true 并配置 sdk-app-id / secret-id / secret-key / sign-name / template-id
+  sms:
+    enabled: ${SMS_ENABLED:false}
+    sdk-app-id: ${SMS_SDK_APP_ID:}
+    secret-id: ${SMS_SECRET_ID:}
+    secret-key: ${SMS_SECRET_KEY:}
+    sign-name: ${SMS_SIGN_NAME:}
+    template-id: ${SMS_TEMPLATE_ID:}
+  jwt:
+    # 生产必须通过 JWT_SECRET 注入，不要沿用仓库默认值
+    secret: ${JWT_SECRET:N1uU6M8tUVZhUGLntH8DFKq4a3WrzrkyIADnGlEmr5c=}
+    access-token-ttl: 3600000
+    refresh-token-ttl: 604800000
+
+
+
