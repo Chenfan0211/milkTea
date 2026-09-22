@@ -1,0 +1,95 @@
+# =============================================================
+# 生产环境配置模板（application-prod.yml.example）
+#
+# 使用方式：
+#   1. 复制为 server/src/main/resources/application-prod.yml
+#      （该文件已被 .gitignore 排除，不会进仓库）
+#   2. 填入真实值，或全部改用环境变量注入（推荐后者）
+#   3. 启动：java -jar server.jar --spring.profiles.active=prod
+#
+# 安全约定：
+#   - 本文件禁止写入任何真实密钥；密钥一律由部署环境注入。
+#   - 下列 ${XXX} 均无默认值，缺失时服务会 fail-fast 拒绝启动。
+# =============================================================
+
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true
+    # 生产必须使用强口令，禁止沿用本地测试口令
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN:5}
+      connection-timeout: 3000
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX:16}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+app:
+  # 管理端 / 小程序 JWT 密钥：必须注入，无默认值（P1 安全修复）
+  # 生成：openssl rand -base64 32
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-ttl: 3600000
+    refresh-token-ttl: 604800000
+  # 支付回调签名密钥：必须注入，无默认值（P0 安全修复）
+  # 生成：openssl rand -base64 48
+  pay:
+    # 本服务承接支付回调，启用签名校验（未注入密钥则拒绝启动）
+    enabled: true
+    callback-secret: ${PAY_CALLBACK_SECRET}
+    callback-tolerance-ms: 300000
+  # 微信小程序密钥
+  wx:
+    app-id: ${WX_APP_ID}
+    app-secret: ${WX_APP_SECRET}
+    # 生产强制校验密钥存在，缺失即拒绝启动（P3）
+    require-secret: true
+  sms:
+    enabled: ${SMS_ENABLED:true}
+    sdk-app-id: ${SMS_SDK_APP_ID}
+    secret-id: ${SMS_SECRET_ID}
+    secret-key: ${SMS_SECRET_KEY}
+    sign-name: ${SMS_SIGN_NAME}
+    template-id: ${SMS_TEMPLATE_ID}
+
+mybatis-plus:
+  configuration:
+    # 生产关闭 SQL 日志：StdOutImpl 会把全部 SQL 与参数（含手机号等）打印到日志
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO
+
+# ---------- 告警通道（第 9 期）----------
+app:
+  alert:
+    log-file: /opt/wuling/logs/alerts.log
+    flag-file: /opt/wuling/logs/ALERT_PENDING
+  reconcile:
+    enabled: true
+    cron: "0 10 * * * ?"

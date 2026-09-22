@@ -4,30 +4,56 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+      继承聚合父 POM（第 1 期多模块改造）。
+      原先直接继承 spring-boot-starter-parent；现在由父 POM 通过
+      dependencyManagement 导入 spring-boot-dependencies BOM，
+      版本属性（java/mybatis-plus/jjwt）统一在父 POM 维护。
+    -->
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
-        <relativePath/>
+        <groupId>com.wuling</groupId>
+        <artifactId>wuling-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>com.wuling</groupId>
     <artifactId>server</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
     <name>wuling-server</name>
-    <description>五零时光后端服务</description>
-
-    <properties>
-        <java.version>17</java.version>
-        <maven.compiler.release>17</maven.compiler.release>
-        <mybatis-plus.version>3.5.7</mybatis-plus.version>
-        <jjwt.version>0.12.6</jjwt.version>
-    </properties>
+    <description>五零时光后端服务（单体，第 2-4 期逐步拆分）</description>
 
     <dependencies>
+        <!-- 公共能力模块（第 1 期接入；SqlGuard 等） -->
+        <dependency>
+            <groupId>com.wuling</groupId>
+            <artifactId>common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 第 5 期：安全公共能力（CurrentUser / MiniAppTokenProvider 等） -->
+        <dependency>
+            <groupId>com.wuling</groupId>
+            <artifactId>security-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Nacos 服务注册（第 3 期）：注册到注册中心后由网关按服务名路由。
+             注意：actuator 已在下方声明，nacos-discovery 需要它做健康上报。 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 第 5 期：common 的 web/jdbc 改为 optional 后，各服务需显式声明 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -109,6 +135,10 @@
 
     <build>
         <plugins>
+            <!--
+              可执行 jar 的 repackage 目标原先由 spring-boot-starter-parent 自动绑定；
+              改为继承聚合父 POM 后需显式声明 execution，否则 jar 无清单无法 java -jar 启动。
+            -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -120,6 +150,14 @@
                         </exclude>
                     </excludes>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

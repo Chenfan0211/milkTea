@@ -1,10 +1,12 @@
 const { withShare } = require('../../utils/share');
-const { initialCartItems, menuActivity, menuTabs } = require('../../data/mock');
-const { getListedMenuTabs, isProductListed } = require('../../utils/product-listing');
+const { initialCartItems } = require('../../data/mock');
+const api = require('../../utils/api');
+const { getListedMenuTabs, isProductListed, refreshMenuFromRemote, getMenuCatalog } = require('../../utils/product-listing');
 const { buildCartId, mergeEditedCartItem } = require('../../utils/cart');
 const { buildStoreMarkers } = require('../../utils/store-markers');
 const {
   getFavoriteStoreIds,
+  refreshCitiesFromRemote,
   refreshStoreCatalogFromRemote,
   resolveStoreCatalog,
   selectStore: persistSelectedStore,
@@ -62,15 +64,15 @@ Page(
     data: {
       currentStore: {},
       orderMode: 'pickup',
-      menuTabs,
+      menuTabs: [],
       activeMenuIndex: 0,
-      activeMenu: menuTabs[0],
-      selectedCategoryId: getFirstCategoryId(menuTabs[0]),
-      selectedGroupId: menuTabs[0].groups[0].id,
+      activeMenu: {},
+      selectedCategoryId: '',
+      selectedGroupId: '',
       scrollIntoView: '',
       cartVisible: false,
       activityVisible: false,
-      menuActivity,
+      menuActivity: {},
       specVisible: false,
       specProduct: {},
       specMode: 'add',
@@ -94,20 +96,34 @@ Page(
       if (this.getTabBar) this.getTabBar().setData({ hidden });
     },
     onLoad() {
-      // 先用本地镜像快速渲染，再异步拉取远端门店数据后刷新（USE_MOCK=true 时走 mock 回退）
-      refreshStoreCatalogFromRemote().then(() => {
-        if (typeof this.syncCurrentStore === 'function' && resolveStoreCatalog().currentStore) {
-          this.syncCurrentStore();
-        }
-      });
+      // 菜单 / 活动 / 门店均来自后端接口。
+      // 顺序敏感：必须等门店与菜单都就绪后再渲染，否则会先渲染出空门店列表。
+      Promise.all([
+        refreshCitiesFromRemote(),
+        refreshStoreCatalogFromRemote().then(() => {
+          if (typeof this.syncCurrentStore === 'function' && resolveStoreCatalog().currentStore) {
+            this.syncCurrentStore();
+          }
+        }),
+        refreshMenuFromRemote()
+      ]).then(() => this.renderMenu());
+      api
+        .fetchHomeConfig()
+        .then(cfg => {
+          if (cfg && cfg.menuActivity) this.setData({ menuActivity: cfg.menuActivity });
+        })
+        .catch(() => null);
+    },
+    /** 按当前门店过滤菜单并渲染首屏。 */
+    renderMenu() {
       const app = getApp();
       const catalog = resolveStoreCatalog();
-      // 首屏即按当前门店过滤菜单，避免闪现已下架商品。
       const menus = getListedMenuTabs(catalog.currentStore && catalog.currentStore.id);
-      const activeMenuIndex = Math.max(
-        0,
-        menus.findIndex(item => item.id === app.globalData.menuTabId)
-      );
+      if (!menus.length) {
+        this.setData({ menuTabs: [], activeMenu: {}, selectedCategoryId: '', selectedGroupId: '' });
+        return;
+      }
+      const activeMenuIndex = Math.max(0, menus.findIndex(item => item.id === app.globalData.menuTabId));
       const activeMenu = menus[activeMenuIndex];
       this.setData(
         Object.assign(
@@ -178,19 +194,21 @@ Page(
     },
     buildCatalogUpdates(catalog, options = {}) {
       const favoriteStoreIds = getFavoriteStoreIds();
-      const pickerStores = applyFavoriteState(catalog.stores, favoriteStoreIds);
+      const pickerStores = applyFavoriteState(catalog.stores || [], favoriteStoreIds);
       const currentStore = catalog.currentStore
         ? pickerStores.find(store => store.id === catalog.currentStore.id) || {}
         : {};
+      // 城市数据来自接口，拉取失败时降级为空，避免页面崩溃
+      const city = catalog.city || { name: '', code: '', latitude: 0, longitude: 0 };
       const updates = {
-        pickerCityName: catalog.city.name,
-        pickerCityCode: catalog.city.code,
+        pickerCityName: city.name,
+        pickerCityCode: city.code,
         pickerAnchor: {
-          latitude: currentStore.latitude || catalog.city.latitude,
-          longitude: currentStore.longitude || catalog.city.longitude
+          latitude: currentStore.latitude || city.latitude,
+          longitude: currentStore.longitude || city.longitude
         },
         pickerStores,
-        mapMarkers: buildStoreMarkers(catalog.stores, currentStore.id),
+        mapMarkers: buildStoreMarkers(catalog.stores || [], currentStore.id),
         pickerHasCurrentStore: Boolean(catalog.currentStore),
         currentStore,
         favoriteStoreIds
@@ -467,7 +485,7 @@ Page(
         wx.showToast({ title: '商品规格暂不可编辑', icon: 'none' });
         return;
       }
-      const product = findProductById(menuTabs, cartItem.productId);
+      const product = findProductById(this.data.menuTabs, cartItem.productId);
       if (!product) {
         wx.showToast({ title: '商品规格暂不可编辑', icon: 'none' });
         return;

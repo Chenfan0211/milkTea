@@ -129,11 +129,34 @@ assert.ok(appJson.pages.includes('pages/member-rights/member-rights'), 'app.json
 assert.ok(appJson.pages.includes('pages/member-level-rules/member-level-rules'), 'app.json 必须注册等级说明页');
 
 // ---- 等级数据与成长值逻辑 ----
-const { memberLevels } = require(path.join(root, 'data/mock.js'));
+// 会员等级数据已迁移到数据库（server/src/main/resources/db/migration/V3__seed_base.sql）。
+// 这里从 seed 解析出与前端一致的等级结构，供断言使用。
+function loadMemberLevelsFromSeed() {
+  const sql = fs.readFileSync(
+    path.join(root, '..', 'server/src/main/resources/db/migration/V3__seed_base.sql'),
+    'utf8'
+  );
+  const block = sql.match(/INSERT INTO member_level[\s\S]*?;/);
+  assert.ok(block, 'V3 seed 必须包含 member_level 初始化');
+  return [...block[0].matchAll(/\('(Lv\d+)', '([^']+)', (\d+), '([^']+)', '([\s\S]*?)', (\d+)\)/g)].map(m => ({
+    level: m[1],
+    name: m[2],
+    // seed 金额单位为「分」，前端按「元」比较
+    amountTarget: Math.round(Number(m[3]) / 100),
+    discount: m[4],
+    benefits: JSON.parse(m[5]),
+    sort: Number(m[6])
+  }));
+}
+
+const memberLevels = loadMemberLevelsFromSeed();
+function memberCondition(item) {
+  return item.amountTarget === 0 ? '注册即得' : '累计消费满' + item.amountTarget + '元';
+}
 assert.equal(memberLevels.length, 3, '会员等级必须为三档');
 assert.equal(memberLevels.map(item => item.name).join('|'), '时光卡|星享卡|挚友卡', '等级名称必须完整');
 assert.equal(
-  memberLevels.map(item => item.condition).join('|'),
+  memberLevels.map(item => memberCondition(item)).join('|'),
   '注册即得|累计消费满300元|累计消费满2000元',
   '升级条件必须只按金额且完整'
 );
@@ -156,7 +179,15 @@ assert.ok(
 );
 assert.ok(!lv3Benefits.some(text => text.includes('3张')), 'Lv3 不得叠加 Lv2 的 3 张券');
 
-const { buildLevelMeta } = require(path.join(root, 'utils/member-level.js'));
+const { buildLevelMeta, setMemberLevels } = require(path.join(root, 'utils/member-level.js'));
+// 等级数据来自数据库 seed：同步注入后再做成长值判定
+setMemberLevels(memberLevels.map(item => ({
+  levelCode: item.level,
+  name: item.name,
+  amountTarget: item.amountTarget * 100,
+  discount: item.discount,
+  benefits: JSON.stringify(item.benefits)
+})));
 const cases = [
   [{ totalSpend: 10 }, '时光卡'],
   [{ totalSpend: 320 }, '星享卡'],
@@ -191,13 +222,14 @@ function createPage(definition) {
 const { saveUserProfile } = require(path.join(root, 'utils/user-profile.js'));
 saveUserProfile({ totalSpend: 320, points: 0 });
 const rightsPage = createPage(memberRightsDefinition);
-memberRightsDefinition.onShow.call(rightsPage);
+// 等级数据改为接口异步拉取，onShow 需等待 Promise 完成后再断言
+await memberRightsDefinition.onShow.call(rightsPage);
 assert.equal(rightsPage.data.currentLevel, 'Lv2', '会员权益页必须同步当前等级');
 assert.equal(rightsPage.data.levels.length, 3, '会员权益页必须下发三档等级');
 assert.equal(rightsPage.data.axis.length, 3, '会员权益页必须下发三个进度节点');
 
 const memberPage = createPage(memberDefinition);
-memberDefinition.onShow.call(memberPage);
+await memberDefinition.onShow.call(memberPage);
 assert.equal(memberPage.data.currentLevel, 'Lv2', '会员专区必须同步当前等级');
 assert.ok(memberJs.includes('selected: 2'), '会员专区必须同步 Tab 选中态');
 assert.ok(!memberJs.includes('pointsEarningRules'), '会员专区不得再引用时光币规则数据');

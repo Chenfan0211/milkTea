@@ -1,22 +1,43 @@
+# 第 3 期：网关接管 8080 作为统一入口，单体后端退到内部端口 8090。
+# 生产部署时该端口只监听内网/127.0.0.1，不对外暴露。
+server:
+  port: ${SERVER_PORT:8090}
+
 spring:
+  cloud:
+    nacos:
+      discovery:
+        # 本地开发禁用服务注册：避免与生产注册表互相污染
+        # （本地单实例，服务发现无意义；生产 profile 仍启用）
+        enabled: false
+        # 本地经 SSH 隧道访问 Nacos（18848 -> 服务器 8848）
+        server-addr: ${NACOS_ADDR:127.0.0.1:18848}
+        # 明确指定注册 IP：默认自动探测会选中虚拟网卡（192.168.154.1），
+        # 导致网关无法回连后端而路由超时。
+        ip: ${NACOS_REGISTER_IP:127.0.0.1}
+  # 本地开发禁用 Flyway：
+  #   1. 本地库不存在（我们用只读账号连生产做排查），跑迁移必然失败；
+  #   2. 更重要的是防止再发生「本地误迁移生产库」事故（第 0 期曾发生）；
+  #   3. 迁移统一由生产部署时执行。
+  flyway:
+    enabled: false
   datasource:
     url: jdbc:mysql://127.0.0.1:13306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
-    username: ${MYSQL_USER:wuling}
-    password: ${MYSQL_PASSWORD:wuling123}
+    username: ${MYSQL_USER:wuling_ro}
+    password: ${MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:16379}
-      password: ${REDIS_PASSWORD:wuling123}
+      password: ${REDIS_PASSWORD:}
       timeout: 3000ms
   rabbitmq:
     # 本地开发经 SSH 隧道访问：本地 15672 -> 服务器 AMQP 5672
-    # （生产环境直连 127.0.0.1:5672，见 application-prod.yml）
     host: ${RABBITMQ_HOST:127.0.0.1}
     port: ${RABBITMQ_PORT:15672}
     username: ${RABBITMQ_USER:wuling}
-    password: ${RABBITMQ_PASSWORD:wuling123}
+    password: ${RABBITMQ_PASSWORD:}
 
 management:
   endpoints:
@@ -24,3 +45,15 @@ management:
       exposure:
         include: health,info
 
+# 本地开发默认值（生产禁止使用；application-prod.yml 不提供任何默认值）
+app:
+  jwt:
+    # 仅本地联调用的示例密钥，生产必须用环境变量 JWT_SECRET 覆盖
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}
+  pay:
+    enabled: true
+    # 仅本地联调用的示例密钥（32 字节以上），生产必须用 PAY_CALLBACK_SECRET 覆盖
+    callback-secret: ${PAY_CALLBACK_SECRET:dev-only-pay-callback-secret-32bytes-min!}
+  wx:
+    # 本地无真实小程序密钥，跳过启动期校验（生产必须为 true 并提供 WX_APP_SECRET）
+    require-secret: ${WX_REQUIRE_SECRET:false}

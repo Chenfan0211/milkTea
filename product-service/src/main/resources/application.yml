@@ -1,0 +1,77 @@
+# =============================================================
+# 商品服务配置（第 13 期拆分）
+#
+# 职责：商品 / 分类 / 规格 / 门店上架关系 / 菜单聚合。
+# 与 server 共用同一 MySQL 实例（共享库模式，第 13 期决策），
+# 后续可平滑迁移到独立库 wuling_product。
+# =============================================================
+server:
+  port: ${PRODUCT_SERVICE_PORT:8091}
+
+spring:
+  application:
+    name: wuling-product-service
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        ip: ${NACOS_REGISTER_IP:}
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MYSQL_USER:wuling}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+app:
+  jwt:
+    # 与 server / gateway 共用同一密钥；缺失即拒绝启动
+    secret: ${JWT_SECRET:}
+    access-token-ttl: 3600000
+    refresh-token-ttl: 604800000
+  redis:
+    mode: ${REDIS_MODE:single}
+    database:
+      auth: ${REDIS_DB_AUTH:0}
+      sms: ${REDIS_DB_SMS:1}
+      cache: ${REDIS_DB_CACHE:2}
+      biz: ${REDIS_DB_BIZ:3}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO

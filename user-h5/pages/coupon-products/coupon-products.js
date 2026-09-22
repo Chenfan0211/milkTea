@@ -1,12 +1,10 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { coupons } = require('../../data/mock');
 const { getStoreById, resolveStoreCatalog } = require('../../utils/store');
 const { getListedMenuTabs } = require('../../utils/product-listing');
 
 function getSizeText(product) {
-  const specGroups =
-    product && product.specDetail && Array.isArray(product.specDetail.specGroups) ? product.specDetail.specGroups : [];
+  const specGroups = product && Array.isArray(product.specGroups) ? product.specGroups : [];
   const sizeGroup = specGroups.find(group => group.id === 'size');
   const labels =
     sizeGroup && Array.isArray(sizeGroup.options) ? sizeGroup.options.map(option => option.label).filter(Boolean) : [];
@@ -58,19 +56,19 @@ Page(
       products: []
     },
     onLoad(options = {}) {
-      // 优惠券数据从后端拉取（未登录时静默失败）
+      // 优惠券来自后端；拿到券模板后再解析适用商品
+      const store = resolveStore(options.storeId);
       api
         .fetchCoupons()
+        .then(list => (Array.isArray(list) ? list : []))
+        .catch(() => [])
         .then(list => {
-          if (Array.isArray(list) && list.length) this.setData({ coupons: list });
-        })
-        .catch(() => null);
-      const coupon = coupons.find(item => item.id === options.couponId);
-      const store = resolveStore(options.storeId);
-      this.setData({
-        storeName: store.name || '适用门店',
-        products: resolveProducts(coupon, store.id)
-      });
+          const coupon = list.find(item => (item.code || item.id) === options.couponId);
+          this.setData({
+            storeName: store.name || '适用门店',
+            products: resolveProducts(coupon, store.id)
+          });
+        });
     }
   })
 );

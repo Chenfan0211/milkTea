@@ -1,23 +1,22 @@
 const { withShare } = require('../../utils/share');
-const { memberLevels } = require('../../data/mock');
 const { getUserProfile } = require('../../utils/user-profile');
-const { buildLevelMeta } = require('../../utils/member-level');
-
-const initialMeta = buildLevelMeta(getUserProfile());
+const { buildLevelMeta, getMemberLevels, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 
 Page(
   withShare({
     data: {
-      levels: memberLevels.map(item =>
-        Object.assign({}, item, {
-          benefits: item.benefits.map(benefit => Object.assign({}, benefit))
-        })
-      ),
-      currentIndex: initialMeta.currentIndex
+      levels: [],
+      currentIndex: 0
     },
     onShow() {
-      const meta = buildLevelMeta(getUserProfile());
-      this.setData({ currentIndex: meta.currentIndex });
+      // 等级说明由后台配置（member_level 表）
+      refreshMemberLevelsFromRemote().then(() => {
+        const meta = buildLevelMeta(getUserProfile());
+        this.setData({
+          levels: meta.levels,
+          currentIndex: meta.currentIndex
+        });
+      });
     }
   })
 );

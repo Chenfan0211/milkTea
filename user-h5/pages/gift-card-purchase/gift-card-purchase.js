@@ -1,23 +1,10 @@
 const loginGuard = require('../../utils/login-guard');
 const api = require('../../utils/api');
 const { withShare } = require('../../utils/share');
-const { giftCardDenominations, giftCardGroups } = require('../../data/mock');
 
 const MAX_QUANTITY = 10;
 const AGREEMENT_TITLE = '五零时光单用途商业预付卡章程（协议）';
 
-function findGiftCard(id) {
-  return giftCardGroups.reduce((cards, group) => cards.concat(group.cards), []).find(card => card.id === id);
-}
-
-function createDenominations() {
-  return giftCardDenominations.map((item, index) => ({
-    id: item.id,
-    faceValue: item.faceValue,
-    salePrice: item.salePrice,
-    quantity: index === 0 ? 1 : 0
-  }));
-}
 
 function summarize(denominations) {
   return denominations.reduce(
@@ -63,22 +50,34 @@ Page(
       totalCount: 0
     },
     onLoad(options) {
-      // 礼品卡面额由后台配置
+      // 礼品卡卡面与面额均由后台配置（gift_card_denomination 表）
       api
         .fetchGiftCardDenominations()
+        .then(list => (Array.isArray(list) ? list : []))
+        .catch(() => [])
         .then(list => {
-          if (Array.isArray(list) && list.length) this.setData({ denominations: list });
-        })
-        .catch(() => null);
-      const giftCard = findGiftCard(options.id);
-      if (!giftCard) {
-        wx.showToast({ title: '礼品卡不存在', icon: 'none' });
-        setTimeout(() => wx.navigateBack(), 800);
-        return;
-      }
-
-      const denominations = createDenominations();
-      this.setData({ giftCard, denominations }, () => this.updateSummary());
+          const cardId = options.id || '';
+          const matched = list.filter(item => String(item.code || "").indexOf(cardId) === 0);
+          const source = matched.length ? matched : list;
+          if (!source.length) {
+            wx.showToast({ title: '礼品卡不存在', icon: 'none' });
+            setTimeout(() => wx.navigateBack(), 800);
+            return;
+          }
+          const first = source[0];
+          const giftCard = {
+            id: cardId || first.code,
+            name: first.cardName || first.name || "",
+            image: first.cardImage || ""
+          };
+          const denominations = source.map((item, index) => ({
+            id: item.code,
+            faceValue: Math.round((Number(item.amount) || 0) / 100),
+            salePrice: Math.round((Number(item.salePrice) || Number(item.amount) || 0) / 100),
+            quantity: index === 0 ? 1 : 0
+          }));
+          this.setData({ giftCard, denominations }, () => this.updateSummary());
+        });
     },
     updateSummary() {
       const summary = summarize(this.data.denominations);

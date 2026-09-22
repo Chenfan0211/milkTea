@@ -28,10 +28,12 @@ public class GatewayAuthPolicy {
             "/api/v1/app/menu",
             "/api/v1/app/products",
             "/api/v1/app/coupons",
-            "/api/v1/app/member-levels",
+            // 第 5 期：营销服务的公开接口（储值套餐、礼品卡面额、会员等级；
+            // 其余营销接口如订单/积分记录/提现仍需登录，见 PROTECTED）
+            "/api/v1/app/points/products",
             "/api/v1/app/stored-value/packages",
             "/api/v1/app/gift-cards/denominations",
-            "/api/v1/app/points/products",
+            "/api/v1/app/member-levels",
             "/api/v1/app/points/rules",
             "/api/v1/app/signin-rule",
             "/api/v1/app/referral-config",
@@ -39,6 +41,10 @@ public class GatewayAuthPolicy {
             "/api/v1/app/cities",
             // 支付回调：由签名校验保护，非 JWT
             "/api/v1/app/payments/callback",
+            // 微信支付结果通知（第 14 期）：调用方是微信服务器，无 JWT。
+            // 保护手段为「RSA 验签 + AES-GCM 解密 + 金额比对 + 时间戳窗口」，
+            // 且该接口仅在 app.pay.channel=wxpay 时注册（mock 阶段不存在）。
+            "/api/v1/app/payments/wxpay/notify",
             // 健康检查
             "/actuator/health",
             // 文件服务自述（不含敏感信息，便于运维探活）
@@ -51,6 +57,7 @@ public class GatewayAuthPolicy {
             "/api/v1/app/users",
             "/api/v1/app/stored-value/orders",
             "/api/v1/app/stored-value/recharge",
+            "/api/v1/app/gift-cards",
             "/api/v1/app/gift-cards/purchase",
             "/api/v1/app/points/records",
             "/api/v1/app/points/signin",

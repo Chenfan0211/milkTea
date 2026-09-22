@@ -1,0 +1,105 @@
+# =============================================================
+# 生产环境配置模板（application-prod.yml.example）
+#
+# 使用方式：
+#   1. 复制为 trade-service/src/main/resources/application-prod.yml
+#      （或直接放在部署目录 /opt/wuling/app/trade-service/，与 jar 同级）
+#   2. 填入真实值，或全部改用环境变量注入（推荐后者）
+#   3. 启动：java -jar trade-service.jar --spring.profiles.active=prod
+#
+# 安全约定：
+#   - 本文件禁止写入任何真实密钥；密钥一律由部署环境注入（secrets.env）。
+#   - 下列 ${XXX} 均无默认值，缺失时服务会 fail-fast 拒绝启动。
+# =============================================================
+
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN:5}
+      connection-timeout: 3000
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 3000ms
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+
+  internal:
+    product-base: ${INTERNAL_PRODUCT_BASE:http://wuling-product-service}
+    server-base: ${INTERNAL_SERVER_BASE:http://wuling-server}
+    user-base: ${INTERNAL_USER_BASE:http://wuling-user-service}
+
+  # ---------- 支付（第 14 期）----------
+  #
+  # 【备案前】保持 channel=mock。
+  # 【备案后】把 secrets.env 的 PAY_CHANNEL 改为 wxpay，并补齐 WXPAY_* 变量：
+  #
+  #   PAY_CHANNEL=wxpay
+  #   WXPAY_MCH_ID=<商户号>
+  #   WXPAY_APP_ID=<小程序 AppID>
+  #   WXPAY_API_V3_KEY=<32 位 APIv3 密钥>
+  #   WXPAY_MCH_SERIAL_NO=<商户证书序列号>
+  #   WXPAY_PRIVATE_KEY_PATH=/opt/wuling/app/certs/apiclient_key.pem
+  #   WXPAY_VERIFY_MODE=public-key
+  #   WXPAY_PUBLIC_KEY_ID=<微信支付公钥 ID>
+  #   WXPAY_PUBLIC_KEY_PATH=/opt/wuling/app/certs/pub_key.pem
+  #   WXPAY_NOTIFY_URL=https://api.wulingshiguang.top/api/v1/app/payments/wxpay/notify
+  #
+  # 注意：通道切为 wxpay 后若缺任一配置或证书文件不可读，服务拒绝启动。
+  pay:
+    channel: ${PAY_CHANNEL:mock}
+    enabled: true
+    callback-secret: ${PAY_CALLBACK_SECRET}
+    callback-tolerance-ms: 300000
+    wxpay:
+      channel: ${PAY_CHANNEL:mock}
+      mch-id: ${WXPAY_MCH_ID:}
+      app-id: ${WXPAY_APP_ID:}
+      api-v3-key: ${WXPAY_API_V3_KEY:}
+      merchant-serial-no: ${WXPAY_MCH_SERIAL_NO:}
+      private-key-path: ${WXPAY_PRIVATE_KEY_PATH:}
+      verify-mode: ${WXPAY_VERIFY_MODE:public-key}
+      public-key-id: ${WXPAY_PUBLIC_KEY_ID:}
+      public-key-path: ${WXPAY_PUBLIC_KEY_PATH:}
+      notify-url: ${WXPAY_NOTIFY_URL:}
+      api-base-url: ${WXPAY_API_BASE_URL:https://api.mch.weixin.qq.com}
+      notify-tolerance-seconds: ${WXPAY_NOTIFY_TOLERANCE_SECONDS:300}
+      http-timeout-ms: ${WXPAY_HTTP_TIMEOUT_MS:8000}
+      description-prefix: ${WXPAY_DESCRIPTION_PREFIX:五零时光}
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO
+
+app:
+  alert:
+    log-file: /opt/wuling/logs/alerts.log
+    flag-file: /opt/wuling/logs/ALERT_PENDING

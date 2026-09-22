@@ -5,23 +5,11 @@ const { storeTypes: fallbackStoreTypes } = require('../data/mock');
 const STORE_TYPE_CACHE_KEY = 'milkTea:store-types:cache';
 
 /**
- * 拉取门店类型字典。
- * 优先读缓存（有效期内），否则请求接口；请求失败回退本地默认字典。
- * 返回 [{ id, code, name, sort, enabled }]。
+ * 拉取门店类型字典（/api/v1/app/store-types）。
+ * 请求失败时回退本地固定枚举（storeTypes 属客户端兜底枚举，非业务假数据）。
  */
 function fetchStoreTypesFromRemote() {
-  return request({
-    url: '/api/v1/app/store-types',
-    method: 'GET',
-    mock() {
-      // 模拟后端响应：与后台 storeTypes 对齐，只返回启用项并按 sort 升序
-      const items = fallbackStoreTypes
-        .filter(item => item.enabled !== false)
-        .map(item => ({ id: item.id, code: item.code, name: item.name, sort: item.sort, enabled: true }))
-        .sort((a, b) => (a.sort || 0) - (b.sort || 0));
-      return { code: 0, data: items, message: 'ok' };
-    }
-  });
+  return request({ url: '/api/v1/app/store-types', method: 'GET' });
 }
 
 function readCache() {

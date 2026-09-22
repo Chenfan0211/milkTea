@@ -22,11 +22,12 @@ Page(
     loadFavorites() {
       const catalog = resolveStoreCatalog();
       const favoriteStoreIds = getFavoriteStoreIds();
-      const favoriteStores = catalog.stores
+      // 门店/城市来自接口，未就绪时降级为空，避免页面崩溃
+      const favoriteStores = (catalog.stores || [])
         .filter(store => favoriteStoreIds.indexOf(store.id) !== -1)
         .map(store => Object.assign({}, store, { isFavorite: true }));
       this.setData({
-        currentCityName: catalog.city.name,
+        currentCityName: catalog.city ? catalog.city.name : '',
         currentStoreId: catalog.currentStore ? catalog.currentStore.id : '',
         favoriteStores
       });

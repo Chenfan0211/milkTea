@@ -39,13 +39,16 @@ const { PROFILE_STORAGE_KEY, getUserProfile, saveUserProfile, maskPhone, getDefa
 );
 const defaultProfile = getUserProfile();
 assert.equal(maskPhone('13612345792'), '136****5792', '手机号必须按参考图脱敏');
-assert.equal(defaultProfile.balance, 999, '默认用户资料余额必须为999元');
+assert.equal(maskPhone(''), '', '空手机号必须原样返回，不得抛错');
+// 储值余额以后端 app_user.balance 为准；本地未拉取到资料时为空壳（余额 0）
+assert.equal(defaultProfile.balance, 0, '未登录/未拉取资料时余额必须为 0，不得再内置假数据');
 assert.equal(getDaysInMonth(2008, 2), 29, '闰年二月必须返回 29 天');
 assert.equal(getDefaultBirthday(new Date('2026-09-17T00:00:00')), '2008-09-17', '生日默认值必须为当前日期往前 18 年');
 
 const savedProfile = saveUserProfile(
   Object.assign({}, defaultProfile, {
     nickname: '李小茶',
+    phone: '13612345792',
     gender: 'female',
     birthday: '2008-09-17',
     region: ['湖南省', '长沙市', '岳麓区']
@@ -55,8 +58,8 @@ assert.equal(savedProfile.nickname, '李小茶', '保存后必须返回规范化
 assert.equal(getUserProfile().region.join('/'), '湖南省/长沙市/岳麓区', '地区必须持久化完整省市县');
 assert.ok(PROFILE_STORAGE_KEY, '必须声明资料存储键');
 
-const { userProfile: mockUserProfile } = require(path.join(root, 'data/mock.js'));
-assert.notEqual(mockUserProfile.nickname, '李小茶', '资料保存不得直接修改 Mock 原始对象');
+// data/mock.js 已不再导出 userProfile，保存逻辑只作用于本地缓存
+assert.ok(!require(path.join(root, 'data/mock.js')).userProfile, 'data/mock.js 不得再导出 userProfile');
 
 const regions = require(path.join(root, 'data/regions.js'));
 assert.ok(regions.length >= 34, '地区数据必须覆盖省级行政区');
@@ -131,10 +134,11 @@ globalThis.Page = page => {
 delete require.cache[require.resolve(path.join(root, 'pages/profile/profile.js'))];
 assert.doesNotThrow(() => require(path.join(root, 'pages/profile/profile.js')), '我的页脚本必须能正常加载');
 assert.ok(profileDefinition && profileDefinition.data.userProfile, '我的页初始化必须包含用户资料');
+// 余额来自后端 / auth/me；未登录/未拉取时统计为 0
 assert.equal(
   profileDefinition.data.stats.find(item => item.id === 'balance').value,
-  999,
-  '我的页余额统计必须显示999元'
+  0,
+  '未拉取资料时我的页余额统计必须为 0'
 );
 
 const wxml = fs.readFileSync(`${pageRoot}.wxml`, 'utf8');

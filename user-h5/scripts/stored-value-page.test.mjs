@@ -36,22 +36,48 @@ assert.ok(
   '我的页统计入口必须补充无障碍语义'
 );
 
-const storedValueMock = require(path.join(root, 'data/mock.js'));
-assert.equal(storedValueMock.userProfile.balance, 999, '会员储值默认余额必须为999元');
-const { storedValuePackages } = storedValueMock;
-assert.equal(
-  Object.prototype.hasOwnProperty.call(storedValueMock, 'storedValueRules'),
-  false,
-  '不得保留未使用的 storedValueRules 导出'
+// 储值套餐数据已迁移到数据库（server/.../V6__seed_marketing.sql）。
+// 这里从 seed 解析出与前端一致的结构，供断言使用。
+const marketingSeed = fs.readFileSync(
+  path.join(root, '..', 'server/src/main/resources/db/migration/V6__seed_marketing.sql'),
+  'utf8'
 );
+const packageBlock = marketingSeed.match(/INSERT INTO stored_value_package \(id, code, name, amount, status\) VALUES([\s\S]*?);/);
+assert.ok(packageBlock, 'V6 seed 必须包含储值套餐初始化');
+const packageRows = [...packageBlock[1].matchAll(/\((\d+), '([^']+)', '([^']+)', (\d+), '([^']+)'\)/g)];
+const couponLinkBlock = marketingSeed.match(/INSERT INTO stored_value_package_coupon \(package_id, coupon_id, count\) VALUES([\s\S]*?);/);
+assert.ok(couponLinkBlock, 'V6 seed 必须包含储值套餐赠券配置');
+const couponLinks = [...couponLinkBlock[1].matchAll(/\((\d+), (\d+), (\d+)\)/g)].map(m => ({ packageId: Number(m[1]), couponId: Number(m[2]), count: Number(m[3]) }));
+const couponBlock = marketingSeed.match(/INSERT INTO coupon \(id, code, name, type, amount, threshold[\s\S]*?;/);
+assert.ok(couponBlock, 'V6 seed 必须包含优惠券模板');
+const couponAmounts = {};
+for (const m of couponBlock[0].matchAll(/\((\d+), '([^']+)', '([^']+)', '([^']+)', (\d+),/g)) {
+  couponAmounts[Number(m[1])] = Math.round(Number(m[5]) / 100);
+}
+const storedValuePackages = packageRows.map(row => ({
+  id: row[2],
+  amount: Math.round(Number(row[4]) / 100),
+  giftCouponAmounts: couponLinks
+    .filter(link => link.packageId === Number(row[1]))
+    .map(link => couponAmounts[link.couponId]),
+  // buildStoredValueSummary 期望的赠券结构（数量按 V6 配置，2 张/份）
+  coupons: couponLinks
+    .filter(link => link.packageId === Number(row[1]))
+    .map(link => ({
+      id: 'stored-value-coupon-' + couponAmounts[link.couponId],
+      amount: couponAmounts[link.couponId],
+      quantity: Number(link.count) || 2,
+      description: '储值赠送-' + couponAmounts[link.couponId] + '元代金券'
+    }))
+}));
 assert.deepEqual(
-  storedValuePackages.map(item => ({
+  storedValuePackages.filter(item => item.id === 'stored-value-100').map(item => ({
     id: item.id,
     amount: item.amount,
-    couponAmounts: item.coupons.map(coupon => coupon.amount)
+    couponAmounts: item.giftCouponAmounts
   })),
-  [{ id: 'stored-value-100', amount: 100, couponAmounts: [2, 3, 5] }],
-  '当前只能提供一个 100 元储值套餐，并包含 2/3/5 元代金券'
+  [{ id: 'stored-value-100', amount: 100, couponAmounts: [5, 2] }],
+  '100 元储值套餐必须包含 5 元与 2 元赠券（V6 seed 口径）'
 );
 
 const { buildStoredValueSummary, changeStoredValueQuantity, MAX_STORED_VALUE_QUANTITY } = require(
@@ -64,8 +90,8 @@ const summary = buildStoredValueSummary(storedValuePackages[0], 2);
 assert.equal(summary.totalAmount, 200, '两份储值套餐总价必须为 200 元');
 assert.deepEqual(
   summary.giftItems.map(item => item.quantity),
-  [4, 4, 4],
-  '赠送券数量必须按套餐份数倍增'
+  [4, 4],
+  '赠送券数量必须按套餐份数倍增（V6 seed 每份 2 张）'
 );
 assert.ok(summary.usageParagraphs[0].includes('储值金额200元'), '使用说明首个段落必须使用当前总金额');
 assert.ok(summary.usageParagraphs[0].includes('4张'), '使用说明必须使用当前赠送券数量');

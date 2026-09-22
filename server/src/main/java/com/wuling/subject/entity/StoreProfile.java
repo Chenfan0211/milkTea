@@ -16,6 +16,8 @@ public class StoreProfile {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long subjectId;
+    /** 门店业务编码（前端以 code 作为门店 id） */
+    private String code;
     private String city;
     private String address;
     private String phone;

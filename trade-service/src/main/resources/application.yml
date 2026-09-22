@@ -1,0 +1,128 @@
+# =============================================================
+# 交易服务配置（第 7 期）
+#
+# 职责：订单、支付、核销、退款、订单超时。
+# 端口 8084，由网关路由。
+#
+# 外部数据访问：
+#   商品/门店/主体 -> server 的 /internal/** 只读接口（RemoteProductQueryAdapter）
+#   结算状态       -> server 的 /internal/settlement-status（同步，防资金穿透）
+#   分账/冲正      -> MQ 事件（finance 消费）
+#   兑换核销       -> MQ 事件（marketing 消费）
+# =============================================================
+server:
+  port: ${TRADE_SERVICE_PORT:8084}
+
+spring:
+  application:
+    name: wuling-trade-service
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        ip: ${NACOS_REGISTER_IP:}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}
+    access-token-ttl: 3600000
+    refresh-token-ttl: 604800000
+  redis:
+    mode: ${REDIS_MODE:single}
+    database:
+      auth: ${REDIS_DB_AUTH:0}
+      sms: ${REDIS_DB_SMS:1}
+      cache: ${REDIS_DB_CACHE:2}
+      biz: ${REDIS_DB_BIZ:3}
+  mq:
+    order-timeout-ms: ${MQ_ORDER_TIMEOUT_MS:900000}
+    max-retry: ${MQ_MAX_RETRY:3}
+    consumer-concurrency: ${MQ_CONSUMER_CONCURRENCY:2}
+    prefetch-count: ${MQ_PREFETCH_COUNT:10}
+  # 内部服务调用（商品/结算查询），按服务名寻址
+  internal:
+    # 第 13 期：商品已拆为独立服务，商品类内部调用改指 product-service
+    product-base: ${INTERNAL_PRODUCT_BASE:http://wuling-product-service}
+    # subject / finance 等未拆域仍由 server 提供
+    server-base: ${INTERNAL_SERVER_BASE:http://wuling-server}
+    # 第 14 期：用户域内部调用（微信支付下单需查询 openid）
+    user-base: ${INTERNAL_USER_BASE:http://wuling-user-service}
+  # ---------- 支付（第 14 期：微信支付接入）----------
+  #
+  # channel 决定生效的支付通道：
+  #   mock  ：默认。下单即置为已支付，不产生真实资金流（本地开发 / CI / 备案前）
+  #   wxpay ：微信支付 APIv3。需要商户资质、证书与【已备案的 https 回调域名】
+  #
+  # 【当前状态】域名尚未备案，故保持 mock。
+  # 代码已全部就绪，备案完成后只需把 PAY_CHANNEL 改成 wxpay 并补齐下列变量：
+  #   WXPAY_MCH_ID / WXPAY_APP_ID / WXPAY_API_V3_KEY / WXPAY_MCH_SERIAL_NO
+  #   WXPAY_PRIVATE_KEY_PATH / WXPAY_PUBLIC_KEY_ID / WXPAY_PUBLIC_KEY_PATH
+  #   WXPAY_NOTIFY_URL=https://api.wulingshiguang.top/api/v1/app/payments/wxpay/notify
+  #
+  # 安全：通道为 wxpay 时若缺任一配置/证书，WxPayProperties#validateOnStartup
+  # 会让服务拒绝启动（fail-fast），避免带着无签名能力的通道上线。
+  pay:
+    # 支付通道：mock | wxpay
+    channel: ${PAY_CHANNEL:mock}
+    # 内部网关回调签名密钥（/api/v1/app/payments/callback）
+    # enabled=true 触发 PaymentSignConfig 生效：未注入密钥则拒绝启动
+    enabled: true
+    callback-secret: ${PAY_CALLBACK_SECRET:}
+    callback-tolerance-ms: 300000
+
+    # ---------- 微信支付 APIv3（第 14 期）----------
+    # 全部由部署环境注入，仓库内不保存任何真实值
+    wxpay:
+      # 与 app.pay.channel 同值：SDK 相关 Bean 由该配置条件装配。
+      # 保持 mock 时，本段以下配置即使为空也不会被读取，
+      # 更不会向微信发起任何请求。
+      channel: ${PAY_CHANNEL:mock}
+      mch-id: ${WXPAY_MCH_ID:}
+      app-id: ${WXPAY_APP_ID:}
+      api-v3-key: ${WXPAY_API_V3_KEY:}
+      merchant-serial-no: ${WXPAY_MCH_SERIAL_NO:}
+      private-key-path: ${WXPAY_PRIVATE_KEY_PATH:}
+      # 验签模式：public-key（微信支付公钥，新商户推荐）| platform-cert（平台证书）
+      verify-mode: ${WXPAY_VERIFY_MODE:public-key}
+      public-key-id: ${WXPAY_PUBLIC_KEY_ID:}
+      public-key-path: ${WXPAY_PUBLIC_KEY_PATH:}
+      # 回调地址必须是已备案的 https 域名（微信硬性要求）
+      notify-url: ${WXPAY_NOTIFY_URL:}
+      # API 基地址；可用本地「假微信服务端」覆盖，做无商户号的端到端验证
+      api-base-url: ${WXPAY_API_BASE_URL:https://api.mch.weixin.qq.com}
+      # 回调时间戳允许漂移窗口（秒），防重放
+      notify-tolerance-seconds: ${WXPAY_NOTIFY_TOLERANCE_SECONDS:300}
+      http-timeout-ms: ${WXPAY_HTTP_TIMEOUT_MS:8000}
+      # 收银台展示的商品描述前缀
+      description-prefix: ${WXPAY_DESCRIPTION_PREFIX:五零时光}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO

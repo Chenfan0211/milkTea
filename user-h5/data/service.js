@@ -1,4 +1,4 @@
-const { stores } = require('./mock');
+const { getStoreById, resolveStoreCatalog } = require('../utils/store');
 
 // 客服信息。服务热线与在线客服时段为占位配置，
 // 正式上线前需替换为真实号码并由运营确认服务时间。
@@ -50,9 +50,11 @@ const SERVICE_FAQS = [
   }
 ];
 
-// 门店联系电话：取门店数据中的真实字段，便于用户直接拨打
+// 门店联系电话：取门店数据中的真实字段，便于用户直接拨打。
+// 门店来自 /api/v1/app/stores，页面在 onLoad 已刷新镜像。
 function getServiceStores() {
-  return stores.map(store => ({
+  const catalog = resolveStoreCatalog();
+  return (catalog.stores || []).map(store => ({
     id: store.id,
     name: store.name,
     phone: store.phone,

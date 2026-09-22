@@ -1,0 +1,95 @@
+# =============================================================
+# 营销服务生产配置
+# =============================================================
+server:
+  # 只监听回环：由 gateway(8080) 统一对外
+  address: 127.0.0.1
+  port: 8083
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+spring:
+  application:
+    name: wuling-marketing-service
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        ip: 127.0.0.1
+  datasource:
+    # allowPublicKeyRetrieval=true：MySQL 8 caching_sha2_password 在非 SSL 下必需，
+    # 缺失会导致 "Public Key Retrieval is not allowed"（曾造成生产 500 故障）
+    url: jdbc:mysql://127.0.0.1:3306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:wuling}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      timeout: 3000ms
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: ${RABBITMQ_USER:wuling}
+    password: ${RABBITMQ_PASSWORD}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-ttl: 3600000
+    refresh-token-ttl: 604800000
+  redis:
+    mode: single
+    database:
+      auth: 0
+      sms: 1
+      cache: 2
+      biz: 3
+  mq:
+    max-retry: 3
+    consumer-concurrency: 2
+    prefetch-count: 10
+
+logging:
+  level:
+    root: WARN
+    com.wuling: INFO
+  file:
+    name: /opt/wuling/logs/wuling-marketing-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 30

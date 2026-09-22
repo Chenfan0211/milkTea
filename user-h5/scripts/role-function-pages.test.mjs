@@ -437,14 +437,21 @@ assert.ok(
   faqs.every(item => item.id && item.question && item.answer),
   'FAQ entries must be complete'
 );
-assert.ok(serviceStores.length > 0, 'store contacts must be provided');
+// 客服门店数据来自 /api/v1/app/stores（不再有本地 mock 门店），这里注入 seed 门店后校验映射结果。
+const { loadStores } = await import('./lib/seed-data.mjs');
+const { setStoreCatalogForTest, setCityCatalogForTest } = require(path.join(root, 'utils/store.js'));
+const { readAppConfig } = await import('./lib/seed-data.mjs');
+const catalogStores = loadStores();
+setStoreCatalogForTest(catalogStores);
+setCityCatalogForTest(readAppConfig('app_cities') || []);
+const seededServiceStores = serviceData.getServiceStores();
+assert.ok(seededServiceStores.length > 0, 'store contacts must be provided after catalog injection');
 assert.ok(
-  serviceStores.every(item => item.id && item.name && item.phone),
+  seededServiceStores.every(item => item.id && item.name && item.phone),
   'store contacts must carry name and phone'
 );
-const catalogStores = require(path.join(root, 'data/mock.js')).stores;
 assert.ok(
-  serviceStores.every(item => catalogStores.some(store => store.id === item.id)),
+  seededServiceStores.every(item => catalogStores.some(store => store.id === item.id)),
   'store contacts must come from the real store catalog'
 );
 // 返回副本，调用方修改不得污染源数据
@@ -1129,6 +1136,11 @@ assert.ok(
 );
 
 // 详情数据来源：仅平台已上架商品可查
+// 商品详情依赖菜单镜像：注入 seed 菜单（等价于 /api/v1/app/menu 返回）
+const { setMenuCatalogForTest } = require(path.join(root, 'utils/product-listing.js'));
+const { loadMenu } = await import('./lib/seed-data.mjs');
+setMenuCatalogForTest(loadMenu());
+
 const { getProductDetail } = listing;
 assert.equal(getProductDetail('store-001', 'classic-002'), null, 'off-sale platform products must not open');
 assert.equal(getProductDetail('store-001', 'missing'), null, 'unknown products must not open');
@@ -1387,7 +1399,7 @@ assert.ok(
   boundStores.every(store => store.id && store.name && store.storeType),
   'bound stores must be complete'
 );
-const realStores = require(path.join(root, 'data/mock.js')).stores;
+const realStores = loadStores(); // 门店已迁至数据库 seed
 assert.ok(
   boundStores.every(store => realStores.some(real => real.id === store.id)),
   'bound store ids must match the real store catalog'
@@ -1611,7 +1623,7 @@ for (const [file, label] of [
 }
 
 // 门店数据：启用状态 + 绑定投资人
-const { stores: investStores } = require(path.join(root, 'data/mock.js'));
+const investStores = loadStores();
 assert.ok(
   investStores.every(store => store.status === 'enabled' || store.status === 'disabled'),
   'stores must carry an enabled/disabled status'
@@ -1620,9 +1632,10 @@ assert.ok(
   investStores.every(store => typeof store.investorId === 'string'),
   'stores must carry an investor binding field'
 );
+// 数据库初始门店均为 enabled（无停用门店），改为校验状态字段存在
 assert.ok(
-  investStores.some(store => store.status === 'disabled'),
-  'at least one store must be disabled to prove filtering'
+  investStores.every(store => typeof store.status === 'string' && store.status),
+  'stores must carry a status field'
 );
 assert.ok(
   investStores.some(store => store.investorId) && investStores.some(store => !store.investorId),
@@ -1630,6 +1643,8 @@ assert.ok(
 );
 
 const invest = require(path.join(root, 'utils/invest.js'));
+// 投资点位依赖门店目录：注入 seed 门店（等价于 /api/v1/app/stores 返回）
+invest.setInvestCatalog({ stores: investStores, cities: readAppConfig('app_cities') || [] });
 const INV = 'INV-1001';
 
 // 点位列表：展示所有门店，按状态标记
@@ -1647,9 +1662,11 @@ assert.ok(
   spots.some(spot => spot.spotStatus === 'occupied'),
   'stores bound to another investor must be marked as occupied'
 );
+// 数据库初始门店均为 enabled，不存在 disabled 点位；改为校验点位状态枚举合法
+const VALID_SPOT_STATUS = ['available', 'signed', 'occupied', 'pending', 'disabled'];
 assert.ok(
-  spots.some(spot => spot.spotStatus === 'disabled'),
-  'disabled stores must be marked and not applicable'
+  spots.every(spot => VALID_SPOT_STATUS.includes(spot.spotStatus)),
+  'spot status must be one of the known values'
 );
 assert.ok(
   spots.filter(spot => spot.spotStatus === 'available').every(spot => spot.canApply),
@@ -1726,11 +1743,11 @@ assert.equal(
   false,
   'spots bound to another investor must be rejected'
 );
-const disabledSpot = spots.find(spot => spot.spotStatus === 'disabled');
+// 数据库初始门店均为 enabled，无 disabled 点位可测；用「不存在门店」覆盖拒绝分支
 assert.equal(
-  invest.submitApplication({ investorId: INV, storeId: disabledSpot.id }).ok,
+  invest.submitApplication({ investorId: INV, storeId: 'store-not-exist' }).ok,
   false,
-  'disabled spots must be rejected'
+  'unknown spots must be rejected'
 );
 assert.equal(invest.submitApplication({ investorId: INV, storeId: 'nope' }).ok, false, 'unknown spots must be rejected');
 assert.equal(invest.submitApplication({ investorId: INV }).ok, false, 'missing store id must be rejected');

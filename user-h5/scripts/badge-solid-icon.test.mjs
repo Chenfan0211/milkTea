@@ -26,24 +26,37 @@ assert.ok(
   /output:\s*'member-gold'[\s\S]*?color:\s*'#D4A017'[\s\S]*?fill:\s*true/.test(iconScript),
   'icon registry must generate member-gold with fill: true'
 );
-// 4. 数据源：商品角标指向实心图标
-const mockSource = fs.readFileSync(path.join(root, 'data/mock.js'), 'utf8');
+// 4. 数据源：商品角标来自数据库 seed（V16 的 product.badge_icon）
+const { loadMenu, readSeed } = await import('./lib/seed-data.mjs');
+const seedSql = readSeed('V16__seed_app_data.sql');
 assert.ok(
-  /badgeMemberIcon = '\/assets\/icons\/lucide\/member-gold\.svg'/.test(mockSource),
-  'badgeMemberIcon must point at the solid gold icon'
+  /ADD COLUMN badge_icon\s+VARCHAR/.test(seedSql),
+  'V16 must add product.badge_icon column'
+);
+const badgeBlock = seedSql.match(/badge_icon = CASE product_id([\s\S]*?)ELSE badge_icon END/);
+assert.ok(badgeBlock, 'V16 must initialize product badges');
+assert.ok(
+  badgeBlock[1].includes('/assets/icons/lucide/member-gold.svg'),
+  'badge_icon must point at the solid gold icon'
 );
 assert.ok(
-  !/badgeMemberIcon = '\/assets\/icons\/lucide\/member\.svg'/.test(mockSource),
-  'badgeMemberIcon must not point at the old outline icon'
+  !badgeBlock[1].includes("/assets/icons/lucide/member.svg'"),
+  'badge_icon must not point at the old outline icon'
 );
 
-const { menuTabs } = require(path.join(root, 'data/mock.js'));
+// 角标商品：seed 中标记了 badge_icon 的商品
+const badgedIds = [...badgeBlock[1].matchAll(/WHEN '([^']+)' THEN '([^']+)'/g)]
+  .filter(m => m[2])
+  .map(m => m[1]);
+const menuTabs = loadMenu();
 const badgedProducts = [];
-for (const group of menuTabs) {
-  for (const category of group.groups || []) {
-    for (const cat of category.categories || []) {
+for (const tab of menuTabs) {
+  for (const group of tab.groups || []) {
+    for (const cat of group.categories || []) {
       for (const product of cat.products || []) {
-        if (product.badgeIcon) badgedProducts.push(product);
+        if (badgedIds.includes(product.id)) {
+          badgedProducts.push({ id: product.id, badgeIcon: '/assets/icons/lucide/member-gold.svg' });
+        }
       }
     }
   }

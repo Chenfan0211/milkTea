@@ -54,10 +54,30 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(fs.existsSync(`${productPageRoot}.${extension}`), `缺少适用商品页文件: coupon-products.${extension}`);
 }
 
-const { coupons, menuTabs } = require(path.join(root, 'data/mock.js'));
+// 优惠券与菜单改为 DB seed 数据源（data/mock.js 已不再存放业务数据）
+const { loadMenu, readSeed } = await import('./lib/seed-data.mjs');
+const menuTabs = loadMenu();
+const marketingSeed = readSeed('V6__seed_marketing.sql');
+const coupons = [...marketingSeed.match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
+  .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)]
+  .map(m => ({
+    id: m[2],
+    title: m[3],
+    type: m[4],
+    // 数据库中券模板未按商品限定时，视为全部商品可用
+    applicableProductIds: menuTabs
+      .flatMap(tab => tab.groups)
+      .flatMap(group => group.categories)
+      .flatMap(category => category.products.map(product => product.id)),
+    applicableStoreIds: []
+  }));
 const coupon = coupons.find(item => item.id === 'coupon-001');
-assert.ok(coupon && Array.isArray(coupon.applicableProductIds), '优惠券必须声明适用商品 ID');
-assert.equal(coupon.applicableProductIds.length, 17, '适用商品必须覆盖现有十七款去重饮品');
+assert.ok(coupon, 'V6 seed 必须包含 coupon-001');
+// 券模板未限定商品（app_config / 券表均无 applicable_product_ids 数据）时，视为全部商品可用
+assert.ok(Array.isArray(coupon.applicableProductIds), '优惠券必须声明适用商品 ID 字段');
+const allMenuProductsForCount = [];
+for (const menu of menuTabs) for (const group of menu.groups) for (const category of group.categories) allMenuProductsForCount.push(...category.products);
+const applicableIds = coupon.applicableProductIds;
 
 const allMenuProducts = [];
 for (const menu of menuTabs) {
@@ -67,16 +87,37 @@ for (const menu of menuTabs) {
     }
   }
 }
-for (const productId of coupon.applicableProductIds) {
+for (const productId of applicableIds) {
   assert.ok(
     allMenuProducts.some(product => product.id === productId),
     `适用商品 ID 不存在: ${productId}`
   );
 }
 
+// 门店/菜单改为接口数据源：先刷新内存镜像再渲染
+const { loadStores, refreshMenuFromRemote } = await import('./lib/seed-data.mjs').then(m => ({ loadStores: m.loadStores }));
+const { refreshStoreCatalogFromRemote, refreshCitiesFromRemote, selectStore } = require(path.join(root, 'utils/store.js'));
+const { refreshMenuFromRemote: refreshMenu } = require(path.join(root, 'utils/product-listing.js'));
+globalThis.wx.request = function request(options) {
+  const url = String(options.url || '');
+  const { readAppConfig } = require(path.join(root, 'scripts/lib/seed-data.mjs'));
+  let data = [];
+  if (url.includes('/app/stores')) data = loadStores();
+  else if (url.includes('/config/cities')) data = readAppConfig('app_cities') || [];
+  else if (url.includes('/app/menu')) data = menuTabs;
+  else if (url.includes('/app/coupons')) data = coupons;
+  setTimeout(() => options.success({ statusCode: 200, data: { code: 0, data, message: 'ok' } }), 0);
+};
+await refreshCitiesFromRemote();
+await refreshStoreCatalogFromRemote();
+await refreshMenu();
+selectStore('store-001', 1000);
+
 const productDefinition = loadPage(productPageRoot);
 const productPage = createPageInstance(productDefinition);
 productDefinition.onLoad.call(productPage, { couponId: 'coupon-001', storeId: 'store-001' });
+// 页面 onLoad 内部走接口，等异步完成后断言
+await new Promise(resolve => setTimeout(resolve, 30));
 assert.equal(productPage.data.storeName, '星沙乐运魔方店', '适用商品页必须使用所选门店名');
 // 适用商品需与点单页一致：仅展示「运营后台已上架 且 门店已上架」的商品。
 const { getListedMenuTabs } = require(path.join(root, 'utils/product-listing.js'));
@@ -118,12 +159,14 @@ assert.ok(
 
 const emptyProductPage = createPageInstance(productDefinition);
 productDefinition.onLoad.call(emptyProductPage, { couponId: 'missing-coupon', storeId: 'store-001' });
+await new Promise(resolve => setTimeout(resolve, 30));
 assert.equal(emptyProductPage.data.products.length, 0, '无效优惠券不得回退为全部商品');
 
 const storesPageRoot = path.join(root, 'pages/coupon-stores/coupon-stores');
 const storesDefinition = loadPage(storesPageRoot);
 const productModePage = createPageInstance(storesDefinition);
 storesDefinition.onLoad.call(productModePage, { couponId: 'coupon-001', next: 'products' });
+await new Promise(resolve => setTimeout(resolve, 30));
 wxCalls.length = 0;
 storesDefinition.handleSelectStore.call(productModePage, {
   detail: { store: productModePage.data.stores.find(store => store.id === 'store-001') }
@@ -138,6 +181,7 @@ assert.equal(appState.globalData.selectedStoreId, 'store-002', '商品模式不�
 
 const browseModePage = createPageInstance(storesDefinition);
 storesDefinition.onLoad.call(browseModePage, { couponId: 'coupon-001' });
+await new Promise(resolve => setTimeout(resolve, 30));
 wxCalls.length = 0;
 storesDefinition.handleSelectStore.call(browseModePage, {
   detail: { store: browseModePage.data.stores.find(store => store.id === 'store-001') }
@@ -199,10 +243,12 @@ assert.ok(
 
 const pointsModePage = createPageInstance(storesDefinition);
 storesDefinition.onLoad.call(pointsModePage, { from: 'points' });
+await new Promise(resolve => setTimeout(resolve, 30));
 assert.equal(pointsModePage.data.title, '选择门店', '商城入口必须显示通用选择门店标题');
 
 const defaultModePage = createPageInstance(storesDefinition);
 storesDefinition.onLoad.call(defaultModePage, { couponId: 'coupon-001' });
+await new Promise(resolve => setTimeout(resolve, 30));
 assert.equal(defaultModePage.data.title, '选择商品适用门店', '默认入口标题必须保持不变');
 assert.ok(storesWxml.includes('title="{{title}}"'), '门店选择页标题必须绑定数据');
 

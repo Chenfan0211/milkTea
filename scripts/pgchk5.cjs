@@ -1,0 +1,11 @@
+const fs = require("fs");
+const DIR = "server/src/main/resources/db/migration";
+const v6 = fs.readFileSync(DIR + "/V6__seed_marketing.sql", "utf8");
+const v16 = fs.readFileSync(DIR + "/V16__seed_app_data.sql", "utf8");
+const a = v6.match(/INSERT INTO points_product \(id, code[\s\S]*?;/)[0];
+const b = v16.match(/INSERT INTO points_product \(id, code[\s\S]*?badge_in_image=VALUES\(badge_in_image\);/)[0];
+console.log("v6 tail:", JSON.stringify(a.slice(-120)));
+console.log("v16 head:", JSON.stringify(b.slice(0, 120)));
+const combined = a + b;
+const rows = [...combined.matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+),/g)];
+console.log("loose rows:", rows.length, rows.map(r => r[2]).join(", "));

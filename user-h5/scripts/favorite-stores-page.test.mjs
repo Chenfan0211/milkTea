@@ -34,13 +34,27 @@ globalThis.wx = {
   },
   showToast() {}
 };
+// 门店 / 城市改为接口获取：从 DB seed 解析后经 wx.request 返回
+const { loadStores, readAppConfig } = await import('./lib/seed-data.mjs');
+const seedStores = loadStores();
+const seedCities = readAppConfig('app_cities') || [];
+globalThis.wx.request = function request(options) {
+  const url = String(options.url || '');
+  let data = [];
+  if (url.includes('/app/stores')) data = seedStores;
+  else if (url.includes('/config/cities')) data = seedCities;
+  setTimeout(() => options.success({ statusCode: 200, data: { code: 0, data, message: 'ok' } }), 0);
+};
+
 globalThis.getApp = () => app;
 globalThis.getCurrentPages = () => [];
 globalThis.Page = config => {
   capturedPage = config;
 };
 
-const { selectCity, toggleFavoriteStore } = require(path.join(root, 'utils/store.js'));
+const { selectCity, toggleFavoriteStore, refreshStoreCatalogFromRemote, refreshCitiesFromRemote } = require(path.join(root, 'utils/store.js'));
+await refreshCitiesFromRemote();
+await refreshStoreCatalogFromRemote();
 selectCity('changsha', 1000);
 toggleFavoriteStore('store-001');
 toggleFavoriteStore('store-004');

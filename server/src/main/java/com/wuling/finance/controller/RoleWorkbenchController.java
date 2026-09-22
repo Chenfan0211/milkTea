@@ -4,11 +4,12 @@ import com.wuling.common.api.Result;
 import com.wuling.finance.entity.FundFlow;
 import com.wuling.finance.entity.SettlementRecord;
 import com.wuling.finance.service.RoleWorkbenchService;
-import com.wuling.subject.entity.BizSubject;
-import com.wuling.trade.entity.Order;
+
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 小程序端：四类角色工作台（数据按主体隔离）。
@@ -44,26 +45,26 @@ public class RoleWorkbenchController {
     // ---------- 门店 ----------
 
     @GetMapping("/store/{storeSubjectId}/orders")
-    public Result<List<Order>> storeOrders(@PathVariable Long storeSubjectId) {
+    public Result<List<Map<String, Object>>> storeOrders(@PathVariable Long storeSubjectId) {
         return Result.ok(workbenchService.storeOrders(storeSubjectId));
     }
 
     // ---------- 渠道 ----------
 
     @GetMapping("/channel/{channelSubjectId}/stores")
-    public Result<List<BizSubject>> channelStores(@PathVariable Long channelSubjectId) {
+    public Result<List<Map<String, Object>>> channelStores(@PathVariable Long channelSubjectId) {
         return Result.ok(workbenchService.channelStores(channelSubjectId));
     }
 
     @GetMapping("/channel/{channelSubjectId}/orders")
-    public Result<List<Order>> channelOrders(@PathVariable Long channelSubjectId) {
+    public Result<List<Map<String, Object>>> channelOrders(@PathVariable Long channelSubjectId) {
         return Result.ok(workbenchService.channelOrders(channelSubjectId));
     }
 
     // ---------- 投资人 ----------
 
     @GetMapping("/investor/{investorSubjectId}/stores")
-    public Result<List<BizSubject>> investorStores(@PathVariable Long investorSubjectId) {
+    public Result<List<Map<String, Object>>> investorStores(@PathVariable Long investorSubjectId) {
         return Result.ok(workbenchService.investorStores(investorSubjectId));
     }
 }

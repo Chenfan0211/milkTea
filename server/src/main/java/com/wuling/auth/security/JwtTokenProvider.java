@@ -1,8 +1,8 @@
 package com.wuling.auth.security;
 
+import com.wuling.security.JwtSecretValidator;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -23,7 +23,8 @@ public class JwtTokenProvider {
     public JwtTokenProvider(@Value("${app.jwt.secret}") String secret,
                             @Value("${app.jwt.access-token-ttl}") long accessTtl,
                             @Value("${app.jwt.refresh-token-ttl}") long refreshTtl) {
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        // P1 安全修复：启动期强校验密钥（非空、合法 Base64、>=32 字节），不合格直接拒绝启动
+        this.key = Keys.hmacShaKeyFor(JwtSecretValidator.resolve(secret));
         this.accessTtl = accessTtl;
         this.refreshTtl = refreshTtl;
     }

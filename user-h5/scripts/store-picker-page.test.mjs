@@ -57,6 +57,68 @@ globalThis.wx = {
   },
   navigateBack() {}
 };
+// 门店 / 城市 / 菜单改为接口获取：从 DB seed 解析后经 wx.request 返回
+const migrationDir = path.join(root, '..', 'server/src/main/resources/db/migration');
+const baseSeed = fs.readFileSync(path.join(migrationDir, 'V3__seed_base.sql'), 'utf8');
+const appConfigSeed = fs.readFileSync(path.join(migrationDir, 'V10__app_config.sql'), 'utf8');
+const citiesMatch = appConfigSeed.match(/'app_cities'[\s\S]*?\[([\s\S]*?)\]'/);
+const seedCities = JSON.parse('[' + citiesMatch[1].replace(/\n/g, '') + ']');
+const subjectBlock = baseSeed.match(/INSERT INTO biz_subject[\s\S]*?;/);
+const SUBJECT_NAMES = {};
+for (const m of subjectBlock[0].matchAll(/\((\d+)\s*,\s*'[^']*'\s*,\s*'([^']+)'\s*,\s*'STORE'/g)) SUBJECT_NAMES[Number(m[1])] = m[2];
+const profileBlock = baseSeed.match(/INSERT INTO store_profile \([\s\S]*?;/);
+const STORE_CODES = { 101: 'store-001', 102: 'store-002', 103: 'store-003', 104: 'store-004', 105: 'store-005' };
+const CITY_BY_NAME = { 长沙市: 'changsha', 广州市: 'guangzhou', 深圳市: 'shenzhen' };
+// 菜单：从 V4 seed 解析 tab/group/category/product 层级
+const productSeed = fs.readFileSync(path.join(migrationDir, 'V4__seed_product.sql'), 'utf8');
+const catBlock = productSeed.match(/INSERT INTO product_category[\s\S]*?;/);
+const CATS = [...catBlock[0].matchAll(/\((\d+),\s*(\d+),\s*'([^']+)',\s*'([^']+)',\s*'(TAB|GROUP|CATEGORY)',\s*\d+\)/g)].map(m => ({
+  id: Number(m[1]), parentId: Number(m[2]), code: m[3], name: m[4], type: m[5]
+}));
+const prodBlock = productSeed.match(/INSERT INTO product \(id, product_id[\s\S]*?;/);
+const PRODS = [...prodBlock[0].matchAll(/\((\d+),\s*'([^']+)',\s*'[^']+',\s*'([^']+)',\s*(\d+),/g)].map(m => ({
+  id: m[2], name: m[3], categoryId: Number(m[4]), price: 1390, originalPrice: 1600, storedValuePrice: 1290,
+  image: '/assets/images/3x/menu-product.jpg', tags: [], description: ''
+}));
+const seedMenu = CATS.filter(c => c.type === 'TAB').map(tab => ({
+  id: tab.code, label: tab.name,
+  groups: CATS.filter(g => g.type === 'GROUP' && g.parentId === tab.id).map(g => ({
+    id: g.code, label: g.name,
+    categories: CATS.filter(c => c.type === 'CATEGORY' && c.parentId === g.id).map(c => ({
+      id: c.code, label: c.name,
+      products: PRODS.filter(p => p.categoryId === c.id)
+    }))
+  }))
+}));
+
+const seedStores = [...profileBlock[0].matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+|NULL),\s*'([^']+)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\)/g)].map(m => ({
+  id: STORE_CODES[Number(m[1])],
+  code: STORE_CODES[Number(m[1])],
+  name: SUBJECT_NAMES[Number(m[1])] || '',
+  city: m[2],
+  cityCode: CITY_BY_NAME[m[2]] || 'changsha',
+  address: m[3],
+  phone: m[4],
+  latitude: Number(m[5]),
+  longitude: Number(m[6]),
+  storeType: m[7],
+  businessStatus: m[8],
+  manager: m[9],
+  businessHours: m[11],
+  modes: JSON.parse(m[12]),
+  promotion: m[13],
+  queueCount: Number(m[14])
+}));
+globalThis.wx.request = function request(options) {
+  const url = String(options.url || '');
+  let data = [];
+  if (url.includes('/app/stores')) data = seedStores;
+  else if (url.includes('/config/cities')) data = seedCities;
+  else if (url.includes('/app/menu')) data = seedMenu;
+  else if (url.includes('/config/home')) data = {};
+  setTimeout(() => options.success({ statusCode: 200, data: { code: 0, data, message: 'ok' } }), 0);
+};
+
 globalThis.getApp = () => ({
   globalData: {
     menuTabId: 'classic',
@@ -81,7 +143,9 @@ function createPage(config) {
 
 require(path.join(root, 'pages/menu/menu.js'));
 const menuPage = createPage(capturedPage);
+// 门店/菜单改为接口异步加载：等待完成后再断言
 menuPage.onLoad();
+await new Promise(resolve => setTimeout(resolve, 30));
 if (!menuPage.data.storePickerVisible || !menuPage.data.pickerStores.length || menuPage.data.pickerHasCurrentStore) {
   throw new Error('点单页首次无缓存时必须展示门店选择层且不预选门店');
 }

@@ -50,13 +50,36 @@ assert.ok(wxml.includes('wx:for="{{item.benefits}}"'), '等级说明页必须渲
 assert.ok(wxml.includes('{{index === currentIndex'), '等级说明页必须标记当前等级');
 assert.ok(wxml.includes('成长值') && wxml.includes('时光币'), '等级说明页必须解释成长值与时光币口径');
 
-const { memberLevels } = require(path.join(root, 'data/mock.js'));
+// 会员等级数据已迁移到数据库（server/src/main/resources/db/migration/V3__seed_base.sql）。
+// 这里从 seed 解析出与前端一致的等级结构，供断言使用。
+function loadMemberLevelsFromSeed() {
+  const sql = fs.readFileSync(
+    path.join(root, '..', 'server/src/main/resources/db/migration/V3__seed_base.sql'),
+    'utf8'
+  );
+  const block = sql.match(/INSERT INTO member_level[\s\S]*?;/);
+  assert.ok(block, 'V3 seed 必须包含 member_level 初始化');
+  return [...block[0].matchAll(/\('(Lv\d+)', '([^']+)', (\d+), '([^']+)', '([\s\S]*?)', (\d+)\)/g)].map(m => ({
+    level: m[1],
+    name: m[2],
+    // seed 金额单位为「分」，前端按「元」比较
+    amountTarget: Math.round(Number(m[3]) / 100),
+    discount: m[4],
+    benefits: JSON.parse(m[5]),
+    sort: Number(m[6])
+  }));
+}
+
+const memberLevels = loadMemberLevelsFromSeed();
+function memberCondition(item) {
+  return item.amountTarget === 0 ? '注册即得' : '累计消费满' + item.amountTarget + '元';
+}
 assert.equal(memberLevels.length, 3, '等级说明必须覆盖三档');
 assert.equal(memberLevels.map(item => item.level).join('|'), 'Lv1|Lv2|Lv3', '等级说明必须按顺序列出 Lv1-Lv3');
 assert.equal(memberLevels.map(item => item.name).join('|'), '时光卡|星享卡|挚友卡', '等级说明必须包含三档名称');
 assert.equal(memberLevels.map(item => item.discount).join('|'), '8折|7折|6折', '等级说明必须包含三档折扣');
 for (const level of memberLevels) {
-  assert.ok(!String(level.condition).includes('杯'), `${level.level} 升级条件不得包含杯数`);
+  assert.ok(!String(memberCondition(level)).includes('杯'), `${level.level} 升级条件不得包含杯数`);
   assert.ok(Array.isArray(level.benefits) && level.benefits.length > 0, `${level.level} 必须有核心权益`);
 }
 

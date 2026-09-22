@@ -1,4 +1,5 @@
-const { orders: sourceOrders, formatOrderAmount } = require('../data/mock');
+const { formatOrderAmount } = require('../data/mock');
+const api = require('./api');
 
 let orderStore = [];
 
@@ -9,8 +10,32 @@ function cloneOrder(order) {
   });
 }
 
+/**
+ * 从后端拉取我的订单并刷新本地镜像。
+ * 页面 onShow 调用；拉取失败时保留上一次结果。
+ */
+function refreshOrdersFromRemote() {
+  return api
+    .fetchOrders()
+    .then(list => {
+      if (Array.isArray(list)) orderStore = list.map(cloneOrder);
+      return getOrders();
+    })
+    .catch(() => getOrders());
+}
+
+/**
+ * 直接注入订单镜像（仅供测试使用）。
+ * 生产代码请使用 refreshOrdersFromRemote()。
+ */
+function setOrdersForTest(list) {
+  orderStore = (Array.isArray(list) ? list : []).map(cloneOrder);
+  return getOrders();
+}
+
+/** 重置本地订单镜像（登录态切换或退出登录时调用）。 */
 function resetOrders() {
-  orderStore = sourceOrders.map(cloneOrder);
+  orderStore = [];
 }
 
 function formatCountdown(seconds) {
@@ -152,6 +177,8 @@ module.exports = {
   getOrderById,
   getOrders,
   markOrderVerified,
+  refreshOrdersFromRemote,
+  setOrdersForTest,
   resetOrders,
   tickOrderCountdowns
 };

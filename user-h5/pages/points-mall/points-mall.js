@@ -1,6 +1,6 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { pointsCategories, pointsProducts, pointsSignIn } = require('../../data/mock');
+const { pointsCategories } = require('../../data/mock');
 const { getPoints } = require('../../utils/points');
 const { resolveStoreCatalog } = require('../../utils/store');
 
@@ -10,8 +10,8 @@ Page(
       pointsBalance: 0,
       signedToday: false,
       pointsCategories,
-      pointsProducts,
-      filteredProducts: pointsProducts,
+      pointsProducts: [],
+      filteredProducts: [],
       activeCategory: 'all',
       currentStore: {}
     },
@@ -22,14 +22,15 @@ Page(
         .then(list => {
           if (Array.isArray(list) && list.length) this.setData({ pointsProducts: list });
         })
-        .catch(() => null);      this.syncStore();
+        .catch(() => null);
+      this.syncStore();
     },
     onShow() {
       const app = getApp();
       this.syncStore();
       this.setData({
         pointsBalance: getPoints(),
-        signedToday: app.globalData.signedDates.includes(pointsSignIn.today)
+        signedToday: Boolean(this.data.todayKey) && app.globalData.signedDates.includes(this.data.todayKey)
       });
     },
     syncStore() {
@@ -38,7 +39,8 @@ Page(
     },
     filterCategory(event) {
       const { id } = event.currentTarget.dataset;
-      const filteredProducts = id === 'all' ? pointsProducts : pointsProducts.filter(item => item.category === id);
+      const source = this.data.pointsProducts || [];
+      const filteredProducts = id === 'all' ? source : source.filter(item => item.category === id);
       this.setData({ activeCategory: id, filteredProducts });
     },
     openProduct(event) {

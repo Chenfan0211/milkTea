@@ -1,3 +1,3 @@
-const { withShare } = require('../../utils/share')
+const { withShare } = require('../../utils/share');
 // index.js
-Page(withShare({}))
+Page(withShare({}));

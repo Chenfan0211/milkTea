@@ -26,69 +26,45 @@ globalThis.wx = {
   }
 };
 
-const { orderCategories, orders } = require(path.join(root, 'data/mock.js'));
+// 订单不再是本地假数据（由后端 /api/v1/app/orders 提供）。
+// 这里用一组「测试夹具」验证订单状态机：待支付倒计时 / 取消 / 核销 / 排序。
+const { orderCategories } = require(path.join(root, 'data/mock.js'));
 const orderStore = require(path.join(root, 'utils/orders.js'));
+const { refreshOrdersFromRemote } = orderStore;
 
 assert.deepEqual(
   orderCategories.map(item => item.id),
   ['all', 'store', 'stored-value', 'gift-card'],
   '订单分类必须包含礼品卡订单'
 );
-for (const category of orderCategories.filter(item => item.id !== 'all')) {
-  assert.ok(
-    orders.some(order => order.category === category.id),
-    `订单数据必须覆盖分类: ${category.label}`
-  );
-}
-assert.ok(
-  orders.filter(order => order.orderStatus === 'pending_payment' && order.category === 'store').length >= 2,
-  '门店订单必须包含至少两条待支付数据'
-);
-assert.ok(
-  orders.some(order => order.orderStatus === 'pending_payment' && order.category === 'stored-value'),
-  '储值订单必须包含待支付数据'
-);
-assert.ok(
-  orders.some(order => order.orderStatus === 'pending_payment' && order.category === 'gift-card'),
-  '礼品卡订单必须包含待支付数据'
-);
-assert.ok(
-  orders.some(order => order.orderStatus === 'canceled' && order.category === 'gift-card'),
-  '礼品卡订单必须包含已取消数据'
-);
-assert.ok(
-  orders.some(order => order.orderStatus === 'pending_verify' && order.category === 'gift-card'),
-  '礼品卡订单必须包含待核销数据'
-);
+assert.equal(typeof refreshOrdersFromRemote, 'function', '订单必须支持从后端刷新');
 assert.equal(orderStore.formatCountdown(244), '04:04', '待支付倒计时必须格式化为mm:ss');
+// 测试夹具：与后端返回结构一致的订单（注入到 orderStore 的本地镜像）
+function makeOrder(overrides) {
+  return Object.assign({
+    category: 'gift-card',
+    orderStatus: 'pending_verify',
+    status: '待核销',
+    timeGroup: 'history',
+    amount: 20,
+    pickupCode: 'CZ20260101000001',
+    payTime: '2026-09-17 10:00:00',
+    items: [{ id: 'i1', name: '五零时光礼品卡', spec: '100元', unitPrice: 100, originalPrice: 100, quantity: 1 }],
+    orderInfo: { orderNo: 'T20260917001', createdAt: '2026-09-17 09:00:00', payMethod: '微信支付' }
+  }, overrides || {});
+}
 
-orderStore.resetOrders();
-const storedPending = orderStore.getOrderById('order-009');
-assert.ok(storedPending && storedPending.isPendingPayment, '储值待支付订单必须可识别');
-assert.equal(storedPending.statusText, '待支付', '待支付状态文案必须正确');
-const storedSeconds = storedPending.remainingSeconds;
-const ticked = orderStore.tickOrderCountdowns().find(order => order.id === 'order-009');
-assert.equal(ticked.remainingSeconds, storedSeconds - 1, '倒计时每秒必须递减');
-const canceled = orderStore.cancelOrderById('order-009');
-assert.equal(canceled.statusText, '已取消', '取消订单后状态必须变为已取消');
-assert.equal(canceled.isPendingPayment, false, '取消订单后不得继续显示待支付操作');
+const FIXTURES = [
+  makeOrder({ id: 'order-009', category: 'stored-value', orderStatus: 'pending_payment', remainingSeconds: 300, status: '待支付', payTime: '', orderInfo: { orderNo: 'T-ST-009', createdAt: '2026-09-17 09:00:00', payMethod: '未支付' } }),
+  makeOrder({ id: 'order-010', category: 'store', orderStatus: 'pending_payment', remainingSeconds: 244, status: '待支付', payTime: '', orderInfo: { orderNo: 'T-ST-010', createdAt: '2026-09-17 09:10:00', payMethod: '未支付' } }),
+  makeOrder({ id: 'order-011' }),
+  makeOrder({ id: 'order-014', orderStatus: 'pending_payment', remainingSeconds: 200, status: '待支付', payTime: '', orderInfo: { orderNo: 'T-GC-014', createdAt: '2026-09-17 09:20:00', payMethod: '未支付' } }),
+  makeOrder({ id: 'order-012', orderStatus: 'canceled', status: '已取消', cancelType: 'pending', payTime: '', orderInfo: { orderNo: 'T-GC-012', createdAt: '2026-09-17 08:00:00', payMethod: '未支付' } }),
+  makeOrder({ id: 'order-013', orderStatus: 'canceled', status: '已取消', cancelType: 'paid', refundAmount: 100 })
+];
 
-orderStore.resetOrders();
-const historyGiftOrders = orderStore.filterOrders(orderStore.getOrders(), 'history', 'gift-card');
-assert.ok(historyGiftOrders.length >= 2, '历史礼品卡订单必须包含待支付和已取消数据');
-assert.ok(historyGiftOrders[0].isPendingPayment, '待支付订单必须排在礼品卡订单列表前面');
-const giftVerifyOrders = historyGiftOrders.filter(order => order.orderStatus === 'pending_verify');
-assert.equal(giftVerifyOrders.length, 1, '礼品卡待核销订单数量必须正确');
-assert.equal(giftVerifyOrders[0].statusText, '待核销', '礼品卡待核销状态文案必须正确');
-assert.ok(
-  giftVerifyOrders[0].payTime && !historyGiftOrders.find(order => order.isPendingPayment).payTime,
-  '礼品卡已支付订单必须提供支付时间且待支付订单不显示'
-);
-assert.ok(
-  historyGiftOrders.some(order => order.cancelType === 'pending') &&
-    historyGiftOrders.some(order => order.cancelType === 'paid'),
-  '礼品卡已取消订单必须区分待支付取消与已支付取消'
-);
+// 用夹具替换本地镜像（模拟接口返回）
+orderStore.setOrdersForTest(FIXTURES);
 
 function loadPage(pageRoot) {
   let definition;
@@ -110,6 +86,7 @@ function createPageInstance(definition) {
   return instance;
 }
 
+orderStore.setOrdersForTest(FIXTURES); // 订单页需要夹具
 const ordersPageRoot = path.join(root, 'pages/orders/orders');
 const ordersDefinition = loadPage(ordersPageRoot);
 const ordersPage = createPageInstance(ordersDefinition);
@@ -137,7 +114,7 @@ assert.ok(
   '立即支付必须明确提示暂未接入'
 );
 
-orderStore.resetOrders();
+orderStore.setOrdersForTest(FIXTURES); // 详情页需要夹具
 const detailPageRoot = path.join(root, 'pages/order-detail/order-detail');
 const detailDefinition = loadPage(detailPageRoot);
 const detailPage = createPageInstance(detailDefinition);
@@ -149,6 +126,7 @@ assert.ok(
 detailDefinition.cancelOrder.call(detailPage, { currentTarget: { dataset: { id: 'order-010' } } });
 assert.equal(detailPage.data.order.statusText, '已取消', '详情页取消后状态必须同步');
 
+orderStore.setOrdersForTest(FIXTURES); // 礼品卡订单页需要夹具
 const giftPageRoot = path.join(root, 'pages/gift-card-orders/gift-card-orders');
 const giftDefinition = loadPage(giftPageRoot);
 const giftPage = createPageInstance(giftDefinition);
@@ -233,19 +211,19 @@ assert.ok(
     ordersWxml.includes('支付时间 {{item.payTime}}'),
   '订单卡片必须显示订单号且已支付订单显示支付时间'
 );
+// 夹具与后端返回结构一致：校验「已支付有支付时间、未支付无支付时间」
 assert.ok(
-  orders.filter(order => order.orderStatus !== 'pending_payment' && order.payMethod !== '未支付')
-    .concat(orders.filter(order => order.orderInfo && order.orderInfo.payMethod === '未支付'))
-    .length > 0,
-  '订单测试数据必须覆盖已支付与未支付订单'
+  FIXTURES.some(order => order.orderStatus !== 'pending_payment') &&
+    FIXTURES.some(order => order.orderStatus === 'pending_payment'),
+  '订单夹具必须覆盖已支付与未支付订单'
 );
 assert.ok(
-  orders.filter(order => order.orderStatus !== 'pending_payment' && order.orderInfo.payMethod !== '未支付')
+  FIXTURES.filter(order => order.orderStatus !== 'pending_payment' && order.orderInfo.payMethod !== '未支付')
     .every(order => order.payTime),
   '已支付订单数据必须提供支付时间'
 );
 assert.ok(
-  orders.filter(order => order.orderStatus === 'pending_payment' || order.orderInfo.payMethod === '未支付')
+  FIXTURES.filter(order => order.orderStatus === 'pending_payment' || order.orderInfo.payMethod === '未支付')
     .every(order => !order.payTime),
   '未支付订单数据不得提供支付时间'
 );

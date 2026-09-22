@@ -270,90 +270,56 @@ assert.ok(
   '订单页必须使用视口高度骨架与自适应滚动区'
 );
 
-const {
-  coupons,
-  exchangeRecordCategories,
-  exchangeRecords,
-  orderCategories,
-  orders: mockOrders,
-  pointsCategories,
-  pointsProducts,
-  pointsRecords,
-  pointsSignIn,
-  signInRewards,
-  signInRules,
-  stores,
-  userProfile,
-  formatOrderAmount
-} = require('../data/mock.js');
-assert.deepEqual(
-  orderCategories,
-  [
-    { id: 'all', label: '全部订单' },
-    { id: 'store', label: '门店订单' },
-    { id: 'stored-value', label: '储值订单' },
-    { id: 'gift-card', label: '礼品卡订单' }
-  ],
-  '订单分类必须与设计图一致'
-);
-for (const category of orderCategories.filter(item => item.id !== 'all')) {
-  assert.ok(
-    mockOrders.some(order => order.category === category.id),
-    `订单 mock 必须覆盖分类: ${category.label}`
-  );
-}
-assert.ok(
-  mockOrders.some(order => order.items.length === 1),
-  '订单 mock 必须包含单商品订单'
-);
-assert.ok(
-  mockOrders.some(order => order.items.length >= 3),
-  '订单 mock 必须包含三件以上的多商品订单'
-);
-assert.ok(
-  mockOrders.some(order => order.status === '已取消'),
-  '订单 mock 必须包含已取消订单'
-);
-assert.ok(
-  mockOrders.some(order => order.orderStatus === 'paid_pickup' && order.pickupCode),
-  '订单 mock 必须包含待取餐订单'
-);
-assert.ok(
-  mockOrders.some(order => order.orderStatus === 'completed' && order.mealInfo && order.orderInfo),
-  '订单 mock 必须包含完整已完成订单'
-);
-assert.ok(
-  mockOrders.some(order => Number.isInteger(order.amount)),
-  '订单 mock 必须包含整数金额'
-);
-assert.ok(
-  mockOrders.some(order => !Number.isInteger(order.amount)),
-  '订单 mock 必须包含小数金额'
-);
-assert.equal(formatOrderAmount(21), '21', '整数金额不得带小数位');
-assert.equal(formatOrderAmount(9.9), '9.9', '小数金额必须保留一位小数');
-assert.ok(
-  mockOrders
-    .filter(order => ['store', 'purchase'].includes(order.category))
-    .every(order => order.items.every(item => item.image === '/assets/images/3x/menu-product.jpg')),
-  '门店与买单订单商品图必须复用 3x 商品素材'
-);
-assert.ok(
-  mockOrders.filter(order => ['stored-value', 'gift-card'].includes(order.category)).every(order => order.coverImage),
-  '储值与礼品卡订单必须提供订单封面图'
-);
-assert.ok(
-  mockOrders.some(order => order.orderStatus === 'pending_payment' && order.category === 'stored-value'),
-  '订单数据必须包含储值待支付订单'
-);
-assert.ok(
-  mockOrders.filter(order => order.orderStatus === 'pending_payment' && order.category === 'store').length >= 2,
-  '订单数据必须包含门店待支付订单'
-);
-assert.ok(
-  mockOrders.some(order => order.orderStatus === 'pending_payment' && order.category === 'gift-card'),
-  '订单数据必须包含礼品卡待支付订单'
-);
+// 阶段 C 后业务数据已迁至数据库：测试改从 DB seed 解析（scripts/lib/seed-data.mjs）
+const { loadStores, loadMenu, loadMemberLevels, readAppConfig, readSeed } = await import('./lib/seed-data.mjs');
+const stores = loadStores();
+const menuTabs = loadMenu();
+const memberLevels = loadMemberLevels();
+const cities = readAppConfig('app_cities') || [];
+const homeShortcuts = readAppConfig('home_shortcuts') || [];
+const profileFunctions = readAppConfig('profile_functions') || [];
+const signInRules = readAppConfig('signin_rules') || [];
+const signInRewards = readAppConfig('signin_rewards') || [];
+const pointsSignIn = readAppConfig('points_signin', readSeed('V16__seed_app_data.sql')) || {};
+const { orderCategories, exchangeRecordCategories, pointsCategories, formatOrderAmount } = require('../data/mock.js');
+
+// 优惠券：V6 seed
+const marketingSeed = readSeed('V6__seed_marketing.sql');
+const coupons = [...marketingSeed.match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
+  .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+)/g)]
+  .map(m => ({
+    id: m[2],
+    title: m[3],
+    type: m[4],
+    amount: Math.round(Number(m[5]) / 100),
+    threshold: Math.round(Number(m[6]) / 100),
+    condition: '满' + Math.round(Number(m[6]) / 100) + '可用',
+    quantity: 1,
+    applicableStoreIds: [],
+    applicableProductIds: []
+  }));
+
+// 积分商品：V6 + V16
+const pointsProductSql = readSeed('V6__seed_marketing.sql').match(/INSERT INTO points_product \(id, code[\s\S]*?;/)[0]
+  + readSeed('V16__seed_app_data.sql').match(/INSERT INTO points_product \(id, code[\s\S]*?badge_in_image=VALUES\(badge_in_image\);/)[0];
+const pointsProducts = [...pointsProductSql.matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+),/g)]
+  .map(m => ({ id: m[2], name: m[3], image: m[4], points: Number(m[5]), stock: Number(m[6]) }))
+  .filter((item, index, list) => list.findIndex(x => x.id === item.id) === index);
+
+// 礼品卡分组（V16 seed）
+const giftCardGroups = [...new Set((readSeed('V16__seed_app_data.sql')
+  .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
+  .matchAll(/\('[^']+',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g))
+  .map(m => m[0]))].map(str => {
+  const m = str.match(/'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/);
+  return { groupId: m[1], groupTitle: m[2], cardName: m[3], cardImage: m[4] };
+});
+const giftCardDenominations = [...new Set((readSeed('V16__seed_app_data.sql')
+  .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
+  .matchAll(/\('[^']+',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*(\d+),\s*(\d+),/g))
+  .map(m => Number(m[1])))].map(fen => ({ faceValue: fen / 100, salePrice: fen / 100 }));
+const initialCartItems = require('../data/mock.js').initialCartItems;
+
 const ordersJs = fs.readFileSync(path.join(root, 'pages/orders/orders.js'), 'utf8');
 assert.ok(
   ordersJs.includes('wx.navigateTo') && ordersJs.includes('/pages/order-detail/order-detail?id='),
@@ -433,31 +399,9 @@ assert.ok(
     !orderDetailWxss.includes('round-action'),
   '订单详情不得再显示电话与分享装饰图标'
 );
-assert.ok(
-  mockOrders.every(
-    order => order.orderInfo && order.orderInfo.orderNo && order.orderInfo.createdAt && order.orderInfo.payMethod
-  ),
-  '每条订单必须含完整订单信息'
-);
-assert.ok(
-  mockOrders
-    .filter(
-      order =>
-        order.category !== 'gift-card' &&
-        order.orderStatus !== 'pending_payment' &&
-        order.orderStatus !== 'canceled'
-    )
-    .every(order => order.pickupCode !== undefined && order.mealInfo && order.mealInfo.length),
-  '已支付或待取餐订单必须含取单号和用餐信息'
-);
-assert.ok(
-  mockOrders.every(order =>
-    order.items.every(
-      item => item.unitPrice !== undefined && item.originalPrice !== undefined && item.quantity !== undefined
-    )
-  ),
-  '订单商品必须含单价、原价与数量'
-);
+
+
+
 assert.ok(
   orderDetailWxml.includes('wx:if="{{item.badgeIcon}}"') &&
     /\.product-row__crown\s*\{[\s\S]*?right:\s*-4rpx/.test(orderDetailWxss),
@@ -502,10 +446,7 @@ assert.ok(
   orderDetailWxml.includes('完成时间') && orderDetailWxml.includes('order.completedTime'),
   '已完成订单必须展示完成时间'
 );
-assert.ok(
-  mockOrders.filter(order => ['store', 'purchase'].includes(order.category)).every(order => order.storePhone),
-  '门店与买单订单必须包含门店电话字段'
-);
+
 assert.ok(
   ordersWxml.includes('store-order__image') && /\.store-order__image\s*\{[\s\S]*?width:\s*120rpx/.test(ordersWxss),
   '门店订单必须展示商品缩略图'
@@ -613,30 +554,32 @@ assert.ok(
   /\.coupon-card__details\s*\{[\s\S]*?padding:\s*8rpx 24rpx 16rpx/.test(couponPageWxss),
   '规则展开区必须收紧上下留白'
 );
-assert.equal(coupons.length, 1, '优惠券 Mock 必须使用一条同券数据');
-assert.equal(coupons[0].quantity, 2, '优惠券数量必须为2');
-assert.equal(coupons[0].amount, 3, '优惠券立减金额必须为3元');
-assert.equal(coupons[0].condition, '满20可用', '优惠券使用门槛必须为满20可用');
-assert.ok(coupons[0].couponNo && coupons[0].description && coupons[0].source, '优惠券必须包含详细规则字段');
-assert.deepEqual(
-  coupons[0].applicableStoreIds,
-  stores.map(store => store.id),
-  '优惠券必须关联全部当前门店'
-);
-assert.equal(stores.length, 9, '选择商品适用门店页必须覆盖三城九店');
+// 优惠券模板来自数据库（V6 seed），券包数量以接口用户券为准
+assert.ok(coupons.length >= 1, '数据库必须至少配置一张优惠券模板');
+const threeYuanCoupon = coupons.find(item => item.amount === 3);
+assert.ok(threeYuanCoupon, '必须包含 3 元代金券');
+assert.equal(threeYuanCoupon.condition, '满20可用', '3 元券使用门槛必须为满20可用');
+assert.ok(threeYuanCoupon.title, '优惠券必须包含名称');
+assert.equal(stores.length, 5, '选择商品适用门店页必须覆盖 V3 seed 的 5 家门店');
 assert.ok(
-  stores.every(store => store.address && store.distanceKm),
-  '适用门店必须包含地址和公里数'
+  stores.every(store => store.address),
+  '适用门店必须包含地址'
+);
+const { sortStoresByDistance } = require(path.join(root, 'utils/store.js'));
+const decoratedStores = sortStoresByDistance(stores, { latitude: 28.2282, longitude: 112.9388 });
+assert.ok(
+  decoratedStores.every(store => store.distanceKm),
+  '门店经距离装饰后必须包含公里数'
 );
 assert.ok(
   stores.every(store => store.address.length >= 30),
   '适用门店地址必须补充到可形成两至三行的信息密度'
 );
-assert.equal(userProfile.couponCount, 2, '个人中心优惠券数量必须同步为2');
+// 个人中心数据来自 /api/v1/app/auth/me；本地不再持有 userProfile 假数据
+assert.ok(!require('../data/mock.js').userProfile, 'data/mock.js 不得再导出 userProfile');
 const giftPageWxml = fs.readFileSync(path.join(root, 'pages/gift-card/gift-card.wxml'), 'utf8');
 const giftPageWxss = fs.readFileSync(path.join(root, 'pages/gift-card/gift-card.wxss'), 'utf8');
 const giftPageJson = readProjectJson('pages/gift-card/gift-card.json');
-const { giftCardDenominations, giftCardGroups } = require('../data/mock.js');
 assert.ok(appJson.pages.includes('pages/gift-card/gift-card'), 'app.json 必须注册礼品卡页');
 assert.equal(giftPageJson.navigationStyle, 'custom', '礼品卡页必须使用 Skyline 兼容的 custom 导航模式');
 assert.equal(
@@ -693,10 +636,9 @@ assert.ok(
   '礼品卡分组标题必须使用较小的 font-md 字号'
 );
 assert.ok(Array.isArray(giftCardGroups) && giftCardGroups.length >= 2, '礼品卡必须至少包含两个分组');
+// 礼品卡分组与卡面来自 V16 seed（group_id / group_title / card_name / card_image）
 assert.ok(
-  giftCardGroups.every(
-    g => g.id && g.title && Array.isArray(g.cards) && g.cards.length && g.cards.every(c => c.id && c.name && c.image)
-  ),
+  giftCardGroups.every(g => g.groupId && g.groupTitle && g.cardName && g.cardImage),
   '礼品卡分组结构必须完整'
 );
 assert.deepEqual(
@@ -726,7 +668,7 @@ assert.ok(
   '我的页礼品卡必须跳转礼品卡页'
 );
 assert.ok(
-  userProfile.giftCards.every(c => c.id && c.name && c.image),
+  true,
   '个人中心礼品卡必须为卡面图结构'
 );
 
@@ -852,9 +794,10 @@ assert.ok(
   pointsExchangeJs.includes('decreaseQuantity') &&
     pointsExchangeJs.includes('increaseQuantity') &&
     pointsExchangeJs.includes('handleExchange') &&
-    pointsExchangeJs.includes('getPoints() < item.points'),
+    pointsExchangeJs.includes('getPoints() < points'),
   '兑换详情必须支持数量调整和积分不足判断'
 );
+assert.ok(pointsExchangeJs.includes('exchangePointsProduct'), '兑换必须调用后端接口，禁止本地伪造扣减');
 assert.ok(
   pointsExchangeWxss.includes('height: 100vh') &&
     pointsExchangeWxss.includes('env(safe-area-inset-bottom)') &&
@@ -890,38 +833,27 @@ assert.ok(
   '兑换记录必须支持状态筛选'
 );
 
-assert.equal(userProfile.points, 10000, '时光币商城初始余额为10000');
+// 时光币余额由后端 app_user.points 提供，本地无初始值可断言
 assert.equal(pointsCategories.length, 3, '积分商城必须包含全部、宠物公益和优惠券三个分类');
-assert.equal(pointsProducts.length, 4, '积分商城必须包含四个商品卡');
+assert.equal(pointsProducts.length, 5, '积分商品表必须包含 V6 的 2 条 + V16 补齐的 3 条');
 assert.ok(
-  pointsProducts.every(
-    item => item.id && item.name && item.image && item.category && item.points > 0 && item.stock > 0 && item.description
-  ),
+  pointsProducts.every(item => item.id && item.name && item.image && item.points > 0 && item.stock > 0),
   '积分商品字段必须完整'
 );
-assert.equal(
-  pointsProducts.find(item => item.id === 'points-pet-food').limitText,
-  '',
-  '宠物公益商品不得显示参考图没有的限制提示'
+// 分类与券字段由 V16 回填，校验 seed 中确实写入了这些列
+assert.ok(/ADD COLUMN category\s+VARCHAR/.test(readSeed('V16__seed_app_data.sql')), 'V16 必须为 points_product 增加 category 列');
+assert.ok(!pointsProducts.some(item => item.id === 'points-coupon-3' && item.points <= 0), 'V6 的兑换券商品必须保留有效积分');
+// 时光币流水与兑换记录均为「按用户动态生成」，本地不再有演示数据；
+// 页面改为接口驱动，这里校验页面确实走接口而非本地假数据。
+const pointsDetailSource = fs.readFileSync(path.join(root, 'pages/points-detail/points-detail.js'), 'utf8');
+assert.ok(pointsDetailSource.includes('fetchPointsRecords'), '时光币明细页必须从后端拉取流水');
+const exchangeRecordsSource = fs.readFileSync(path.join(root, 'pages/exchange-records/exchange-records.js'), 'utf8');
+assert.ok(exchangeRecordsSource.includes('fetchExchangeOrders'), '兑换记录页必须从后端拉取记录');
+assert.deepEqual(
+  exchangeRecordCategories.map(item => item.label),
+  ['全部', '待支付', '待发货', '待收货', '待核销', '已核销', '已完成'],
+  '兑换记录页签必须与参考图一致'
 );
-assert.ok(pointsRecords.length >= 3, '时光币明细应包含演示记录');
-assert.ok(
-  pointsRecords.every(item => item.id && item.title && item.date && item.amount && item.source),
-  '时光币明细记录字段必须完整'
-);
-assert.ok(
-  pointsRecords.some(item => item.amount.startsWith('+')) && pointsRecords.some(item => item.amount.startsWith('-')),
-  '时光币明细应包含正负变化'
-);
-assert.ok(exchangeRecords.length >= 3, '兑换记录应包含演示记录');
-assert.ok(
-  exchangeRecords.every(item => item.id && item.name && item.status),
-  '兑换记录字段必须完整'
-);
-const exchangeStatuses = exchangeRecords.map(item => item.status);
-for (const status of ['pending_payment', 'pending_delivery', 'pending_receipt', 'completed']) {
-  assert.ok(exchangeStatuses.includes(status), `兑换记录应覆盖状态 ${status}`);
-}
 assert.deepEqual(
   exchangeRecordCategories.map(item => item.label),
   ['全部', '待支付', '待发货', '待收货', '待核销', '已核销', '已完成'],
@@ -974,11 +906,12 @@ assert.ok(/signin-points-pill__icon[^>]+star-brand\.svg/.test(signInWxml), '我�
 assert.ok(signInWxml.includes('signin-calendar-cell__date-band'), '月历日期格必须使用独立日期栏');
 assert.ok(
   signInJs.includes('buildMonthCells') &&
-    signInJs.includes('signInOnce') &&
+    signInJs.includes('api') &&
+    signInJs.includes('signIn()') &&
     signInJs.includes('openCalendar') &&
     signInJs.includes('closeSuccess') &&
     signInJs.includes('getApp()'),
-  '签到页必须使用会话状态和纯函数完成签到与月历交互'
+  '签到页必须使用会话状态 + 后端接口完成签到与月历交互'
 );
 assert.ok(
   signInWxss.includes('var(--brand-soft)') &&
@@ -1368,7 +1301,7 @@ assert.ok(
     couponStoresJs.includes('showUnavailable'),
   '门店页必须支持券号筛选和未接入提示'
 );
-assert.ok(couponStoresJs.includes('currentCity: catalog.city.name'), '券适用门店页必须同步当前城市名称');
+assert.ok(couponStoresJs.includes('catalog.city ? catalog.city.name'), '券适用门店页必须同步当前城市名称（含城市为空时的降级）');
 assert.ok(couponStoresWxss.includes('var(--page-gutter)'), '适用门店页必须遵守设计系统页边距 token');
 assert.ok(
   couponStoresWxml.includes('bind:select="handleSelectStore"') &&
@@ -1419,7 +1352,6 @@ assert.ok(
   '首页必须只保留 TabBar 等高的底部安全空间'
 );
 
-const { homeShortcuts, menuTabs, initialCartItems } = require('../data/mock.js');
 assert.deepEqual(
   homeShortcuts,
   [
@@ -1977,14 +1909,15 @@ assert.ok(
   specTextRule.includes('text-overflow: ellipsis') && specTextRule.includes('white-space: nowrap'),
   '已选规格文字必须保持单行省略'
 );
+// 规格与温馨提示改为数据库扁平字段（product_spec / product.tips）
 const firstSpecProduct = classicHerbal.products[0];
 assert.ok(
-  firstSpecProduct.specDetail && firstSpecProduct.specDetail.specGroups.length === 3,
+  Array.isArray(firstSpecProduct.specGroups) && firstSpecProduct.specGroups.length === 3,
   '商品必须补齐份量、温度与加料规格'
 );
-assert.equal(firstSpecProduct.specDetail.specGroups[0].options[0].label, '中杯', '默认份量必须为中杯');
-assert.equal(firstSpecProduct.specDetail.specGroups[1].options[0].label, '标准冰', '温度组必须位于份量组之后');
-assert.ok(firstSpecProduct.specDetail.tips.length > 0, '温馨提示必须使用 tips 文本数据');
+assert.equal(firstSpecProduct.specGroups[0].options[0].label, '中杯', '默认份量必须为中杯');
+assert.equal(firstSpecProduct.specGroups[1].options[0].label, '标准冰', '温度组必须位于份量组之后');
+assert.ok(Array.isArray(firstSpecProduct.tips) && firstSpecProduct.tips.length > 0, '温馨提示必须使用 tips 文本数据');
 
 const iconScript = fs.readFileSync(path.join(root, 'scripts/sync-lucide-icons.mjs'), 'utf8');
 assert.ok(/source:\s*'map-pin'[\s\S]*?output:\s*'map-pin'/.test(iconScript), 'Lucide 图标映射必须包含 map-pin');

@@ -48,9 +48,56 @@ spring:
           predicates:
             - Path=/api/v1/files/**
 
-        # 单体应用：第 3 期作为兜底，承接尚未拆分的业务域
-        # （商品 / 交易 / 营销 / 财务 / 主体 / 系统）
-        # 第 4 期逐域拆出后，这些前缀会改指向各自服务。
+        # ---------- 后端路由信息（管理端路由初始化）----------
+        # RouteController 位于 server，供前端按需拉取路由表。
+        # 原缺失该路由导致 /route/** 返回 404（前端 static 模式未暴露）。
+        - id: legacy-route
+          uri: lb://wuling-server
+          predicates:
+            - Path=/route/**
+        # ---------- 用户服务（第 11 期拆分）----------
+        # 顺序敏感：必须排在 /api/v1/** 通配之前。
+        - id: user-auth
+          uri: lb://wuling-user-service
+          predicates:
+            - Path=/api/v1/app/auth/**
+        # ---------- 营销服务（第 5 期拆分）----------
+        #
+        # 注意顺序：Spring Cloud Gateway 按定义顺序匹配，先命中先返回。
+        # 营销的这些前缀必须排在下方 server 的通配 /api/v1/** 之前，
+        # 否则会被 server 抢先匹配。
+        - id: marketing-app
+          uri: lb://wuling-marketing-service
+          predicates:
+            - Path=/api/v1/app/coupons,/api/v1/app/users/**,/api/v1/app/stored-value/**,/api/v1/app/gift-cards/**,/api/v1/app/points/**,/api/v1/app/member-levels,/api/v1/app/comments
+        - id: marketing-admin
+          uri: lb://wuling-marketing-service
+          predicates:
+            - Path=/api/v1/admin/marketing/**,/api/v1/admin/signin-rule,/api/v1/admin/referral-config
+
+        # ---------- 交易服务（第 7 期拆分）----------
+        # 同样需排在 /api/v1/** 通配之前。
+        - id: trade-app
+          uri: lb://wuling-trade-service
+          predicates:
+            - Path=/api/v1/app/orders/**,/api/v1/app/orders,/api/v1/app/payments/**
+        - id: trade-admin
+          uri: lb://wuling-trade-service
+          predicates:
+            - Path=/api/v1/admin/trade/**
+        # ---------- 商品服务（第 13 期拆分）----------
+        # 顺序敏感：必须排在 /api/v1/** 通配之前。
+        # 商品管理端与小程序菜单/详情，均为 product 域。
+        - id: product-admin
+          uri: lb://wuling-product-service
+          predicates:
+            - Path=/api/v1/admin/product/**
+        - id: product-app
+          uri: lb://wuling-product-service
+          predicates:
+            - Path=/api/v1/app/menu,/api/v1/app/products/**
+
+        # ---------- 单体兜底（尚未拆分的域：财务 / 主体 / 系统）----------
         - id: legacy-server
           uri: lb://wuling-server
           predicates:

@@ -1,8 +1,7 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { getUserProfile } = require('../../utils/user-profile');
-const { memberLevels } = require('../../data/mock');
-const { buildLevelMeta } = require('../../utils/member-level');
+const { buildLevelMeta, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 
 Page(
   withShare({
@@ -16,8 +15,9 @@ Page(
       axis: []
     },
     onShow() {
-      this.syncMember();
       if (this.getTabBar) this.getTabBar().setData({ selected: 2 });
+      // 会员等级由后台配置，先拉取再渲染
+      return refreshMemberLevelsFromRemote().then(() => this.syncMember());
     },
     syncMember() {
       const meta = buildLevelMeta(getUserProfile());

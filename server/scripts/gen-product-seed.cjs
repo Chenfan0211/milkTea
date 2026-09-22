@@ -1,7 +1,7 @@
-// 生成商品/菜单 seed SQL（V4），数据源：user-h5/data/mock.js
+// 生成商品/菜单 seed SQL（V4），数据源：server/scripts/data/menu-catalog.cjs
 const fs = require('fs');
 const path = require('path');
-const mock = require('../../user-h5/data/mock.js');
+const catalog = require('./data/menu-catalog.cjs');
 
 function esc(v) {
   if (v === null || v === undefined) return 'NULL';
@@ -28,7 +28,7 @@ let productStoreId = 0;
 
 const STORE_SUBJECT_IDS = [101, 102, 103, 104, 105];
 
-for (const tab of mock.menuTabs || []) {
+for (const tab of catalog.menuTabs || []) {
   categoryId += 1;
   const tabId = categoryId;
   categories.push({ id: tabId, parentId: 0, code: tab.id, name: tab.label, type: 'TAB', sort: 0 });
@@ -88,7 +88,7 @@ for (const tab of mock.menuTabs || []) {
 }
 
 const lines = [];
-lines.push('-- 商品菜单 seed（由 server/scripts/gen-product-seed.cjs 自动生成，数据源 user-h5/data/mock.js）');
+lines.push('-- 商品菜单 seed（由 server/scripts/gen-product-seed.cjs 自动生成，数据源 server/scripts/data/menu-catalog.cjs）');
 lines.push('');
 lines.push('INSERT INTO product_category (id, parent_id, code, name, type, sort) VALUES');
 lines.push(categories.map(c => `(${c.id}, ${c.parentId}, ${esc(c.code)}, ${esc(c.name)}, ${esc(c.type)}, ${c.sort})`).join(',\n') + ';');

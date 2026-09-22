@@ -1,6 +1,6 @@
 const { withShare } = require('../../utils/share');
 const { getUserProfile } = require('../../utils/user-profile');
-const { buildLevelMeta } = require('../../utils/member-level');
+const { buildLevelMeta, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 
 Page(
   withShare({
@@ -14,7 +14,8 @@ Page(
       axis: []
     },
     onShow() {
-      this.syncMember();
+      // 等级数据来自后台，拉取完成后再渲染
+      return refreshMemberLevelsFromRemote().then(() => this.syncMember());
     },
     syncMember() {
       const meta = buildLevelMeta(getUserProfile());

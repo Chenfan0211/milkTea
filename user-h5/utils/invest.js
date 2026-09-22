@@ -1,4 +1,19 @@
-const { cities, stores } = require('../data/mock');
+// 投资点位（阶段 D 范围）：门店与城市由页面通过 setInvestCatalog 注入，
+// 数据来源为 /api/v1/app/stores 与 /api/v1/app/config/cities。
+// 本模块不再内置门店假数据；注入前 getSpots() 返回空列表。
+let cityCatalog = [];
+let storeCatalog = [];
+
+/** 由页面注入门店与城市目录（通常在 onLoad 拉取接口后调用）。 */
+function setInvestCatalog(catalog) {
+  const next = catalog || {};
+  if (Array.isArray(next.stores)) storeCatalog = next.stores;
+  if (Array.isArray(next.cities)) cityCatalog = next.cities;
+}
+
+function getInvestCatalog() {
+  return { cities: cityCatalog.slice(), stores: storeCatalog.slice() };
+}
 
 const INVEST_STORAGE_KEY = 'milkTea:invest-applications';
 
@@ -113,7 +128,7 @@ function writeApplications(list) {
 }
 
 function getCityName(cityCode) {
-  const city = cities.find(item => item.code === cityCode);
+  const city = cityCatalog.find(item => item.code === cityCode);
   return city ? city.name : '';
 }
 
@@ -125,7 +140,7 @@ function isSignedByMe(store, investorId) {
 // 点位主列表：展示所有启用门店，按申请人视角标记可申请 / 审核中 / 已签约 / 已停用。
 function getSpots(investorId = 'INV-1001') {
   const applications = readApplications();
-  return stores.map(store => {
+  return storeCatalog.map(store => {
     const pending = applications.find(item => item.storeId === store.id && item.status === 'pending' && item.investorId === investorId);
     const signedByMe = isSignedByMe(store, investorId);
     let spotStatus = 'available';
@@ -238,6 +253,8 @@ function getApplicationDetail(investorId, recordId) {
 
 module.exports = {
   INVEST_STORAGE_KEY,
+  setInvestCatalog,
+  getInvestCatalog,
   INVEST_STATUS_TEXT,
   INVEST_STATUS_NOTE,
   INVEST_FLOW,

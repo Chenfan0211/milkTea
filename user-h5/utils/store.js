@@ -1,14 +1,18 @@
-const { cities, stores } = require('../data/mock');
 const api = require('./api');
 
-// 门店内存镜像：接口返回后写入，供现有同步函数（getStoreById 等）继续使用，
-// 未拉取到远端数据时（含 USE_MOCK=true）回退本地 mock，保证页面行为不变。
-let storeCatalog = stores.slice();
-let cityCatalog = cities.slice();
+// 门店 / 城市内存镜像。
+//
+// 阶段 C 后数据来源为后端接口：
+// - 页面在 onLoad/onShow 调用 refreshStoreCatalogFromRemote() / refreshCitiesFromRemote() 拉取；
+// - 拉取前的同步函数（getStoreById 等）读内存镜像，未拉取到时返回空集合，
+//   页面需要按「无数据」处理，不再回退本地假数据。
+let storeCatalog = [];
+let cityCatalog = [];
 
 /** 用远端数据刷新城市列表（含坐标，用于就近排序） */
 function refreshCitiesFromRemote() {
-  return api.fetchCities()
+  return api
+    .fetchCities()
     .then(list => {
       if (Array.isArray(list) && list.length) {
         cityCatalog = list.map(item => ({
@@ -26,7 +30,8 @@ function refreshCitiesFromRemote() {
 
 /** 用远端数据刷新本地镜像（页面 onLoad 时调用） */
 function refreshStoreCatalogFromRemote() {
-  return api.fetchStores()
+  return api
+    .fetchStores()
     .then(list => {
       if (Array.isArray(list) && list.length) {
         storeCatalog = list.map(normalizeRemoteStore);
@@ -60,8 +65,44 @@ const STORAGE_KEYS = {
   FAVORITE_STORE_IDS: 'milkTea:favorite-store-ids'
 };
 
+function readStorage(key) {
+  try {
+    return typeof wx !== 'undefined' && wx.getStorageSync ? wx.getStorageSync(key) : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    if (typeof wx !== 'undefined' && wx.setStorageSync) wx.setStorageSync(key, value);
+  } catch (error) {
+    // 存储不可用时保持内存结果可用
+  }
+}
+
+function removeStorage(key) {
+  try {
+    if (typeof wx !== 'undefined' && wx.removeStorageSync) wx.removeStorageSync(key);
+  } catch (error) {
+    // 忽略
+  }
+}
+
 function getDefaultCity() {
-  return cityCatalog.find(city => city.code === DEFAULT_CITY_CODE) || cityCatalog[0];
+  return cityCatalog.find(city => city.code === DEFAULT_CITY_CODE) || cityCatalog[0] || null;
+}
+
+/** 直接注入门店目录（仅供测试使用）。 */
+function setStoreCatalogForTest(list) {
+  storeCatalog = (Array.isArray(list) ? list : []).map(normalizeRemoteStore);
+  return storeCatalog;
+}
+
+/** 直接注入城市目录（仅供测试使用）。 */
+function setCityCatalogForTest(list) {
+  cityCatalog = Array.isArray(list) ? list : [];
+  return cityCatalog;
 }
 
 function getCityList() {
@@ -148,34 +189,9 @@ function findNearestStore(cityCode, origin) {
   return nearestStores[0] || null;
 }
 
-function readStorage(key) {
-  try {
-    return typeof wx !== 'undefined' && wx.getStorageSync ? wx.getStorageSync(key) : '';
-  } catch (error) {
-    return '';
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    if (typeof wx !== 'undefined' && wx.setStorageSync) wx.setStorageSync(key, value);
-  } catch (error) {
-    // Storage can be unavailable in isolated render environments; the in-memory page state still works.
-  }
-}
-
-function removeStorage(key) {
-  try {
-    if (typeof wx !== 'undefined' && wx.removeStorageSync) wx.removeStorageSync(key);
-  } catch (error) {
-    // Ignore storage failures for the static prototype.
-  }
-}
-
 function getFavoriteStoreIds() {
   const stored = readStorage(STORAGE_KEYS.FAVORITE_STORE_IDS);
-  if (!Array.isArray(stored)) return [];
-  return Array.from(new Set(stored.filter(storeId => typeof storeId === 'string' && getStoreById(storeId))));
+  return Array.isArray(stored) ? stored.slice() : [];
 }
 
 function isFavoriteStore(storeId) {
@@ -183,9 +199,6 @@ function isFavoriteStore(storeId) {
 }
 
 function toggleFavoriteStore(storeId) {
-  if (!getStoreById(storeId)) {
-    return { storeId, favorite: false, favoriteStoreIds: getFavoriteStoreIds() };
-  }
   const favoriteStoreIds = getFavoriteStoreIds();
   const index = favoriteStoreIds.indexOf(storeId);
   const favorite = index === -1;
@@ -206,6 +219,9 @@ function resolveLocationContext() {
   }
 
   const defaultCity = getDefaultCity();
+  if (!defaultCity) {
+    return { cityCode: DEFAULT_CITY_CODE, cityName: '', latitude: 0, longitude: 0, address: '', source: 'default' };
+  }
   return {
     cityCode: defaultCity.code,
     cityName: defaultCity.name,
@@ -225,7 +241,7 @@ function resolveStorePreference(now = Date.now()) {
   const stored = readStorage(STORAGE_KEYS.STORE_PREFERENCE);
   const defaultCity = getDefaultCity();
   let preference = {
-    cityCode: defaultCity.code,
+    cityCode: defaultCity ? defaultCity.code : DEFAULT_CITY_CODE,
     activeStoreId: null,
     selectedAt: 0
   };
@@ -233,7 +249,7 @@ function resolveStorePreference(now = Date.now()) {
   if (stored && typeof stored === 'object') {
     const selectedCity = getCityByCode(stored.cityCode) || defaultCity;
     preference = {
-      cityCode: selectedCity.code,
+      cityCode: selectedCity ? selectedCity.code : DEFAULT_CITY_CODE,
       activeStoreId: typeof stored.activeStoreId === 'string' ? stored.activeStoreId : null,
       selectedAt: Number.isFinite(stored.selectedAt) ? stored.selectedAt : 0
     };
@@ -287,7 +303,7 @@ function useDeviceLocation(now = Date.now()) {
   const location = resolveLocationContext();
   const city = getCityByCode(location.cityCode) || getDefaultCity();
   const preference = {
-    cityCode: city.code,
+    cityCode: city ? city.code : DEFAULT_CITY_CODE,
     activeStoreId: null,
     selectedAt: now
   };
@@ -296,18 +312,25 @@ function useDeviceLocation(now = Date.now()) {
 }
 
 function getSortOrigin(city, location) {
-  if (location && location.cityCode === city.code) {
+  if (location && city && location.cityCode === city.code) {
     return { latitude: location.latitude, longitude: location.longitude };
   }
-  return { latitude: city.latitude, longitude: city.longitude };
+  return city ? { latitude: city.latitude, longitude: city.longitude } : { latitude: 0, longitude: 0 };
 }
 
 function resolveStoreCatalog(now = Date.now()) {
-  let preference = resolveStorePreference(now);
-  const city = getCityByCode(preference.cityCode) || getDefaultCity();
+  const preference = resolveStorePreference(now);
+  // 城市数据来自接口，拉取失败时降级为安全空对象，避免下游访问 null 崩溃
+  const city = getCityByCode(preference.cityCode) || getDefaultCity() || {
+    code: DEFAULT_CITY_CODE,
+    name: '长沙市',
+    initial: 'C',
+    latitude: 0,
+    longitude: 0
+  };
   const location = resolveLocationContext();
   const origin = getSortOrigin(city, location);
-  const cityStores = sortStoresByDistance(getStoresByCity(city.code), origin);
+  const cityStores = city ? sortStoresByDistance(getStoresByCity(city.code), origin) : [];
   const currentStore = preference.activeStoreId
     ? cityStores.find(store => store.id === preference.activeStoreId) || null
     : null;
@@ -324,6 +347,8 @@ function resolveStoreCatalog(now = Date.now()) {
 
 module.exports = {
   DEFAULT_CITY_CODE,
+  setStoreCatalogForTest,
+  setCityCatalogForTest,
   refreshStoreCatalogFromRemote,
   refreshCitiesFromRemote,
   normalizeRemoteStore,
@@ -349,6 +374,3 @@ module.exports = {
   toggleFavoriteStore,
   useDeviceLocation
 };
-
-
-

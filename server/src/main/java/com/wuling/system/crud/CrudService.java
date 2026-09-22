@@ -3,6 +3,7 @@ package com.wuling.system.crud;
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.common.sql.SqlGuard;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,9 @@ public class CrudService {
 
     public PageResult<Map<String, Object>> page(String resource, long current, long size, Map<String, String> search) {
         CrudRegistry.Resource def = require(resource);
+        // SQL 安全：表名与排序子句经 SqlGuard 强制校验（标识符无法参数化，只能白名单约束）
+        String table = SqlGuard.ident(def.table());
+        String orderBy = SqlGuard.orderBy(def.orderBy());
         StringBuilder where = new StringBuilder(" where deleted = 0");
         List<Object> args = new ArrayList<>();
 
@@ -52,10 +56,10 @@ public class CrudService {
         }
 
         Long total = jdbcTemplate.queryForObject(
-                "select count(*) from " + def.table() + where, Long.class, args.toArray());
+                "select count(*) from " + table + where, Long.class, args.toArray());
         long offset = Math.max(0, (current - 1) * size);
-        String sql = "select * from " + def.table() + where
-                + " order by " + def.orderBy() + " limit ? offset ?";
+        String sql = "select * from " + table + where
+                + " order by " + orderBy + " limit ? offset ?";
         List<Object> pageArgs = new ArrayList<>(args);
         pageArgs.add(size);
         pageArgs.add(offset);
@@ -67,7 +71,7 @@ public class CrudService {
     public Map<String, Object> getOne(String resource, long id) {
         CrudRegistry.Resource def = require(resource);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select * from " + def.table() + " where id = ? and deleted = 0", id);
+                "select * from " + SqlGuard.ident(def.table()) + " where id = ? and deleted = 0", id);
         if (rows.isEmpty()) {
             throw new BusinessException(ResultCode.NOT_FOUND, "记录不存在");
         }
@@ -83,7 +87,7 @@ public class CrudService {
         }
         String columns = String.join(", ", values.keySet());
         String placeholders = String.join(", ", values.keySet().stream().map(c -> "?").toList());
-        String sql = "insert into " + def.table() + " (" + columns + ") values (" + placeholders + ")";
+        String sql = "insert into " + SqlGuard.ident(def.table()) + " (" + columns + ") values (" + placeholders + ")";
         var keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             var ps = connection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS);
@@ -108,7 +112,7 @@ public class CrudService {
         List<Object> args = new ArrayList<>(values.values());
         args.add(id);
         int affected = jdbcTemplate.update(
-                "update " + def.table() + " set " + sets + " where id = ? and deleted = 0", args.toArray());
+                "update " + SqlGuard.ident(def.table()) + " set " + sets + " where id = ? and deleted = 0", args.toArray());
         if (affected == 0) {
             throw new BusinessException(ResultCode.NOT_FOUND, "记录不存在");
         }
@@ -119,7 +123,7 @@ public class CrudService {
     public void delete(String resource, long id) {
         CrudRegistry.Resource def = require(resource);
         int affected = jdbcTemplate.update(
-                "update " + def.table() + " set deleted = 1 where id = ? and deleted = 0", id);
+                "update " + SqlGuard.ident(def.table()) + " set deleted = 1 where id = ? and deleted = 0", id);
         if (affected == 0) {
             throw new BusinessException(ResultCode.NOT_FOUND, "记录不存在");
         }

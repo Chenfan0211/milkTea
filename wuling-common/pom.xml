@@ -31,9 +31,39 @@
           下沉到此模块，作为所有服务共用的 API 契约与统一异常处理。
           因此需要 Spring Web（@RestControllerAdvice）与 Lombok。
         -->
+        <!--
+          spring-boot-starter-web 声明为 optional（不传递）：
+          本模块仅 GlobalExceptionHandler 需要它，而 gateway 是 WebFlux 响应式栈，
+          若把 Servlet 传递进去会导致网关启动失败：
+          "Spring MVC found on classpath, which is incompatible with Spring Cloud Gateway"。
+          因此各 servlet 服务需自行声明 starter-web（它们本来就需要）。
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- 第 5 期：MQ / Redis 基础设施下沉，供各服务共用 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- jdbc 同样设为 optional：仅 AuditLogService 需要；
+             若传递到 gateway（无数据源）会因缺少 DataSource 配置而启动失败。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

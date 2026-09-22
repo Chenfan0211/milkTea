@@ -59,3 +59,10 @@ dist.tar.gz
 .env.local.properties
 server/.env.local.properties
 
+
+# 排查/联调临时脚本（不入库）
+.tmp_*
+.tmp/
+fix_*.py
+gen_*.py
+patch-*.cjs

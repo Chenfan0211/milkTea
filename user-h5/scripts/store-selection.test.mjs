@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,10 +20,60 @@ globalThis.wx = {
   }
 };
 
-const { cities, stores } = require(path.join(root, 'data/mock.js'));
+// 门店 / 城市数据已迁移到数据库：
+//   - 城市：server/.../V10__app_config.sql 的 app_config.app_cities
+//   - 门店：server/.../V3__seed_base.sql 的 store_profile + biz_subject
+// 这里解析 seed 得到与接口一致的返回结构，并通过 mock 的 wx.request 提供给 utils/store。
+const migrationDir = path.join(root, '..', 'server/src/main/resources/db/migration');
+const appConfigSeed = fs.readFileSync(path.join(migrationDir, 'V10__app_config.sql'), 'utf8');
+const citiesMatch = appConfigSeed.match(/'app_cities'[\s\S]*?\[([\s\S]*?)\]'/);
+assert.ok(citiesMatch, 'V10 seed 必须包含 app_cities');
+const cities = JSON.parse('[' + citiesMatch[1].replace(/\n/g, '') + ']');
+
+const baseSeed = fs.readFileSync(path.join(migrationDir, 'V3__seed_base.sql'), 'utf8');
+const storeNameBlock = baseSeed.match(/INSERT INTO biz_subject[\s\S]*?;/);
+assert.ok(storeNameBlock, 'V3 seed 必须包含 biz_subject 初始化');
+const SUBJECT_NAMES = {};
+for (const m of storeNameBlock[0].matchAll(/\((\d+)\s*,\s*'[^']*'\s*,\s*'([^']+)'\s*,\s*'STORE'/g)) {
+  SUBJECT_NAMES[Number(m[1])] = m[2];
+}
+const profileBlock = baseSeed.match(/INSERT INTO store_profile \([\s\S]*?;/);
+assert.ok(profileBlock, 'V3 seed 必须包含 store_profile 初始化');
+const STORE_CODES = { 101: 'store-001', 102: 'store-002', 103: 'store-003', 104: 'store-004', 105: 'store-005' };
+const CITY_BY_NAME = { 长沙市: 'changsha', 广州市: 'guangzhou', 深圳市: 'shenzhen' };
+const stores = [...profileBlock[0].matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+|NULL),\s*'([^']+)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\)/g)].map(m => ({
+  id: STORE_CODES[Number(m[1])] || String(m[1]),
+  code: STORE_CODES[Number(m[1])] || String(m[1]),
+  name: SUBJECT_NAMES[Number(m[1])] || '',
+  city: m[2],
+  cityCode: CITY_BY_NAME[m[2]] || 'changsha',
+  address: m[3],
+  phone: m[4],
+  latitude: Number(m[5]),
+  longitude: Number(m[6]),
+  storeType: m[7],
+  businessStatus: m[8],
+  manager: m[9],
+  businessHours: m[11],
+  modes: JSON.parse(m[12]),
+  promotion: m[13],
+  queueCount: Number(m[14])
+}));
+
+// 让 utils/store 的接口层拿到同一份数据（等价于后端返回）
+globalThis.wx.request = function request(options) {
+  const url = String(options.url || '');
+  let data = [];
+  if (url.includes('/app/stores')) data = stores;
+  else if (url.includes('/config/cities')) data = cities;
+  setTimeout(() => options.success({ statusCode: 200, data: { code: 0, data, message: 'ok' } }), 0);
+};
+globalThis.wx.getStorageSync = globalThis.wx.getStorageSync.bind(globalThis.wx);
 const {
   DEFAULT_CITY_CODE,
   STORE_SELECTION_TTL,
+  refreshStoreCatalogFromRemote,
+  refreshCitiesFromRemote,
   calculateDistanceKm,
   sortStoresByDistance,
   findNearestStore,
@@ -39,8 +90,11 @@ const {
   useDeviceLocation
 } = require(path.join(root, 'utils/store.js'));
 
-assert.equal(cities.length, 3, '必须提供 3 个可服务城市');
-assert.equal(stores.length, 9, '必须提供 3 城 9 店 Mock 数据');
+// 门店/城市改为接口获取：先刷新内存镜像再做断言
+await refreshStoreCatalogFromRemote();
+await refreshCitiesFromRemote();
+assert.equal(cities.length, 3, '必须提供 3 个可服务城市（V10 app_cities）');
+assert.equal(stores.length, 5, '必须提供数据库初始化的 5 家门店（V3 seed）');
 assert.ok(
   stores.every(store => store.cityCode && Number.isFinite(store.latitude) && Number.isFinite(store.longitude)),
   '每家门店必须有城市和经纬度'

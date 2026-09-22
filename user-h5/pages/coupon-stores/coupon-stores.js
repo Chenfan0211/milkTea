@@ -1,10 +1,9 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { coupons } = require('../../data/mock');
 const { getFavoriteStoreIds, resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store');
 
-function resolveStores(couponId, activeStores) {
-  const coupon = coupons.find(item => item.id === couponId);
+function resolveStores(couponId, activeStores, couponList) {
+  const coupon = (couponList || []).find(item => item.id === couponId);
   const applicableStoreIds = coupon && Array.isArray(coupon.applicableStoreIds) ? coupon.applicableStoreIds : [];
 
   if (!applicableStoreIds.length) return activeStores.map(store => Object.assign({}, store));
@@ -26,39 +25,44 @@ Page(
       stores: []
     },
     onLoad(options) {
-      // 优惠券数据从后端拉取
-      api
-        .fetchCoupons()
-        .then(list => {
-          if (Array.isArray(list) && list.length) this.setData({ coupons: list });
-        })
-        .catch(() => null);
+      // 标题只依赖路由参数，先同步设置，避免等待接口期间标题为默认值
+      this.setData({
+        title: options.from === 'points' || options.from === 'stored-value' ? '选择门店' : '选择商品适用门店'
+      });
+      // 优惠券数据从后端拉取，再据此计算适用门店
       const catalog = resolveStoreCatalog();
       const activeStores = catalog.stores;
       const favoriteStoreIds = getFavoriteStoreIds();
-      const applicableStores = resolveStores(options.couponId, activeStores).map(store =>
+      api
+        .fetchCoupons()
+        .then(list => (Array.isArray(list) ? list : []))
+        .catch(() => [])
+        .then(couponList => {
+          const applicableStores = resolveStores(options.couponId, activeStores, couponList).map(store =>
         Object.assign({}, store, {
           isFavorite: favoriteStoreIds.indexOf(store.id) !== -1
         })
       );
-      const firstStore = applicableStores[0] || activeStores[0];
-      this.setData({
-        couponId: options.couponId || '',
-        from: options.from || '',
-        nextPage: options.next === 'products' ? 'products' : '',
-        title: options.from === 'points' || options.from === 'stored-value' ? '选择门店' : '选择商品适用门店',
-        currentCity: catalog.city.name,
-        stores: applicableStores,
-        selectedStoreId: catalog.currentStore ? catalog.currentStore.id : '',
-        currentAddress: firstStore ? firstStore.address : ''
-      });
+          const firstStore = applicableStores[0] || activeStores[0];
+          this.setData({
+            couponId: options.couponId || '',
+            from: options.from || '',
+            nextPage: options.next === 'products' ? 'products' : '',
+            currentCity: catalog.city ? catalog.city.name : '',
+            stores: applicableStores,
+            selectedStoreId: catalog.currentStore ? catalog.currentStore.id : '',
+            currentAddress: firstStore ? firstStore.address : ''
+          });
+        });
     },
     showUnavailable(event) {
       const label = event.currentTarget.dataset.label || '功能';
       wx.showToast({ title: `${label}暂未接入`, icon: 'none' });
     },
     handleSelectStore(event) {
-      const { id } = event.detail.store;
+      const store = event.detail && event.detail.store;
+      if (!store) return;
+      const { id } = store;
       if (!id) return;
       if (this.data.nextPage === 'products') {
         wx.navigateTo({ url: `/pages/coupon-products/coupon-products?couponId=${this.data.couponId}&storeId=${id}` });

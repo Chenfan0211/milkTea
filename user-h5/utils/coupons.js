@@ -1,4 +1,14 @@
-const { coupons: sourceCoupons } = require('../data/mock');
+const api = require('./api');
+const { formatOrderAmount } = require('../data/mock');
+
+/**
+ * 优惠券本地缓存。
+ *
+ * 阶段 C 后优惠券以后端接口为准：
+ * - 页面先 await refreshCouponsFromRemote() 拉取并写入缓存；
+ * - getCoupons() 只读缓存，未拉取到时返回空数组；
+ * - addCoupon() 仅用于兑换后把新券追加到缓存（真实发券以后端为准）。
+ */
 
 const COUPON_STORAGE_KEY = 'milkTea:coupons';
 
@@ -14,7 +24,7 @@ function readStorageCoupons() {
     // ignore storage errors
   }
   const app = typeof getApp === 'function' ? getApp() : null;
-  return (app && app.globalData && Array.isArray(app.globalData.coupons)) ? app.globalData.coupons : null;
+  return app && app.globalData && Array.isArray(app.globalData.coupons) ? app.globalData.coupons : null;
 }
 
 function writeStorageCoupons(list) {
@@ -27,13 +37,55 @@ function writeStorageCoupons(list) {
   if (app && app.globalData) app.globalData.coupons = list;
 }
 
-// 初始优惠券：mock 数据为基底，Storage/globalData 有值时优先。
+/** 后端优惠券结构 -> 小程序券包展示结构。 */
+function normalizeRemoteCoupon(item) {
+  const amount = Math.round((Number(item.amount) || 0) / 100);
+  const threshold = Math.round((Number(item.threshold) || 0) / 100);
+  return {
+    id: item.code || String(item.id),
+    quantity: Number(item.count) || 1,
+    type: item.type || 'voucher',
+    displayType: 'fixed',
+    amount,
+    condition: threshold ? `满${threshold}元可用` : '不限',
+    title: item.name || '',
+    expiryText: '',
+    brand: item.brand || '五零时光',
+    couponNo: item.code || String(item.id),
+    applicableStoreIds: Array.isArray(item.applicableStoreIds) ? item.applicableStoreIds : [],
+    applicableProductIds: Array.isArray(item.applicableProductIds) ? item.applicableProductIds : [],
+    applicableStores: '查看门店',
+    applicableProducts: '查看适用商品',
+    channel: '不限制',
+    scenes: item.scenes || '',
+    validityPeriod: '',
+    usageTime: item.usageTime || '',
+    paymentRestriction: '',
+    description: item.description || '',
+    source: item.source || '',
+    expired: Boolean(item.expired),
+    status: item.status || ''
+  };
+}
+
+/** 从后端拉取券包并写入缓存。 */
+function refreshCouponsFromRemote(status) {
+  return api
+    .fetchUserCoupons(status)
+    .then(list => {
+      if (Array.isArray(list)) {
+        const coupons = list.map(normalizeRemoteCoupon);
+        writeStorageCoupons(coupons);
+        return coupons;
+      }
+      return getCoupons();
+    })
+    .catch(() => getCoupons());
+}
+
+/** 当前券包缓存（只读）。 */
 function getCoupons() {
-  const stored = readStorageCoupons();
-  if (stored) return cloneCoupons(stored);
-  const initial = cloneCoupons(sourceCoupons);
-  writeStorageCoupons(initial);
-  return initial;
+  return cloneCoupons(readStorageCoupons() || []);
 }
 
 function formatDatePart(value) {
@@ -85,7 +137,7 @@ function buildCouponFromProduct(product, quantity, now, seq) {
   };
 }
 
-// 兑换优惠券：追加到优惠券列表头部，返回新列表。
+/** 兑换成功后把新券追加到券包头部（真实发券以后端为准）。 */
 function addCoupon(product, quantity) {
   const now = new Date();
   const list = getCoupons();
@@ -98,5 +150,7 @@ function addCoupon(product, quantity) {
 
 module.exports = {
   addCoupon,
-  getCoupons
+  getCoupons,
+  refreshCouponsFromRemote,
+  normalizeRemoteCoupon
 };

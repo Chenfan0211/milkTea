@@ -1,6 +1,5 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { pointsRecords } = require('../../data/mock');
 
 Page(
   withShare({
@@ -8,8 +7,8 @@ Page(
       pointsRecords: []
     },
     onShow() {
-      // 先用本地兜底，再拉后端流水
-      this.setData({ pointsRecords: (getApp().globalData.pointsRecords || pointsRecords || []) });
+      // 时光币流水以后端为准（未登录时列表为空）
+      this.setData({ pointsRecords: getApp().globalData.pointsRecords || [] });
       api
         .fetchPointsRecords()
         .then(list => {

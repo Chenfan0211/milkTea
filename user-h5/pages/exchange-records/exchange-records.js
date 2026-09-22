@@ -1,13 +1,13 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { exchangeRecordCategories, exchangeRecords: mockExchangeRecords } = require('../../data/mock');
+const { exchangeRecordCategories } = require('../../data/mock');
 
 Page(
   withShare({
     data: {
       exchangeRecordCategories,
       activeCategory: 'all',
-      filteredRecords: mockExchangeRecords
+      filteredRecords: []
     },
     onShow() {
       // 兑换记录从后端拉取
@@ -17,7 +17,7 @@ Page(
           if (Array.isArray(list)) this.setData({ records: list });
         })
         .catch(() => null);      const app = getApp();
-      const records = app.globalData.exchangeRecords || mockExchangeRecords;
+      const records = app.globalData.exchangeRecords || [];
       this.applyFilter(this.data.activeCategory, records);
     },
     applyFilter(id, records) {
@@ -43,7 +43,7 @@ Page(
     switchCategory(event) {
       const { id } = event.currentTarget.dataset;
       const app = getApp();
-      const records = app.globalData.exchangeRecords || mockExchangeRecords;
+      const records = app.globalData.exchangeRecords || [];
       this.applyFilter(id, records);
     }
   })

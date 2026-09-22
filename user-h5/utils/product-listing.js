@@ -1,7 +1,38 @@
-const { menuTabs } = require('../data/mock');
+const api = require('./api');
 const { isPlatformListed } = require('./product-catalog');
 
 const LISTING_STORAGE_KEY = 'milkTea:product-listing';
+
+// 菜单内存镜像。
+//
+// 阶段 C 后菜单来自 /api/v1/app/menu：页面先 await refreshMenuFromRemote()，
+// 之后同步函数（getListedMenuTabs 等）读镜像。未拉取到时返回空数组，
+// 页面按「无菜单」处理，不再回退本地假数据。
+let menuCatalog = [];
+
+/** 用远端数据刷新菜单镜像（页面 onLoad 时调用） */
+function refreshMenuFromRemote() {
+  return api
+    .fetchMenu()
+    .then(list => {
+      if (Array.isArray(list) && list.length) {
+        menuCatalog = list;
+      }
+      return menuCatalog;
+    })
+    .catch(() => menuCatalog);
+}
+
+/** 直接注入菜单镜像（仅供测试使用）。 */
+function setMenuCatalogForTest(list) {
+  menuCatalog = Array.isArray(list) ? list : [];
+  return menuCatalog;
+}
+
+/** 当前菜单镜像（只读） */
+function getMenuCatalog() {
+  return menuCatalog;
+}
 
 // 上架状态按门店隔离：{ [storeId]: { [productId]: boolean } }
 // 未记录的默认视为上架，避免新增商品时漏配。
@@ -40,7 +71,7 @@ function writeState(state) {
   }
 }
 
-// 拍平 menuTabs 得到全量商品，附带所属 tab / 分组 / 分类。
+// 拍平菜单得到全量商品，附带所属 tab / 分组 / 分类。
 function flattenProducts(menus) {
   const list = [];
   (menus || []).forEach(tab => {
@@ -71,7 +102,7 @@ function flattenProducts(menus) {
 
 // 门店可选商品 = 运营后台已上架的商品；后台未上架的商品不进入选品范围。
 function getAllProducts() {
-  return flattenProducts(menuTabs).filter(item => isPlatformListed(item.id));
+  return flattenProducts(menuCatalog).filter(item => isPlatformListed(item.id));
 }
 
 // 判断某商品在指定门店是否上架；未配置时默认上架。
@@ -136,10 +167,10 @@ function resetListing(storeId) {
 // 单个商品详情：仅在运营后台已上架时可查，附带门店上下架状态与规格。
 function getProductDetail(storeId, productId) {
   if (!productId) return null;
-  const item = flattenProducts(menuTabs).find(entry => entry.id === productId);
+  const item = flattenProducts(menuCatalog).find(entry => entry.id === productId);
   if (!item) return null;
   if (!isPlatformListed(productId)) return null;
-  const detail = item.product.specDetail || {};
+  const product = item.product || {};
   return {
     id: item.id,
     name: item.name,
@@ -147,23 +178,23 @@ function getProductDetail(storeId, productId) {
     originalPrice: item.originalPrice,
     storedValuePrice: item.product.storedValuePrice,
     image: item.image,
-    galleryImage: detail.galleryImage || item.image,
+    galleryImage: product.galleryImage || item.image,
     badgeIcon: item.badgeIcon,
     tags: (item.product.tags || []).slice(),
-    description: detail.description || item.product.description || '',
-    ingredients: detail.ingredients || '',
-    allergens: detail.allergens || '',
-    cupCapacity: detail.cupCapacity || '',
-    tips: detail.tips || '',
-    imageDisclaimer: detail.imageDisclaimer || '',
-    promotionText: detail.promotionText || '',
+    description: product.description || '',
+    ingredients: product.ingredients || '',
+    allergens: product.allergens || '',
+    cupCapacity: product.cupCapacity || '',
+    tips: product.tips || [],
+    imageDisclaimer: product.imageDisclaimer || '',
+    promotionText: product.promotionText || '',
     tabLabel: item.tabLabel,
     groupLabel: item.groupLabel,
     categoryId: item.categoryId,
     categoryLabel: item.categoryLabel,
     platformListed: true,
     listed: isListed(storeId, item.id),
-    specGroups: (detail.specGroups || []).map(group => ({
+    specGroups: (product.specGroups || []).map(group => ({
       id: group.id,
       label: group.label,
       options: (group.options || []).map(option => ({
@@ -178,9 +209,9 @@ function getProductDetail(storeId, productId) {
 // 按门店过滤后返回菜单，供消费端（点单页 / 适用商品页）使用。
 // 分类被清空时整组隐藏，分组与 Tab 同理，避免消费端出现空分类。
 function applyListing(storeId, menus) {
-  const source = menus || menuTabs;
+  const source = menus || menuCatalog;
   const state = readState();
-  const tabs = source
+  return source
     .map(tab => {
       const groups = (tab.groups || [])
         .map(group => {
@@ -201,14 +232,13 @@ function applyListing(storeId, menus) {
       return Object.assign({}, tab, { groups });
     })
     .filter(Boolean);
-  return tabs;
 }
 
-// 消费端读取：指定门店的上架菜单；无门店时返回默认菜单原样。
+// 消费端读取：指定门店的上架菜单；无门店时返回完整菜单。
 function getListedMenuTabs(storeId) {
-  if (!storeId) return menuTabs;
-  const tabs = applyListing(storeId, menuTabs);
-  return tabs.length ? tabs : menuTabs;
+  if (!storeId) return menuCatalog;
+  const tabs = applyListing(storeId, menuCatalog);
+  return tabs.length ? tabs : menuCatalog;
 }
 
 // 商品最终是否可售 = 运营后台已上架 且 门店已上架。
@@ -220,6 +250,9 @@ function isProductListed(storeId, productId) {
 module.exports = {
   LISTING_STORAGE_KEY,
   isPlatformListed,
+  refreshMenuFromRemote,
+  setMenuCatalogForTest,
+  getMenuCatalog,
   applyListing,
   getAllProducts,
   getListedMenuTabs,

@@ -65,17 +65,18 @@ public class WithdrawalService {
         if (amount <= 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "提现金额必须大于 0");
         }
+        // 确保账户存在（并发安全见 LedgerService.ensureAccount）
         SubjectAccount account = ledgerService.ensureAccount(subjectId);
-        long available = account.getAvailableBalance() == null ? 0L : account.getAvailableBalance();
-        if (amount > available) {
+
+        // 并发安全（第 0 期加固）：冻结改为原子 UPDATE
+        // `available_balance = available_balance - ? where available_balance >= ?`，
+        // 把「校验余额充足 + 扣减」合并为单条语句，由 InnoDB 行锁串行，
+        // 并发提现时不会出现超提。
+        if (subjectAccountMapper.freeze(subjectId, amount) == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "可提现余额不足");
         }
-
-        // 冻结
-        account.setAvailableBalance(available - amount);
-        account.setFrozenBalance((account.getFrozenBalance() == null ? 0L : account.getFrozenBalance()) + amount);
-        subjectAccountMapper.updateById(account);
-        writeFlow(subjectId, roleType, "FREEZE", "out", amount, null, account.getAvailableBalance(), "提现申请冻结");
+        long balanceAfter = (account.getAvailableBalance() == null ? 0L : account.getAvailableBalance()) - amount;
+        writeFlow(subjectId, roleType, "FREEZE", "out", amount, null, balanceAfter, "提现申请冻结");
 
         Withdrawal w = new Withdrawal();
         w.setWithdrawNo(nextNo());
@@ -153,6 +154,11 @@ public class WithdrawalService {
         return w;
     }
 
+    /** 按 ID 查询（供审计记录变更前状态使用） */
+    public Withdrawal getById(Long id) {
+        return id == null ? null : withdrawalMapper.selectById(id);
+    }
+
     public PageResult<Withdrawal> page(long current, long size, String status) {
         LambdaQueryWrapper<Withdrawal> query = new LambdaQueryWrapper<Withdrawal>().orderByDesc(Withdrawal::getId);
         if (status != null && !status.isBlank()) {
@@ -162,23 +168,21 @@ public class WithdrawalService {
         return PageResult.of(page.getRecords(), page.getCurrent(), page.getSize(), page.getTotal());
     }
 
-    /** 出款成功：从冻结中扣减 */
+    /** 出款成功：从冻结中扣减（原子 SQL，防并发重复出款） */
     private void settlePaid(Withdrawal w, SubjectAccount account) {
-        account.setFrozenBalance(Math.max(0L, (account.getFrozenBalance() == null ? 0L : account.getFrozenBalance()) - w.getAmount()));
-        account.setTotalWithdrawn((account.getTotalWithdrawn() == null ? 0L : account.getTotalWithdrawn()) + w.getAmount());
-        subjectAccountMapper.updateById(account);
+        if (subjectAccountMapper.settleWithdraw(w.getSubjectId(), w.getAmount()) == 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "冻结金额异常，无法出款");
+        }
         writeFlow(w.getSubjectId(), w.getRoleType(), "WITHDRAW", "out", w.getAmount(), null,
                 account.getAvailableBalance(), "提现出款");
     }
 
-    /** 失败/驳回：冻结金额退回可用 */
+    /** 失败/驳回：冻结金额退回可用（原子 SQL） */
     private void unfreeze(Withdrawal w, SubjectAccount account, String remark) {
-        long frozen = account.getFrozenBalance() == null ? 0L : account.getFrozenBalance();
-        long back = Math.min(frozen, w.getAmount());
-        account.setFrozenBalance(frozen - back);
-        account.setAvailableBalance((account.getAvailableBalance() == null ? 0L : account.getAvailableBalance()) + back);
-        subjectAccountMapper.updateById(account);
-        writeFlow(w.getSubjectId(), w.getRoleType(), "UNFREEZE", "in", back, null,
+        if (subjectAccountMapper.unfreeze(w.getSubjectId(), w.getAmount()) == 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "解冻失败：冻结金额不足");
+        }
+        writeFlow(w.getSubjectId(), w.getRoleType(), "UNFREEZE", "in", w.getAmount(), null,
                 account.getAvailableBalance(), remark);
     }
 

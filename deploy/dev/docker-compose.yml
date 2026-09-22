@@ -50,7 +50,37 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
 
+  # ---------- Nacos 注册中心 / 配置中心（第 3 期）----------
+  # 说明：standalone 模式 + 内嵌 Derby，适合单机；生产如需高可用应改集群 + MySQL 存储
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: wuling-nacos
+    restart: unless-stopped
+    environment:
+      MODE: standalone
+      # 关闭鉴权仅限本地开发；生产必须开启并配置强口令
+      NACOS_AUTH_ENABLE: "false"
+      JVM_XMS: 256m
+      JVM_XMX: 512m
+      JVM_XMN: 128m
+    ports:
+      # 8848 主端口；9848/9849 为 gRPC 端口，客户端 v2.x 必需
+      - "8848:8848"
+      - "9848:9848"
+      - "9849:9849"
+    volumes:
+      - nacos-data:/home/nacos/data
+      - nacos-logs:/home/nacos/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/v1/console/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
 volumes:
   mysql-data: {}
   redis-data: {}
   rabbitmq-data: {}
+  nacos-data: {}
+  nacos-logs: {}

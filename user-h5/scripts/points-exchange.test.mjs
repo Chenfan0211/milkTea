@@ -86,8 +86,10 @@ assert.ok(definition && definition.data, '兑换详情页必须注册 Page');
 const js = fs.readFileSync(path.join(root, 'pages/points-exchange/points-exchange.js'), 'utf8');
 assert.ok(js.includes('wx.showModal'), '兑换必须弹二次确认');
 assert.ok(js.includes('确认兑换'), '二次确认必须包含确认文案');
-assert.ok(js.includes('exchangeProduct'), '兑换必须调用 exchangeProduct');
+// 兑换改为服务端写操作（阶段 C）：页面必须调用后端接口，禁止本地伪造扣减
+assert.ok(js.includes('exchangePointsProduct'), '兑换必须调用后端 exchangePointsProduct');
 assert.ok(js.includes('getPoints'), '兑换必须用 getPoints 读取余额');
+assert.ok(!js.includes('exchangeProduct('), '兑换不得再走本地 exchangeProduct 状态机');
 
 // 商城余额改用 getPoints
 const pointsMallJs = fs.readFileSync(path.join(root, 'pages/points-mall/points-mall.js'), 'utf8');
@@ -95,7 +97,9 @@ assert.ok(pointsMallJs.includes('getPoints()'), '商城余额必须用 getPoints
 
 // app.js 初始化 exchangeRecords
 const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-assert.ok(appJs.includes('exchangeRecords: exchangeRecords.map'), 'app.js 必须初始化 exchangeRecords');
+// 兑换记录由后端按用户返回，app.js 只保留空数组作为会话镜像
+assert.ok(appJs.includes('exchangeRecords: []'), 'app.js 必须以空数组初始化 exchangeRecords');
+assert.ok(!/exchangeRecords:\s*exchangeRecords/.test(appJs), 'app.js 不得再用本地假数据初始化兑换记录');
 
 // 兑换核销池与 verifyExchange
 const { verifyExchange } = require(path.join(root, 'utils/points.js'));

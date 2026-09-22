@@ -1,0 +1,72 @@
+# =============================================================
+# 用户服务配置（第 11 期）
+#
+# 职责：小程序用户、微信登录、短信验证码、头像昵称、定位。
+# 端口 8085，由网关路由。
+# =============================================================
+server:
+  port: ${USER_SERVICE_PORT:8085}
+
+spring:
+  application:
+    name: wuling-user-service
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        ip: ${NACOS_REGISTER_IP:}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+app:
+  wx:
+    app-id: ${WX_APP_ID:wx7d78d69cd175812e}
+    app-secret: ${WX_APP_SECRET:}
+    code2session-url: https://api.weixin.qq.com/sns/jscode2session
+  sms:
+    enabled: ${SMS_ENABLED:false}
+    sdk-app-id: ${SMS_SDK_APP_ID:}
+    secret-id: ${SMS_SECRET_ID:}
+    secret-key: ${SMS_SECRET_KEY:}
+    sign-name: ${SMS_SIGN_NAME:}
+    template-id: ${SMS_TEMPLATE_ID:}
+  jwt:
+    secret: ${JWT_SECRET:}
+    access-token-ttl: 3600000
+    refresh-token-ttl: 604800000
+  redis:
+    mode: ${REDIS_MODE:single}
+    database:
+      auth: ${REDIS_DB_AUTH:0}
+      sms: ${REDIS_DB_SMS:1}
+      cache: ${REDIS_DB_CACHE:2}
+      biz: ${REDIS_DB_BIZ:3}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO

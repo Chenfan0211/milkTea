@@ -13,10 +13,11 @@ import com.wuling.finance.mapper.SettlementRecordMapper;
 import com.wuling.finance.mapper.SplitRuleMapper;
 import com.wuling.finance.mapper.SplitSnapshotMapper;
 import com.wuling.finance.mapper.SubjectAccountMapper;
-import com.wuling.subject.entity.BizSubject;
-import com.wuling.subject.mapper.BizSubjectMapper;
+import com.wuling.subject.port.SubjectQueryPort;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +50,8 @@ public class LedgerService {
     private final SubjectAccountMapper subjectAccountMapper;
     private final FundFlowMapper fundFlowMapper;
     private final SettlementRecordMapper settlementRecordMapper;
-    private final BizSubjectMapper bizSubjectMapper;
+    /** 第 12 期：主体查询改走端口（本地实现，无网络开销） */
+    private final SubjectQueryPort subjectQueryPort;
     private final SplitCalculator splitCalculator;
 
     public LedgerService(SplitRuleMapper splitRuleMapper,
@@ -57,14 +59,14 @@ public class LedgerService {
                          SubjectAccountMapper subjectAccountMapper,
                          FundFlowMapper fundFlowMapper,
                          SettlementRecordMapper settlementRecordMapper,
-                         BizSubjectMapper bizSubjectMapper,
+                         SubjectQueryPort subjectQueryPort,
                          SplitCalculator splitCalculator) {
         this.splitRuleMapper = splitRuleMapper;
         this.splitSnapshotMapper = splitSnapshotMapper;
         this.subjectAccountMapper = subjectAccountMapper;
         this.fundFlowMapper = fundFlowMapper;
         this.settlementRecordMapper = settlementRecordMapper;
-        this.bizSubjectMapper = bizSubjectMapper;
+        this.subjectQueryPort = subjectQueryPort;
         this.splitCalculator = splitCalculator;
     }
 
@@ -95,6 +97,7 @@ public class LedgerService {
     public SplitSnapshot executeSplit(Long orderId, String orderNo, long paidAmount, int itemCount,
                                       Long storeSubjectId, Long channelSubjectId, Long productId,
                                       long platformCommission, List<SplitCalculator.LineItem> items) {
+        // 幂等快路径：已存在直接返回，避免重复计算。
         SplitSnapshot exists = splitSnapshotMapper.selectOne(new LambdaQueryWrapper<SplitSnapshot>()
                 .eq(SplitSnapshot::getOrderId, orderId));
         if (exists != null) {
@@ -136,7 +139,21 @@ public class LedgerService {
         long sum = amount.platform() + amount.store() + amount.channel() + amount.investor() + amount.supplier();
         snapshot.setTotalCheck(sum == paidAmount ? "一致" : "不一致");
         snapshot.setStatus(sum == paidAmount ? "valid" : "invalid");
-        splitSnapshotMapper.insert(snapshot);
+        // 并发安全（第 0 期加固）：上面的「先查」只是快路径，真正的防重依赖
+        // split_snapshot 唯一索引 uk_split_snapshot_order(order_id)。
+        // 两笔并发核销同一订单时，后到者在此抛 DuplicateKeyException，
+        // 回滚本次写入的台账，并返回已存在的那份快照（保证不重复分账）。
+        try {
+            splitSnapshotMapper.insert(snapshot);
+        } catch (DuplicateKeyException e) {
+            log.warn("concurrent split detected, reuse existing snapshot. orderNo={}", orderNo);
+            SplitSnapshot duplicated = splitSnapshotMapper.selectOne(
+                    new LambdaQueryWrapper<SplitSnapshot>().eq(SplitSnapshot::getOrderId, orderId));
+            if (duplicated != null) {
+                return duplicated;
+            }
+            throw e;
+        }
 
         // 各方待结算台账（按明细汇总，供应商可多主体）
         Map<Long, Long> credits = new LinkedHashMap<>();
@@ -176,7 +193,7 @@ public class LedgerService {
     }
     /** 记待结算台账（不动可用余额） */
     private void recordPending(SplitSnapshot snapshot, Long subjectId, long amount) {
-        BizSubject subject = bizSubjectMapper.selectById(subjectId);
+        SubjectQueryPort.SubjectView subject = subjectQueryPort.findById(subjectId);
         SettlementRecord record = new SettlementRecord();
         record.setRecordNo(nextNo("SR"));
         record.setSubjectId(subjectId);
@@ -200,16 +217,17 @@ public class LedgerService {
         int count = 0;
         for (SettlementRecord record : pendings) {
             SubjectAccount account = ensureAccount(record.getSubjectId());
-            account.setAvailableBalance(account.getAvailableBalance() + record.getAmount());
-            account.setTotalIncome(account.getTotalIncome() + record.getAmount());
-            subjectAccountMapper.updateById(account);
+            // 并发安全（第 0 期加固）：原子入账，避免与提现/分账并发时丢失更新
+            subjectAccountMapper.creditSettle(record.getSubjectId(), record.getAmount());
 
             record.setStatus(SETTLE_SETTLEABLE);
             record.setSettleDate(settleDate);
             settlementRecordMapper.updateById(record);
 
+            long balanceAfter = (account.getAvailableBalance() == null ? 0L : account.getAvailableBalance())
+                    + record.getAmount();
             writeFlow(record.getSubjectId(), account.getRoleType(), "SETTLE", "in",
-                    record.getAmount(), null, account.getAvailableBalance(), "T+1 结算转为可结算");
+                    record.getAmount(), null, balanceAfter, "T+1 结算转为可结算");
             count++;
         }
         return count;
@@ -240,13 +258,21 @@ public class LedgerService {
             settlementRecordMapper.updateById(record);
         }
     }
+    /**
+     * 获取或创建主体资金账户。
+     *
+     * 并发安全（第 0 期加固）：并发首次开户时，两线程可能同时通过「查不到」判断。
+     * 依赖 subject_account 唯一索引 uk_subject_account_subject(subject_id)，
+     * 后到者在 insert 时抛 DuplicateKeyException，此处捕获后重新查询返回，
+     * 避免开户失败或产生重复账户。
+     */
     public SubjectAccount ensureAccount(Long subjectId) {
         SubjectAccount account = subjectAccountMapper.selectOne(new LambdaQueryWrapper<SubjectAccount>()
                 .eq(SubjectAccount::getSubjectId, subjectId));
         if (account != null) {
             return account;
         }
-        BizSubject subject = bizSubjectMapper.selectById(subjectId);
+        SubjectQueryPort.SubjectView subject = subjectQueryPort.findById(subjectId);
         account = new SubjectAccount();
         account.setSubjectId(subjectId);
         account.setRoleType(subject == null ? "UNKNOWN" : subject.getSubjectType());
@@ -255,7 +281,17 @@ public class LedgerService {
         account.setTotalIncome(0L);
         account.setTotalWithdrawn(0L);
         account.setVersion(0);
-        subjectAccountMapper.insert(account);
+        try {
+            subjectAccountMapper.insert(account);
+        } catch (DuplicateKeyException e) {
+            // 并发开户竞争失败：改为读取已存在账户
+            SubjectAccount existing = subjectAccountMapper.selectOne(
+                    new LambdaQueryWrapper<SubjectAccount>().eq(SubjectAccount::getSubjectId, subjectId));
+            if (existing != null) {
+                return existing;
+            }
+            throw e;
+        }
         return account;
     }
 
@@ -289,17 +325,14 @@ public class LedgerService {
     }
 
     private Long platformSubjectId() {
-        BizSubject platform = bizSubjectMapper.selectOne(new LambdaQueryWrapper<BizSubject>()
-                .eq(BizSubject::getSubjectType, "PLATFORM").last("limit 1"));
-        return platform == null ? null : platform.getId();
+        return subjectQueryPort.findFirstByType("PLATFORM");
     }
 
     private Long investorOf(Long storeSubjectId) {
         if (storeSubjectId == null) {
             return null;
         }
-        Long id = bizSubjectMapper.selectInvestorOfStore(storeSubjectId);
-        return id;
+        return subjectQueryPort.findInvestorOfStore(storeSubjectId);
     }
 
 

@@ -1,12 +1,12 @@
 const { withShare } = require('../../utils/share');
-const { homeShortcuts, userProfile } = require('../../data/mock');
 const api = require('../../utils/api');
+const { getUserProfile } = require('../../utils/user-profile');
 
 Page(
   withShare({
     data: {
-      homeShortcuts,
-      userProfile
+      homeShortcuts: [],
+      userProfile: getUserProfile()
     },
     onShow() {
       if (this.getTabBar) this.getTabBar().setData({ selected: 0 });
@@ -19,7 +19,10 @@ Page(
           }
         })
         .catch(() => null);
-      api.fetchMe().catch(() => null);
+      api
+        .fetchMe()
+        .then(() => this.setData({ userProfile: getUserProfile() }))
+        .catch(() => null);
     },
     openCoupons() {
       wx.navigateTo({ url: '/pages/coupon-list/coupon-list' });

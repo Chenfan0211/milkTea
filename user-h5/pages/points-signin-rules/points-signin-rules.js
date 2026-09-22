@@ -1,11 +1,10 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { signInRules: fallbackRules } = require('../../data/mock');
 
 Page(
   withShare({
     data: {
-      signInRules: fallbackRules
+      signInRules: []
     },
     onLoad() {
       // 签到规则由后台配置（app_config.signin_rules）

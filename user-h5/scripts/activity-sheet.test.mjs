@@ -12,7 +12,9 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(fs.existsSync(`${componentRoot}.${extension}`), `缺少活动优惠弹层文件: activity-sheet.${extension}`);
 }
 
-const { menuActivity } = require(path.join(root, 'data/mock.js'));
+// 活动配置已迁到数据库（app_config.menu_activity），测试直接校验 seed 中的单一数据源
+const { readAppConfig } = await import('./lib/seed-data.mjs');
+const menuActivity = readAppConfig('menu_activity');
 assert.deepEqual(
   menuActivity,
   {

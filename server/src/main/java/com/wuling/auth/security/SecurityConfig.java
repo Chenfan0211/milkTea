@@ -31,6 +31,9 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login", "/auth/refreshToken", "/api/v1/app/auth/wx-login").permitAll()
                         // 小程序端接口全部放行：当前为无登录态的演示阶段，
                         // 后续接入微信登录后，应改为按 JWT 鉴权并校验 userId 归属。
+                        // 内部服务间调用接口：仅监听 127.0.0.1，且不在网关路由范围内，
+                        // 因此不经公网暴露。后续可加服务间凭证（mTLS / 内部 token）。
+                        .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/api/v1/app/**", "/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, ex) -> {

@@ -39,6 +39,12 @@
         <module>gateway</module>
         <!-- 第 5 期：营销服务 -->
         <module>marketing-service</module>
+        <!-- 第 7 期：交易服务 -->
+        <module>trade-service</module>
+        <!-- 第 11 期：用户服务 -->
+        <module>user-service</module>
+        <!-- 第 13 期：商品服务 -->
+        <module>product-service</module>
     </modules>
 
     <properties>
@@ -59,6 +65,13 @@
         <spring-cloud-alibaba.version>2023.0.3.4</spring-cloud-alibaba.version>
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <!--
+          微信支付 APIv3 官方 SDK（v3 签名 / 验签 / AES-GCM 解密）。
+          为什么用官方 SDK 而非自实现：请求签名涉及证书序列号选取、RSA 填充、
+          AES-GCM 附加数据（associated_data）等细节，自实现出错代价是资金问题。
+          版本锁定 0.2.14（0.2.x 系列稳定版）。
+        -->
+        <wechatpay-java.version>0.2.14</wechatpay-java.version>
     </properties>
 
     <dependencyManagement>

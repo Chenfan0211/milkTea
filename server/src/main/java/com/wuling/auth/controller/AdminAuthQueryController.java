@@ -2,6 +2,7 @@ package com.wuling.auth.controller;
 
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
+import com.wuling.common.sql.SqlGuard;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -111,14 +112,22 @@ public class AdminAuthQueryController {
 
     // ---------- 内部工具 ----------
 
+    /**
+     * 通用分页查询。
+     *
+     * SQL 安全：table / orderBy 由调用方传入，虽均为代码常量，
+     * 但仍强制经 SqlGuard 校验标识符，避免后续误传入变量导致注入（见改造方案 3.1 S-2）。
+     */
     private PageResult<Map<String, Object>> pageOf(String table, String where, List<Object> args,
                                                   String orderBy, long current, long size) {
-        Long total = jdbcTemplate.queryForObject("select count(*) from " + table + where, Long.class, args.toArray());
+        String safeTable = SqlGuard.ident(table);
+        String safeOrderBy = SqlGuard.orderBy(orderBy);
+        Long total = jdbcTemplate.queryForObject("select count(*) from " + safeTable + where, Long.class, args.toArray());
         List<Object> pageArgs = new ArrayList<>(args);
         pageArgs.add(size);
         pageArgs.add(Math.max(0, (current - 1) * size));
         List<Map<String, Object>> records = jdbcTemplate.queryForList(
-                "select * from " + table + where + " order by " + orderBy + " limit ? offset ?", pageArgs.toArray());
+                "select * from " + safeTable + where + " order by " + safeOrderBy + " limit ? offset ?", pageArgs.toArray());
         return PageResult.of(records.stream().map(this::camelize).toList(), current, size,
                 total == null ? 0L : total);
     }

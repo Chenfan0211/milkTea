@@ -71,7 +71,9 @@ function request(options) {
         if (body && (body.code === 8888 || body.code === 9999)) {
           handleUnauthorized(body);
         }
-        resolve({ statusCode: res.statusCode, data: body });
+        // 直接返回后端响应体 { code, data, message }，由 unwrap 统一解析。
+        // 修复：原实现包了一层 { statusCode, data }，导致 unwrap 永远解析失败。
+        resolve(body);
       },
       fail(err) {
         reject(err);

@@ -1,17 +1,16 @@
 const config = require('../config');
 const { request, unwrap } = require('./request');
-const mock = require('../data/mock');
 
 /**
  * 小程序端统一接口层。
  *
- * 设计：
- * - 每个接口都在 request 里提供 mock() 回退，USE_MOCK=true 时走本地假数据，false 时走真实后端；
- * - 页面只调用本文件的函数，不直接 require data/mock，便于随时切换数据源；
- * - 金额：后端统一返回「分」，本层负责转换为页面需要的「元」，页面代码保持不变。
+ * 阶段 C 假数据清理后的约定：
+ * - 业务数据全部来自后端接口，本文件不再内置本地假数据回退；
+ * - 页面只调用本文件函数，不直接 require data/mock；
+ * - 金额：后端统一返回「分」，本层负责转换为页面需要的「元」。
  */
 
-/** 分 -> 元（保留一位小数，与 mock 数据口径一致） */
+/** 分 -> 元（保留一位小数） */
 function fenToYuan(fen) {
   const value = Number(fen) || 0;
   return Math.round(value / 10) / 10;
@@ -23,50 +22,17 @@ function fenToYuan(fen) {
 
 /** 门店列表（App 端） */
 function fetchStores() {
-  return request({
-    url: '/api/v1/app/stores',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.stores, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/stores', method: 'GET' }).then(unwrap);
 }
 
 /** 菜单（tab -> group -> category -> products） */
 function fetchMenu() {
-  return request({
-    url: '/api/v1/app/menu',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.menuTabs, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/menu', method: 'GET' }).then(unwrap);
 }
 
 /** 商品详情 */
 function fetchProductDetail(productId) {
-  return request({
-    url: `/api/v1/app/products/${productId}`,
-    method: 'GET',
-    mock() {
-      const found = findMockProduct(productId);
-      return { code: found ? 0 : 404, data: found, message: found ? 'ok' : '商品不存在' };
-    }
-  }).then(unwrap);
-}
-
-/** 从 mock 菜单里查找商品（mock 回退用） */
-function findMockProduct(productId) {
-  const tabs = mock.menuTabs || [];
-  for (const tab of tabs) {
-    for (const group of tab.groups || []) {
-      for (const category of group.categories || []) {
-        const product = (category.products || []).find(item => item.id === productId);
-        if (product) return product;
-      }
-    }
-  }
-  return null;
+  return request({ url: `/api/v1/app/products/${productId}`, method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
@@ -75,91 +41,53 @@ function findMockProduct(productId) {
 
 /**
  * 创建订单。
- * @param {{userId:number, storeSubjectId:number, mealType:string, remark?:string,
+ * @param {{storeSubjectId:number, mealType:string, remark?:string,
  *          items:Array<{productId:string, quantity:number, spec?:string}>}} payload
  */
 function createOrder(payload) {
-  return request({
-    url: '/api/v1/app/orders',
-    method: 'POST',
-    data: payload,
-    mock() {
-      return {
-        code: 0,
-        data: {
-          orderNo: `MOCK${Date.now()}`,
-          status: 'CREATED',
-          payStatus: 'UNPAID',
-          paidAmount: 0,
-          store: '本地演示门店',
-          summary: '',
-          items: []
-        },
-        message: 'ok'
-      };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/orders', method: 'POST', data: payload }).then(unwrap);
 }
 
 /** 我的订单 */
 function fetchOrders() {
-  return request({
-    url: '/api/v1/app/orders',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.orders, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/orders', method: 'GET' }).then(unwrap);
 }
 
 /** 订单详情 */
 function fetchOrderDetail(orderNo) {
-  return request({
-    url: `/api/v1/app/orders/${orderNo}`,
-    method: 'GET',
-    mock() {
-      const found = (mock.orders || []).find(o => (o.orderInfo && o.orderInfo.orderNo) === orderNo);
-      return { code: found ? 0 : 404, data: found, message: found ? 'ok' : '订单不存在' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/orders/${orderNo}`, method: 'GET' }).then(unwrap);
 }
 
-/** 发起支付（Mock 通道：直接完成支付） */
+/**
+ * 发起支付。
+ *
+ * 支付通道由后端 app.pay.channel 决定：
+ * - mock：下单即置为已支付；
+ * - wxpay：返回小程序唤起收银台参数，最终以微信回调为准。
+ * 前端不感知通道差异，也不在客户端判断支付结果。
+ */
 function payOrder(orderNo, amount, channel) {
   return request({
     url: `/api/v1/app/orders/${orderNo}/pay`,
     method: 'POST',
-    data: { channel: channel || 'MOCK', amount, idempotentKey: `mini-${orderNo}` },
-    mock() {
-      return { code: 0, data: { orderNo, status: 'PAID', payStatus: 'PAID', pickupCode: '0000' }, message: 'ok' };
-    }
+    data: { channel: channel || 'MOCK', amount, idempotentKey: `mini-${orderNo}` }
   }).then(unwrap);
 }
 
-/** 支付回调（真实接入后由第三方通道调用，这里供联调） */
-function paymentCallback(orderNo, transactionId) {
-  return request({
-    url: '/api/v1/app/payments/callback',
-    method: 'POST',
-    data: { orderNo, transactionId },
-    mock() {
-      return { code: 0, data: { orderNo, status: 'PAID' }, message: 'ok' };
-    }
-  }).then(unwrap);
-}
+/**
+ * 支付回调 —— 不供小程序调用。
+ *
+ * 安全说明：该接口要求 HMAC 签名（orderNo + transactionId + timestamp，
+ * 密钥仅服务端持有），属「服务端到服务端」接口，由支付通道/网关调用。
+ * 小程序端无法也不应构造签名，因此这里不提供调用方法。
+ */
 
 // ============================================================
 // 用户 / 会员
 // ============================================================
 
 function fetchUserProfile() {
-  return request({
-    url: '/api/v1/app/auth/me',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.userProfile, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/auth/me', method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
@@ -167,34 +95,23 @@ function fetchUserProfile() {
 // ============================================================
 
 function fetchCoupons() {
-  return request({
-    url: '/api/v1/app/coupons',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.coupons, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/coupons', method: 'GET' }).then(unwrap);
 }
 
+/**
+ * 我的优惠券。
+ * userId 仅为兼容路径，实际归属以 JWT 为准。
+ */
 function fetchUserCoupons(status) {
   return request({
     url: '/api/v1/app/users/0/coupons',
     method: 'GET',
-    data: status ? { status } : {},
-    mock() {
-      return { code: 0, data: mock.coupons, message: 'ok' };
-    }
+    data: status ? { status } : {}
   }).then(unwrap);
 }
 
 function receiveCoupon(couponId) {
-  return request({
-    url: `/api/v1/app/users/0/coupons/${couponId}/receive`,
-    method: 'POST',
-    mock() {
-      return { code: 0, data: { id: Date.now(), couponId, status: 'UNUSED' }, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/users/0/coupons/${couponId}/receive`, method: 'POST' }).then(unwrap);
 }
 
 // ============================================================
@@ -202,55 +119,35 @@ function receiveCoupon(couponId) {
 // ============================================================
 
 function fetchStoredValuePackages() {
-  return request({
-    url: '/api/v1/app/stored-value/packages',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.storedValuePackages, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/stored-value/packages', method: 'GET' }).then(unwrap);
 }
 
 function rechargeStoredValue(packageId) {
   return request({
     url: '/api/v1/app/stored-value/recharge',
     method: 'POST',
-    data: { packageId },
-    mock() {
-      return { code: 0, data: { orderNo: `MOCKCZ${Date.now()}`, payStatus: 'PAID' }, message: 'ok' };
-    }
+    data: { packageId }
   }).then(unwrap);
 }
 
+function fetchStoredValueOrders() {
+  return request({ url: '/api/v1/app/stored-value/orders', method: 'GET' }).then(unwrap);
+}
+
 function fetchGiftCardDenominations() {
-  return request({
-    url: '/api/v1/app/gift-cards/denominations',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.giftCardDenominations, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/gift-cards/denominations', method: 'GET' }).then(unwrap);
 }
 
 function purchaseGiftCard(denominationId) {
   return request({
     url: '/api/v1/app/gift-cards/purchase',
     method: 'POST',
-    data: { denominationId },
-    mock() {
-      return { code: 0, data: { orderNo: `MOCKGC${Date.now()}`, payStatus: 'PAID' }, message: 'ok' };
-    }
+    data: { denominationId }
   }).then(unwrap);
 }
 
 function fetchMyGiftCards() {
-  return request({
-    url: '/api/v1/app/gift-cards',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.userProfile.giftCards || [], message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/gift-cards', method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
@@ -258,78 +155,39 @@ function fetchMyGiftCards() {
 // ============================================================
 
 function fetchPointsProducts() {
-  return request({
-    url: '/api/v1/app/points/products',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.pointsProducts, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/points/products', method: 'GET' }).then(unwrap);
 }
 
 function fetchPointsRules() {
-  return request({
-    url: '/api/v1/app/points/rules',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.pointsEarningRules, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/points/rules', method: 'GET' }).then(unwrap);
 }
 
 function fetchPointsRecords() {
-  return request({
-    url: '/api/v1/app/points/records',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.pointsRecords, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/points/records', method: 'GET' }).then(unwrap);
 }
 
 function signIn() {
-  return request({
-    url: '/api/v1/app/points/signin',
-    method: 'POST',
-    mock() {
-      return { code: 0, data: { balance: 0, message: '签到成功' }, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/points/signin', method: 'POST' }).then(unwrap);
 }
 
 function exchangePointsProduct(productId) {
   return request({
     url: '/api/v1/app/points/exchange',
     method: 'POST',
-    data: { productId },
-    mock() {
-      return { code: 0, data: { pickupCode: `MOCKCZ${Date.now()}`, status: 'PENDING' }, message: 'ok' };
-    }
+    data: { productId }
   }).then(unwrap);
 }
 
 function fetchExchangeOrders() {
-  return request({
-    url: '/api/v1/app/points/exchange-orders',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.exchangeRecords, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/points/exchange-orders', method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
-// 会员等级 / 城市
+// 会员等级
 // ============================================================
 
 function fetchMemberLevels() {
-  return request({
-    url: '/api/v1/app/member-levels',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.memberLevels, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/member-levels', method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
@@ -337,77 +195,31 @@ function fetchMemberLevels() {
 // ============================================================
 
 function fetchWorkbenchOverview(subjectId) {
-  return request({
-    url: `/api/v1/app/workbench/subject/${subjectId}/overview`,
-    method: 'GET',
-    mock() {
-      return {
-        code: 0,
-        data: { subjectId, availableBalance: 0, frozenBalance: 0, totalIncome: 0, todayOrders: 0 },
-        message: 'ok'
-      };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/workbench/subject/${subjectId}/overview`, method: 'GET' }).then(unwrap);
 }
 
 function fetchWorkbenchFlows(subjectId) {
-  return request({
-    url: `/api/v1/app/workbench/subject/${subjectId}/flows`,
-    method: 'GET',
-    mock() {
-      return { code: 0, data: [], message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/workbench/subject/${subjectId}/flows`, method: 'GET' }).then(unwrap);
 }
 
 function fetchWorkbenchSettlements(subjectId) {
-  return request({
-    url: `/api/v1/app/workbench/subject/${subjectId}/settlements`,
-    method: 'GET',
-    mock() {
-      return { code: 0, data: [], message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/workbench/subject/${subjectId}/settlements`, method: 'GET' }).then(unwrap);
 }
 
 function fetchStoreOrders(storeSubjectId) {
-  return request({
-    url: `/api/v1/app/workbench/store/${storeSubjectId}/orders`,
-    method: 'GET',
-    mock() {
-      return { code: 0, data: [], message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/workbench/store/${storeSubjectId}/orders`, method: 'GET' }).then(unwrap);
 }
 
 function fetchChannelStores(channelSubjectId) {
-  return request({
-    url: `/api/v1/app/workbench/channel/${channelSubjectId}/stores`,
-    method: 'GET',
-    mock() {
-      return { code: 0, data: [], message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/workbench/channel/${channelSubjectId}/stores`, method: 'GET' }).then(unwrap);
 }
 
 function fetchChannelOrders(channelSubjectId) {
-  return request({
-    url: `/api/v1/app/workbench/channel/${channelSubjectId}/orders`,
-    method: 'GET',
-    mock() {
-      return { code: 0, data: [], message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/workbench/channel/${channelSubjectId}/orders`, method: 'GET' }).then(unwrap);
 }
 
 function fetchInvestorStores(investorSubjectId) {
-  return request({
-    url: `/api/v1/app/workbench/investor/${investorSubjectId}/stores`,
-    method: 'GET',
-    mock() {
-      return { code: 0, data: [], message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/workbench/investor/${investorSubjectId}/stores`, method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
@@ -415,38 +227,19 @@ function fetchInvestorStores(investorSubjectId) {
 // ============================================================
 
 function fetchWithdrawRule() {
-  return request({
-    url: '/api/v1/app/withdrawals/rule',
-    method: 'GET',
-    mock() {
-      return {
-        code: 0,
-        data: { instantLimit: 10000, instantNote: '小额即时到账，无需人工审核' },
-        message: 'ok'
-      };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/withdrawals/rule', method: 'GET' }).then(unwrap);
 }
 
 function applyWithdraw(subjectId, roleType, amount) {
   return request({
     url: '/api/v1/app/withdrawals',
     method: 'POST',
-    data: { subjectId, roleType, amount },
-    mock() {
-      return { code: 0, data: { withdrawNo: `MOCKWD${Date.now()}`, status: 'APPLIED' }, message: 'ok' };
-    }
+    data: { subjectId, roleType, amount }
   }).then(unwrap);
 }
 
 function fetchWithdrawals() {
-  return request({
-    url: '/api/v1/app/withdrawals',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: { records: [], total: 0 }, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/withdrawals', method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
@@ -457,13 +250,9 @@ function submitComment(orderId, rating, content, images) {
   return request({
     url: '/api/v1/app/comments',
     method: 'POST',
-    data: { orderId, rating, content, images },
-    mock() {
-      return { code: 0, data: { id: Date.now(), status: 'PENDING' }, message: 'ok' };
-    }
+    data: { orderId, rating, content, images }
   }).then(unwrap);
 }
-
 
 // ============================================================
 // 登录（微信）
@@ -513,9 +302,8 @@ function bindPhoneBySms(phone, code) {
     data: { phone, code }
   }).then(res => {
     const data = unwrap(res);
-    const auth = require('./auth');
-    const cached = auth.getCachedUser() || {};
-    auth.saveSession(Object.assign({}, cached, { phone: data.phone }));
+    const current = auth.getCachedUser() || {};
+    auth.saveSession(Object.assign({}, current, { phone: data.phone }));
     return data;
   });
 }
@@ -544,58 +332,29 @@ function updateAvatar(avatar) {
 
 /** 首页配置：快捷入口 + 点单活动 */
 function fetchHomeConfig() {
-  return request({
-    url: '/api/v1/app/config/home',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: { shortcuts: mock.homeShortcuts, menuActivity: mock.menuActivity }, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/config/home', method: 'GET' }).then(unwrap);
 }
 
 /** 我的页配置：功能宫格 */
 function fetchProfileConfig() {
-  return request({
-    url: '/api/v1/app/config/profile',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: { functions: mock.profileFunctions }, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/config/profile', method: 'GET' }).then(unwrap);
 }
 
 /** 城市列表 */
 function fetchCities() {
-  return request({
-    url: '/api/v1/app/config/cities',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: mock.cities, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/config/cities', method: 'GET' }).then(unwrap);
 }
 
 /** 签到规则与奖励 */
 function fetchSigninConfig() {
-  return request({
-    url: '/api/v1/app/config/signin',
-    method: 'GET',
-    mock() {
-      return { code: 0, data: { rules: mock.signInRules, rewards: mock.signInRewards }, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: '/api/v1/app/config/signin', method: 'GET' }).then(unwrap);
 }
 
 /** 通用配置读取（按 key） */
 function fetchConfig(key) {
-  return request({
-    url: `/api/v1/app/config/${key}`,
-    method: 'GET',
-    mock() {
-      return { code: 0, data: null, message: 'ok' };
-    }
-  }).then(unwrap);
+  return request({ url: `/api/v1/app/config/${key}`, method: 'GET' }).then(unwrap);
 }
+
 module.exports = {
   fenToYuan,
   fetchHomeConfig,
@@ -615,18 +374,17 @@ module.exports = {
   fetchStores,
   fetchMenu,
   fetchProductDetail,
-  findMockProduct,
   createOrder,
   fetchOrders,
   fetchOrderDetail,
   payOrder,
-  paymentCallback,
   fetchUserProfile,
   fetchCoupons,
   fetchUserCoupons,
   receiveCoupon,
   fetchStoredValuePackages,
   rechargeStoredValue,
+  fetchStoredValueOrders,
   fetchGiftCardDenominations,
   purchaseGiftCard,
   fetchMyGiftCards,
@@ -649,8 +407,3 @@ module.exports = {
   fetchWithdrawals,
   submitComment
 };
-
-
-
-
-

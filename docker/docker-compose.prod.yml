@@ -1,0 +1,287 @@
+# =============================================================
+# 五零时光 · 后端应用容器编排（生产）
+#
+# 范围说明：
+#   本文件只承载【8 个后端 Java 服务】。
+#   MySQL / Redis / RabbitMQ / Nacos 仍由既有部署承载
+#   （/opt/wuling/deploy/docker-compose.yml，compose 项目名 deploy），
+#   通过 external 网络 wuling-net 与本文件互联。
+#
+#   ⚠️ 为什么不用 service 名互连而是外部网络 + 容器名：
+#   中间件由「另一个 compose 项目」管理，service 名只在各自项目内可解析。
+#   接入同一个自定义网络后，可直接用【容器名】互访
+#   （wuling-mysql / wuling-redis / wuling-rabbitmq / wuling-nacos）。
+#
+# 网络模型（关键）：
+#   - 各服务 join 到 wuling-net 后，容器间用容器名/服务名互访；
+#   - 宿主机要访问这些服务，必须发布端口。为保持「不暴露公网」这一既有安全基线，
+#     所有端口一律绑定 127.0.0.1，仅让本机 Nginx 反代可达。
+#
+# 日志：
+#   - 应用日志由 logback 写入容器内 /opt/wuling/logs/*.log，
+#     再挂载到宿主机 /opt/wuling/logs，与升级前的路径【完全一致】，
+#     现有运维脚本、health.log、备份任务无需改动；
+#   - 同时用 json-file 收集 stdout，方便 docker logs 直接排查启动问题。
+#
+# 启动顺序：靠 healthcheck + depends_on.condition 控制，
+# 避免「网关先起来但下游还没注册」导致的 503。
+# =============================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-common: &common
+  restart: unless-stopped
+  logging: *default-logging
+  networks:
+    - wuling-net
+  extra_hosts:
+    # 容器内 127.0.0.1 指向容器自身，而中间件在宿主机上，
+    # 因此提供 host-gateway 别名，便于统一把中间件地址写成 host.docker.internal
+    - "host.docker.internal:host-gateway"
+
+x-backend-env: &backend-env
+  TZ: Asia/Shanghai
+  # 数据源与中间件：指向同一 Docker 网络内的容器名
+  MYSQL_HOST: wuling-mysql
+  MYSQL_PORT: "3306"
+  REDIS_HOST: wuling-redis
+  REDIS_PORT: "6379"
+  RABBITMQ_HOST: wuling-rabbitmq
+  RABBITMQ_PORT: "5672"
+  NACOS_ADDR: wuling-nacos:8848
+  # 注册到 Nacos 的 IP：用容器名，让网关能解析到本网络的各服务
+  NACOS_REGISTER_IP: ""
+  REDIS_MODE: single
+  SMS_ENABLED: "false"
+
+x-env-file: &env-file
+  - /opt/wuling/app/secrets.env
+
+services:
+
+  # ---------------- 网关（对外唯一入口）----------------
+  gateway:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: gateway
+        APP_JAR: target/gateway-0.1.0-SNAPSHOT.jar
+    image: wuling/gateway:${IMAGE_TAG:-local}
+    container_name: wuling-gateway
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      # 仅监听回环：由宿主机 Nginx 反代，不经公网直连
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /opt/wuling/config/gateway:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- 认证服务 ----------------
+  auth-service:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: auth-service
+        APP_JAR: auth-service/target/auth-service-0.1.0-SNAPSHOT.jar
+    image: wuling/auth-service:${IMAGE_TAG:-local}
+    container_name: wuling-auth-service
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - /opt/wuling/config/auth-service:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- 文件服务 ----------------
+  file-service:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: file-service
+        APP_JAR: file-service/target/file-service-0.1.0-SNAPSHOT.jar
+    image: wuling/file-service:${IMAGE_TAG:-local}
+    container_name: wuling-file-service
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms128m -Xmx256m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      - "127.0.0.1:8082:8082"
+    volumes:
+      - /opt/wuling/config/file-service:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- 营销服务 ----------------
+  marketing-service:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: marketing-service
+        APP_JAR: marketing-service/target/marketing-service-0.1.0-SNAPSHOT.jar
+    image: wuling/marketing-service:${IMAGE_TAG:-local}
+    container_name: wuling-marketing-service
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      - "127.0.0.1:8083:8083"
+    volumes:
+      - /opt/wuling/config/marketing-service:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- 交易服务 ----------------
+  trade-service:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: trade-service
+        APP_JAR: trade-service/target/trade-service-0.1.0-SNAPSHOT.jar
+    image: wuling/trade-service:${IMAGE_TAG:-local}
+    container_name: wuling-trade-service
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms256m -Xmx768m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      - "127.0.0.1:8084:8084"
+    volumes:
+      - /opt/wuling/config/trade-service:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- 用户服务 ----------------
+  user-service:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: user-service
+        APP_JAR: user-service/target/user-service-0.1.0-SNAPSHOT.jar
+    image: wuling/user-service:${IMAGE_TAG:-local}
+    container_name: wuling-user-service
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      - "127.0.0.1:8085:8085"
+    volumes:
+      - /opt/wuling/config/user-service:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8085/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- 商品服务 ----------------
+  product-service:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: product-service
+        APP_JAR: product-service/target/product-service-0.1.0-SNAPSHOT.jar
+    image: wuling/product-service:${IMAGE_TAG:-local}
+    container_name: wuling-product-service
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      - "127.0.0.1:8091:8091"
+    volumes:
+      - /opt/wuling/config/product-service:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8091/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- 单体兜底（财务/主体/系统）----------------
+  server:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE: server
+        APP_JAR: server/target/server-0.1.0-SNAPSHOT.jar
+    image: wuling/server:${IMAGE_TAG:-local}
+    container_name: wuling-server
+    env_file: *env-file
+    environment:
+      <<: *backend-env
+      JAVA_OPTS: "-Xms256m -Xmx1024m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - /opt/wuling/config/server:/app/config:ro
+      - /opt/wuling/logs:/opt/wuling/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8090/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+networks:
+  wuling-net:
+    # 已存在（由中间件 compose 创建），此处只接入不创建
+    external: true
+    name: wuling-net

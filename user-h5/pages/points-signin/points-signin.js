@@ -1,16 +1,14 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { pointsSignIn, signInRewards } = require('../../data/mock');
-const { setPoints } = require('../../utils/points');
-const { buildMonthCells, signInOnce } = require('../../utils/points-signin');
+const { buildMonthCells } = require('../../utils/points-signin');
 
 function buildHint(rewards) {
   const first = rewards && rewards[0];
   return first ? `连续签到${first.days}天获得“${first.amount}时光币”` : '';
 }
 
-function buildRewards(continuousDays, expanded) {
-  const rewards = signInRewards.map(item =>
+function buildRewards(rewardsSource, continuousDays, expanded) {
+  const rewards = (rewardsSource || []).map(item =>
     Object.assign({}, item, {
       status: continuousDays >= item.days ? '已完成' : '待完成'
     })
@@ -21,39 +19,61 @@ function buildRewards(continuousDays, expanded) {
 Page(
   withShare({
     data: {
-      pointsSignIn,
+      pointsSignIn: { year: 0, month: 0, today: '', weekDates: [] },
       points: 0,
       signedDates: [],
       signedToday: false,
       continuousDays: 0,
       weekDates: [],
-      rewards: buildRewards(0, false),
-      hint: buildHint(signInRewards),
+      rewards: [],
+      rewardsSource: [],
+      hint: '',
       rewardsExpanded: false,
       calendarVisible: false,
-      calendarYear: pointsSignIn.year,
-      calendarMonth: pointsSignIn.month,
+      calendarYear: 0,
+      calendarMonth: 0,
       weekdays: ['日', '一', '二', '三', '四', '五', '六'],
-      calendarCells: buildMonthCells(pointsSignIn.year, pointsSignIn.month, []),
+      calendarCells: [],
       successVisible: false,
       awardText: '1时光币'
     },
     onShow() {
-      // 签到奖励档位由后台配置（app_config.signin_rewards）
+      // 签到规则与奖励由后台配置（app_config.signin_rules / signin_rewards）
       api
         .fetchSigninConfig()
         .then(cfg => {
-          if (cfg && Array.isArray(cfg.rewards) && cfg.rewards.length) {
-            this.setData({ rewards: buildRewards(this.data.continuousDays, false) });
-          }
+          if (!cfg) return;
+          const rewards = Array.isArray(cfg.rewards) ? cfg.rewards : [];
+          this.setData({
+            rewardsSource: rewards,
+            hint: buildHint(rewards),
+            rewards: buildRewards(rewards, this.data.continuousDays, this.data.rewardsExpanded)
+          });
         })
         .catch(() => null);
       this.syncSignInState();
+      // 签到日历基准数据（app_config.points_signin）
+      if (!this.data.pointsSignIn.year) {
+        api
+          .fetchConfig('points_signin')
+          .then(cfg => {
+            if (!cfg || !cfg.year) return;
+            this.setData({
+              pointsSignIn: cfg,
+              calendarYear: cfg.year,
+              calendarMonth: cfg.month,
+              calendarCells: buildMonthCells(cfg.year, cfg.month, this.data.signedDates)
+            });
+            this.syncSignInState();
+          })
+          .catch(() => null);
+      }
     },
     syncSignInState() {
       const app = getApp();
       const state = app.globalData;
-      const weekDates = pointsSignIn.weekDates.map(item =>
+      const calendar = this.data.pointsSignIn || { weekDates: [], today: '' };
+      const weekDates = (calendar.weekDates || []).map(item =>
         Object.assign({}, item, {
           signed: state.signedDates.includes(item.key)
         })
@@ -61,10 +81,10 @@ Page(
       this.setData({
         points: state.points,
         signedDates: state.signedDates,
-        signedToday: state.signedDates.includes(pointsSignIn.today),
+        signedToday: Boolean(calendar.today) && state.signedDates.includes(calendar.today),
         continuousDays: state.continuousDays,
         weekDates,
-        rewards: buildRewards(state.continuousDays, this.data.rewardsExpanded),
+        rewards: buildRewards(this.data.rewardsSource, state.continuousDays, this.data.rewardsExpanded),
         calendarCells: buildMonthCells(this.data.calendarYear, this.data.calendarMonth, state.signedDates)
       });
     },
@@ -74,26 +94,27 @@ Page(
         return;
       }
 
+      // 签到为服务端写操作：时光币与连续天数均以后端为准
+      const calendar = this.data.pointsSignIn || {};
       const app = getApp();
-      const result = signInOnce(
-        {
-          points: app.globalData.points,
-          signedDates: app.globalData.signedDates,
-          continuousDays: app.globalData.continuousDays,
-          pointsRecords: app.globalData.pointsRecords
-        },
-        pointsSignIn.today,
-        `${pointsSignIn.today} 00:36:15`
-      );
-
-      app.globalData.points = result.state.points;
-      setPoints(result.state.points);
-      app.globalData.signedDates = result.state.signedDates;
-      app.globalData.continuousDays = result.state.continuousDays;
-      app.globalData.pointsRecords = result.state.pointsRecords;
-      const isWeekComplete = result.state.continuousDays % 7 === 0;
-      this.setData({ successVisible: true, awardText: (isWeekComplete ? '21' : '1') + '时光币' });
-      this.syncSignInState();
+      api
+        .signIn()
+        .then(result => {
+          const balance = result && Number.isFinite(Number(result.balance))
+            ? Number(result.balance)
+            : Number(app.globalData.points || 0) + 1;
+          app.globalData.points = balance;
+          if (calendar.today) {
+            app.globalData.signedDates = (app.globalData.signedDates || []).concat([calendar.today]);
+          }
+          app.globalData.continuousDays = Number(app.globalData.continuousDays || 0) + 1;
+          const isWeekComplete = app.globalData.continuousDays % 7 === 0;
+          this.setData({ successVisible: true, awardText: (isWeekComplete ? '21' : '1') + '时光币' });
+          this.syncSignInState();
+        })
+        .catch(error => {
+          wx.showToast({ title: (error && error.message) || '签到失败，请稍后重试', icon: 'none' });
+        });
     },
     closeSuccess() {
       this.setData({ successVisible: false });
@@ -126,7 +147,7 @@ Page(
       const rewardsExpanded = !this.data.rewardsExpanded;
       this.setData({
         rewardsExpanded,
-        rewards: buildRewards(this.data.continuousDays, rewardsExpanded)
+        rewards: buildRewards(this.data.rewardsSource, this.data.continuousDays, rewardsExpanded)
       });
     },
     openRules() {

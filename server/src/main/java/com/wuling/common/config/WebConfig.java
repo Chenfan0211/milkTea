@@ -1,6 +1,6 @@
 package com.wuling.common.config;
 
-import com.wuling.auth.security.MiniAppAuthInterceptor;
+import com.wuling.security.MiniAppAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -42,14 +42,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/app/withdrawals",
                         "/api/v1/app/withdrawals/**",
                         "/api/v1/app/comments",
-                        "/api/v1/app/workbench/**",
-                        "/api/v1/app/auth/me",
-                        "/api/v1/app/auth/sms/**",
-                        "/api/v1/app/auth/avatar",
-                        "/api/v1/app/auth/nickname",
-                        "/api/v1/app/auth/phone",
-                        "/api/v1/app/auth/profile",
-                        "/api/v1/app/auth/location"
+                        "/api/v1/app/workbench/**"
                 );
     }
 }

@@ -26,6 +26,30 @@ spring:
           uri: http://127.0.0.1:8082
           predicates:
             - Path=/api/v1/files/**
+        # 营销服务（本地直连，第 5 期）—— 精确前缀必须排在 server 通配之前
+        - id: marketing-app
+          uri: http://127.0.0.1:8083
+          predicates:
+            - Path=/api/v1/app/coupons,/api/v1/app/users/**,/api/v1/app/stored-value/**,/api/v1/app/gift-cards/**,/api/v1/app/points/**,/api/v1/app/member-levels,/api/v1/app/comments
+        - id: marketing-admin
+          uri: http://127.0.0.1:8083
+          predicates:
+            - Path=/api/v1/admin/marketing/**,/api/v1/admin/signin-rule,/api/v1/admin/referral-config
+
+        # 用户服务（本地直连，第 11 期）
+        - id: user-auth
+          uri: http://127.0.0.1:8085
+          predicates:
+            - Path=/api/v1/app/auth/**
+        # 交易服务（本地直连，第 7 期）
+        - id: trade-app
+          uri: http://127.0.0.1:8084
+          predicates:
+            - Path=/api/v1/app/orders/**,/api/v1/app/orders,/api/v1/app/payments/**
+        - id: trade-admin
+          uri: http://127.0.0.1:8084
+          predicates:
+            - Path=/api/v1/admin/trade/**
         # 单体后端（本地直连）
         - id: legacy-server
           uri: http://127.0.0.1:8090

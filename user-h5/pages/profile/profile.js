@@ -1,5 +1,4 @@
 const { withShare } = require('../../utils/share');
-const { profileFunctions } = require('../../data/mock');
 const { getUserProfile, maskPhone, saveUserProfile } = require('../../utils/user-profile');
 const { getPoints } = require('../../utils/points');
 const { buildLevelMeta } = require('../../utils/member-level');
@@ -27,7 +26,7 @@ function buildRoleFunctions(roleId) {
 Page(
   withShare({
     data: {
-      profileFunctions,
+      profileFunctions: [],
       roleFunctions: [],
       userProfile: initialProfile,
       businessRole: null,

@@ -1,0 +1,49 @@
+# 本地开发配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        # 本地禁用注册，避免污染生产注册表
+        enabled: false
+        server-addr: ${NACOS_ADDR:127.0.0.1:18848}
+        ip: ${NACOS_REGISTER_IP:127.0.0.1}
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:mysql://127.0.0.1:13306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USER:wuling_ro}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:15672}
+    username: ${RABBITMQ_USER:wuling}
+    password: ${RABBITMQ_PASSWORD:}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}
+  # 本地直连（不经服务发现）：local dev 的 base 是字面 IP，
+  # 无法被 @LoadBalanced 解析为 serviceId，故置 true 改用直连 builder。
+  internal:
+    direct-connect: true
+    # 第 13 期：本地直连 product-service（本地不启服务发现）
+    product-base: ${INTERNAL_PRODUCT_BASE:http://127.0.0.1:8091}
+    server-base: ${INTERNAL_SERVER_BASE:http://127.0.0.1:8090}
+    # 第 14 期：本地直连 user-service（支付下单需查询 openid）
+    user-base: ${INTERNAL_USER_BASE:http://127.0.0.1:8092}
+
+  # 本地联调用示例密钥（生产由 secrets.env 注入）
+  pay:
+    # 本地固定走 mock 通道：无商户资质也能跑通下单→支付→核销全链路。
+    # 如需本地验证微信支付链路（用「假微信服务端」），显式改为 wxpay 并补齐证书。
+    channel: ${PAY_CHANNEL:mock}
+    callback-secret: ${PAY_CALLBACK_SECRET:dev-only-pay-callback-secret-32bytes-min!}
+    wxpay:
+      channel: ${PAY_CHANNEL:mock}

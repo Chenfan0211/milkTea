@@ -49,3 +49,10 @@ logging:
   level:
     root: INFO
     com.wuling: INFO
+
+app:
+  jwt:
+    # 与本服务无关的签发参数，但 MiniAppTokenProvider（security-common）需要它存在；
+    # 校验令牌只需 secret，TTL 仅用于签发场景
+    access-token-ttl: 3600000
+    refresh-token-ttl: 604800000

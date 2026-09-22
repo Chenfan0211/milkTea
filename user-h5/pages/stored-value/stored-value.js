@@ -1,7 +1,7 @@
 const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { storedValuePackages, userProfile } = require('../../data/mock');
+const { getUserProfile } = require('../../utils/user-profile');
 const {
   MAX_STORED_VALUE_QUANTITY,
   buildStoredValueSummary,
@@ -23,7 +23,7 @@ Page(
     data: {
       balanceText: '0',
       currentStore: {},
-      storedValuePackage: storedValuePackages[0] || {},
+      storedValuePackage: {},
       quantity: 1,
       maxQuantity: MAX_STORED_VALUE_QUANTITY,
       totalText: '0',
@@ -46,7 +46,7 @@ Page(
       this.syncStore();
     },
     syncBalance() {
-      this.setData({ balanceText: String(userProfile.balance || 0) });
+      this.setData({ balanceText: String(getUserProfile().balance || 0) });
     },
     syncStore() {
       this.setData({ currentStore: getDisplayStore() });

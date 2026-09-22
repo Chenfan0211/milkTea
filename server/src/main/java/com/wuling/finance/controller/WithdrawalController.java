@@ -1,6 +1,6 @@
 package com.wuling.finance.controller;
 
-import com.wuling.auth.security.CurrentUser;
+import com.wuling.security.CurrentUser;
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
 import com.wuling.finance.entity.Withdrawal;
@@ -15,9 +15,12 @@ import java.util.Map;
 public class WithdrawalController {
 
     private final WithdrawalService withdrawalService;
+    private final com.wuling.common.audit.AuditLogService auditLog;
 
-    public WithdrawalController(WithdrawalService withdrawalService) {
+    public WithdrawalController(WithdrawalService withdrawalService,
+                               com.wuling.common.audit.AuditLogService auditLog) {
         this.withdrawalService = withdrawalService;
+        this.auditLog = auditLog;
     }
 
     /** 小程序端：申请提现 */
@@ -50,13 +53,22 @@ public class WithdrawalController {
     public Result<Withdrawal> review(@PathVariable Long id,
                                      @RequestParam boolean approve,
                                      @RequestParam(required = false) String reason) {
-        return Result.ok(withdrawalService.review(id, approve, reason));
+        Withdrawal before = withdrawalService.getById(id);
+        Withdrawal after = withdrawalService.review(id, approve, reason);
+        auditLog.recordChange("ADMIN", "WITHDRAW", approve ? "APPROVE" : "REJECT",
+                after.getWithdrawNo(),
+                before == null ? null : before.getStatus(), after.getStatus(), reason, null);
+        return Result.ok(after);
     }
 
     /** 后台：标记出款失败（自动解冻） */
     @PostMapping("/api/v1/admin/finance/withdrawals/{id}/fail")
     public Result<Withdrawal> fail(@PathVariable Long id, @RequestParam(required = false) String reason) {
-        return Result.ok(withdrawalService.markFailed(id, reason));
+        Withdrawal before = withdrawalService.getById(id);
+        Withdrawal after = withdrawalService.markFailed(id, reason);
+        auditLog.recordChange("ADMIN", "WITHDRAW", "MARK_FAILED", after.getWithdrawNo(),
+                before == null ? null : before.getStatus(), after.getStatus(), reason, null);
+        return Result.ok(after);
     }
 
     /** 小额即时额度说明 */
