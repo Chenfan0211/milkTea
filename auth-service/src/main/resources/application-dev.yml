@@ -1,0 +1,32 @@
+# 本地开发配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        # 本地开发禁用服务注册：避免与生产注册表互相污染
+        # （本地单实例，服务发现无意义；生产 profile 仍启用）
+        enabled: false
+        # 本地经 SSH 隧道访问 Nacos（18848 -> 服务器 8848）
+        server-addr: ${NACOS_ADDR:127.0.0.1:18848}
+        ip: ${NACOS_REGISTER_IP:127.0.0.1}
+  # 本地开发禁用 Flyway：
+  #   1. 本地库不存在（我们用只读账号连生产做排查），跑迁移必然失败；
+  #   2. 更重要的是防止再发生「本地误迁移生产库」事故（第 0 期曾发生）；
+  #   3. 迁移统一由生产部署时执行。
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:mysql://127.0.0.1:13306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:wuling_ro}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}

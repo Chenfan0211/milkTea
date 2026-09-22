@@ -1,0 +1,51 @@
+# =============================================================
+# 营销服务配置（第 5 期）
+#
+# 职责：优惠券、积分（时光币）、礼品卡、储值、评论、推荐、会员等级。
+# 端口 8083，由网关路由。
+#
+# 数据访问说明：与 server 共用同一 MySQL 实例。
+# 积分 / 余额字段位于 app_user 表，属共享读写（见 pom 注释的决策依据）。
+# =============================================================
+server:
+  port: ${MARKETING_SERVICE_PORT:8083}
+
+spring:
+  application:
+    name: wuling-marketing-service
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        ip: ${NACOS_REGISTER_IP:}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO

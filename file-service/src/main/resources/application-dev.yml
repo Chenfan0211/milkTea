@@ -1,0 +1,11 @@
+# 本地开发配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        # 本地开发禁用服务注册：避免与生产注册表互相污染
+        # （本地单实例，服务发现无意义；生产 profile 仍启用）
+        enabled: false
+        # 本地经 SSH 隧道访问 Nacos（18848 -> 服务器 8848）
+        server-addr: ${NACOS_ADDR:127.0.0.1:18848}
+        ip: ${NACOS_REGISTER_IP:127.0.0.1}

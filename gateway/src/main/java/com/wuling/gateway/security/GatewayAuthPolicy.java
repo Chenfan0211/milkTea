@@ -1,0 +1,107 @@
+package com.wuling.gateway.security;
+
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+/**
+ * 网关鉴权策略：判定某路径是否需要登录。
+ *
+ * <p>设计依据：与单体 {@code WebConfig} 中 {@code MiniAppAuthInterceptor} 的保护清单保持一致，
+ * 拆分期二者需同步维护，否则会出现「网关放行、下游也放行」的鉴权空档。
+ *
+ * <p><b>采用「默认需要鉴权 + 白名单放行」而非「默认放行 + 黑名单拦截」</b>：
+ * 后者一旦新增接口忘记登记就会默认暴露；前者漏登记的后果是「多拦一次」，
+ * 属于可立即发现的安全失败（fail-safe）。
+ */
+@Component
+public class GatewayAuthPolicy {
+
+    /** 完全公开的路径前缀（无需登录） */
+    private static final List<String> PUBLIC_PREFIXES = List.of(
+            "/auth/login",
+            "/auth/refreshToken",
+            "/api/v1/app/auth/wx-login",
+            // 公开业务数据：门店、菜单、商品、字典
+            "/api/v1/app/store-types",
+            "/api/v1/app/stores",
+            "/api/v1/app/menu",
+            "/api/v1/app/products",
+            "/api/v1/app/coupons",
+            "/api/v1/app/member-levels",
+            "/api/v1/app/stored-value/packages",
+            "/api/v1/app/gift-cards/denominations",
+            "/api/v1/app/points/products",
+            "/api/v1/app/points/rules",
+            "/api/v1/app/signin-rule",
+            "/api/v1/app/referral-config",
+            "/api/v1/app/config",
+            "/api/v1/app/cities",
+            // 支付回调：由签名校验保护，非 JWT
+            "/api/v1/app/payments/callback",
+            // 健康检查
+            "/actuator/health",
+            // 文件服务自述（不含敏感信息，便于运维探活）
+            "/api/v1/files/service-info"
+    );
+
+    /** 需要登录的路径前缀（小程序用户态接口） */
+    private static final List<String> PROTECTED_PREFIXES = List.of(
+            "/api/v1/app/orders",
+            "/api/v1/app/users",
+            "/api/v1/app/stored-value/orders",
+            "/api/v1/app/stored-value/recharge",
+            "/api/v1/app/gift-cards/purchase",
+            "/api/v1/app/points/records",
+            "/api/v1/app/points/signin",
+            "/api/v1/app/points/exchange",
+            "/api/v1/app/points/exchange-orders",
+            "/api/v1/app/withdrawals",
+            "/api/v1/app/comments",
+            "/api/v1/app/workbench",
+            "/api/v1/app/auth/me",
+            "/api/v1/app/auth/sms",
+            "/api/v1/app/auth/avatar",
+            "/api/v1/app/auth/nickname",
+            "/api/v1/app/auth/phone",
+            "/api/v1/app/auth/profile",
+            "/api/v1/app/auth/location",
+            // 文件上传：需登录（防匿名上传恶意文件）
+            "/api/v1/files/validate"
+    );
+
+    /**
+     * 是否需要登录。
+     *
+     * <p>判定顺序：先看受保护清单（优先命中），再看公开清单，最后按前缀兜底：
+     * <ul>
+     *   <li>{@code /api/v1/admin/**} → 需要管理端登录；</li>
+     *   <li>{@code /api/v1/app/**} → 默认需要登录（fail-safe）；</li>
+     *   <li>其他 → 放行（如网关自身端点）。</li>
+     * </ul>
+     */
+    public boolean requiresAuth(String path) {
+        if (path == null) {
+            return true;
+        }
+        // 受保护优先：避免某个路径同时被两条清单前缀匹配时被误放行
+        for (String p : PROTECTED_PREFIXES) {
+            if (path.startsWith(p)) {
+                return true;
+            }
+        }
+        for (String p : PUBLIC_PREFIXES) {
+            if (path.startsWith(p)) {
+                return false;
+            }
+        }
+        if (path.startsWith("/api/v1/admin/")) {
+            return true;
+        }
+        if (path.startsWith("/api/v1/app/")) {
+            // 未登记的 app 接口：默认要求登录（fail-safe）
+            return true;
+        }
+        return false;
+    }
+}

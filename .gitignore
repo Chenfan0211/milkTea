@@ -37,7 +37,9 @@ src-tauri/target
 .codegraph
 
 # backend
-server/target/
+# Maven 构建产物（各模块通用）
+**/target/
+!**/target/.gitkeep
 server/*.log
 
 
@@ -52,3 +54,8 @@ deploy/**/.env
 # 构建产物与临时文件
 dist.tar.gz
 .tmp-*
+
+# 本地开发密钥（口令、token），禁止提交
+.env.local.properties
+server/.env.local.properties
+

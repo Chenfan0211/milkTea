@@ -1,0 +1,91 @@
+# =============================================================
+# API 网关配置（第 3 期）
+#
+# 端口 8080：对外统一入口，与原单体一致，前端 BASE_URL 无需改动。
+# 路由策略：通过 Nacos 服务名（lb://）寻址，不写死 IP。
+# =============================================================
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: wuling-gateway
+
+  # ---------- Nacos 服务发现 ----------
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        # 服务名带前缀，便于在 Nacos 控制台按项目筛选
+        service: ${spring.application.name}
+        # 网关是 WebFlux 响应式栈，服务注册与 Netty 启动并发进行，
+        # gRPC 长连接可能尚未就绪就被调用（报 Client not connected, status:STARTING）。
+        # 这里延长连接与注册超时，并允许启动期注册失败（后台会持续重试），
+        # 避免网关因注册时序问题整体启动失败。
+        register-enabled: true
+        failure-tolerance-enabled: true
+        # gRPC 连接等待时间（毫秒）
+        timeout: 10000
+
+    # ---------- 路由 ----------
+    gateway:
+      # 路由定义见下方 routes
+      routes:
+        # 认证路由：登录 / 刷新令牌
+        #
+        # 第 4 期（阶段 B）已完成：AuthController 迁移至 auth-service，
+        # 此路由改指 auth-service。前端 BASE_URL 无需改动。
+        - id: auth-route
+          uri: lb://wuling-auth-service
+          predicates:
+            - Path=/auth/**
+
+        # 文件服务：上传与校验
+        - id: file-service
+          uri: lb://wuling-file-service
+          predicates:
+            - Path=/api/v1/files/**
+
+        # 单体应用：第 3 期作为兜底，承接尚未拆分的业务域
+        # （商品 / 交易 / 营销 / 财务 / 主体 / 系统）
+        # 第 4 期逐域拆出后，这些前缀会改指向各自服务。
+        - id: legacy-server
+          uri: lb://wuling-server
+          predicates:
+            - Path=/api/v1/**
+
+      # 跨域（前端运营后台与小程序调试）
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      # 默认过滤器：去掉重复的响应头，避免下游与网关都设置导致前端解析异常
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+
+app:
+  jwt:
+    # 与 auth-service / server 共用同一密钥；缺失时网关拒绝启动
+    secret: ${JWT_SECRET:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO
+    org.springframework.cloud.gateway: INFO

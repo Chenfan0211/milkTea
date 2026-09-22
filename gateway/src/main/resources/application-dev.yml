@@ -1,0 +1,38 @@
+# =============================================================
+# 本地开发配置（网关）
+#
+# 隔离策略（重要）：
+#   本地开发**不连生产 Nacos**。原因：生产的 wuling-server 会注册到同一注册表，
+#   网关轮询到生产实例（172.16.0.16）会超时，且 dev/prod 服务互相污染。
+#   本地单实例场景下服务发现无意义，因此：
+#     - 禁用 Nacos 注册（discovery.enabled=false）；
+#     - 路由改用静态 URI（http://127.0.0.1:端口）。
+#   生产 profile 仍使用 lb:// + Nacos 服务发现。
+# =============================================================
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+    gateway:
+      routes:
+        # 认证服务（本地直连）
+        - id: auth-route
+          uri: http://127.0.0.1:8081
+          predicates:
+            - Path=/auth/**
+        # 文件服务（本地直连）
+        - id: file-service
+          uri: http://127.0.0.1:8082
+          predicates:
+            - Path=/api/v1/files/**
+        # 单体后端（本地直连）
+        - id: legacy-server
+          uri: http://127.0.0.1:8090
+          predicates:
+            - Path=/api/v1/**
+
+app:
+  jwt:
+    # 与 server / auth-service 的 dev 默认值保持一致，便于本地联调
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      安全公共模块（第 5 期新增）。
+
+      为什么单独建模块：
+        拆分 marketing / trade 等服务时，它们都需要「从 JWT 解析当前登录用户」
+        这一能力。若每个服务各复制一份，一旦鉴权逻辑（密钥校验、token 类型判定、
+        上下文清理）出现安全修复，就会漏改某些服务。
+
+        下沉到此模块后，所有服务共用同一份实现，安全修复一处生效。
+
+      包含：
+        - CurrentUser：请求级用户上下文（ThreadLocal）
+        - MiniAppAuthInterceptor：小程序 JWT 拦截器
+        - MiniAppTokenProvider：小程序 token 签发/解析
+        - JwtSecretValidator：密钥启动校验
+
+      不包含：数据库、Redis、MQ 等具体实现依赖，保持模块轻量。
+    -->
+    <parent>
+        <groupId>com.wuling</groupId>
+        <artifactId>wuling-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>security-common</artifactId>
+    <name>wuling-security-common</name>
+    <description>五零时光安全公共能力（JWT 上下文与校验）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.wuling</groupId>
+            <artifactId>common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

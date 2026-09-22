@@ -1,0 +1,40 @@
+# 本地开发配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        # 本地禁用注册，避免污染生产注册表（第 4 期教训）
+        enabled: false
+        server-addr: ${NACOS_ADDR:127.0.0.1:18848}
+        ip: ${NACOS_REGISTER_IP:127.0.0.1}
+  # 本地禁用 Flyway：迁移统一由生产部署执行（数据库隔离方案）
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:mysql://127.0.0.1:13306/wuling?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    # 只读账号：即使误跑写操作，MySQL 层直接拒绝
+    username: ${MYSQL_USER:wuling_ro}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:15672}
+    username: ${RABBITMQ_USER:wuling}
+    password: ${RABBITMQ_PASSWORD:}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}
+  redis:
+    mode: ${REDIS_MODE:single}
+    database:
+      auth: ${REDIS_DB_AUTH:0}
+      sms: ${REDIS_DB_SMS:1}
+      cache: ${REDIS_DB_CACHE:2}
+      biz: ${REDIS_DB_BIZ:3}

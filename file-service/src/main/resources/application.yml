@@ -1,0 +1,45 @@
+# =============================================================
+# 文件服务配置（第 2 期骨架）
+# =============================================================
+server:
+  port: ${FILE_SERVICE_PORT:8082}
+
+spring:
+  application:
+    name: wuling-file-service
+  # ---------- Nacos 服务注册（第 3 期）----------
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+  servlet:
+    multipart:
+      # 双层限制：网关层也会限制，这里兜底
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+app:
+  file:
+    max-size-bytes: ${FILE_MAX_SIZE_BYTES:5242880}
+    # 以下为后续阶段接入（对象存储 / 病毒扫描）预留
+    # storage: cos
+    # virus-scan:
+    #   enabled: true
+    #   clamd-host: 127.0.0.1
+    #   clamd-port: 3310
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.wuling: INFO

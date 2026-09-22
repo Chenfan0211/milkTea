@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      五零时光后端多模块聚合父 POM。
+
+      第 1 期目标（见 docs/微服务改造方案.md 第 2.4 节）：
+        - 把单体 server 纳入标准 Maven 多模块结构；
+        - 本阶段【不拆业务代码】，仅建立骨架与依赖约束，
+          保证 `mvn -f pom.xml package` 与原有构建行为完全一致。
+
+      模块规划（后续各期逐步落地）：
+        server          当前单体应用（含全部业务域），第 2-4 期逐步拆分
+        wuling-common   公共能力（Result/异常/MQ/Redis/SqlGuard），第 2 期下沉
+        gateway         网关，第 1 期末接入（可选启动）
+    -->
+    <groupId>com.wuling</groupId>
+    <artifactId>wuling-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>wuling-parent</name>
+    <description>五零时光后端聚合工程</description>
+
+    <modules>
+        <!-- 公共能力（第 1 期） -->
+        <module>wuling-common</module>
+        <!-- 安全公共能力（第 5 期：JWT 上下文与校验，供各服务共用） -->
+        <module>security-common</module>
+        <!-- 单体应用：第 2-4 期逐步拆分 -->
+        <module>server</module>
+        <!-- 第 2 期：认证服务 -->
+        <module>auth-service</module>
+        <!-- 第 2 期：文件服务 -->
+        <module>file-service</module>
+        <!-- 第 3 期：API 网关 -->
+        <module>gateway</module>
+        <!-- 第 5 期：营销服务 -->
+        <module>marketing-service</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring-boot.version>3.3.5</spring-boot.version>
+        <!--
+          Spring Cloud 版本必须与 Spring Boot 3.3.x 匹配（2023.0.x 系列）。
+         
+          为什么不用 2023.0.4：该版本的 spring-cloud-gateway 4.1.6 调用了
+          Spring Framework 6.2 才有的 HttpHeaders#headerSet()，
+          而 2023.0.4 自身仍锁定 Framework 6.1.14，属上游回归缺陷，
+          运行时会抛 NoSuchMethodError 导致网关全部路由失败。
+          2023.0.3 对应 gateway 4.1.5，实测不含该调用，为已知可用组合。
+        -->
+        <spring-cloud.version>2023.0.3</spring-cloud.version>
+        <spring-cloud-alibaba.version>2023.0.3.4</spring-cloud-alibaba.version>
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <jjwt.version>0.12.6</jjwt.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot BOM：统一管理第三方依赖版本 -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Cloud BOM（第 3 期：网关 / 服务发现 / 负载均衡） -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Cloud Alibaba BOM（Nacos 注册中心） -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                    <configuration>
+                        <release>${java.version}</release>
+                        <encoding>UTF-8</encoding>
+                        <!--
+                          关键：Spring MVC 的 @PathVariable/@RequestParam 依赖参数名反射解析。
+                          原先由 spring-boot-starter-parent 隐式开启 -parameters，
+                          改为自建父 POM 后必须显式声明，否则运行时报
+                          "Name for argument of type [String] not specified"。
+                        -->
+                        <parameters>true</parameters>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

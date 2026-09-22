@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      公共能力模块。
+
+      第 1 期：只放与 Spring 容器无关的纯工具类（如 SqlGuard），
+      验证多模块构建链路可用。
+
+      命名说明：模块目录为 wuling-common，但 artifactId 使用
+      common，以保持与现有 Java 包名 com.wuling.common 一致，
+      第 2 期下沉 Result/异常/MQ/Redis 时不会产生包名迁移。
+    -->
+    <parent>
+        <groupId>com.wuling</groupId>
+        <artifactId>wuling-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>common</artifactId>
+    <name>wuling-common</name>
+    <description>五零时光后端公共能力（SQL 安全网关等）</description>
+
+    <dependencies>
+        <!--
+          第 5 期补充：Result / PageResult / BusinessException / GlobalExceptionHandler
+          下沉到此模块，作为所有服务共用的 API 契约与统一异常处理。
+          因此需要 Spring Web（@RestControllerAdvice）与 Lombok。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
