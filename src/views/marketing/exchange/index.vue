@@ -56,6 +56,7 @@ const rowActions: RowAction[] = [
 
 const config: AdminListConfig = {
   title: '兑换记录',
+  remoteKey: 'exchangeRecords',
   columns,
   searchFields,
   toolbar: [],

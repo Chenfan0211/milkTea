@@ -4,10 +4,15 @@ defineOptions({
   name: 'marketing_referral'
 });
 
-import { reactive, watch } from 'vue';
+import { reactive, watch, onMounted } from 'vue';
 import { useAdminStore } from '@/store/modules/admin';
 
 const store = useAdminStore();
+
+// 拉取后端邀请配置，覆盖本地 seed 默认值（只读加载，不回写后端）
+onMounted(() => {
+  store.loadReferralConfig();
+});
 
 const form = reactive({
   inviteCodePrefix: '',

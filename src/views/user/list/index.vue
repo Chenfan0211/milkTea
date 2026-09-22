@@ -118,6 +118,7 @@ const rowActions: RowAction[] = [
 
 const config: AdminListConfig = {
   title: '用户列表',
+  remoteKey: 'users',
   columns,
   searchFields,
   toolbar: [],

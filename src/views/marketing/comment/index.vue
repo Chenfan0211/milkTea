@@ -59,6 +59,7 @@ const rowActions: RowAction[] = [
 ];
 const config: AdminListConfig = {
   title: '评论审核',
+  remoteKey: 'comments',
   columns,
   searchFields,
   toolbar,

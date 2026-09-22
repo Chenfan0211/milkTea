@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h } from 'vue';
+import { computed, h, onMounted } from 'vue';
 import { NTag } from 'naive-ui';
 import { useAppStore } from '@/store/modules/app';
 import { useAdminStore } from '@/store/modules/admin';
@@ -11,6 +11,11 @@ defineOptions({
 
 const appStore = useAppStore();
 const adminStore = useAdminStore();
+
+// 仪表盘数据来自后端接口，挂载时拉取订单/退款/提现
+onMounted(() => {
+  adminStore.loadRemoteAll(['orders', 'refunds', 'withdrawals']);
+});
 
 const gap = computed(() => (appStore.isMobile ? 0 : 16));
 

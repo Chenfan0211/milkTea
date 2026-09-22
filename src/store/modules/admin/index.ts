@@ -8,6 +8,7 @@ import {
   crudPage,
   reviewComment as reviewCommentApi,
   saveReferralConfigApi,
+  fetchReferralConfig,
   saveSigninRule as saveSigninRuleApi,
   toggleSplitRule
 } from '@/service/api/crud';
@@ -1828,6 +1829,19 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     });
   }
 
+  /** 从后端读取邀请配置并写入本地镜像（只读加载，不触发审计、不回写后端）。 */
+  async function loadReferralConfig() {
+    try {
+      const cfg = await fetchReferralConfig();
+      if (cfg && typeof cfg === 'object') {
+        (data.value as any).referralConfig = { ...(data.value as any).referralConfig, ...cfg };
+        persist();
+      }
+    } catch (error: any) {
+      window.$message?.error(error?.message || '邀请配置加载失败');
+    }
+  }
+
   /**
    * 从后端加载配置类资源到本地镜像（远端模式）。
    * 页面 onMounted 调用即可，未登记的资源会跳过。
@@ -2532,6 +2546,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     unbindResourceFromStore,
     saveSignInRule,
     saveReferralConfig,
+    loadReferralConfig,
     refundAudit,
     reviewWithdraw,
     orderIncome,

@@ -48,6 +48,7 @@ const searchFields: SearchField[] = [
 
 const config: AdminListConfig = {
   title: '礼品卡订单',
+  remoteKey: 'giftCardOrders',
   columns,
   searchFields,
   toolbar: [],
