@@ -96,6 +96,21 @@ public class AppMarketingController {
         return Result.ok(giftCardService.myCards(CurrentUser.require()));
     }
 
+    @GetMapping("/gift-cards/orders")
+    public Result<List<GiftCardOrder>> myGiftCardOrders() {
+        return Result.ok(giftCardService.myOrders(CurrentUser.require()));
+    }
+
+    @PostMapping("/gift-cards/orders/{orderId}/cancel")
+    public Result<GiftCardOrder> cancelGiftCardOrder(@PathVariable Long orderId) {
+        return Result.ok(giftCardService.cancelOrder(CurrentUser.require(), orderId));
+    }
+
+    @PostMapping("/gift-cards/verify")
+    public Result<GiftCardOrder> verifyGiftCard(@RequestParam String orderNo) {
+        return Result.ok(giftCardService.verifyOrder(CurrentUser.require(), orderNo));
+    }
+
     // ---------- 积分 ----------
     @GetMapping("/points/products")
     public Result<List<PointsProduct>> pointsProducts() {
@@ -110,6 +125,11 @@ public class AppMarketingController {
     @GetMapping("/points/records")
     public Result<List<PointsRecord>> pointsRecords() {
         return Result.ok(pointsService.records(CurrentUser.require()));
+    }
+
+    @GetMapping("/points/signin-dates")
+    public Result<List<String>> signinDates() {
+        return Result.ok(pointsService.signinDates(CurrentUser.require()));
     }
 
     @PostMapping("/points/signin")

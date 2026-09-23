@@ -20,6 +20,12 @@ public class GiftCardOrder {
     private Long denominationId;
     private Long amount;
     private String payStatus;
+    private String status;
+    private String cancelType;
+    private Long refundAmount;
+    private LocalDateTime payTime;
+    private String verifyStatus;
+    private LocalDateTime verifyTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
