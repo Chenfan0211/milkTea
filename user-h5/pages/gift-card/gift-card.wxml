@@ -88,16 +88,36 @@
         </view>
       </block>
 
-      <view wx:else class="gift-empty">
-        <empty-state
-          icon="/assets/icons/lucide/gift.svg"
-          title="还没有礼品卡"
-          description="购买或受赠后，在这里查看你的礼品卡"
-        />
-        <view class="gift-empty__action" bindtap="goBuy" aria-role="button" aria-label="去购买礼品卡">
-          <text>去购买礼品卡</text>
+      <block wx:else>
+        <view wx:if="{{myCards.length}}" class="gift-list">
+          <view
+            wx:for="{{myCards}}"
+            wx:key="id"
+            class="gift-mine-card"
+            aria-role="button"
+            aria-label="{{item.name}}"
+          >
+            <image class="gift-mine-card__image" src="{{item.image}}" mode="aspectFill" />
+            <view class="gift-mine-card__info">
+              <text class="gift-mine-card__name ellipsis">{{item.name}}</text>
+              <text class="gift-mine-card__no ellipsis">{{item.cardNo}}</text>
+            </view>
+            <view class="gift-mine-card__tag {{item.pendingVerify ? 'is-pending' : 'is-used'}}">
+              <text>{{item.pendingVerify ? '待核销' : '已核销'}}</text>
+            </view>
+          </view>
         </view>
-      </view>
+        <view wx:elif="{{myCardsLoaded}}" class="gift-empty">
+          <empty-state
+            icon="/assets/icons/lucide/gift.svg"
+            title="还没有礼品卡"
+            description="购买或受赠后，在这里查看你的礼品卡"
+          />
+          <view class="gift-empty__action" bindtap="goBuy" aria-role="button" aria-label="去购买礼品卡">
+            <text>去购买礼品卡</text>
+          </view>
+        </view>
+      </block>
     </view>
   </scroll-view>
 </view>

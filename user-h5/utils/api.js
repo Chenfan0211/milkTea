@@ -150,6 +150,16 @@ function fetchMyGiftCards() {
   return request({ url: '/api/v1/app/gift-cards', method: 'GET' }).then(unwrap);
 }
 
+/** 我的礼品卡订单 */
+function fetchGiftCardOrders() {
+  return request({ url: '/api/v1/app/gift-cards/orders', method: 'GET' }).then(unwrap);
+}
+
+/** 取消礼品卡订单 */
+function cancelGiftCardOrder(orderId) {
+  return request({ url: `/api/v1/app/gift-cards/orders/${orderId}/cancel`, method: 'POST' }).then(unwrap);
+}
+
 // ============================================================
 // 积分（时光币）
 // ============================================================
@@ -164,6 +174,10 @@ function fetchPointsRules() {
 
 function fetchPointsRecords() {
   return request({ url: '/api/v1/app/points/records', method: 'GET' }).then(unwrap);
+}
+
+function fetchSigninDates() {
+  return request({ url: '/api/v1/app/points/signin-dates', method: 'GET' }).then(unwrap);
 }
 
 function signIn() {
@@ -388,9 +402,12 @@ module.exports = {
   fetchGiftCardDenominations,
   purchaseGiftCard,
   fetchMyGiftCards,
+  fetchGiftCardOrders,
+  cancelGiftCardOrder,
   fetchPointsProducts,
   fetchPointsRules,
   fetchPointsRecords,
+  fetchSigninDates,
   signIn,
   exchangePointsProduct,
   fetchExchangeOrders,

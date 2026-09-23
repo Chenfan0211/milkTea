@@ -1,5 +1,6 @@
 const { withShare } = require('../../utils/share');
 const regions = require('../../data/regions');
+const api = require('../../utils/api');
 const {
   formatBirthday,
   getDaysInMonth,
@@ -96,7 +97,58 @@ Page(
       this.setData({ gender: event.currentTarget.dataset.gender || '' });
     },
     handleAvatar() {
-      wx.showToast({ title: '头像更换暂未接入', icon: 'none' });
+      // 新版头像选择：chooseAvatar 无需授权弹窗，返回临时文件路径
+      if (typeof wx === 'undefined' || !wx.chooseAvatar) {
+        wx.showToast({ title: '当前环境不支持选择头像', icon: 'none' });
+        return;
+      }
+      wx.chooseAvatar({
+        success: res => {
+          const tempPath = res && res.avatarUrl;
+          if (!tempPath) {
+            wx.showToast({ title: '未选择头像', icon: 'none' });
+            return;
+          }
+          this.uploadAvatar(tempPath);
+        },
+        fail: () => {
+          wx.showToast({ title: '选择头像失败', icon: 'none' });
+        }
+      });
+    },
+    /** 读取临时头像文件并转 base64 后上传（方案 B：base64 直接存库） */
+    uploadAvatar(tempPath) {
+      const fs = typeof wx !== 'undefined' ? wx.getFileSystemManager : null;
+      if (!fs) {
+        wx.showToast({ title: '读取文件失败', icon: 'none' });
+        return;
+      }
+      fs.readFile({
+        filePath: tempPath,
+        encoding: 'base64',
+        success: res => {
+          const base64 = res.data;
+          if (!base64) {
+            wx.showToast({ title: '读取头像失败', icon: 'none' });
+            return;
+          }
+          // 拼 data URI（后端直接存字符串，展示时可作 <image> src）
+          const dataUri = 'data:image/png;base64,' + base64;
+          api
+            .updateAvatar(dataUri)
+            .then(() => {
+              this.setData({ avatar: dataUri });
+              saveUserProfile(Object.assign({}, getUserProfile(), { avatar: dataUri }));
+              wx.showToast({ title: '头像已更新', icon: 'success' });
+            })
+            .catch(() => {
+              wx.showToast({ title: '头像保存失败', icon: 'none' });
+            });
+        },
+        fail: () => {
+          wx.showToast({ title: '读取头像失败', icon: 'none' });
+        }
+      });
     },
     handlePhoneChange() {
       wx.showToast({ title: '手机号更换暂未接入', icon: 'none' });

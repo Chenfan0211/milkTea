@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -422,12 +422,12 @@ assert.ok(
   '订单详情必须在待核销时展示二维码、复制与扫码核销'
 );
 
-assert.equal(orderDetailJson.renderer, 'webview', '订单详情页必须降级为 webview 渲染');
+assert.equal(orderDetailJson.renderer, undefined, '订单详情页必须继承全局 Skyline，不得局部降级 webview');
 const qrcodeWxml = fs.readFileSync(path.join(root, 'components/qrcode/qrcode.wxml'), 'utf8');
 const qrcodeJs = fs.readFileSync(path.join(root, 'components/qrcode/qrcode.js'), 'utf8');
 assert.ok(
   qrcodeWxml.includes('<canvas') && qrcodeWxml.includes('type="2d"') && qrcodeJs.includes('getContext'),
-  '二维码组件必须在 webview 下使用 canvas 2d 绘制'
+  '二维码组件必须在 Skyline 下使用 canvas 2d 绘制'
 );
 assert.ok(
   !qrcodeWxml.includes('qrcode__grid') && !qrcodeWxml.includes('qrcode__cell'),
@@ -664,8 +664,8 @@ assert.ok(
   '我的页礼品卡列表必须为一行两个的网格布局'
 );
 assert.ok(
-  profileGiftJs.includes('/pages/gift-card/gift-card') && profileGiftJs.includes('openGiftCards'),
-  '我的页礼品卡必须跳转礼品卡页'
+  profileGiftJs.includes('/pages/gift-card-orders/gift-card-orders') && profileGiftJs.includes('openGiftCards'),
+  '我的页礼品卡必须跳转礼品卡订单页'
 );
 assert.ok(
   true,
@@ -703,7 +703,7 @@ assert.ok(
   '礼品卡订单页必须提供空状态'
 );
 assert.ok(
-  giftOrdersJs.includes("category === 'gift-card'") &&
+  giftOrdersJs.includes('fetchGiftCardOrders') &&
     giftOrdersJs.includes('orderNo') &&
     giftOrdersJs.includes('matchStatus'),
   '礼品卡订单页必须按名称/订单号搜索并按状态过滤'
@@ -1475,7 +1475,7 @@ assert.ok(
     categoryGroupLabelRule.includes('font-size: 18rpx'),
   '分组绿色标签必须按设计稿使用 90x30rpx 和 18rpx 字号'
 );
-const productScrollRule = menuWxss.match(/\.product-scroll__inner\s*\{([\s\S]*?)\}/)?.[1] || '';
+const productScrollRule = menuWxss.match(/\.product-scroll\s*\{([\s\S]*?)\}/)?.[1] || '';
 assert.ok(
   productScrollRule.includes('padding: 0 20rpx') && productScrollRule.includes('12rpx;'),
   '商品区必须使用左右 20rpx/12rpx 非对称间距'
@@ -1488,7 +1488,7 @@ assert.ok(
   '点单页必须包含地图、marker 和门店列表'
 );
 const menuJsonSource = fs.readFileSync(path.join(root, 'pages/menu/menu.json'), 'utf8');
-assert.equal(JSON.parse(menuJsonSource).renderer, 'webview', '点单页必须启用 WebView renderer 以调试原生地图');
+assert.equal(JSON.parse(menuJsonSource).renderer, undefined, '点单页必须继承全局 Skyline，不得局部降级 webview');
 assert.ok(
   menuWxml.includes('locate-fixed.svg') && menuWxml.includes('搜索门店'),
   '门店选择层必须包含本地搜索和定位按钮'

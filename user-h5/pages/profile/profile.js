@@ -98,6 +98,31 @@ Page(
             });
           })
           .catch(() => {});
+        // 我的礼品卡：来自后端 /api/v1/app/gift-cards（当前用户名下的卡）
+        // 卡实体只有 denomination_id，需要关联面额接口补 name / image
+        Promise.all([api.fetchMyGiftCards(), api.fetchGiftCardDenominations()])
+          .then(([cards, denominations]) => {
+            const cardList = Array.isArray(cards) ? cards : [];
+            const denomMap = {};
+            (Array.isArray(denominations) ? denominations : []).forEach(d => {
+              denomMap[d.id] = d;
+            });
+            const decorated = cardList.map(card => {
+              const denom = denomMap[card.denominationId] || {};
+              return Object.assign({}, card, {
+                name: denom.cardName || denom.name || '礼品卡',
+                image: denom.cardImage || '/assets/images/3x/gift-card-matcha.jpg',
+                pendingVerify: card.status === 'ACTIVE'
+              });
+            });
+            const pendingCount = decorated.filter(card => card.pendingVerify).length;
+            const stats = this.data.stats.map(item => {
+              if (item.id === 'gift') return Object.assign({}, item, { value: pendingCount });
+              return item;
+            });
+            this.setData({ giftCards: decorated.slice(0, 2), stats });
+          })
+          .catch(() => {});
       }
       if (typeof this.syncUserCard === 'function') this.syncUserCard();
 
@@ -139,7 +164,12 @@ Page(
       );
     },
     openGiftCards() {
-      wx.navigateTo({ url: '/pages/gift-card/gift-card' });
+      loginGuard.requireLogin(
+        () => {
+          wx.navigateTo({ url: '/pages/gift-card-orders/gift-card-orders' });
+        },
+        { reason: '登录后可查看礼品卡订单' }
+      );
     },
     openGiftCardOrder(event) {
       const { id } = event.currentTarget.dataset;

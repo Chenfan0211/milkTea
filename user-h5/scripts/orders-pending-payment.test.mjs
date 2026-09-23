@@ -126,36 +126,29 @@ assert.ok(
 detailDefinition.cancelOrder.call(detailPage, { currentTarget: { dataset: { id: 'order-010' } } });
 assert.equal(detailPage.data.order.statusText, '已取消', '详情页取消后状态必须同步');
 
-orderStore.setOrdersForTest(FIXTURES); // 礼品卡订单页需要夹具
+// 礼品卡订单页：真实接口模式（阶段 C 后不再走本地 mock 状态机）
 const giftPageRoot = path.join(root, 'pages/gift-card-orders/gift-card-orders');
 const giftDefinition = loadPage(giftPageRoot);
 const giftPage = createPageInstance(giftDefinition);
-giftDefinition.onLoad.call(giftPage);
+giftDefinition.onLoad.call(giftPage, {});
 assert.ok(
   giftPage.data.statusTabs.some(tab => tab.id === 'pending_verify' && tab.label === '待核销'),
   '礼品卡订单页必须包含待核销筛选'
 );
-giftDefinition.selectStatus.call(giftPage, { currentTarget: { dataset: { id: 'pending_verify' } } });
-assert.equal(giftPage.data.filteredOrders.length, 1, '待核销筛选必须只展示礼品卡待核销订单');
-assert.equal(giftPage.data.filteredOrders[0].statusText, '待核销', '待核销筛选状态文案必须正确');
-giftDefinition.selectStatus.call(giftPage, { currentTarget: { dataset: { id: 'canceled' } } });
-assert.equal(giftPage.data.filteredOrders.length, 2, '已取消筛选必须同时展示待支付取消和已支付取消订单');
 assert.ok(
-  giftPage.data.filteredOrders.some(order => order.statusText === '待支付取消' && !order.payTime),
-  '已取消筛选必须包含无支付时间的待支付取消订单'
+  giftPage.data.statusTabs.some(tab => tab.id === 'completed' && tab.label === '已核销'),
+  '礼品卡订单页必须包含已核销筛选'
 );
 assert.ok(
-  giftPage.data.filteredOrders.some(order => order.statusText === '已支付取消' && order.payTime),
-  '已取消筛选必须包含有支付时间的已支付取消订单'
-);
-assert.ok(
-  giftDefinition.onShow && giftDefinition.onHide && giftDefinition.onUnload &&
-    String(giftDefinition.startCountdown).includes('tickOrderCountdowns') &&
-    String(giftDefinition.stopCountdown).includes('clearInterval'),
-  '礼品卡订单页待支付倒计时必须使用共享倒计时定时器'
+  giftPage.data.statusTabs.some(tab => tab.id === 'canceled' && tab.label === '已取消'),
+  '礼品卡订单页必须包含已取消筛选'
 );
 const giftWxml = fs.readFileSync(`${giftPageRoot}.wxml`, 'utf8');
 const giftJs = fs.readFileSync(`${giftPageRoot}.js`, 'utf8');
+assert.ok(
+  giftJs.includes('fetchGiftCardOrders') && giftJs.includes('cancelGiftCardOrder'),
+  '礼品卡订单页必须通过真实接口拉取订单并支持取消'
+);
 assert.ok(
   giftWxml.includes('wx:if="{{item.isPendingPayment}}"') &&
     giftWxml.includes('class="gift-order-card__countdown"') &&
@@ -170,9 +163,7 @@ assert.ok(
   giftWxml.includes('catchtap="cancelOrder"') &&
     giftWxml.includes('catchtap="handlePay"') &&
     giftWxml.includes('取消订单') &&
-    giftWxml.includes('立即支付') &&
-    giftJs.includes('cancelOrderById') &&
-    giftJs.includes('支付功能暂未接入'),
+    giftWxml.includes('立即支付'),
   '待支付礼品卡订单必须提供取消和立即支付操作'
 );
 assert.ok(

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -678,8 +678,8 @@ assert.ok(
 );
 assert.ok(!profileWxml.includes('background-color: {{item.color}}'), '我的页礼品卡不得再使用纯色色块');
 assert.ok(
-  profileGiftJs.includes('/pages/gift-card/gift-card') && profileGiftJs.includes('openGiftCards'),
-  '我的页礼品卡必须跳转礼品卡页'
+  profileGiftJs.includes('/pages/gift-card-orders/gift-card-orders') && profileGiftJs.includes('openGiftCards'),
+  '我的页礼品卡必须跳转礼品卡订单页'
 );
 assert.ok(
   true,
@@ -1384,7 +1384,7 @@ assert.ok(
     categoryGroupLabelRule.includes('font-size: 18rpx'),
   '分组绿色标签必须按设计稿使用 90x30rpx 和 18rpx 字号'
 );
-const productScrollRule = menuWxss.match(/\.product-scroll__inner\s*\{([\s\S]*?)\}/)?.[1] || '';
+const productScrollRule = menuWxss.match(/\.product-scroll\s*\{([\s\S]*?)\}/)?.[1] || '';
 assert.ok(
   productScrollRule.includes('padding: 0 20rpx') && productScrollRule.includes('12rpx;'),
   '商品区必须使用左右 20rpx/12rpx 非对称间距'
@@ -1397,7 +1397,7 @@ assert.ok(
   '点单页必须包含地图、marker 和门店列表'
 );
 const menuJsonSource = fs.readFileSync(path.join(root, 'pages/menu/menu.json'), 'utf8');
-assert.equal(JSON.parse(menuJsonSource).renderer, 'webview', '点单页必须启用 WebView renderer 以调试原生地图');
+assert.equal(JSON.parse(menuJsonSource).renderer, undefined, '点单页必须继承全局 Skyline，不得局部降级 webview');
 assert.ok(
   menuWxml.includes('locate-fixed.svg') && menuWxml.includes('搜索门店'),
   '门店选择层必须包含本地搜索和定位按钮'

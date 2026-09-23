@@ -14,6 +14,9 @@ const { request, unwrap } = require('./request');
 
 const TOKEN_KEY = 'milkTea:auth:token';
 const USER_KEY = 'milkTea:auth:user';
+// 用户信息缓存：TTL 内直接读缓存，避免每次请求数据库
+const USER_CACHE_KEY = 'milkTea:auth:user-cache';
+const USER_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
 
 function readStorage(key) {
   try {
@@ -118,11 +121,40 @@ function ensureLogin() {
     });
 }
 
-/** 获取当前登录用户资料 */
-function fetchMe() {
+/** 读取用户信息缓存（含时间戳），未过期返回缓存，避免重复请求数据库 */
+function readUserCache() {
+  try {
+    if (typeof wx === 'undefined' || !wx.getStorageSync) return null;
+    const raw = wx.getStorageSync(USER_CACHE_KEY);
+    if (!raw || typeof raw !== 'object') return null;
+    const { data, ts } = raw;
+    if (!data || Date.now() - Number(ts || 0) > USER_CACHE_TTL) return null;
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeUserCache(user) {
+  try {
+    if (typeof wx !== 'undefined' && wx.setStorageSync && user) {
+      wx.setStorageSync(USER_CACHE_KEY, { data: user, ts: Date.now() });
+    }
+  } catch (error) {
+    // 忽略
+  }
+}
+
+/** 获取当前登录用户资料（优先缓存，5 分钟内不重复请求数据库） */
+function fetchMe(force) {
+  if (!force) {
+    const cached = readUserCache();
+    if (cached) return Promise.resolve(cached);
+  }
   return request({ url: '/api/v1/app/auth/me', method: 'GET' }).then(res => {
     const user = unwrap(res);
     writeStorage(USER_KEY, Object.assign({}, getCachedUser() || {}, user));
+    writeUserCache(Object.assign({}, getCachedUser() || {}, user));
     return user;
   });
 }

@@ -218,3 +218,63 @@
 .gift-search-empty {
   padding-top: 40rpx;
 }
+
+/* ---------- 我的礼品卡 ---------- */
+.gift-list {
+  padding-top: 24rpx;
+}
+
+.gift-mine-card {
+  display: flex;
+  align-items: center;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.gift-mine-card__image {
+  flex: none;
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: var(--radius-sm);
+}
+
+.gift-mine-card__info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+
+.gift-mine-card__name {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.gift-mine-card__no {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.gift-mine-card__tag {
+  flex: none;
+  padding: 4rpx 16rpx;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption);
+}
+
+.gift-mine-card__tag.is-pending {
+  color: var(--tag-light-text);
+  background: var(--tag-light-bg);
+}
+
+.gift-mine-card__tag.is-used {
+  color: var(--text-muted);
+  background: var(--page-bg-neutral);
+}
