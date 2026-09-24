@@ -7,6 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const appJsonPath = path.join(root, 'app.json');
 const projectConfigPath = path.join(root, 'project.config.json');
 const expectedPages = [
+  'pages/launch/launch',
   'pages/home/home',
   'pages/menu/menu',
   'pages/member/member',
@@ -34,6 +35,7 @@ const expectedPages = [
   'pages/coupon-stores/coupon-stores',
   'pages/coupon-products/coupon-products',
   'pages/city-picker/city-picker',
+  'pages/store-map/store-map',
   'pages/member-rights/member-rights',
   'pages/member-level-rules/member-level-rules',
   'pages/role-center/role-center',
@@ -432,3 +434,4 @@ if (errors.length) {
 console.log(
   `项目结构校验通过: ${expectedPages.length} 个页面、${tabBarPages.length} 个 Tab，Lucide 图标与本地资源完整。`
 );
+

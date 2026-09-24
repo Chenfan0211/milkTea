@@ -1,0 +1,14 @@
+<view class="launch-page">
+  <view class="launch-brand">
+    <view class="launch-brand__mark">
+      <image class="launch-brand__mark-icon" src="/assets/icons/lucide/leaf-white.svg" mode="aspectFit" />
+    </view>
+    <text class="launch-brand__name">五零时光</text>
+    <text class="launch-brand__slogan">新中式养生茶饮</text>
+  </view>
+  <view class="launch-loading">
+    <view class="launch-loading__dot"></view>
+    <view class="launch-loading__dot"></view>
+    <view class="launch-loading__dot"></view>
+  </view>
+</view>

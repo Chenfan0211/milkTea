@@ -481,6 +481,7 @@ git commit -m "feat(user-h5): 新增入口静默登录与引导去重工具"
 `pages/launch/launch.js`：
 
 ```js
+const { withShare } = require('../../utils/share');
 const entry = require('../../utils/entry-login');
 
 /**
@@ -492,40 +493,51 @@ const entry = require('../../utils/entry-login');
  *   3) 否则 reLaunch 到还原后的目标页。
  *
  * 全程只做路由编排，不做业务；任何异常都必须能落到目标页，绝不卡死。
+ *
+ * 说明：本页已登记为私密页（utils/share.js 的 PRIVATE_PAGES），分享一律回落首页，
+ * 但按项目约定仍统一套 withShare 包装器 —— scripts/share.test.mjs 会逐页断言
+ * app.json.pages 中的每个页面都使用 withShare。
+ * 合规约束：本页绝不程序化调起 getPhoneNumber，只做跳转编排。
  */
-Page({
-  onLoad(options) {
-    this.entryOptions = options || {};
-    this.route();
-  },
-  route() {
-    const options = this.entryOptions || {};
-    entry.ensureEntryLogin().then(result => {
-      const state = result && result.state ? result.state : { level: 'anonymous' };
-      const target = entry.resolveEntryTarget(options);
-      // 仅 approved 之后的登录态才谈绑手机号；引导开关与去重由工具统一判断
-      const needPrompt = state.level !== 'full' && entry.shouldPromptEntry();
-      if (!needPrompt) {
-        this.goTarget(target);
-        return;
-      }
-      entry.markEntryPrompted();
-      const params = [`mode=entry`, `target=${encodeURIComponent(target)}`];
-      if (options.from) params.push(`from=${encodeURIComponent(String(options.from))}`);
-      if (options.query) params.push(`query=${encodeURIComponent(String(options.query))}`);
-      wx.reLaunch({ url: `/pages/auth-login/auth-login?${params.join('&')}` });
-    });
-  },
-  goTarget(target) {
-    wx.reLaunch({
-      url: target || entry.HOME_PATH,
-      fail() {
-        // 目标页非法或栈异常时回落首页，避免停在启动页
-        wx.reLaunch({ url: entry.HOME_PATH });
-      }
-    });
-  }
-});
+Page(
+  withShare({
+    onLoad(options) {
+      this.entryOptions = options || {};
+      this.route();
+    },
+    route() {
+      const options = this.entryOptions || {};
+      entry.ensureEntryLogin().then(result => {
+        const state = result && result.state ? result.state : { level: 'anonymous' };
+        const target = entry.resolveEntryTarget(options);
+        // 仅登录成功但未绑手机号时才引导；引导开关与去重由工具统一判断
+        const needPrompt = state.level !== 'full' && entry.shouldPromptEntry();
+        if (!needPrompt) {
+          this.goTarget(target);
+          return;
+        }
+        entry.markEntryPrompted();
+        const params = ['mode=entry', `target=${encodeURIComponent(target)}`];
+        if (options.from) params.push(`from=${encodeURIComponent(String(options.from))}`);
+        if (options.query) params.push(`query=${encodeURIComponent(String(options.query))}`);
+        wx.reLaunch({
+          url: `/pages/auth-login/auth-login?${params.join('&')}`,
+          // 引导页跳转失败时不能停在启动页
+          fail: () => this.goTarget(target)
+        });
+      });
+    },
+    goTarget(target) {
+      wx.reLaunch({
+        url: target || entry.HOME_PATH,
+        fail() {
+          // 目标页非法或栈异常时回落首页，避免停在启动页
+          wx.reLaunch({ url: entry.HOME_PATH });
+        }
+      });
+    }
+  })
+);
 ```
 
 `pages/launch/launch.wxss`（只用设计 token，rpx）：
@@ -1007,6 +1019,7 @@ npm run test:acceptance
 - ❌ 不在 `app.js` / 页面中程序化调 `getPhoneNumber`（技术上不可能，且违规）；
 - ❌ 不改后端接口、不动 `security-common` 鉴权范围（当前已满足）；
 - ❌ 不引入第三方 UI 库、不写死色值、不新增非 Lucide 图标。
+
 
 
 

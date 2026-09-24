@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/launch/launch",
     "pages/home/home",
     "pages/menu/menu",
     "pages/member/member",
@@ -27,6 +28,7 @@
     "pages/coupon-stores/coupon-stores",
     "pages/coupon-products/coupon-products",
     "pages/city-picker/city-picker",
+    "pages/store-map/store-map",
     "pages/member-rights/member-rights",
     "pages/member-level-rules/member-level-rules",
     "pages/role-center/role-center",
@@ -50,6 +52,7 @@
     "pages/role-withdraw-detail/role-withdraw-detail",
     "pages/share-referral/share-referral"
   ],
+  "entryPagePath": "pages/launch/launch",
   "window": {
     "navigationBarTextStyle": "black",
     "navigationStyle": "custom",
@@ -100,3 +103,4 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents"
 }
+

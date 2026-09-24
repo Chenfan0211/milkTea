@@ -52,6 +52,7 @@ const PAGE_SHARE_TITLES = {
 };
 
 const PRIVATE_PAGES = new Set([
+  'pages/launch/launch',
   'pages/auth-login/auth-login',
   'pages/legal/legal',
   'pages/service/service',
@@ -190,3 +191,4 @@ module.exports = {
   isPrivatePage,
   withShare
 };
+
