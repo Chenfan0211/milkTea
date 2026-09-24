@@ -1026,3 +1026,37 @@ npm run test:acceptance
 
 
 
+
+
+---
+
+# 九、启动页暂时隐藏（2026-09-24 追加）
+
+> 需求变更：用户要求冷启动直接进首页，启动页先不显示。
+> 状态：**已执行**。
+
+## 9.1 变更内容
+
+| 文件 | 改动 |
+|------|------|
+| `user-h5/app.json` | `entryPagePath` 由 `pages/launch/launch` 改回 **`pages/home/home`** |
+| `user-h5/scripts/role-function-pages.test.mjs` | 断言改为「entryPagePath = home」+「launch 页仍注册在 pages 列表里」 |
+
+启动页文件 `pages/launch/*` **全部保留**，不删除。静默登录逻辑（`app.js onLaunch → entryLogin.ensureEntryLogin()`）**不受影响**，照常在后台执行。
+
+## 9.2 备案通过后恢复入口层（只改一行）
+
+`user-h5/app.json`：
+
+```diff
+- "entryPagePath": "pages/home/home",
++ "entryPagePath": "pages/launch/launch",
+```
+
+改完后运行 `npm run check` 与 `npm run test:acceptance` 确认即可，无需其他改动。
+
+## 9.3 恢复入口层前先想清楚（备案后再做，别现在做）
+
+1. 真机验证「启动页多一跳」首屏是否有可感延迟；
+2. 如有感知，把 `utils/entry-login.js` 的 `ENTRY_LOGIN_TIMEOUT` 从 1500 调到 800；
+3. 配合「启动页并行拉取首页数据」的优化（见第八章待办）。

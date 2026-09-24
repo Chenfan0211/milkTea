@@ -277,15 +277,16 @@ assert.ok(
     fs.existsSync(path.join(root, 'pages/launch/launch.wxml')),
   'launch page must exist as the single cold-start entry'
 );
+// 冷启动直进首页：entryPagePath 暂指向 home，启动页文件保留为 dormant，
+// 备案通过后把 entryPagePath 改回 pages/launch/launch 即可恢复入口层。
 assert.equal(
   appJson.entryPagePath,
-  'pages/launch/launch',
-  'app.json must set entryPagePath to the launch page'
+  'pages/home/home',
+  'app.json must open the home page directly while the launch page is dormant'
 );
-assert.equal(
-  appJson.pages[0],
-  'pages/launch/launch',
-  'launch page must be the first registered page'
+assert.ok(
+  appJson.pages.includes('pages/launch/launch'),
+  'launch page must stay registered for future entry gating'
 );
 {
   const launchJs = fs.readFileSync(path.join(root, 'pages/launch/launch.js'), 'utf8');

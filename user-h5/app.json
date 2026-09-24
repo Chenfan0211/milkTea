@@ -52,7 +52,7 @@
     "pages/role-withdraw-detail/role-withdraw-detail",
     "pages/share-referral/share-referral"
   ],
-  "entryPagePath": "pages/launch/launch",
+  "entryPagePath": "pages/home/home",
   "window": {
     "navigationBarTextStyle": "black",
     "navigationStyle": "custom",
@@ -103,4 +103,5 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents"
 }
+
 
