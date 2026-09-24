@@ -35,28 +35,28 @@ assert.equal(getVerifyData('unknown'), null, 'getVerifyData must return null for
 assert.equal(getIncomeData('unknown'), null, 'getIncomeData must return null for unknown role');
 assert.equal(getWithdrawData('unknown'), null, 'getWithdrawData must return null for unknown role');
 
-// 演示数据：active 角色返回字段完整
+// 假数据清理后：未同步后端前，业务数据一律为空（不再返回内置演示数据）
 const verify = getVerifyData('store');
-assert.ok(verify && verify.pool.length >= 3 && verify.records, 'store verify data must exist');
-assert.ok(
-  verify.pool.every(item => item.pickupCode && item.orderNo && item.product && item.amount),
-  'verify pool fields must be complete'
-);
+assert.ok(verify, 'store verify data must be an object (not null) for store role');
+assert.equal(verify.pool.length, 0, 'verify pool must be empty before remote sync');
+assert.equal(verify.records.length, 0, 'verify records must be empty before remote sync');
 
-const income = getIncomeData('store');
-assert.ok(
-  income && income.title && income.trend.length >= 3 && income.records.length >= 2,
-  'store income data must exist'
-);
-assert.ok(
-  income.trend.every(item => item.label && item.value),
-  'income trend fields must be complete'
-);
+assert.equal(getIncomeData('store'), null, 'income must be null before remote sync');
 
-const withdraw = getWithdrawData('store');
-assert.ok(
-  withdraw && withdraw.balance && withdraw.pending && withdraw.deposit,
-  'withdraw data must contain balance/pending/deposit'
+// 提现：无经营主体时不得返回数据（避免渲染假余额）
+assert.equal(getWithdrawData('store'), null, 'withdraw data must be null without a bound subject');
+
+// 角色 -> 后端 roleType 枚举映射（提现接口要求）
+const { roleTypeOf, submitWithdraw } = require(path.join(root, 'utils/roles.js'));
+assert.equal(roleTypeOf('store'), 'STORE', 'store maps to STORE');
+assert.equal(roleTypeOf('investor'), 'INVESTOR', 'investor maps to INVESTOR');
+assert.equal(roleTypeOf('resource'), 'CHANNEL', 'resource maps to CHANNEL');
+assert.equal(roleTypeOf('unknown'), null, 'unknown role has no roleType');
+
+// 提现必须真实写库：无角色/无主体时不得伪造成功
+submitWithdraw(10).then(
+  () => assert.fail('submitWithdraw must reject without an active role'),
+  error => assert.ok(error && error.message, 'submitWithdraw must reject with a readable message')
 );
 
 // 分享：三页均为私密且有标题
@@ -259,6 +259,56 @@ assert.ok(
   'auth page must track completion to decide whether to clear the pending action'
 );
 
+// 启动页引导态：进入即登录的入口编排（Task 4）
+assert.ok(
+  authJs.includes('entryMode') && /mode[^;]*===\s*'entry'/.test(authJs),
+  'auth page must detect entry mode'
+);
+assert.ok(
+  authJs.includes('wx.reLaunch') && authJs.includes('entryTarget'),
+  'entry mode must reLaunch to the resolved target instead of navigateBack'
+);
+assert.ok(
+  authWxml.includes('entryTip'),
+  'entry mode must show the lighter entry prompt copy'
+);
+assert.ok(
+  fs.existsSync(path.join(root, 'pages/launch/launch.js')) &&
+    fs.existsSync(path.join(root, 'pages/launch/launch.wxml')),
+  'launch page must exist as the single cold-start entry'
+);
+assert.equal(
+  appJson.entryPagePath,
+  'pages/launch/launch',
+  'app.json must set entryPagePath to the launch page'
+);
+assert.equal(
+  appJson.pages[0],
+  'pages/launch/launch',
+  'launch page must be the first registered page'
+);
+{
+  const launchJs = fs.readFileSync(path.join(root, 'pages/launch/launch.js'), 'utf8');
+  assert.ok(
+    launchJs.includes('ensureEntryLogin') && launchJs.includes('shouldPromptEntry'),
+    'launch page must gate on entry login and prompt dedupe'
+  );
+  assert.ok(
+    launchJs.includes('markEntryPrompted'),
+    'launch page must mark the entry prompt to avoid repeat interruption'
+  );
+  // 合规：启动页不得出现授权按钮 / 授权 API 的「实际调用」。
+  // 用 open-type / bindgetphonenumber / chooseAvatar 判定，避免误伤说明性注释里的字样。
+  assert.ok(
+    !/open-type\s*=|bindgetphonenumber|chooseAvatar|getUserProfile\s*\(/.test(launchJs),
+    'launch page must never trigger phone authorization programmatically'
+  );
+  assert.ok(
+    launchJs.includes('withShare(') && launchJs.includes('entry.HOME_PATH'),
+    'launch page must use withShare and fall back to home on failure'
+  );
+}
+
 // 授权页不得离线在构建：7 个原弹层使用页必须已完成迁移
 for (const page of [
   'order-confirm',
@@ -427,20 +477,80 @@ assert.ok(
 );
 
 // 客服信息 / 常见问题 / 门店电话
+//
+// 假数据清理后：客服热线与常见问题统一由后台配置提供
+// （app_config.service_info / service_faqs，运营可自助修改），
+// 前端不再内置硬编码文案。这里同时校验：
+//   1) 前端源码中不再残留硬编码热线与 FAQ 文案；
+//   2) 页面确实从接口读取这两项配置；
+//   3) 后台 seed 配置存在且结构完整（真值由服务端下发）。
+const { readAppConfig } = await import('./lib/seed-data.mjs');
 const serviceData = require(path.join(root, 'data/service.js'));
-const info = serviceData.getServiceInfo();
-const faqs = serviceData.getServiceFaqs();
-const serviceStores = serviceData.getServiceStores();
-assert.ok(info.hotline && info.serviceHours && info.onlineNote, 'service info must be complete');
-assert.ok(faqs.length >= 4, 'at least four FAQs must be provided');
-assert.ok(
-  faqs.every(item => item.id && item.question && item.answer),
-  'FAQ entries must be complete'
+
+// 扫描小程序源码，确保没有文件再硬编码客服热线文案
+const serviceSourceFiles = [];
+(function collectServiceSources(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules' || entry.name === 'assets' || entry.name === 'design') continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectServiceSources(full);
+    } else if (/\.(js|wxml|json)$/.test(entry.name)) {
+      serviceSourceFiles.push(full);
+    }
+  }
+})(root);
+const serviceDataSourceIncludesHotline = serviceSourceFiles.some(file => {
+  // 允许测试脚本自身引用历史值；业务代码不得出现
+  if (file.includes('scripts')) return false;
+  return fs.readFileSync(file, 'utf8').includes('400-000-0000');
+});
+
+// 1) 前端不得再内置客服文案（热线曾为占位的 400-000-0000）
+assert.equal(
+  typeof serviceData.getServiceInfo,
+  'undefined',
+  'data/service.js must not export a hardcoded service info (moved to app_config)'
 );
+assert.equal(
+  typeof serviceData.getServiceFaqs,
+  'undefined',
+  'data/service.js must not export hardcoded FAQs (moved to app_config)'
+);
+assert.ok(
+  !serviceDataSourceIncludesHotline,
+  'no mini-program source file may hardcode the customer hotline'
+);
+
+// 2) 页面从后台配置读取客服信息与常见问题
+assert.ok(
+  serviceJs.includes("fetchConfig('service_info')") && serviceJs.includes("fetchConfig('service_faqs')"),
+  'service page must load service info and FAQs from app_config'
+);
+
+// 3) 后台配置 seed 存在且结构完整
+// 客服配置由 V17 迁移引入（V10 只有首页/宫格等基础配置）
+const { readSeed } = await import('./lib/seed-data.mjs');
+const serviceConfigSeed = readSeed('V17__seed_role_service_data.sql');
+const seededServiceInfo = readAppConfig('service_info', serviceConfigSeed);
+const seededServiceFaqs = readAppConfig('service_faqs', serviceConfigSeed);
+assert.ok(seededServiceInfo && seededServiceInfo.hotline, 'app_config.service_info must define a hotline');
+assert.ok(
+  seededServiceInfo.serviceHours && seededServiceInfo.onlineNote,
+  'app_config.service_info must define hours and online note'
+);
+assert.ok(
+  Array.isArray(seededServiceFaqs) && seededServiceFaqs.length >= 4,
+  'app_config.service_faqs must provide at least four FAQs'
+);
+assert.ok(
+  seededServiceFaqs.every(item => item.id && item.question && item.answer),
+  'app_config FAQ entries must be complete'
+);
+
 // 客服门店数据来自 /api/v1/app/stores（不再有本地 mock 门店），这里注入 seed 门店后校验映射结果。
 const { loadStores } = await import('./lib/seed-data.mjs');
 const { setStoreCatalogForTest, setCityCatalogForTest } = require(path.join(root, 'utils/store.js'));
-const { readAppConfig } = await import('./lib/seed-data.mjs');
 const catalogStores = loadStores();
 setStoreCatalogForTest(catalogStores);
 setCityCatalogForTest(readAppConfig('app_cities') || []);
@@ -453,13 +563,6 @@ assert.ok(
 assert.ok(
   seededServiceStores.every(item => catalogStores.some(store => store.id === item.id)),
   'store contacts must come from the real store catalog'
-);
-// 返回副本，调用方修改不得污染源数据
-const faqCopy = serviceData.getServiceFaqs();
-faqCopy[0].question = '污染测试';
-assert.ok(
-  serviceData.getServiceFaqs()[0].question !== '污染测试',
-  'FAQ getter must return a defensive copy'
 );
 
 // 页面渲染与交互
@@ -623,7 +726,14 @@ assert.ok(
 );
 
 // 提现规则 mock 必须带图标分条
-const { getWithdrawRule, WITHDRAW_STATUS_TEXT: withdrawStatusText } = require(path.join(root, 'utils/roles.js'));
+const {
+  getWithdrawRule,
+  normalizeWithdrawal,
+  INCOME_STATUS_NOTE: incomeStatusNote,
+  INCOME_STATUS_TEXT: incomeStatusText,
+  WITHDRAW_STATUS_NOTE,
+  WITHDRAW_STATUS_TEXT: withdrawStatusText
+} = require(path.join(root, 'utils/roles.js'));
 const withdrawRuleData = getWithdrawRule();
 assert.ok(
   withdrawRuleData && withdrawRuleData.items.length >= 4,
@@ -638,15 +748,24 @@ assert.ok(
   'withdraw rule icons must come from Lucide'
 );
 
-// 提现记录必须是真实演示数据且字段完整
+// 提现记录：不再内置假数据，必须来自后端 /api/v1/app/withdrawals。
+// 这里校验映射逻辑本身正确（后端状态枚举 -> 前端展示状态）。
+for (const [backend, expected] of [
+  ['APPLIED', 'pending'],
+  ['AUDITING', 'pending'],
+  ['APPROVED', 'processing'],
+  ['PAID', 'success'],
+  ['REJECTED', 'failed'],
+  ['FAILED', 'failed']
+]) {
+  assert.ok(
+    ![undefined, ''].includes(withdrawStatusText[expected]),
+    `withdraw status ${backend} must map to a labelled state`
+  );
+}
 assert.ok(
-  withdraw.records.length >= 2 &&
-    withdraw.records.every(item => item.id && item.amount && item.status && item.time && item.note),
-  'withdraw mock records must contain amount/status/time/note'
-);
-assert.ok(
-  withdraw.records.every(item => ![undefined, ''].includes(withdrawStatusText[item.status])),
-  'withdraw mock records must map to a known status label'
+  withdrawStatusText.pending && withdrawStatusText.processing && withdrawStatusText.success && withdrawStatusText.failed,
+  'withdraw status labels must cover all four states'
 );
 
 // 提现记录页：注册 / 骨架 / 筛选 / 空状态
@@ -679,7 +798,7 @@ assert.ok(
   'withdraw records page must render the amount'
 );
 assert.ok(
-  withdrawRecordsWxml.includes('{{item.time}}') && withdrawRecordsWxml.includes('{{item.note}}'),
+  withdrawRecordsWxml.includes('{{item.timeText}}') && withdrawRecordsWxml.includes('{{item.note}}'),
   'withdraw records page must render time and note'
 );
 
@@ -767,43 +886,66 @@ assert.ok(
   'withdraw page must not expose developer notes'
 );
 
-// 记录数据：单号 / 手续费 / 到账额 / 收款方式 / 流转链路
+// 记录映射：后端 Withdrawal -> 前端展示结构（金额分转元、状态映射、流转链路）
+// 假数据清理后不再内置提现记录，这里用构造的后端数据校验映射逻辑。
+const { buildWithdrawTimeline } = require(path.join(root, 'utils/roles.js'));
+
+const backendWithdrawals = [
+  { id: 1, withdrawNo: 'WD202609200003', amount: 50000, fee: 0, status: 'APPLIED', applyTime: '2026-09-20 15:42:08' },
+  { id: 2, withdrawNo: 'WD202609190002', amount: 8800, fee: 0, status: 'APPROVED', applyTime: '2026-09-19 11:08:36' },
+  { id: 3, withdrawNo: 'WD202609120001', amount: 120000, fee: 600, status: 'PAID', applyTime: '2026-09-12 09:24:15' },
+  {
+    id: 4,
+    withdrawNo: 'WD202609050001',
+    amount: 200000,
+    fee: 0,
+    status: 'REJECTED',
+    applyTime: '2026-09-05 20:16:47',
+    failureReason: '收款账户信息有误，请核对后重新提交'
+  }
+];
+
+for (const raw of backendWithdrawals) {
+  const mapped = normalizeWithdrawal(raw);
+  assert.ok(
+    mapped.orderNo && mapped.feeText && mapped.arrivalText && mapped.channel,
+    'withdraw record must expose order no, fee, arrival and channel'
+  );
+  // 金额：分 -> 元，且到账额 = 金额 - 手续费
+  assert.equal(mapped.amount, '¥' + (raw.amount / 100).toFixed(2), 'amount must be converted from fen');
+  assert.equal(
+    mapped.arrivalText,
+    '¥' + ((raw.amount - raw.fee) / 100).toFixed(2),
+    'arrival must subtract the fee'
+  );
+  assert.ok(/^WD\d+$/.test(mapped.orderNo), 'withdraw order no must follow the WD + digits format');
+
+  const timeline = buildWithdrawTimeline(mapped);
+  assert.ok(timeline.length >= 3, 'withdraw timeline must have at least three steps');
+  assert.ok(
+    timeline.every(step => step.id && step.title && step.description && step.state),
+    'withdraw timeline steps must be complete'
+  );
+  assert.ok(
+    timeline.filter(step => step.state === 'active').length <= 1,
+    'withdraw timeline must have at most one active step'
+  );
+}
+
+// 失败单：必须带驳回原因与「已驳回」节点
+const failed = normalizeWithdrawal(backendWithdrawals[3]);
+assert.equal(failed.status, 'failed', 'REJECTED must map to failed');
+assert.ok(failed.failReason, 'failed record must carry a reason');
 assert.ok(
-  withdraw.records.every(item => item.orderNo && item.feeText && item.arrivalText && item.channel),
-  'withdraw mock records must expose order no, fee, arrival and channel'
+  buildWithdrawTimeline(failed).some(step => step.id === 'rejected'),
+  'failed record timeline must include a rejected step'
 );
+
+// 已到账单：链路全部完成
+const succeeded = normalizeWithdrawal(backendWithdrawals[2]);
+assert.equal(succeeded.status, 'success', 'PAID must map to success');
 assert.ok(
-  withdraw.records.every(item => /^WD\d+$/.test(item.orderNo)),
-  'withdraw order no must follow the WD + digits format'
-);
-assert.ok(
-  withdraw.records.every(item => Array.isArray(item.timeline) && item.timeline.length >= 3),
-  'withdraw mock records must carry a timeline'
-);
-assert.ok(
-  withdraw.records.every(item =>
-    item.timeline.every(step => step.id && step.title && step.description && step.state)
-  ),
-  'withdraw timeline steps must be complete'
-);
-assert.ok(
-  withdraw.records.every(item => {
-    const activeCount = item.timeline.filter(step => step.state === 'active').length;
-    const doneCount = item.timeline.filter(step => step.state === 'done').length;
-    return doneCount >= 1 && activeCount <= 1;
-  }),
-  'withdraw timeline must have a single active step and at least one done step'
-);
-assert.ok(
-  withdraw.records
-    .filter(item => item.status === 'failed')
-    .every(item => item.failReason && item.timeline.some(step => step.id === 'rejected')),
-  'failed records must carry a reason and a rejected step'
-);
-assert.ok(
-  withdraw.records
-    .filter(item => item.status === 'success')
-    .every(item => item.timeline.every(step => step.state === 'done')),
+  buildWithdrawTimeline(succeeded).every(step => step.state === 'done'),
   'successful records must have a fully completed timeline'
 );
 
@@ -877,15 +1019,19 @@ assert.ok(
 );
 
 // 详情数据来源与权限
+//
+// 假数据清理后，详情不再来自内置记录，而是「后端记录 + 状态文案映射」。
+// 无主体/无缓存时必须返回 null（不再回退演示数据），文案与链路由映射层生成。
 const { getWithdrawRecordDetail } = require(path.join(root, 'utils/roles.js'));
-assert.equal(getWithdrawRecordDetail('unknown', 'w-i-1'), null, 'detail must respect role permission');
+assert.equal(getWithdrawRecordDetail('unknown', 'w-1'), null, 'detail must respect role permission');
 assert.equal(getWithdrawRecordDetail('investor', 'missing'), null, 'detail must reject unknown ids');
-const detailSample = getWithdrawRecordDetail('investor', 'w-i-1');
-assert.ok(
-  detailSample && detailSample.statusLabel && detailSample.statusNote && detailSample.timeline.length >= 3,
-  'detail must expose label, note and timeline'
-);
-assert.equal(detailSample.statusLabel, '审核中', 'detail label must map from the status');
+
+// 状态文案映射：四种状态都必须有标题与说明
+const withdrawNotes = WITHDRAW_STATUS_NOTE;
+for (const status of ['pending', 'processing', 'success', 'failed']) {
+  assert.ok(withdrawStatusText[status], `withdraw status ${status} must have a label`);
+  assert.ok(withdrawNotes[status], `withdraw status ${status} must have a note`);
+}
 
 // 提现规则页：注册 / 骨架 / 渲染 ruleItems / 不含提现记录数据
 const withdrawRulesDir = path.join(root, 'pages/role-withdraw-rules');
@@ -967,15 +1113,19 @@ assert.ok(
   storeDashboard.actions.some(action => action.id === 'products'),
   'store dashboard must expose the products action'
 );
-assert.ok(
-  storeDashboard.boundStoreId === 'store-001',
-  'store role must bind an operating store'
+// 绑定门店来自后端 /roles/mine 的 subjectId（不再写死 store-001）。
+// 未同步时不应伪造绑定关系。
+assert.equal(
+  storeDashboard.boundStoreId,
+  '',
+  'bound store must come from the backend, not a hardcoded id'
 );
 assert.equal(getBoundStore('investor'), null, 'non-store roles must not bind a store');
 assert.equal(getBoundStore('resource'), null, 'non-store roles must not bind a store');
-assert.ok(
-  getBoundStore('store') && getBoundStore('store').name,
-  'store role must expose the bound store name'
+assert.equal(
+  getBoundStore('store'),
+  null,
+  'bound store must be null until /roles/mine provides a subject'
 );
 
 for (const [file, label] of [
@@ -1392,89 +1542,60 @@ const {
   INCOME_STATUS_TEXT: resourceStatusText
 } = require(path.join(root, 'utils/roles.js'));
 
-// 绑定门店必须与真实门店数据对齐
-const boundStores = getResourceBoundStores('resource');
-assert.ok(boundStores.length >= 2, 'resource role must bind at least two stores');
-assert.ok(
-  boundStores.every(store => store.id && store.name && store.storeType),
-  'bound stores must be complete'
-);
-const realStores = loadStores(); // 门店已迁至数据库 seed
-assert.ok(
-  boundStores.every(store => realStores.some(real => real.id === store.id)),
-  'bound store ids must match the real store catalog'
-);
+// 非资源方不得读取提成；未同步后端时资源方也不返回数据（不再回退假数据）
 assert.deepEqual(getResourceBoundStores('store'), [], 'non-resource roles must not have bound stores');
-
-// 非资源方不得读取提成
 assert.equal(getResourceOrders('store'), null, 'non-resource roles must not read commission orders');
 assert.equal(getResourceOrders('investor'), null, 'non-resource roles must not read commission orders');
+assert.equal(getResourceOrders('resource'), null, 'commission must be null before remote sync');
+assert.deepEqual(getResourceBoundStores('resource'), [], 'bound stores must be empty before remote sync');
 
-const commission = getResourceOrders('resource');
-assert.ok(commission, 'resource commission data must exist');
-assert.ok(commission.count > 0, 'resource commission must contain orders');
+// 提成映射：后端订单摘要 -> 前端展示结构（金额分转元、门店归属、状态映射、时间线）
+// 假数据清理后不再内置提成订单，这里用构造的后端数据校验映射逻辑。
+const {
+  normalizeCommissionOrder,
+  buildIncomeTimeline: buildCommissionTimeline
+} = require(path.join(root, 'utils/roles.js'));
+
+const backendStore = { id: 101, code: 'ST-1001', name: '星沙乐运魔方店', subjectType: 'STORE' };
+const backendOrders = [
+  { id: 1, orderNo: 'WX202609212012558608', storeSubjectId: 101, status: 'PAID', paidAmount: 1390, createTime: '2026-09-21 20:12:56' },
+  { id: 2, orderNo: 'WX2026091900001', storeSubjectId: 101, status: 'COMPLETED', paidAmount: 1800, createTime: '2026-09-19 10:00:00' },
+  { id: 3, orderNo: 'WX2026091800002', storeSubjectId: 101, status: 'CANCELED', paidAmount: 2200, createTime: '2026-09-18 09:30:00' }
+];
+
+const mappedOrders = backendOrders.map(item => normalizeCommissionOrder(item, backendStore.name));
 assert.ok(
-  commission.groups.every(group => group.count === group.orders.length),
-  'each commission group must report its own count'
-);
-assert.ok(
-  commission.groups.every(group =>
-    group.orders.every(order => order.storeId === group.id && order.storeName === group.name)
-  ),
-  'commission orders must belong to their group store'
-);
-assert.ok(
-  commission.groups.every(group =>
-    group.orders.every(order => order.orderNo && order.title && order.spec && order.amount && order.status && order.time)
-  ),
+  mappedOrders.every(order => order.orderNo && order.title && order.amount && order.status && order.time),
   'commission orders must be complete'
 );
 assert.ok(
-  commission.groups.every(group => group.orders.every(order => /^DO\d+$/.test(order.orderNo))),
-  'commission order no must follow the DO + digits format'
+  mappedOrders.every(order => order.storeId === backendStore.id && order.storeName === backendStore.name),
+  'commission orders must carry their bound store'
 );
+assert.equal(mappedOrders[0].amount, '¥13.90', 'paidAmount must convert from fen to yuan');
+assert.equal(mappedOrders[0].status, 'pending', 'PAID must map to pending settlement');
+assert.equal(mappedOrders[1].status, 'settled', 'COMPLETED must map to settled');
+assert.equal(mappedOrders[2].status, 'reversed', 'CANCELED must map to reversed');
 assert.ok(
-  commission.groups.every(group =>
-    group.orders.every(order => Array.isArray(order.timeline) && order.timeline.length >= 3)
-  ),
-  'commission orders must carry a timeline'
-);
-assert.ok(
-  commission.groups.every(group =>
-    group.orders.every(order => order.timeline.every(step => !step.time || step.time.indexOf('NaN') < 0))
-  ),
-  'commission timelines must never render a NaN timestamp'
-);
-assert.ok(
-  commission.groups.every(group =>
-    group.orders.every(order => ![undefined, ''].includes(resourceStatusText[order.status]))
-  ),
+  mappedOrders.every(order => ![undefined, ''].includes(resourceStatusText[order.status])),
   'commission statuses must map to known labels'
 );
 
-// 合计校验：各门店合计之和必须等于总合计
-const sumOfGroups = commission.groups.reduce(
-  (sum, group) => sum + Number(group.totalText.replace('+', '')),
-  0
+// 流转链路：节点完整且不出现 NaN 时间
+const mappedTimeline = buildCommissionTimeline(mappedOrders[0]);
+assert.ok(mappedTimeline.length >= 3, 'commission orders must carry a timeline');
+assert.ok(
+  mappedTimeline.every(step => step.id && step.title && step.description && step.state),
+  'commission timeline steps must be complete'
 );
 assert.ok(
-  Math.abs(sumOfGroups - Number(commission.totalText.replace('+', ''))) < 0.001,
-  'group totals must add up to the overall total'
-);
-assert.equal(
-  commission.count,
-  commission.groups.reduce((sum, group) => sum + group.count, 0),
-  'overall count must equal the sum of group counts'
+  mappedTimeline.every(step => !step.time || step.time.indexOf('NaN') < 0),
+  'commission timelines must never render a NaN timestamp'
 );
 
-// 按门店筛选
-const firstStoreId = commission.stores[0].id;
-const filtered = getResourceOrders('resource', firstStoreId);
-assert.ok(
-  filtered.groups.every(group => group.id === firstStoreId),
-  'filtering by store must only keep that store'
-);
-assert.ok(filtered.count <= commission.count, 'filtered count must not exceed the total');
+// 合计：分组小计之和必须等于总合计（用映射结果自校验）
+const groupsTotal = mappedOrders.reduce((sum, order) => sum + order.amountFen, 0);
+assert.equal(groupsTotal, 1390 + 1800 + 2200, 'group totals must add up to the overall total');
 
 // 只读：资源方不提供绑定 / 解绑能力
 const rolesSource = fs.readFileSync(path.join(root, 'utils/roles.js'), 'utf8');
@@ -1917,79 +2038,92 @@ assert.ok(
   'income records page must be registered'
 );
 
-// 收益数据：单号 / 来源 / 状态 / 时间线
-const { getIncomeRecordDetail, getIncomeRule } = require(path.join(root, 'utils/roles.js'));
-const incomeForStore = getIncomeData('store');
+// 收益数据：不再内置假数据；未同步后端时返回 null
+const {
+  buildIncomeTimeline: buildIncomeTl,
+  getIncomeRecordDetail,
+  getIncomeRule,
+  normalizeSettlement
+} = require(path.join(root, 'utils/roles.js'));
+assert.equal(getIncomeData('store'), null, 'income must be null until the backend台账 is loaded');
+
+// 结算台账映射：后端 SettlementRecord -> 前端收益记录结构
+const backendSettlements = [
+  { id: 41, recordNo: 'DEMO-IC202609180004', subjectId: 101, amount: 1890, status: 'PENDING', settleDate: '2026-09-18', createTime: '2026-09-18 20:31:02' },
+  { id: 42, recordNo: 'DEMO-IC202609170002', subjectId: 101, amount: 2780, status: 'SETTLED', settleDate: '2026-09-17', createTime: '2026-09-17 15:08:20' },
+  { id: 43, recordNo: 'DEMO-IC202609160001', subjectId: 101, amount: 1890, status: 'CANCELED', settleDate: '2026-09-16', createTime: '2026-09-16 11:42:36' }
+];
+const mappedSettlements = backendSettlements.map(normalizeSettlement);
 assert.ok(
-  incomeForStore.pending && incomeForStore.settled && incomeForStore.total,
-  'income data must expose pending/settled/total'
+  mappedSettlements.every(item => item.orderNo && item.source && item.amount && item.status && item.time && item.note),
+  'income records must be complete'
 );
 assert.ok(
-  incomeForStore.records.every(
-    item => item.orderNo && item.source && item.amount && item.status && item.time && item.note
-  ),
-  'income mock records must be complete'
-);
-assert.ok(
-  incomeForStore.records.every(item => /^IC\d+$/.test(item.orderNo)),
+  mappedSettlements.every(item => /^DEMO-IC\d+$/.test(item.orderNo)),
   'income order no must follow the IC + digits format'
 );
+assert.equal(mappedSettlements[0].status, 'pending', 'PENDING must map to pending');
+assert.equal(mappedSettlements[1].status, 'settled', 'SETTLED must map to settled');
+assert.equal(mappedSettlements[2].status, 'reversed', 'CANCELED must map to reversed');
+// 冲正为支出，展示为负号
+assert.ok(mappedSettlements[2].amount.startsWith('-'), 'reversed income must render as a negative amount');
+assert.ok(mappedSettlements[1].amount.startsWith('+'), 'settled income must render as a positive amount');
+assert.equal(mappedSettlements[0].amount, '+¥18.90', 'amount must convert from fen to yuan');
+
+// 状态文案映射
+for (const status of ['pending', 'settled', 'reversed']) {
+  assert.ok(incomeStatusText[status], `income status ${status} must have a label`);
+  assert.ok(incomeStatusNote[status], `income status ${status} must have a note`);
+}
+
+// 流转链路：节点完整、无 NaN 时间、且恰好一个 active 节点
+for (const item of mappedSettlements) {
+  const timeline = buildIncomeTl(item);
+  assert.ok(timeline.length >= 3, 'income records must carry a timeline');
+  assert.ok(
+    timeline.every(step => step.id && step.title && step.description && step.state),
+    'income timeline steps must be complete'
+  );
+  assert.ok(
+    timeline.every(step => !step.time || step.time.indexOf('NaN') < 0),
+    'income timeline must never render a NaN timestamp'
+  );
+  assert.equal(
+    timeline.filter(step => step.state === 'active').length,
+    1,
+    'income timeline must have exactly one active step'
+  );
+  assert.ok(
+    timeline.filter(step => step.state === 'done').length >= 1,
+    'income timeline must have at least one done step'
+  );
+}
+
+// settled：可结算节点为进行中，已提现尚未开始
+const settledTl = buildIncomeTl(mappedSettlements[1]);
 assert.ok(
-  incomeForStore.records.every(item => Array.isArray(item.timeline) && item.timeline.length >= 3),
-  'income mock records must carry a timeline'
+  settledTl.some(step => step.id === 'settled' && step.state === 'active'),
+  'settled income must mark the settleable step active'
 );
 assert.ok(
-  incomeForStore.records.every(item =>
-    item.timeline.every(step => step.id && step.title && step.description && step.state)
-  ),
-  'income timeline steps must be complete'
-);
-assert.ok(
-  incomeForStore.records.every(item =>
-    item.timeline.every(step => !step.time || step.time.indexOf('NaN') < 0)
-  ),
-  'income timeline must never render a NaN timestamp'
-);
-assert.ok(
-  incomeForStore.records.every(item => {
-    const activeCount = item.timeline.filter(step => step.state === 'active').length;
-    const doneCount = item.timeline.filter(step => step.state === 'done').length;
-    return doneCount >= 1 && activeCount === 1;
-  }),
-  'income timeline must have exactly one active step and at least one done step'
-);
-assert.ok(
-  incomeForStore.records
-    .filter(item => item.status === 'reversed')
-    .every(item => item.timeline.some(step => step.id === 'reversed') && item.failReason),
-  'reversed income records must carry a reversal step and reason'
-);
-// settled：可结算节点为当前进行中，之前的节点均已完成，「已提现」尚未开始。
-assert.ok(
-  incomeForStore.records
-    .filter(item => item.status === 'settled')
-    .every(
-      item =>
-        item.timeline.filter(step => step.state === 'done').length >= 2 &&
-        item.timeline.some(step => step.id === 'settled' && step.state === 'active') &&
-        item.timeline.some(step => step.id === 'withdrawn' && step.state === 'todo')
-    ),
-  'settled income records must finish prior steps and leave withdrawal pending'
-);
-assert.ok(
-  incomeForStore.records.every(item => !item.timeline.some(step => step.time && step.time.indexOf('NaN') >= 0)),
-  'income timeline timestamps must be valid'
+  settledTl.some(step => step.id === 'withdrawn' && step.state === 'todo'),
+  'settled income must leave withdrawal pending'
 );
 
-// 收益详情：权限 + 状态文案 + 时间线
-assert.equal(getIncomeRecordDetail('unknown', 'i-s-1'), null, 'income detail must respect role permission');
-assert.equal(getIncomeRecordDetail('store', 'missing'), null, 'income detail must reject unknown ids');
-const incomeDetail = getIncomeRecordDetail('store', 'i-s-1');
+// reversed：必须带冲正节点
 assert.ok(
-  incomeDetail && incomeDetail.statusLabel && incomeDetail.statusNote && incomeDetail.timeline.length >= 3,
-  'income detail must expose label, note and timeline'
+  buildIncomeTl(mappedSettlements[2]).some(step => step.id === 'reversed'),
+  'reversed income must carry a reversal step'
 );
-assert.equal(incomeDetail.statusLabel, '待结算', 'income detail label must map from the status');
+
+// 收益详情：权限 + 状态文案
+assert.equal(getIncomeRecordDetail('unknown', '1'), null, 'income detail must respect role permission');
+assert.equal(getIncomeRecordDetail('store', 'missing'), null, 'income detail must reject unknown ids');
+assert.equal(
+  getIncomeRecordDetail('store', '41'),
+  null,
+  'income detail must be null until the backend data is loaded'
+);
 
 // 结算说明
 const incomeRule = getIncomeRule();

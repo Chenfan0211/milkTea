@@ -16,6 +16,12 @@
         <text class="auth-reason__text">{{reason}}</text>
       </view>
 
+      <!-- 入口引导态（启动页进入）：语气更轻，复用 auth-reason 视觉，不新增色值 -->
+      <view wx:if="{{entryMode}}" class="auth-reason">
+        <image class="auth-reason__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
+        <text class="auth-reason__text">{{entryTip}}</text>
+      </view>
+
       <view class="auth-main">
         <button
           class="auth-primary"

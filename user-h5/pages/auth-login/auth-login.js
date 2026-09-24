@@ -16,6 +16,9 @@ Page(
   withShare({
     data: {
       reason: '',
+      // 入口引导态（启动页 mode=entry）：文案更轻，且授权后 reLaunch 到目标页
+      entryMode: false,
+      entryTip: '',
       fallbackVisible: false,
       phone: '',
       code: '',
@@ -26,9 +29,18 @@ Page(
     onLoad(options) {
       const opts = options || {};
       this.reason = opts.reason ? decodeURIComponent(opts.reason) : '';
+      // 入口引导态：来自启动页，引导用户绑手机号（可跳过）
+      this.entryMode = (opts.mode || '') === 'entry';
+      // 授权 / 跳过后的落点；来源不合法时回落首页，避免被构造参数跳转
+      this.entryTarget = this.entryMode && opts.target ? decodeURIComponent(opts.target) : '/pages/home/home';
       // 标记本次授权是否已完成，供 onUnload 判断是否清理待执行动作
       this.completed = false;
-      this.setData({ reason: this.reason });
+      this.setData({
+        reason: this.reason,
+        entryMode: this.entryMode,
+        entryTarget: this.entryTarget,
+        entryTip: this.entryMode ? '登录后可下单、领券并同步会员权益' : ''
+      });
     },
     onUnload() {
       // 用户中途返回且未完成授权时，清掉待执行动作，避免脏动作残留
@@ -114,15 +126,36 @@ Page(
       this.completed = true;
       this.stopCountdown();
       guard.toast('登录成功');
-      // 回到来源页后再续跑，保证页面栈与业务上下文一致
-      wx.navigateBack({ delta: 1 });
-      guard.flushPendingAction();
+      // 入口引导态：启动页已不在栈上，必须 reLaunch 到目标页，避免页面栈异常
+      if (this.data.entryMode) {
+        wx.reLaunch({
+          url: this.data.entryTarget || '/pages/home/home',
+          complete() {
+            guard.flushPendingAction();
+          }
+        });
+        return;
+      }
+      // 必须等返回来源页再续跑原操作：
+      // navigateBack 是异步的，若立即 flush，原操作可能在授权页上下文中执行。
+      wx.navigateBack({
+        delta: 1,
+        complete() {
+          // complete 覆盖成功与失败（栈底无法返回时也要保证续跑不丢）
+          guard.flushPendingAction();
+        }
+      });
     },
 
     // ---------- 跳过 ----------
     handleSkip() {
       this.completed = true;
       guard.clearPendingAction();
+      // 入口引导态：跳过也必须落到目标页，不能停在授权页
+      if (this.data.entryMode) {
+        wx.reLaunch({ url: this.data.entryTarget || '/pages/home/home' });
+        return;
+      }
       const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
       if (pages.length > 1) {
         wx.navigateBack({ delta: 1 });
@@ -138,3 +171,4 @@ Page(
     }
   })
 );
+
