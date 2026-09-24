@@ -122,5 +122,13 @@ assert.equal(
   '跳启动页的上下文必须编码'
 );
 
+
+// 8. 登录失败 / 超时时必须标记 ok=false，调用方据此跳过引导（不跳授权页）
+//    这是启动页「登录失败直接放行」判定的契约来源。
+auth.clearSession();
+guard.__resetForTest();
+const failFlag = await entry.ensureEntryLogin();
+assert.equal(failFlag.ok, false, '无 token 时 ok 必须为 false');
+assert.equal(failFlag.state.hasToken, false, '无 token 时 state.hasToken 必须为 false，供启动页判定跳过引导');
 console.log('入口静默登录、超时兜底与引导去重测试通过');
 

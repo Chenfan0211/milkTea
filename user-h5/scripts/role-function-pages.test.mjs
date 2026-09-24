@@ -307,6 +307,13 @@ assert.equal(
     launchJs.includes('withShare(') && launchJs.includes('entry.HOME_PATH'),
     'launch page must use withShare and fall back to home on failure'
   );
+  // 登录失败 / 超时时必须跳过引导直接放行：
+  // 连 token 都没有时跳授权页，用户绑完手机号后端仍判未登录，是无效引导。
+  assert.ok(
+    /loggedIn[^;]*result[^;]*ok[^;]*state\.hasToken/.test(launchJs) &&
+      /needPrompt[^;]*loggedIn/.test(launchJs),
+    'launch page must skip the entry prompt when the silent login failed'
+  );
 }
 
 // 授权页不得离线在构建：7 个原弹层使用页必须已完成迁移

@@ -26,8 +26,11 @@ Page(
       entry.ensureEntryLogin().then(result => {
         const state = result && result.state ? result.state : { level: 'anonymous' };
         const target = entry.resolveEntryTarget(options);
-        // 仅登录成功但未绑手机号时才引导；引导开关与去重由工具统一判断
-        const needPrompt = state.level !== 'full' && entry.shouldPromptEntry();
+        // 引导前置条件：登录必须真的成功。登录失败 / 超时说明连 token 都没拿到，
+        // 此时跳授权页只会让用户点完手机号仍然绑不上（后端仍判未登录），
+        // 因此直接放行到目标页，由页面各自的登录失败提示条兜底重试。
+        const loggedIn = Boolean(result && result.ok && state.hasToken);
+        const needPrompt = loggedIn && state.level !== 'full' && entry.shouldPromptEntry();
         if (!needPrompt) {
           this.goTarget(target);
           return;
@@ -54,3 +57,4 @@ Page(
     }
   })
 );
+
