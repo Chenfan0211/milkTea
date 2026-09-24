@@ -1,6 +1,7 @@
 const auth = require('./auth');
 const api = require('./api');
 const config = require('../config');
+const authState = require('./auth-state');
 
 /**
  * 统一登录/授权拦截器。
@@ -44,10 +45,9 @@ function ensureSilentLogin() {
   return silentLoginPromise;
 }
 
-/** 当前是否已绑定手机号 */
+/** 当前是否已绑定手机号（统一走 auth-state，避免多处判定不一致） */
 function hasPhone() {
-  const user = auth.getCachedUser();
-  return Boolean(user && user.phone);
+  return authState.getAuthState().hasPhone;
 }
 
 const AUTH_PAGE = '/pages/auth-login/auth-login';
@@ -151,6 +151,15 @@ function clearPendingAction() {
   pendingAction = null;
 }
 
+/**
+ * 测试用：清空进行中的静默登录单飞 Promise 与待执行动作。
+ * 生产代码不得调用；仅供 scripts/*.test.mjs 在用例之间复位模块态。
+ */
+function __resetForTest() {
+  silentLoginPromise = null;
+  pendingAction = null;
+}
+
 module.exports = {
   ensureSilentLogin,
   requireLogin,
@@ -159,5 +168,7 @@ module.exports = {
   openLoginSheet,
   flushPendingAction,
   clearPendingAction,
+  __resetForTest,
   toast
 };
+
