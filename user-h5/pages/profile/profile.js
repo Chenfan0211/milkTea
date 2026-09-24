@@ -1,10 +1,11 @@
 const { withShare } = require('../../utils/share');
-const { getUserProfile, maskPhone, saveUserProfile } = require('../../utils/user-profile');
+const { DEFAULT_AVATAR, getUserProfile, maskPhone, saveUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
 const { getPoints } = require('../../utils/points');
-const { buildLevelMeta } = require('../../utils/member-level');
+const { buildLevelMeta, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 const { getCurrentBusinessRole, getPendingRoles, getDashboard } = require('../../utils/roles');
 const loginGuard = require('../../utils/login-guard');
 const auth = require('../../utils/auth');
+const authState = require('../../utils/auth-state');
 const api = require('../../utils/api');
 
 const initialProfile = getUserProfile();
@@ -45,10 +46,14 @@ Page(
       vipLevel: initialMeta.currentName,
       nextLevel: initialMeta.nextName,
       progressCurrent: initialMeta.currentGrowth,
-      progressTarget: initialMeta.progressTarget
+      progressTarget: initialMeta.progressTarget,
+      // 未授权头像时的默认头像（避免空白）
+      defaultAvatar: DEFAULT_AVATAR
     },
     onLoad() {
       this.syncLevel();
+      // 会员等级来自接口：拉取后重建等级卡（否则等级名与进度条为空）
+      refreshMemberLevelsFromRemote().then(() => this.syncLevel());
     },
     onShow() {
       const points = getPoints();
@@ -75,16 +80,20 @@ Page(
         roleFunctions: buildRoleFunctions(businessRole && businessRole.id)
       });
       this.syncLevel();
+      refreshMemberLevelsFromRemote().then(() => this.syncLevel());
       if (this.getTabBar) this.getTabBar().setData({ selected: 4 });
 
-      // 登录态与远端资料（未登录时保持本地展示，不阻塞页面）
-      const loggedIn = auth.isLoggedIn();
+      // 登录态与远端资料（三态：未登录 / 已登录未绑手机号 / 可交易）
+      const state = authState.getAuthState();
       const cached = auth.getCachedUser() || {};
       this.setData({
-        loggedIn,
-        phoneMasked: cached.phone ? maskPhone(cached.phone) : ''
+        loggedIn: state.hasToken,
+        authStateLevel: state.level,
+        authLabel: state.label,
+        loginFailed: Boolean(app && app.globalData && app.globalData.loginFailed),
+        phoneMasked: state.phone ? maskPhone(state.phone) : ''
       });
-      if (loggedIn) {
+      if (state.hasToken) {
         api
           .fetchMe()
           .then(remote => {
@@ -92,10 +101,12 @@ Page(
             // 回写本地资料，供其他页面复用
             saveUserProfile({
               nickname: remote.nickName || userProfile.nickname,
-              avatar: remote.avatar || userProfile.avatar,
+              // 未授权头像时回落到默认头像，避免头像区空白
+              avatar: remote.avatar || userProfile.avatar || DEFAULT_AVATAR,
               phone: remote.phone || userProfile.phone,
               region: userProfile.region
             });
+            this.setData({ userProfile: getUserProfile() });
           })
           .catch(() => {});
         // 我的礼品卡：来自后端 /api/v1/app/gift-cards（当前用户名下的卡）
@@ -137,12 +148,45 @@ Page(
         .catch(() => null);
     },
 
+    // 头像加载失败（URL 失效 / 历史脏数据）：回落到默认头像，避免空白
+    handleAvatarError() {
+      if (this.data.userProfile && this.data.userProfile.avatar === DEFAULT_AVATAR) return;
+      const next = Object.assign({}, this.data.userProfile, { avatar: DEFAULT_AVATAR });
+      this.setData({ userProfile: next });
+    },
+
     /** 打开授权弹层（供 login-guard 调用） */
 
 
     /** 绑定手机号入口 */
     handleBindPhone() {
       loginGuard.requirePhone(null, { reason: '绑定手机号后可下单与领取优惠券' });
+    },
+    /** 静默登录失败后，用户点击提示条重试 */
+    handleRetryLogin() {
+      const app = getApp();
+      wx.showLoading({ title: '登录中', mask: true });
+      loginGuard
+        .ensureSilentLogin()
+        .then(() => refreshUserProfileFromRemote())
+        .then(() => {
+          wx.hideLoading();
+          if (app && app.globalData) {
+            app.globalData.loginFailed = false;
+            app.globalData.loginError = '';
+            if (typeof app.syncAuthState === 'function') app.syncAuthState();
+          }
+          wx.showToast({ title: '登录成功', icon: 'success' });
+          this.onShow();
+        })
+        .catch(error => {
+          wx.hideLoading();
+          if (app && app.globalData) {
+            app.globalData.loginFailed = true;
+            app.globalData.loginError = (error && error.message) || '登录失败';
+          }
+          wx.showToast({ title: '登录失败，请稍后重试', icon: 'none' });
+        });
     },
     syncLevel() {
       const meta = buildLevelMeta(getUserProfile());

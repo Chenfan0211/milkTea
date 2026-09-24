@@ -2,14 +2,26 @@
   <view class="profile-page">
     <image class="profile-hero" src="/assets/images/3x/profile-hero.jpg" mode="aspectFill" aria-label="五零时光新中式养生茶饮" />
 
+    <!-- 静默登录失败提示：非阻塞，可点击重试，避免用户「不知道登没登上」 -->
+    <view
+      wx:if="{{loginFailed}}"
+      class="profile-login-tip"
+      bindtap="handleRetryLogin"
+      aria-role="button"
+      aria-label="登录失败，点击重试"
+    >
+      <text class="profile-login-tip__text">登录失败，点击重试</text>
+    </view>
+
     <view class="profile-content">
       <view class="profile-card user-card">
         <view class="user-card__main">
-          <image class="user-card__avatar" src="{{userProfile.avatar}}" mode="aspectFill" bindtap="openProfileData" aria-role="button" aria-label="编辑个人资料" />
+          <image class="user-card__avatar" src="{{userProfile.avatar || defaultAvatar}}" mode="aspectFill" binderror="handleAvatarError" bindtap="openProfileData" aria-role="button" aria-label="编辑个人资料" />
           <view class="user-card__identity" bindtap="openProfileData" aria-role="button" aria-label="查看和编辑个人资料">
-            <text class="user-card__name">{{loggedIn ? userProfile.nickname : '点击登录'}}</text>
-            <text wx:if="{{loggedIn && phoneMasked}}" class="user-card__phone">{{phoneMasked}}</text>
-            <text wx:elif="{{loggedIn}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
+            <text class="user-card__name">{{authLabel === '未登录' ? '点击登录' : userProfile.nickname}}</text>
+            <text wx:if="{{authStateLevel === 'full' && phoneMasked}}" class="user-card__phone">{{phoneMasked}}</text>
+            <text wx:elif="{{authStateLevel === 'authorized'}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
+            <text wx:elif="{{authStateLevel === 'anonymous'}}" class="user-card__phone">登录后可下单与领券</text>
             <view class="user-card__badges">
               <text class="user-card__vip">{{userProfile.vipLevel}}</text>
               <text wx:if="{{businessRole}}" class="user-card__role-badge">{{businessRole.label}}</text>
@@ -24,6 +36,19 @@
           aria-role="button"
           aria-label="会员码"
         />
+      </view>
+
+      <!-- 已登录未绑手机号：常驻引导条，点击复用 handleBindPhone（不新增接口） -->
+      <view
+        wx:if="{{authStateLevel === 'authorized'}}"
+        class="bind-phone-bar"
+        bindtap="handleBindPhone"
+        aria-role="button"
+        aria-label="绑定手机号以便下单与领取优惠券"
+      >
+        <image class="bind-phone-bar__icon" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
+        <text class="bind-phone-bar__text">绑定手机号，下单与领券更顺畅</text>
+        <image class="bind-phone-bar__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
       </view>
 
       <view class="progress" bindtap="openMemberRights" aria-role="button" aria-label="查看会员权益">
@@ -127,5 +152,6 @@
   <view class="tabbar-safe-space"></view>
 </view>
 </scroll-view>
+
 
 

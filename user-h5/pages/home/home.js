@@ -1,6 +1,7 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { getUserProfile } = require('../../utils/user-profile');
+const loginGuard = require('../../utils/login-guard');
 
 Page(
   withShare({
@@ -23,6 +24,10 @@ Page(
         .fetchMe()
         .then(() => this.setData({ userProfile: getUserProfile() }))
         .catch(() => null);
+    },
+    /** 首页昵称位登录入口：引导登录（不阻塞浏览，授权后自动续跑） */
+    handleLoginTap() {
+      loginGuard.requireLogin(null, { reason: '登录后可同步会员权益与订单' });
     },
     openCoupons() {
       wx.navigateTo({ url: '/pages/coupon-list/coupon-list' });
@@ -53,6 +58,7 @@ Page(
     }
   })
 );
+
 
 
 

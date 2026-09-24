@@ -24,6 +24,38 @@
   background: transparent;
 }
 
+/* 已登录未绑手机号：常驻引导条 */
+.bind-phone-bar {
+  display: flex;
+  align-items: center;
+  margin: 16rpx 20rpx 0;
+  padding: 20rpx 24rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-md);
+}
+
+.bind-phone-bar__icon {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+}
+
+.bind-phone-bar__text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+.bind-phone-bar__arrow {
+  flex: none;
+  width: 24rpx;
+  height: 24rpx;
+  margin-left: 8rpx;
+}
+
 .profile-card {
   margin-right: 20rpx;
   margin-left: 20rpx;
@@ -354,4 +386,21 @@
 
 .user-card__phone--bind {
   color: var(--brand-green);
+}
+
+
+/* 静默登录失败提示条：非阻塞，点击可重试 */
+.profile-login-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 16rpx 20rpx 0;
+  padding: 12rpx 20rpx;
+  border-radius: var(--radius-pill);
+  background: var(--tag-hot-bg);
+}
+
+.profile-login-tip__text {
+  font-size: 24rpx;
+  color: var(--price-red);
 }

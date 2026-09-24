@@ -41,6 +41,11 @@
   background: var(--line-color);
 }
 
+/* 未登录时的昵称位登录入口（沿用正文色，点击进授权页） */
+.user-strip__login {
+  color: var(--brand-green);
+}
+
 .coupon-link {
   display: flex;
   align-items: center;
