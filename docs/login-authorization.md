@@ -148,3 +148,127 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 2. **接入腾讯云短信**：填入 5 项配置即可启用真实短信
 3. **头像上传**：当前直接存微信临时路径，后续需接对象存储
 4. **手机号「强制」范围**：已按 A 实现（关键操作强制），浏览类功能不受限
+
+
+---
+
+# 八、进入即登录（入口层，2026-09-24）
+
+> 需求：用户进入小程序就需要授权微信登录。
+> 决策：**引导式 + 全部入口**。
+
+## 8.1 合规边界（先理解再实现）
+
+微信小程序「授权登录」是两层完全不同的能力：
+
+| 层级 | 微信 API | 用户动作 | 能否强制 | 能拿到什么 |
+|------|---------|---------|---------|-----------|
+| A. 登录态 | `wx.login()` → `code` → 后端换 token | 无感，不需要点击 | ✅ 可以，不违规 | openid / unionid，能长期标识用户 |
+| B. 手机号 / 头像昵称 | `<button open-type="getPhoneNumber">`、`chooseAvatar` | 必须用户点击确认 | ❌ **不能** | 手机号、微信头像昵称 |
+
+两条硬约束：
+
+1. `getPhoneNumber` / `chooseAvatar` 必须由用户点击行为触发，无法在 `onLaunch` 里程序化调起；
+2. 小程序禁止在用户未使用服务前强制授权，强弹授权会被审核驳回甚至封禁「诱导授权」。
+
+**因此本方案：静默登录做到 100%（无感）；手机号做成「进店即引导、可跳过、只引导一次」——两者叠加即合规范围内能做到的最强效果。**
+
+## 8.2 架构：三层 + 入口层
+
+```
+冷启动入口（图标 / 扫码 / 分享卡片 / 朋友圈）
+        ↓  app.json: entryPagePath = pages/launch/launch
+┌─ 启动页 pages/launch（新增）────────────────────────┐
+│ ensureEntryLogin()   静默登录，1.5s 硬超时，失败也放行  │
+│ shouldPromptEntry()  会话内 + 12h 冷却 双重去重        │
+└──────────────────────────────────────────────────────┘
+        ↓ 需要引导                     ↓ 不需要 / 开关关闭
+  授权页 mode=entry                 reLaunch 目标页
+ （保留「暂不登录」）→ reLaunch 目标页
+```
+
+原有三层职责不变，入口层只在「启动编排」上加逻辑：
+
+| 层 | 模块 | 职责 |
+|----|------|------|
+| 入口层（新增） | `utils/entry-login.js` | 冷启动静默登录编排、引导去重、入口还原 |
+| 静默层 | `loginGuard.ensureSilentLogin()` | `wx.login` 换 token，并发去重 |
+| 登录层 | `loginGuard.requireLogin(action)` | 需 token 的操作 |
+| 手机号层 | `loginGuard.requirePhone(action)` | 交易类操作必须绑手机号 |
+
+## 8.3 为什么必须用 `entryPagePath`
+
+只靠「首页 onShow 引导」会漏掉**分享卡片 / 扫码 / 朋友圈直达内页**的入口（用户直接进商品页，不经过首页）。`entryPagePath` 能让**所有冷启动**统一先进启动页，是唯一能覆盖全部入口的做法。
+
+## 8.4 引导去重规则
+
+| 规则 | 值 | 说明 |
+|------|----|------|
+| 会话内 | 只引导一次 | `promptedThisSession` 内存标记 |
+| 冷却期 | 12 小时 | `milkTea:auth:entry-prompted-at` 时间戳 |
+| 总开关 | `setPromptEnabled(false)` | 可一键关闭引导（合规兜底） |
+| 触发条件 | `state.level !== 'full'` | 已绑手机号不打扰 |
+
+## 8.5 安全：入口还原白名单
+
+启动页带 `from` / `query` 还原目标页，只认白名单，其余（含未识别 scene）一律回首页，且只透传白名单参数，防止被构造参数跳到任意页面：
+
+```js
+const ENTRY_TARGET_WHITELIST = {
+  'pages/coupon-stores/coupon-stores': ['couponId'],
+  'pages/coupon-products/coupon-products': ['couponId', 'storeId'],
+  'pages/points-exchange/points-exchange': ['id'],
+  'pages/gift-card-purchase/gift-card-purchase': ['id']
+};
+```
+
+## 8.6 放行兜底（绝不卡启动页）
+
+- `ensureEntryLogin()` **永不 reject**，1.5s 硬超时后返回 `{ ok: false, timedOut: true }`；
+- 启动页 `reLaunch` 失败时 `fail` 回调回落首页；
+- 引导页跳转失败同样回落目标页。
+
+## 8.7 改动文件
+
+**新增**
+
+- `user-h5/utils/entry-login.js`（入口层编排）
+- `user-h5/pages/launch/*`（启动页四件套）
+- `user-h5/scripts/entry-login.test.mjs`（7 组用例）
+
+**修改**
+
+- `user-h5/app.json`（`entryPagePath` + 注册启动页）
+- `user-h5/app.js`（`onLaunch` 改用 `ensureEntryLogin()`）
+- `user-h5/pages/auth-login/*`（`mode=entry` 引导态）
+- `user-h5/pages/profile/*`（未绑手机号常驻引导条）
+- `user-h5/pages/home/*`（昵称位登录入口）
+- `user-h5/utils/login-guard.js`（`__resetForTest` 测试钩子）
+- `user-h5/utils/share.js`（启动页登记私密页）
+- `user-h5/scripts/check-project.mjs`（`expectedPages` 补启动页）
+
+## 8.8 验证
+
+```powershell
+cd user-h5
+node scripts/entry-login.test.mjs
+node scripts/role-function-pages.test.mjs
+node scripts/profile-data-page.test.mjs
+npm run check          # 51 个页面、5 个 Tab
+npm run test:acceptance
+```
+
+## 8.9 回滚
+
+删除 `user-h5/app.json` 的 `entryPagePath` 字段即可立即退回「无启动页」行为；其余新增文件不生效、无副作用。
+
+## 8.10 明确不做的事
+
+- ❌ 不做「不绑手机号不能用」（审核风险）；
+- ❌ 不在 `app.js` / 页面中程序化调 `getPhoneNumber`（技术上不可能，且违规）；
+- ❌ 不改后端接口、不动 `security-common` 鉴权范围。
+
+## 8.11 待办（依赖外部条件）
+
+1. **真机验证**：`getPhoneNumber` 需企业主体 + 已备案域名，开发者工具中行为受限；
+2. **引导转化埋点**：接入数据上报后可评估进店引导对绑手机号转化率的实际提升。

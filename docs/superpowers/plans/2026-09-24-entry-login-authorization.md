@@ -95,7 +95,7 @@
   - `ensureEntryLogin({ timeout })` → `Promise<{ ok, state, timedOut, error? }>`，**永不 reject**
   - `resolveEntryTarget(options?)` → string 完整路径（含 query）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `user-h5/scripts/entry-login.test.mjs`：
 
@@ -234,7 +234,7 @@ cd user-h5; node scripts/entry-login.test.mjs
 ```
 Expected: FAIL — `Cannot find module 'utils/entry-login.js'`
 
-- [ ] **Step 2: 实现 `utils/entry-login.js`**
+- [x] **Step 2: 实现 `utils/entry-login.js`**
 
 ```js
 const guard = require('./login-guard');
@@ -397,14 +397,14 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 3: 运行测试确认通过**
+- [x] **Step 3: 运行测试确认通过**
 
 ```powershell
 cd user-h5; node scripts/entry-login.test.mjs
 ```
 Expected: PASS — `入口静默登录、超时兜底与引导去重测试通过`
 
-- [ ] **Step 4: 接入 `npm run check`**
+- [x] **Step 4: 接入 `npm run check`**
 
 `user-h5/package.json` 的 `check` 链在 `check-project.mjs` 之前插入：
 
@@ -418,7 +418,7 @@ Expected: PASS — `入口静默登录、超时兜底与引导去重测试通过
 "test:entry": "node scripts/entry-login.test.mjs"
 ```
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add user-h5/utils/entry-login.js user-h5/scripts/entry-login.test.mjs user-h5/package.json
@@ -437,7 +437,7 @@ git commit -m "feat(user-h5): 新增入口静默登录与引导去重工具"
 - Consumes: Task 1 的 `ensureEntryLogin()`、`shouldPromptEntry()`、`resolveEntryTarget()`。
 - Produces: 路由 `pages/launch/launch`，query 形如 `?from=<encodeURIComponent(route)>&query=<encodeURIComponent(k=v&k2=v2)>`。
 
-- [ ] **Step 1: 注册页面与入口页**
+- [x] **Step 1: 注册页面与入口页**
 
 `user-h5/app.json`：`pages` 数组**首位**插入 `"pages/launch/launch"`（原首页保持第二个），并在 `window` 同级新增：
 
@@ -447,7 +447,7 @@ git commit -m "feat(user-h5): 新增入口静默登录与引导去重工具"
 
 `user-h5/scripts/check-project.mjs` 的 `expectedPages` 首位同步插入 `'pages/launch/launch'`。
 
-- [ ] **Step 2: 写启动页四件套**
+- [x] **Step 2: 写启动页四件套**
 
 `pages/launch/launch.json`：
 
@@ -605,18 +605,18 @@ Page(
 }
 ```
 
-- [ ] **Step 3: 启动页列入私密页**
+- [x] **Step 3: 启动页列入私密页**
 
 `user-h5/utils/share.js` 的 `PRIVATE_PAGES` 加入 `'pages/launch/launch'`（启动页不可分享、不可被朋友圈直达）。
 
-- [ ] **Step 4: 运行结构校验**
+- [x] **Step 4: 运行结构校验**
 
 ```powershell
 cd user-h5; node scripts/check-project.mjs
 ```
 Expected: PASS — `项目结构校验通过: 51 个页面、5 个 Tab`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add user-h5/pages/launch user-h5/app.json user-h5/utils/share.js user-h5/scripts/check-project.mjs
@@ -634,7 +634,7 @@ git commit -m "feat(user-h5): 新增启动页统一冷启动登录入口"
 - Consumes: Task 1 的 `ensureEntryLogin()`。
 - Produces: `globalData.loginFailed / loginError` 语义不变（`profile` 页依赖）。
 
-- [ ] **Step 1: 替换 onLaunch 的静默登录段**
+- [x] **Step 1: 替换 onLaunch 的静默登录段**
 
 将 `app.js` 中 `loginGuard.ensureSilentLogin().then(...).then(...).catch(...)` 整段替换为：
 
@@ -663,14 +663,14 @@ const entryLogin = require('./utils/entry-login');
 
 同时删除仅服务于旧写法的 `loginGuard` 引入（若无其他引用）。
 
-- [ ] **Step 2: 语法与结构校验**
+- [x] **Step 2: 语法与结构校验**
 
 ```powershell
 cd user-h5; node --check app.js; node scripts/check-project.mjs; node scripts/entry-login.test.mjs
 ```
 Expected: 三条命令均无输出/通过
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add user-h5/app.js
@@ -689,7 +689,7 @@ git commit -m "refactor(user-h5): 入口静默登录改由 entry-login 统一编
 - Consumes: 启动页传入的 `mode=entry&target=<encoded>&from=<encoded>&query=<encoded>`。
 - Produces: 授权成功后 `reLaunch` 到 `target`（而非 `navigateBack`），保证页面栈干净。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `scripts/role-function-pages.test.mjs` 的授权页断言段（`authJs.includes('guard.flushPendingAction()')` 之后）追加：
 
@@ -742,7 +742,7 @@ cd user-h5; node scripts/role-function-pages.test.mjs
 ```
 Expected: FAIL — `auth page must detect entry mode`
 
-- [ ] **Step 2: 实现引导态**
+- [x] **Step 2: 实现引导态**
 
 `auth-login.js` 的 `data` 增加：
 
@@ -828,14 +828,14 @@ Expected: FAIL — `auth page must detect entry mode`
         <image class="auth-reason__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
 ```
 
-- [ ] **Step 3: 运行测试确认通过**
+- [x] **Step 3: 运行测试确认通过**
 
 ```powershell
 cd user-h5; node scripts/role-function-pages.test.mjs; node scripts/profile-data-page.test.mjs
 ```
 Expected: 两条均 PASS（后者校验 `navigateBack + complete + flushPendingAction` 契约仍存在）
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add user-h5/pages/auth-login user-h5/scripts/role-function-pages.test.mjs
@@ -854,7 +854,7 @@ git commit -m "feat(user-h5): 授权页支持进入即登录的引导态"
 - Consumes: 现有 `handleBindPhone()`（`loginGuard.requirePhone`）、`authStateLevel`。
 - Produces: 无新接口。
 
-- [ ] **Step 1: 我的页引导条**
+- [x] **Step 1: 我的页引导条**
 
 `profile.wxml` 在 `profile-content` 内 `user-card` 之后插入：
 
@@ -907,7 +907,7 @@ git commit -m "feat(user-h5): 授权页支持进入即登录的引导态"
 }
 ```
 
-- [ ] **Step 2: 首页昵称位登录引导**
+- [x] **Step 2: 首页昵称位登录引导**
 
 `home.wxml` 的 `user-strip` 内 `<text>{{userProfile.nickname}}</text>` 改为：
 
@@ -933,14 +933,14 @@ git commit -m "feat(user-h5): 授权页支持进入即登录的引导态"
 
 并在 `home.js` 顶部 require `loginGuard`。`home.wxss` 追加 `.user-strip__login { color: var(--brand-green); }`。
 
-- [ ] **Step 3: 校验**
+- [x] **Step 3: 校验**
 
 ```powershell
 cd user-h5; node scripts/check-project.mjs; node scripts/acceptance-check.test.mjs
 ```
 Expected: 均通过
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add user-h5/pages/profile user-h5/pages/home
@@ -954,18 +954,18 @@ git commit -m "feat(user-h5): 我的页与首页补充绑手机号引导入口"
 **Files:**
 - Modify: `docs/login-authorization.md`
 
-- [ ] **Step 1: 全量校验**
+- [x] **Step 1: 全量校验**
 
 ```powershell
 cd user-h5; npm run check; npm run test:acceptance
 ```
 Expected: `npm run check` 全部脚本通过（含新增 `entry-login.test.mjs`），`项目结构校验通过: 51 个页面、5 个 Tab`；`test:acceptance` 输出 `高清首页、点单页与素材验收测试通过`
 
-- [ ] **Step 2: 文档补充**
+- [x] **Step 2: 文档补充**
 
 `docs/login-authorization.md` 追加「八、进入即登录（入口层）」章节，写明：三层 + 入口层的职责边界、`entryPagePath` 收口原理、引导去重规则（会话 + 12h 冷却）、合规说明（静默登录可强制、手机号只能引导）、验证命令。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add user-h5 docs/login-authorization.md
@@ -1019,6 +1019,7 @@ npm run test:acceptance
 - ❌ 不在 `app.js` / 页面中程序化调 `getPhoneNumber`（技术上不可能，且违规）；
 - ❌ 不改后端接口、不动 `security-common` 鉴权范围（当前已满足）；
 - ❌ 不引入第三方 UI 库、不写死色值、不新增非 Lucide 图标。
+
 
 
 
