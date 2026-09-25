@@ -1279,18 +1279,22 @@ assert.deepEqual(
   ],
   '首页快捷入口必须为会员领券、储值有礼、时光币商城和客服入口'
 );
-const classicTab = menuTabs.find(tab => tab.id === 'classic');
-assert.equal(classicTab.groups.length, 2, '经典菜单必须包含两个分组');
-assert.deepEqual(
-  classicTab.groups.map(group => group.label),
-  ['店长推荐', '原叶臻选'],
-  '经典菜单分组标题必须与设计稿一致'
-);
-const classicHerbal = classicTab.groups[0].categories[0];
-const classicTraditional = classicTab.groups[1].categories[0];
-assert.equal(classicHerbal.id, 'herbal', '第一个真实分类必须是草本养生茶');
-assert.equal(classicTraditional.id, 'traditional', '第二个真实分类必须是传统原叶茶');
-assert.equal(classicHerbal.products.length, 8, '店长推荐商品必须并入草本养生茶');
+// 分类层级已拍平为单层（V38）：菜单结构 = 1 个 tab -> 1 个 group -> 分类列表。
+const menuTab = menuTabs[0];
+assert.equal(menuTab.id, 'menu', '拍平后菜单必须为单一 tab');
+assert.equal(menuTab.groups.length, 1, '拍平后菜单必须只含一个分组容器');
+assert.equal(menuTab.groups[0].label, '全部', '拍平后分组容器标签必须为「全部」');
+const categories = menuTab.groups[0].categories;
+assert.equal(categories.length, 3, '拍平后必须保留全部 3 个真实分类');
+const classicHerbal = categories.find(c => c.id === 'herbal');
+const classicTraditional = categories.find(c => c.id === 'traditional');
+const featuredSeason = categories.find(c => c.id === 'featured-season');
+assert.ok(classicHerbal, '必须保留草本养生茶分类');
+assert.ok(classicTraditional, '必须保留传统原叶茶分类');
+assert.ok(featuredSeason, '必须保留季节限定分类');
+assert.equal(classicHerbal.products.length, 8, '草本养生茶必须包含 8 个商品');
+assert.equal(classicTraditional.products.length, 5, '传统原叶茶必须包含 5 个商品');
+assert.equal(featuredSeason.products.length, 5, '季节限定必须包含 5 个商品');
 const expectedClassicHerbalProducts = [
   { id: 'classic-001', name: '五窨茉莉抹茶', price: 13.9, originalPrice: 16 },
   { id: 'classic-002', name: '金桂轻乳茶', price: 13.9, originalPrice: 16 },
@@ -1304,21 +1308,17 @@ const expectedClassicHerbalProducts = [
 assert.deepEqual(
   classicHerbal.products.map(({ id, name, price, originalPrice }) => ({ id, name, price, originalPrice })),
   expectedClassicHerbalProducts,
-  '经典菜单第一个分类必须保留分组商品和原分类商品'
+  '草本养生茶必须保留原分组商品'
 );
-const expectedClassicTraditionalProducts = ['leaf-001', 'leaf-002', 'leaf-003', 'traditional-001', 'traditional-002'];
 assert.deepEqual(
   classicTraditional.products.map(product => product.id),
-  expectedClassicTraditionalProducts,
-  '原叶臻选商品必须并入传统原叶茶'
+  ['leaf-001', 'leaf-002', 'leaf-003', 'traditional-001', 'traditional-002'],
+  '传统原叶茶必须保留原分组商品'
 );
-const featuredTab = menuTabs.find(tab => tab.id === 'featured');
-assert.equal(featuredTab.groups.length, 1, '招牌主打必须包含招牌热销分组');
-assert.equal(featuredTab.groups[0].categories[0].id, 'featured-season', '季节限定必须是招牌主打下的真实分类');
 assert.deepEqual(
-  featuredTab.groups[0].categories[0].products.map(product => product.id),
+  featuredSeason.products.map(product => product.id),
   ['featured-001', 'featured-002', 'featured-003', 'season-001', 'season-002'],
-  '招牌热销商品必须并入季节限定'
+  '季节限定必须保留原分组商品'
 );
 for (const product of classicHerbal.products) {
   const expectedTags = product.id === 'classic-005' ? ['年度热销', '红苹果乌龙'] : ['年度热销', '五窨茉莉花茶'];
@@ -1336,36 +1336,35 @@ assert.ok(menuWxml.includes('/assets/icons/lucide/map-pin.svg'), '门店距离�
 assert.ok(!menuWxml.includes('product-section__title'), '商品区不得显示设计稿外的分类标题');
 assert.ok(menuWxml.includes('count="{{cartCount}}" total="{{cartTotal}}"'), '购物车条必须使用动态数量和金额');
 assert.ok(
-  menuWxml.includes('wx:for="{{activeMenu.groups}}"') && menuWxml.includes('wx:for="{{group.categories}}"'),
-  '左侧栏必须按分组和真实分类嵌套渲染'
+  menuWxml.includes('wx:for="{{activeMenu.groups[0].categories}}"'),
+  '左侧栏必须直接渲染单层分类列表'
 );
 assert.ok(
-  menuWxml.includes('class="category-group {{selectedGroupId === group.id'),
-  '当前分类所属分组必须绑定白色激活状态'
-);
-const categoryGroupTag = menuWxml.slice(
-  menuWxml.indexOf('class="category-group'),
-  menuWxml.indexOf('>', menuWxml.indexOf('class="category-group'))
+  menuWxml.includes('class="category-item {{selectedCategoryId === category.id'),
+  '分类项必须绑定选中状态'
 );
 assert.ok(
-  !categoryGroupTag.includes('bindtap') &&
-    menuWxml.includes('class="category-item {{selectedCategoryId === category.id'),
-  '分组标题不得绑定点击，只有真实分类可以选中'
+  menuWxml.includes('category-item__tag') && menuWxml.includes('{{category.tag}}'),
+  '分类项必须渲染左上角标签角标'
 );
 assert.ok(
   (menuWxml.match(/show-scrollbar="\{\{false\}\}"/g) || []).length >= 2,
   '分类栏、商品区和门店列表必须隐藏滚动条'
 );
+// 顶部页签已移除：首次渲染用空 scrollIntoView 停在广告区顶部，
+// 不再存在「切换菜单回到顶部」的场景，故只校验初始态。
 assert.ok(
   menuJs.includes("scrollIntoView: ''") &&
-    menuJs.includes("scrollIntoView: 'product-top'") &&
     menuWxml.includes('id="product-top"') &&
     !menuJs.includes('scrollIntoView: `category-${activeMenu.categories[0].id}`'),
-  '点单页初始和切换菜单时必须从广告区顶部开始'
+  '点单页必须从广告区顶部开始（不得自动滚动到首个分类）'
 );
-const activeTabRule = menuWxss.match(/\.menu-tabs__item\.is-active::after\s*\{([\s\S]*?)\}/)?.[1] || '';
-assert.ok(activeTabRule.includes('width: 38rpx'), '当前页签下划线必须约 38rpx 宽');
-assert.ok(activeTabRule.includes('left: 50%') && activeTabRule.includes('translateX(-50%)'), '当前页签下划线必须居中');
+// 顶部页签（经典菜单 / 招牌主打）已按产品要求彻底移除：
+// 其余 TAB 的分组由 getMergedMenuTab 并入首个 TAB，同级展示。
+assert.ok(
+  !menuWxml.includes('menu-tabs') && !menuWxss.includes('.menu-tabs') && !menuJs.includes('selectMenuTab'),
+  '点单页不得保留顶部菜单页签的任意残留（结构/样式/事件）'
+);
 assert.ok(
   /\.category-scroll[\s\S]*?width:\s*182rpx[\s\S]*?background:\s*var\(--page-bg-neutral\)/.test(menuWxss),
   '分类栏必须使用统一浅灰背景'
@@ -1375,22 +1374,8 @@ assert.ok(
   '当前分类行必须使用白色选中背景'
 );
 assert.ok(
-  /\.category-group\.is-active\s*\{[\s\S]*?background:\s*#FFFFFF/.test(menuWxss),
-  '当前分类所属分组必须使用白色背景'
-);
-const categoryGroupRule = menuWxss.match(/\.category-group\s*\{([\s\S]*?)\}/)?.[1] || '';
-const categoryGroupLabelRule = menuWxss.match(/\.category-group__label\s*\{([\s\S]*?)\}/)?.[1] || '';
-assert.ok(
-  categoryGroupRule.includes('display: flex') && categoryGroupRule.includes('flex-direction: column'),
-  '分组容器必须使用纵向 flex 防止标签留白折叠'
-);
-assert.ok(
-  categoryGroupLabelRule.includes('width: 90rpx') &&
-    categoryGroupLabelRule.includes('height: 30rpx') &&
-    categoryGroupLabelRule.includes('margin: 14rpx 0 15rpx') &&
-    categoryGroupLabelRule.includes('padding: 0 9rpx') &&
-    categoryGroupLabelRule.includes('font-size: 18rpx'),
-  '分组绿色标签必须按设计稿使用 90x30rpx 和 18rpx 字号'
+  /\.category-item__tag\s*\{[\s\S]*?background:\s*var\(--brand-green\)/.test(menuWxss),
+  '分类左上角标签必须使用品牌绿背景'
 );
 const productScrollRule = menuWxss.match(/\.product-scroll\s*\{([\s\S]*?)\}/)?.[1] || '';
 assert.ok(

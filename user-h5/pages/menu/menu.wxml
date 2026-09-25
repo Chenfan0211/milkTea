@@ -36,41 +36,21 @@
     </view>
   </view>
 
-  <view class="menu-tabs">
-    <view
-      wx:for="{{menuTabs}}"
-      wx:key="id"
-      class="menu-tabs__item {{activeMenuIndex === index ? 'is-active' : ''}}"
-      data-index="{{index}}"
-      aria-role="button"
-      aria-label="{{item.label}}"
-      bindtap="selectMenuTab"
-    >
-      <text>{{item.label}}</text>
-    </view>
-  </view>
-
   <view class="menu-content">
     <scroll-view class="category-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view
-        wx:for="{{activeMenu.groups}}"
-        wx:for-item="group"
+        wx:if="{{activeMenu.groups.length}}"
+        wx:for="{{activeMenu.groups[0].categories}}"
+        wx:for-item="category"
         wx:key="id"
-        class="category-group {{selectedGroupId === group.id ? 'is-active' : ''}}"
+        class="category-item {{selectedCategoryId === category.id ? 'is-active' : ''}}"
+        data-id="{{category.id}}"
+        aria-role="button"
+        aria-label="{{category.label}}"
+        bindtap="selectCategory"
       >
-        <view class="category-group__label">{{group.label}}</view>
-        <view
-          wx:for="{{group.categories}}"
-          wx:for-item="category"
-          wx:key="id"
-          class="category-item {{selectedCategoryId === category.id ? 'is-active' : ''}}"
-          data-id="{{category.id}}"
-          aria-role="button"
-          aria-label="{{category.label}}"
-          bindtap="selectCategory"
-        >
-          <text class="category-item__label">{{category.label}}</text>
-        </view>
+        <view wx:if="{{category.tag}}" class="category-item__tag">{{category.tag}}</view>
+        <text class="category-item__label">{{category.label}}</text>
       </view>
     </scroll-view>
 
@@ -194,3 +174,4 @@
     </view>
   </scroll-view>
 </view>
+

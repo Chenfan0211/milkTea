@@ -159,25 +159,30 @@ export function loadMenu() {
     }));
   }
 
-  return cats
-    .filter(c => c.type === 'TAB')
-    .map(tab => ({
-      id: tab.code,
-      label: tab.name,
-      groups: cats
-        .filter(g => g.type === 'GROUP' && g.parentId === tab.id)
-        .map(g => ({
-          id: g.code,
-          label: g.name,
-          categories: cats
-            .filter(c => c.type === 'CATEGORY' && c.parentId === g.id)
-            .map(c => ({
-              id: c.code,
-              label: c.name,
-              products: prods.filter(p => p.categoryId === c.id)
-            }))
-        }))
+  // 分类层级已拍平为单层（V38）：seed 中 TAB/GROUP 仅作历史存在，
+  // 运行时菜单结构 = 1 个 tab -> 1 个 group -> 分类列表（对齐 getMenu() 单层实现）。
+  const categoryList = cats
+    .filter(c => c.type === 'CATEGORY')
+    .map(c => ({
+      id: c.code,
+      label: c.name,
+      tag: c.tag,
+      products: prods.filter(p => p.categoryId === c.id)
     }));
+
+  return [
+    {
+      id: 'menu',
+      label: '菜单',
+      groups: [
+        {
+          id: 'all',
+          label: '全部',
+          categories: categoryList
+        }
+      ]
+    }
+  ];
 }
 
 /**
@@ -233,3 +238,4 @@ export function loadMemberLevels() {
     sort: Number(m[6])
   }));
 }
+
