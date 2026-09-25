@@ -174,6 +174,18 @@ public class RemoteProductQueryAdapter implements ProductQueryPort {
                                                  @Value("${app.internal.user-base:http://wuling-user-service}") String base) {
             return build(internalRestClientBuilder, base);
         }
+        /**
+         * 营销域内部客户端（wuling-marketing-service）。
+         *
+         * <p>储值订单查询/入账走 marketing-service 的 {@code /internal/stored-value-orders/**}，
+         * 涉及资金，由 {@link com.wuling.trade.pay.storedvalue.RemoteStoredValueOrderAdapter} 使用。
+         */
+        @Bean
+        public RestClient marketingInternalRestClient(RestClient.Builder internalRestClientBuilder,
+                                                      @Value("${app.internal.marketing-base:http://wuling-marketing-service}") String base) {
+            return build(internalRestClientBuilder, base);
+        }
+
 
         /**
          * 统一超时：内网调用，超时设置得较短，避免拖慢下单主链路。
