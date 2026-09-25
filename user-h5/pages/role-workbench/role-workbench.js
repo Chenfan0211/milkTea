@@ -1,5 +1,5 @@
 const { withShare } = require('../../utils/share');
-const { getActiveRoles, getDashboard, getRoleMeta } = require('../../utils/roles');
+const { getActiveRoles, getDashboard, warmUpRoleData } = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 
@@ -27,6 +27,11 @@ Page(
       const validAction = dashboard.actions.some(item => item.id === action) ? action : '';
       this.setData({ ready: true, role, dashboard, title: dashboard.title, highlightActionId: validAction }, () => {
         if (validAction) this.focusAction(validAction);
+      });
+      // 概览 / 核销 / 订单等数据全部来自后端；失败时保留上面的兜底渲染
+      warmUpRoleData(role.id).then(() => {
+        const next = getDashboard(role.id);
+        if (next) this.setData({ dashboard: next, title: next.title });
       });
     },
     focusAction(actionId) {

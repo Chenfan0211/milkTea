@@ -22,11 +22,23 @@ import java.time.LocalDateTime;
 @TableName("payment")
 public class Payment {
 
+    /** 业务类型：点单订单支付（默认，兼容历史数据） */
+    public static final String BIZ_ORDER = "ORDER";
+
+    /** 业务类型：储值充值 */
+    public static final String BIZ_STORED_VALUE = "STORED_VALUE";
+
     @TableId(type = IdType.AUTO)
     private Long id;
     private String paymentNo;
     private Long orderId;
     private String orderNo;
+
+    /** 业务类型：ORDER 订单支付 / STORED_VALUE 储值充值（第 15 期新增） */
+    private String bizType;
+
+    /** 业务单号：储值场景为 CZ 储值单号；订单场景同 orderNo（第 15 期新增） */
+    private String bizNo;
     private Long amount;
     private String channel;
     private String thirdStatus;

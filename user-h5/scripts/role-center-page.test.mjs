@@ -60,13 +60,14 @@ const {
   getActiveRoles,
   getCurrentBusinessRole,
   getDashboard,
+  getIncomeData,
   getPendingRoles,
   getRoleDefinitions,
   getRoleState,
   getRoleStatus,
+  getVerifyData,
   hasRole,
   isRoleActive,
-  mockSwitchRole,
   resetRole,
   switchRole,
   switchToConsumer
@@ -122,16 +123,32 @@ resetRole('store');
 assert.equal(hasRole('store'), false, 'resetRole must remove the specified role');
 assert.equal(getCurrentBusinessRole().id, 'resource', 'current role must be preserved when other role is reset');
 
-// 模拟切换：任意角色立即 active 并成为当前角色，绕过审核
+// 假数据清理后：不得再有「绕过审核直接开通角色」的演示后门。
+// 角色开通只能来自后端 /roles/mine 或审核通过，前端只做视角切换。
 resetRole();
-assert.equal(mockSwitchRole('investor').id, 'investor', 'mockSwitchRole must activate any role');
-assert.equal(getCurrentBusinessRole().id, 'investor', 'mockSwitchRole must set current role');
-assert.equal(getActiveRoles().length, 1, 'mockSwitchRole must create an active role');
+assert.equal(
+  typeof mockSwitchRole,
+  'undefined',
+  'mockSwitchRole must be removed (it bypassed role review)'
+);
+assert.equal(
+  switchRole('investor'),
+  null,
+  'cannot switch to a role that was never activated'
+);
+assert.equal(getActiveRoles().length, 0, 'no role may be activated without review');
 
-// 再次模拟切换到另一角色，不丢失前一个角色
-mockSwitchRole('resource');
-assert.equal(getCurrentBusinessRole().id, 'resource', 'can mock switch to another role');
-assert.equal(getActiveRoles().length, 2, 'mock switching preserves previously active roles');
+// 正常路径：先提交申请（pending），审核通过后才可切换
+applyRole('investor');
+assert.equal(switchRole('investor'), null, 'pending role must not be switchable');
+activateRole('investor');
+assert.equal(switchRole('investor').id, 'investor', 'can switch to an activated role');
+assert.equal(getCurrentBusinessRole().id, 'investor', 'current role must update after switch');
+
+applyRole('resource');
+activateRole('resource');
+assert.equal(switchRole('resource').id, 'resource', 'can switch to another activated role');
+assert.equal(getActiveRoles().length, 2, 'switching preserves previously active roles');
 
 // 切回消费端：清空 currentRoleId，但保留已开通角色
 switchToConsumer();
@@ -141,7 +158,7 @@ assert.equal(getActiveRoles().length, 2, 'consumer switch must preserve active r
 // 重置环境
 resetRole();
 
-// 三种角色工作台数据
+// 三种角色工作台：结构来自本地 UI 元信息，指标来自后端（无缓存时为 0 而非假数字）
 for (const id of ['store', 'investor', 'resource']) {
   const dashboard = getDashboard(id);
   assert.ok(dashboard && dashboard.title, `${id} dashboard must exist`);
@@ -153,7 +170,20 @@ for (const id of ['store', 'investor', 'resource']) {
   assert.ok(dashboard.withdrawable, `${id} must expose withdrawable balance`);
   assert.ok(dashboard.withdrawRule && dashboard.withdrawRule.instantLimit, `${id} must expose withdraw rules`);
   assert.ok(dashboard.settlementNotes.length >= 3, `${id} must expose settlement notes`);
+  // 无后端缓存时不得出现历史 mock 金额（原门店「¥328.60 / 42 单」等）
+  assert.equal(dashboard._remote, false, `${id} must not claim remote data before fetch`);
+  const values = dashboard.metrics.map(m => m.value).join(',');
+  assert.ok(!values.includes('328.60'), `${id} must not render mock income figures`);
+  assert.ok(!values.includes('1,206.00'), `${id} must not render mock balance figures`);
 }
+
+// 收益 / 提现 / 核销在未同步前不得返回假数据
+assert.equal(getIncomeData('store'), null, 'income must be null before remote sync');
+assert.deepEqual(
+  getVerifyData('store'),
+  { pool: [], records: [] },
+  'verify data must be empty before remote sync'
+);
 
 // 分享配置：角色页必须私密且具备标题
 const { getShareTitle, isPrivatePage, PAGE_SHARE_TITLES } = require(path.join(root, 'utils/share.js'));
@@ -200,7 +230,10 @@ assert.ok(workbenchWxml2.includes('is-highlight'), 'workbench action rows must s
 const roleCenterJs = fs.readFileSync(path.join(root, 'pages/role-center/role-center.js'), 'utf8');
 const roleCenterWxml = fs.readFileSync(path.join(root, 'pages/role-center/role-center.wxml'), 'utf8');
 assert.ok(roleCenterJs.includes('switchRole'), 'role center must switch roles');
-assert.ok(roleCenterJs.includes('mockSwitchRole'), 'role center must use mockSwitchRole');
+assert.ok(
+  !roleCenterJs.includes('mockSwitchRole'),
+  'role center must not bypass role review via mockSwitchRole'
+);
 assert.ok(roleCenterJs.includes('switchToConsumer'), 'role center must support consumer switch');
 assert.ok(roleCenterWxml.includes('模拟角色切换'), 'role center title must be 模拟角色切换');
 assert.ok(roleCenterWxml.includes('消费端'), 'role center must include consumer option');

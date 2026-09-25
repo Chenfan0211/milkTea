@@ -130,5 +130,46 @@ guard.__resetForTest();
 const failFlag = await entry.ensureEntryLogin();
 assert.equal(failFlag.ok, false, '无 token 时 ok 必须为 false');
 assert.equal(failFlag.state.hasToken, false, '无 token 时 state.hasToken 必须为 false，供启动页判定跳过引导');
+// 9. 未注册态：wx-login 返回 registerToken（无 token）时，不得建立登录态，
+//    必须标记 needsRegister，且不得请求 /me（避免 401 触发登录提示弹窗）。
+auth.clearSession();
+auth.clearRegisterContext();
+auth.__resetForTest();
+guard.__resetForTest();
+// 恢复 wx.login（上一组超时用例把 wx.login 换成了永不回调的桩）
+wx.login = ({ success }) => success({ code: 'code-register' });
+let meCalled = false;
+const origRequest = wx.request;
+wx.request = ({ url, success }) => {
+  if (url.indexOf('/auth/wx-login') >= 0) {
+    success({
+      data: {
+        code: 0,
+        data: { registered: false, registerToken: 'reg-token-1', openId: 'openid-new' },
+        message: 'ok'
+      }
+    });
+    return;
+  }
+  if (url.indexOf('/auth/me') >= 0) {
+    meCalled = true;
+    success({ data: { code: 8888, message: '未登录' } });
+    return;
+  }
+  success({ data: { code: 0, data: {}, message: 'ok' } });
+};
+const registerResult = await entry.ensureEntryLogin();
+assert.equal(registerResult.ok, true, '未注册态 ok 必须为 true');
+assert.equal(registerResult.needsRegister, true, '未注册态必须标记 needsRegister');
+assert.equal(registerResult.state.hasToken, false, '未注册态不得建立登录态');
+assert.equal(auth.isLoggedIn(), false, '未注册态不得写入 token');
+assert.ok(
+  auth.getRegisterContext() && auth.getRegisterContext().registerToken,
+  '未注册态必须保留一次性注册凭证'
+);
+assert.equal(meCalled, false, '未注册态不得请求 /me');
+wx.request = origRequest;
+console.log('未注册态（registerToken）分支测试通过');
+
 console.log('入口静默登录、超时兜底与引导去重测试通过');
 

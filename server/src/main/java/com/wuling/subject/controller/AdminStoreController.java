@@ -5,6 +5,10 @@ import com.wuling.common.api.Result;
 import com.wuling.subject.dto.AdminStoreDTO;
 import com.wuling.subject.service.StoreService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,7 +26,19 @@ public class AdminStoreController {
     @GetMapping("/stores")
     public Result<PageResult<AdminStoreDTO>> stores(@RequestParam(defaultValue = "1") long current,
                                                     @RequestParam(defaultValue = "10") long size,
-                                                    @RequestParam(required = false) String search) {
-        return Result.ok(storeService.pageAdminStores(current, size, search));
+                                                    @RequestParam(required = false) String search,
+                                                    @RequestParam(required = false) String status) {
+        return Result.ok(storeService.pageAdminStores(current, size, search, status));
+    }
+
+    @PostMapping("/stores")
+    public Result<AdminStoreDTO> create(@RequestBody StoreService.AdminStoreUpsert upsert) {
+        return Result.ok(storeService.createAdminStore(upsert));
+    }
+
+    @PutMapping("/stores/{subjectId}")
+    public Result<AdminStoreDTO> update(@PathVariable long subjectId,
+                                        @RequestBody StoreService.AdminStoreUpsert upsert) {
+        return Result.ok(storeService.updateAdminStore(subjectId, upsert));
     }
 }

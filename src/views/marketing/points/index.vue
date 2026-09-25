@@ -72,7 +72,7 @@ const rowActions: RowAction[] = [
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该商品？（请填写备注）',
-    handler: (row, reason) => store.remove('pointsProducts', row.id, '营销中心', 'name', reason)
+    handler: async (row, reason) => await store.remove('pointsProducts', row.id, '营销中心', 'name', reason)
   }
 ];
 
@@ -83,13 +83,13 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.pointsProducts, search, page, pageSize),
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('pointsProducts', search, page, pageSize),
   form: {
     title: '兑换商品',
     fields: formFields,
-    onSubmit: (data, editing) => {
-      if (editing) store.update('pointsProducts', editing.id, data, '营销中心', 'name');
-      else store.add('pointsProducts', data, '营销中心', 'name');
+    onSubmit: async (data, editing) => {
+      if (editing) await store.update('pointsProducts', editing.id, data, '营销中心', 'name');
+      else await store.add('pointsProducts', data, '营销中心', 'name');
     }
   }
 };

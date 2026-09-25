@@ -2,173 +2,138 @@ const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const guard = require('../../utils/login-guard');
 const auth = require('../../utils/auth');
+const navigate = require('../../utils/navigate');
 
-// 手机号 / 验证码校验
-function isValidPhone(value) {
-  return /^1[3-9]\d{9}$/.test(String(value || ''));
-}
-
-function isValidCode(value) {
-  return /^\d{6}$/.test(String(value || ''));
-}
-
+/**
+ * 授权页（温馨提示 + 协议确认）。
+ *
+ * 交互约定（重要）：
+ *   底部「同意」按钮本身带 open-type="getPhoneNumber"，点击即「同意协议 + 授权手机号」，
+ *   一次点击完成「注册建号 -> 建立登录态 -> 进入目标页」，不再要求用户额外点第二次按钮。
+ *   未勾选协议时按钮置灰并拦截（授权必须建立在用户知情同意之上）。
+ *
+ * 来源：
+ *   1) 冷启动未注册 / 登录失败：启动页 redirectTo 进来；
+ *   2) 已登录未绑手机号：展示绑定引导（由启动页按需带入）。
+ *
+ * 跳转注意：落点常是 tabBar 页（首页），必须走 utils/navigate，
+ * 否则 reLaunch 到 tabBar 页会静默失败、页面停在授权页。
+ */
 Page(
   withShare({
     data: {
-      reason: '',
-      // 入口引导态（启动页 mode=entry）：文案更轻，且授权后 reLaunch 到目标页
+      // 入口引导态（启动页进入）：完成后落到 entryTarget
       entryMode: false,
-      entryTip: '',
-      fallbackVisible: false,
-      phone: '',
-      code: '',
-      counting: false,
-      countdownText: 60,
-      canSubmit: false
+      // 未注册态：走「注册并登录」而非「绑定手机号」
+      needRegister: false,
+      agreementChecked: false,
+      entryTip: ''
     },
     onLoad(options) {
       const opts = options || {};
-      this.reason = opts.reason ? decodeURIComponent(opts.reason) : '';
-      // 入口引导态：来自启动页，引导用户绑手机号（可跳过）
-      this.entryMode = (opts.mode || '') === 'entry';
-      // 授权 / 跳过后的落点；来源不合法时回落首页，避免被构造参数跳转
+      // 入口引导态：来自启动页，完成后落到 entryTarget
+      this.entryMode = (opts.mode || '') === 'entry' || Boolean(opts.target);
+      // 落点；来源不合法时回落首页，避免被构造参数跳转
       this.entryTarget = this.entryMode && opts.target ? decodeURIComponent(opts.target) : '/pages/home/home';
       // 标记本次授权是否已完成，供 onUnload 判断是否清理待执行动作
       this.completed = false;
+      // 未注册态：静默登录拿到的是一次性注册凭证而非 token，
+      // 本次授权走「注册并登录」而非「绑定手机号」。
+      const registerContext = auth.getRegisterContext();
+      this.needRegister = Boolean(registerContext && registerContext.registerToken && !auth.isLoggedIn());
+      this.registerToken = this.needRegister ? registerContext.registerToken : '';
       this.setData({
-        reason: this.reason,
         entryMode: this.entryMode,
-        entryTarget: this.entryTarget,
-        entryTip: this.entryMode ? '登录后可下单、领券并同步会员权益' : ''
+        needRegister: this.needRegister,
+        entryTip: this.needRegister
+          ? '同意后即可完成注册并开始使用'
+          : '同意后可下单、领券并同步会员权益'
       });
     },
     onUnload() {
       // 用户中途返回且未完成授权时，清掉待执行动作，避免脏动作残留
       if (!this.completed) guard.clearPendingAction();
-      this.stopCountdown();
     },
-    toggleFallback() {
-      this.setData({ fallbackVisible: !this.data.fallbackVisible });
+    toggleAgreement() {
+      this.setData({ agreementChecked: !this.data.agreementChecked });
     },
 
-    // ---------- 微信一键获取手机号 ----------
-    handleGetPhoneNumber(e) {
-      const detail = e.detail || {};
+    /**
+     * 点击「同意」：协议确认 + 微信手机号授权 + 注册登录，一步到位。
+     *
+     * 必须由 open-type="getPhoneNumber" 的按钮触发（微信硬约束，不可程序化调起），
+     * 因此这里同时承担「校验勾选」与「处理授权结果」两个职责。
+     */
+    handleAgree(e) {
+      // 未勾选协议：不继续授权，避免「未同意先采集」
+      if (!this.data.agreementChecked) {
+        guard.toast('请先阅读并勾选同意协议');
+        return;
+      }
+      const detail = (e && e.detail) || {};
       if (!detail.encryptedData || !detail.iv) {
-        guard.toast('已取消授权');
+        // 用户在系统弹窗点了「拒绝」：留在本页，允许重试或仅浏览
+        guard.toast('已取消授权，可重新点击同意或选择仅浏览');
+        return;
+      }
+      if (this.data.needRegister) {
+        auth
+          .registerByPhone(this.registerToken, detail.encryptedData, detail.iv)
+          .then(() => this.afterBound())
+          .catch(error => guard.toast((error && error.message) || '注册失败，请重试'));
         return;
       }
       api
         .bindPhone(detail.encryptedData, detail.iv)
         .then(() => this.afterBound())
-        .catch(() => {
-          // 失败时自动展开降级方案，避免用户困在原地
-          this.setData({ fallbackVisible: true });
-          guard.toast('获取失败，请使用其他登录方式');
-        });
+        .catch(error => guard.toast((error && error.message) || '授权失败，请重试'));
     },
 
-    // ---------- 手机号 + 验证码 ----------
-    handlePhoneInput(e) {
-      const phone = e.detail.value || '';
-      this.setData({ phone, canSubmit: isValidPhone(phone) && isValidCode(this.data.code) });
-    },
-    handleCodeInput(e) {
-      const code = e.detail.value || '';
-      this.setData({ code, canSubmit: isValidPhone(this.data.phone) && isValidCode(code) });
-    },
-    handleSendCode() {
-      if (this.data.counting) return;
-      const phone = this.data.phone;
-      if (!isValidPhone(phone)) {
-        guard.toast('请输入正确的手机号');
-        return;
-      }
-      api
-        .sendSmsCode(phone)
-        .then(() => {
-          guard.toast('验证码已发送');
-          this.startCountdown();
-        })
-        .catch(error => guard.toast((error && error.message) || '发送失败'));
-    },
-    startCountdown() {
-      this.setData({ counting: true, countdownText: 60 });
-      this.timer = setInterval(() => {
-        const next = this.data.countdownText - 1;
-        if (next <= 0) {
-          this.stopCountdown();
-          this.setData({ counting: false, countdownText: 60 });
-          return;
-        }
-        this.setData({ countdownText: next });
-      }, 1000);
-    },
-    stopCountdown() {
-      if (this.timer) {
-        clearInterval(this.timer);
-        this.timer = null;
-      }
-    },
-    handleSubmitCode() {
-      if (!this.data.canSubmit) {
-        guard.toast('请填写完整的手机号和验证码');
-        return;
-      }
-      api
-        .bindPhoneBySms(this.data.phone, this.data.code)
-        .then(() => this.afterBound())
-        .catch(error => guard.toast((error && error.message) || '验证失败'));
-    },
-
-    // ---------- 授权完成：续跑原操作并返回 ----------
+    // ---------- 授权完成：建立登录态并进入目标页 ----------
     afterBound() {
       this.completed = true;
-      this.stopCountdown();
       guard.toast('登录成功');
-      // 入口引导态：启动页已不在栈上，必须 reLaunch 到目标页，避免页面栈异常
+      const target = this.entryTarget || '/pages/home/home';
       if (this.data.entryMode) {
-        wx.reLaunch({
-          url: this.data.entryTarget || '/pages/home/home',
+        // 入口态：目标可能是 tabBar 页（首页），必须走 navigate 自动选 switchTab
+        navigate.go(target, {
+          fail: () => navigate.go('/pages/home/home')
+        });
+        guard.flushPendingAction();
+        return;
+      }
+      // 非入口态：先返回上一级，返回完成后再续跑原操作
+      // （避免在授权页上下文执行业务动作，页面已卸载导致 setData 失效）。
+      const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
+      if (pages && pages.length > 1) {
+        wx.navigateBack({
+          delta: 1,
           complete() {
             guard.flushPendingAction();
           }
         });
         return;
       }
-      // 必须等返回来源页再续跑原操作：
-      // navigateBack 是异步的，若立即 flush，原操作可能在授权页上下文中执行。
-      wx.navigateBack({
-        delta: 1,
+      navigate.go('/pages/home/home', {
         complete() {
-          // complete 覆盖成功与失败（栈底无法返回时也要保证续跑不丢）
           guard.flushPendingAction();
         }
       });
     },
 
-    // ---------- 跳过 ----------
-    handleSkip() {
+    // ---------- 拒绝仅浏览：放行公开内容（交易仍会拦截） ----------
+    handleReject() {
       this.completed = true;
       guard.clearPendingAction();
-      // 入口引导态：跳过也必须落到目标页，不能停在授权页
-      if (this.data.entryMode) {
-        wx.reLaunch({ url: this.data.entryTarget || '/pages/home/home' });
-        return;
-      }
-      const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
-      if (pages.length > 1) {
-        wx.navigateBack({ delta: 1 });
-        return;
-      }
-      wx.reLaunch({ url: '/pages/home/home' });
+      navigate.go('/pages/home/home', {
+        fail: () => navigate.go('/pages/home/home')
+      });
     },
 
-    // 协议改为独立页面，按类型跳转
+    // 协议独立页面，按类型跳转
     openAgreement(e) {
       const type = (e.currentTarget.dataset && e.currentTarget.dataset.type) || 'agreement';
       wx.navigateTo({ url: `/pages/legal/legal?type=${type}` });
     }
   })
 );
-

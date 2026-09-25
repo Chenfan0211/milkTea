@@ -9,7 +9,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const router = useRouter();
@@ -37,7 +37,7 @@ const columns: DataTableColumns<any> = [
     width: 90,
     render: renderTag('status', statusMap({ valid: ['有效', 'success'], invalid: ['已作废', 'default'] }))
   },
-  { title: '创建时间', key: 'createTime', width: 145 }
+  { title: '创建时间', key: 'createTime', render: renderDateTime('createTime'), width: 145 }
 ];
 const searchFields: SearchField[] = [
   { key: 'orderNo', label: '订单号', placeholder: '订单号' },
@@ -67,7 +67,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.snapshots, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('snapshots', search, page, pageSize)
 };
 </script>
 

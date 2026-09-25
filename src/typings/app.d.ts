@@ -610,8 +610,10 @@ declare namespace App {
     type Response<T = unknown> = {
       /** The backend service response code */
       code: string;
-      /** The backend service response message */
-      msg: string;
+      /** The backend service response message（后端 Result 字段名为 message） */
+      message: string;
+      /** 兼容旧字段名 msg（部分历史接口/模板仍在使用） */
+      msg?: string;
       /** The backend service response data */
       data: T;
     };

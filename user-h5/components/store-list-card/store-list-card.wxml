@@ -30,9 +30,9 @@
       </view>
     </view>
 
-    <view wx:if="{{store.queueText}}" class="store-list-card__queue {{store.queueClass}}">
-      <image class="store-list-card__queue-icon" src="{{store.queueIcon}}" mode="aspectFit" />
-      <text>{{store.queueText}}</text>
+    <view wx:if="{{store.statusText}}" class="store-list-card__status {{store.queueClass}}">
+      <image wx:if="{{store.queueIcon}}" class="store-list-card__status-icon" src="{{store.queueIcon}}" mode="aspectFit" />
+      <text>{{store.statusText}}</text>
     </view>
 
     <text class="store-list-card__address">{{store.address}}</text>

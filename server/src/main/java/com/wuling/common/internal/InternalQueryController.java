@@ -50,11 +50,19 @@ public class InternalQueryController {
 
     private final BizSubjectMapper bizSubjectMapper;
     private final SettlementRecordMapper settlementRecordMapper;
+    /**
+     * 用户角色授权表（user_role_grant）与 app_user 归属 user-service，
+     * server 模块不依赖其 Java 实体，跨模块读表统一走 JdbcTemplate
+     * （与 AppRoleController 的做法一致）。
+     */
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public InternalQueryController(BizSubjectMapper bizSubjectMapper,
-                                   SettlementRecordMapper settlementRecordMapper) {
+                                   SettlementRecordMapper settlementRecordMapper,
+                                   org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.bizSubjectMapper = bizSubjectMapper;
         this.settlementRecordMapper = settlementRecordMapper;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /**
@@ -71,6 +79,48 @@ public class InternalQueryController {
         Map<String, Object> result = new HashMap<>();
         result.put("name", subject == null ? null : subject.getName());
         return result;
+    }
+
+    /**
+     * 校验「用户是否为某门店主体的有效经营者」。
+     *
+     * <p><b>为什么需要</b>：小程序端门店核销接口必须确认调用者确实经营该门店，
+     * 否则任何登录用户都能传任意 {@code storeSubjectId} 核销他人门店的订单
+     * （越权核销 = 订单被他人放行、分账流向错误门店）。
+     * 该判断必须在服务端完成，不能信任前端传入的主体 ID。
+     *
+     * <p><b>口径</b>：满足其一即视为有权经营：
+     * <ol>
+     *   <li>{@code user_role_grant} 中存在 (user_id, role_code=STORE, subject_id, status=active) 记录；</li>
+     *   <li>{@code app_user.bound_subject_id = subjectId} 且 {@code business_role = 'store'}。</li>
+     * </ol>
+     * 与小程序 {@code /api/v1/app/roles/mine} 的判定口径保持一致。
+     *
+     * @param userId    小程序用户 ID（取自 JWT）
+     * @param subjectId 门店主体 ID
+     * @return { "allowed": true/false }
+     */
+    @GetMapping("/store-operator-check")
+    public Map<String, Object> storeOperatorCheck(@RequestParam Long userId,
+                                                  @RequestParam Long subjectId) {
+        if (userId == null || subjectId == null) {
+            return Map.of("allowed", false);
+        }
+        // 1) 授权表：显式授予且已生效
+        Long granted = jdbcTemplate.queryForObject(
+                "select count(*) from user_role_grant "
+                        + "where user_id = ? and role_code = 'STORE' and subject_id = ? "
+                        + "and status = 'active' and deleted = 0",
+                Long.class, userId, subjectId);
+        if (granted != null && granted > 0) {
+            return Map.of("allowed", true);
+        }
+        // 2) 当前绑定主体：business_role=store 且绑定到该门店
+        Long bound = jdbcTemplate.queryForObject(
+                "select count(*) from app_user "
+                        + "where id = ? and bound_subject_id = ? and business_role = 'store' and deleted = 0",
+                Long.class, userId, subjectId);
+        return Map.of("allowed", bound != null && bound > 0);
     }
 
     /**

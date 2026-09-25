@@ -85,6 +85,15 @@ spring:
           uri: lb://wuling-trade-service
           predicates:
             - Path=/api/v1/admin/trade/**
+        # 门店核销（记录查询 / 待核销池 / 执行核销）在 trade-service，
+        # 但控制器路径落在 /api/v1/app/workbench/store/{id}/verify*，
+        # 与 legacy-server 的 /api/v1/app/workbench/** 前缀冲突。
+        # 顺序敏感：必须排在下方 legacy-server 通配之前，否则会被
+        # 兜底路由转发到 server，导致 NoResourceFoundException（HTTP 500）。
+        - id: trade-app-verify
+          uri: lb://wuling-trade-service
+          predicates:
+            - Path=/api/v1/app/workbench/store/*/verify-records,/api/v1/app/workbench/store/*/verify-pool,/api/v1/app/workbench/store/*/verify,/api/v1/app/workbench/store-operator/check
         # ---------- 商品服务（第 13 期拆分）----------
         # 顺序敏感：必须排在 /api/v1/** 通配之前。
         # 商品管理端与小程序菜单/详情，均为 product 域。
@@ -118,6 +127,11 @@ spring:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
 
 app:
+  # 请求日志开关（生产默认脱敏；排查时可临时置 true 输出全量参数，排查完务必关闭）
+  log:
+    request:
+      full: ${LOG_REQUEST_FULL:false}
+      max-body: ${LOG_REQUEST_MAX_BODY:2000}
   jwt:
     # 与 auth-service / server 共用同一密钥；缺失时网关拒绝启动
     secret: ${JWT_SECRET:}
@@ -136,3 +150,5 @@ logging:
     root: INFO
     com.wuling: INFO
     org.springframework.cloud.gateway: INFO
+    # 网关请求日志：入口方法/路径/查询串(脱敏)/耗时/状态码
+    REQUEST: INFO

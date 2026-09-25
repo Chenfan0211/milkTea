@@ -15,216 +15,138 @@
 .auth-content {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
-  padding: 40rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+  padding: 40rpx var(--page-gutter) 40rpx;
 }
 
-/* 品牌区与主操作区之间用自适应留白撑开，避免硬编码超大 padding */
-/* 品牌区 */
+/* 品牌区：绿色圆形 logo + 温馨提示 */
 .auth-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40rpx 0;
+  padding: 40rpx 0 32rpx;
 }
 
 .auth-brand__mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 128rpx;
-  height: 128rpx;
+  width: 160rpx;
+  height: 160rpx;
   background: var(--brand-green);
-  border-radius: var(--radius-lg);
-}
-
-.auth-brand__mark-icon {
-  width: 72rpx;
-  height: 72rpx;
-}
-
-.auth-brand__name {
-  margin-top: 24rpx;
-  color: var(--text-main);
-  font-size: var(--font-display);
-  font-weight: 600;
-  line-height: 64rpx;
-}
-
-.auth-brand__slogan {
-  margin-top: 8rpx;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  line-height: 36rpx;
-}
-
-/* 上下文提示 */
-.auth-reason {
-  display: flex;
-  align-items: center;
-  margin-bottom: 32rpx;
-  padding: 20rpx 24rpx;
-  background: var(--brand-soft);
-  border-radius: var(--radius-md);
-}
-
-.auth-reason__icon {
-  flex: none;
-  width: 32rpx;
-  height: 32rpx;
-  margin-right: 12rpx;
-}
-
-.auth-reason__text {
-  flex: 1;
-  min-width: 0;
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
-  line-height: 36rpx;
-}
-
-/* 主操作区 */
-.auth-main {
-  display: flex;
-  flex-direction: column;
-  margin-top: auto;
-}
-
-.auth-primary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 96rpx;
-  padding: 0;
-  background: var(--brand-green);
-  border: none;
   border-radius: var(--radius-pill);
 }
 
-.auth-primary::after {
-  border: none;
+.auth-brand__mark-icon {
+  width: 88rpx;
+  height: 88rpx;
 }
 
-.auth-primary__icon {
-  width: 36rpx;
-  height: 36rpx;
-  margin-right: 12rpx;
-}
-
-.auth-primary__text {
-  color: var(--card-bg);
-  font-size: var(--font-md);
+.auth-brand__title {
+  margin-top: 24rpx;
+  color: var(--text-main);
+  font-size: var(--font-xl);
   font-weight: 600;
+  line-height: 56rpx;
 }
 
-/* 其他登录方式（默认折叠） */
-.auth-toggle {
+/* 协议正文 */
+.auth-doc {
   display: flex;
-  align-items: center;
-  align-self: center;
-  height: 72rpx;
-  margin-top: 16rpx;
-  padding: 0 20rpx;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
+  flex-direction: column;
 }
 
-.auth-toggle__icon {
-  width: 24rpx;
-  height: 24rpx;
-  margin-left: 4rpx;
-}
-
-.auth-toggle__icon.is-expanded {
-  transform: rotate(180deg);
-}
-
-.auth-fallback {
-  margin-top: 8rpx;
-  padding: 24rpx;
-  background: var(--page-bg-neutral);
-  border-radius: var(--radius-lg);
-}
-
-.auth-field {
-  display: flex;
-  align-items: center;
-  margin-bottom: 16rpx;
-  padding: 0 24rpx;
-  background: var(--card-bg);
-  border-radius: var(--radius-sm);
-}
-
-.auth-field__label {
-  flex: none;
-  width: 120rpx;
+.auth-doc__para {
+  margin-bottom: 32rpx;
   color: var(--text-main);
   font-size: var(--font-base);
+  line-height: 52rpx;
 }
 
-.auth-field__input {
+/* 协议勾选区 */
+.auth-consent {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 8rpx;
+  padding: 8rpx 0;
+}
+
+.auth-consent__box {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  margin-top: 4rpx;
+  border: 2rpx solid var(--text-muted);
+  border-radius: var(--radius-pill);
+}
+
+.auth-consent__box.is-checked {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+}
+
+.auth-consent__check {
+  width: 26rpx;
+  height: 26rpx;
+}
+
+.auth-consent__text {
   flex: 1;
   min-width: 0;
-  height: 88rpx;
-  color: var(--text-main);
-  font-size: var(--font-base);
-}
-
-.auth-field__placeholder {
-  color: var(--text-muted);
-  font-size: var(--font-base);
-}
-
-.auth-field__code {
-  flex: none;
   margin-left: 16rpx;
-  color: var(--brand-green);
+  color: var(--text-secondary);
   font-size: var(--font-sm);
-  font-weight: 600;
+  line-height: 40rpx;
 }
 
-.auth-submit {
+.auth-consent__link {
+  color: var(--brand-green);
+}
+
+/* 底部双按钮 */
+.auth-actions {
+  display: flex;
+  flex: none;
+  padding: 20rpx var(--page-gutter) calc(32rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+}
+
+.auth-actions__ghost {
+  display: flex;
+  flex: 0 0 36%;
+  align-items: center;
+  justify-content: center;
   height: 88rpx;
-  margin-top: 8rpx;
+  margin-right: 20rpx;
+  color: var(--brand-green);
+  font-size: var(--font-md);
+  font-weight: 600;
+  border: 2rpx solid var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
+/* 「同意」= 手机号授权按钮（原生 button，需清掉默认样式） */
+.auth-actions__primary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  margin: 0;
+  padding: 0;
   color: var(--card-bg);
   font-size: var(--font-md);
   font-weight: 600;
   line-height: 88rpx;
-  text-align: center;
   background: var(--brand-green);
+  border: none;
   border-radius: var(--radius-pill);
 }
 
-/* 底部协议与跳过 */
-.auth-foot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: auto;
-  padding-top: 40rpx;
-}
-
-.auth-agreement {
-  color: var(--text-muted);
-  font-size: var(--font-caption);
-  line-height: 36rpx;
-  text-align: center;
-}
-
-.auth-agreement__link {
-  color: var(--brand-green);
-}
-
-.auth-skip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 88rpx;
-  margin-top: 16rpx;
-  padding: 0 40rpx;
-  color: var(--text-secondary);
-  font-size: var(--font-base);
+.auth-actions__primary::after {
+  border: none;
 }
 
 .is-disabled {

@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole } = require('../../utils/roles');
 const { listApplications, INVEST_STATUS_TEXT } = require('../../utils/invest');
 
@@ -99,7 +100,8 @@ Page(
     syncRecords() {
       const records = listApplications(this.investorId).map(item =>
         Object.assign({}, item, {
-          statusLabel: INVEST_STATUS_TEXT[item.status] || item.status
+          statusLabel: INVEST_STATUS_TEXT[item.status] || item.status,
+          timeText: formatDateTime(item.time)
         })
       );
       this.setData({ records }, () => {

@@ -39,8 +39,8 @@ watch(
   { immediate: true, deep: true }
 );
 
-function save() {
-  store.saveReferralConfig({ ...form });
+async function save() {
+  await store.saveReferralConfig({ ...form });
   window.$message?.success('分享规则已保存');
 }
 </script>

@@ -5,11 +5,12 @@ import com.wuling.common.api.Result;
 import com.wuling.trade.dto.OrderDTO;
 import com.wuling.trade.service.OrderService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 后台：订单列表 */
+/** 后台：订单列表 / 详情 */
 @RestController
 @RequestMapping("/api/v1/admin/trade")
 public class AdminOrderController {
@@ -26,5 +27,11 @@ public class AdminOrderController {
                                                @RequestParam(required = false) String status,
                                                @RequestParam(required = false) String search) {
         return Result.ok(orderService.pageOrders(current, size, status, search));
+    }
+
+    /** 后台：订单详情（含商品明细 items） */
+    @GetMapping("/orders/{orderNo}")
+    public Result<OrderDTO> detail(@PathVariable String orderNo) {
+        return Result.ok(orderService.getByOrderNo(orderNo));
     }
 }

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  五零时光 · 统一日志配置（logback）
+
+  背景：项目历史上一度没有 logback 配置文件，Spring Boot 用默认 logback，
+  日志只输出到 stdout（控制台），再被 Docker json-file 驱动收集，但 json-file
+  有 max-size/max-file 轮转上限，导致「接口调用日志」很快被丢弃、且不落盘，
+  线上排查时在容器里看不到任何接口调用记录。
+
+  本文件的职责：
+    1. 控制台输出保留（docker logs 仍可直接看到，便于快速排查启动问题）；
+    2. 新增按天滚动的文件输出，落到 /opt/wuling/logs（由 compose 挂载到宿主机），
+       文件名按「服务名 + 日期」区分，天然满足按天归档；
+    3. 历史日志最长保留 90 天（可由环境变量 LOG_MAX_HISTORY 覆盖），
+       超出自动清理，满足「最长保留 3 个月」的要求。
+
+  使用说明：
+    - 文件名 logback-spring.xml 由 Spring Boot 约定加载，优先级高于 logback.xml；
+    - SERVICE 环境变量由 Dockerfile 注入（gateway / auth-service / ...），
+      用于生成每服务独立的日志文件名；
+    - 生产环境如需临时输出全量参数，请设置环境变量 LOG_REQUEST_FULL=true
+      （应用层 app.log.request.full 控制脱敏），排查完务必关闭。
+-->
+<configuration>
+    <!-- 从环境变量读取服务名，用于区分不同服务的日志文件 -->
+    <springProperty scope="context" name="SERVICE" source="SERVICE" defaultValue="unknown"/>
+    <!-- 历史日志最长保留天数：默认 90 天（3 个月），可用环境变量 LOG_MAX_HISTORY 覆盖 -->
+    <springProperty scope="context" name="LOG_MAX_HISTORY" source="LOG_MAX_HISTORY" defaultValue="90"/>
+
+    <!-- 控制台输出：保留 docker logs 可见性 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!--
+      按天滚动的文件输出。
+      当天写 ${SERVICE}.log，跨天自动归档为 ${SERVICE}.yyyy-MM-dd.log；
+      用 TimeBasedRollingPolicy 的 maxHistory 控制保留天数。
+    -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/opt/wuling/logs/${SERVICE}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 按天归档：%d{yyyy-MM-dd} 会被替换为日志对应日期 -->
+            <fileNamePattern>/opt/wuling/logs/${SERVICE}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- 最长保留天数，到期自动删除历史文件 -->
+            <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!--
+      应用日志级别。
+      REQUEST 为项目自定义 logger（GatewayLogFilter / RequestLogFilter 使用），
+      必须显式设为 INFO 并附加到文件输出，否则接口调用日志不会落盘。
+    -->
+    <logger name="REQUEST" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

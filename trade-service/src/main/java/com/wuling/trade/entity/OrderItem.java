@@ -18,6 +18,7 @@ public class OrderItem {
     private String productId;
     private String productName;
     private String specSnapshot;
+    private String image;
     private Long unitPrice;
     private Long originalPrice;
     private Integer quantity;

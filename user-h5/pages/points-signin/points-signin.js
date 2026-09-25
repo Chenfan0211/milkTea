@@ -1,6 +1,7 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { buildMonthCells } = require('../../utils/points-signin');
+const { buildMonthCells, buildWeekDates, calculateContinuousDays } = require('../../utils/points-signin');
+const { getPoints, setPoints } = require('../../utils/points');
 
 function buildHint(rewards) {
   const first = rewards && rewards[0];
@@ -19,7 +20,6 @@ function buildRewards(rewardsSource, continuousDays, expanded) {
 Page(
   withShare({
     data: {
-      pointsSignIn: { year: 0, month: 0, today: '', weekDates: [] },
       points: 0,
       signedDates: [],
       signedToday: false,
@@ -38,7 +38,23 @@ Page(
       awardText: '1时光币'
     },
     onShow() {
-      // 签到规则与奖励由后台配置（app_config.signin_rules / signin_rewards）
+      this.syncSignInState();
+      // 签到状态以后端为准：拉取用户全部签到日期后还原周历 / 月历 / 连续天数
+      api
+        .fetchSigninDates()
+        .then(dates => {
+          const signedDates = Array.isArray(dates) ? dates : [];
+          const app = getApp();
+          app.globalData.signedDates = signedDates;
+          app.globalData.continuousDays = calculateContinuousDays(signedDates);
+          this.signinStateReady = true;
+          this.syncSignInState();
+        })
+        .catch(() => {
+          // 状态拉取失败：标记未就绪，避免把「拉取失败」误判为「今天没签到」
+          this.signinStateReady = false;
+        });
+      // 签到规则与奖励由后台配置
       api
         .fetchSigninConfig()
         .then(cfg => {
@@ -51,41 +67,27 @@ Page(
           });
         })
         .catch(() => null);
-      this.syncSignInState();
-      // 签到日历基准数据（app_config.points_signin）
-      if (!this.data.pointsSignIn.year) {
-        api
-          .fetchConfig('points_signin')
-          .then(cfg => {
-            if (!cfg || !cfg.year) return;
-            this.setData({
-              pointsSignIn: cfg,
-              calendarYear: cfg.year,
-              calendarMonth: cfg.month,
-              calendarCells: buildMonthCells(cfg.year, cfg.month, this.data.signedDates)
-            });
-            this.syncSignInState();
-          })
-          .catch(() => null);
-      }
     },
     syncSignInState() {
       const app = getApp();
-      const state = app.globalData;
-      const calendar = this.data.pointsSignIn || { weekDates: [], today: '' };
-      const weekDates = (calendar.weekDates || []).map(item =>
-        Object.assign({}, item, {
-          signed: state.signedDates.includes(item.key)
-        })
-      );
+      const signedDates = app.globalData.signedDates || [];
+      const now = new Date();
+      const weekDates = buildWeekDates(now, signedDates);
+      const todayKey = weekDates[weekDates.length - 1].key;
+      const continuousDays = calculateContinuousDays(signedDates, now);
       this.setData({
-        points: state.points,
-        signedDates: state.signedDates,
-        signedToday: Boolean(calendar.today) && state.signedDates.includes(calendar.today),
-        continuousDays: state.continuousDays,
+        points: getPoints(),
+        signedDates,
+        todayKey,
+        signedToday: signedDates.includes(todayKey),
+        continuousDays,
         weekDates,
-        rewards: buildRewards(this.data.rewardsSource, state.continuousDays, this.data.rewardsExpanded),
-        calendarCells: buildMonthCells(this.data.calendarYear, this.data.calendarMonth, state.signedDates)
+        rewards: buildRewards(this.data.rewardsSource, continuousDays, this.data.rewardsExpanded),
+        calendarCells: buildMonthCells(
+          this.data.calendarYear || now.getFullYear(),
+          this.data.calendarMonth || now.getMonth() + 1,
+          signedDates
+        )
       });
     },
     handleSignIn() {
@@ -93,34 +95,78 @@ Page(
         wx.showToast({ title: '今日已签到', icon: 'none' });
         return;
       }
+      // 说明：状态拉取失败（signinStateReady=false）时本地「未签到」不可信，
+      // 这里不做拦截，直接提交给后端；由后端判重兜底，失败分支再反向修正 UI。
 
-      // 签到为服务端写操作：时光币与连续天数均以后端为准
-      const calendar = this.data.pointsSignIn || {};
+      // 签到为服务端写操作：时光币以后端返回余额为准，并同步本地持久缓存
       const app = getApp();
+      const previousPoints = getPoints();
       api
         .signIn()
         .then(result => {
           const balance = result && Number.isFinite(Number(result.balance))
             ? Number(result.balance)
-            : Number(app.globalData.points || 0) + 1;
-          app.globalData.points = balance;
-          if (calendar.today) {
-            app.globalData.signedDates = (app.globalData.signedDates || []).concat([calendar.today]);
+            : previousPoints + 1;
+          setPoints(balance);
+          const now = new Date();
+          const pad = n => String(n).padStart(2, '0');
+          const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+          if (!app.globalData.signedDates.includes(todayKey)) {
+            app.globalData.signedDates = app.globalData.signedDates.concat([todayKey]);
           }
-          app.globalData.continuousDays = Number(app.globalData.continuousDays || 0) + 1;
-          const isWeekComplete = app.globalData.continuousDays % 7 === 0;
-          this.setData({ successVisible: true, awardText: (isWeekComplete ? '21' : '1') + '时光币' });
+          app.globalData.continuousDays = calculateContinuousDays(app.globalData.signedDates, now);
+          const awarded = Math.max(1, balance - previousPoints);
+          this.setData({ successVisible: true, awardText: awarded + '时光币' });
           this.syncSignInState();
         })
         .catch(error => {
-          wx.showToast({ title: (error && error.message) || '签到失败，请稍后重试', icon: 'none' });
+          const message = (error && error.message) || '签到失败，请稍后重试';
+          // 后端判重（今日已签到）时，前端状态是错的：反向修正为已签到，
+          // 并重新拉取签到日期，保证 UI 与后端一致。
+          if (String(message).indexOf('已签到') >= 0) {
+            this.markSignedToday();
+            this.refreshSigninDates();
+          }
+          wx.showToast({ title: message, icon: 'none' });
         });
     },
+    /** 把「今天」标记为已签到（用于后端判重后的状态自纠正）。 */
+    markSignedToday() {
+      const app = getApp();
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      if (!(app.globalData.signedDates || []).includes(todayKey)) {
+        app.globalData.signedDates = (app.globalData.signedDates || []).concat([todayKey]);
+      }
+      app.globalData.continuousDays = calculateContinuousDays(app.globalData.signedDates, now);
+      this.syncSignInState();
+    },
+
+    /** 重新从后端拉取签到日期（失败时保持当前状态）。 */
+    refreshSigninDates() {
+      api
+        .fetchSigninDates()
+        .then(dates => {
+          const signedDates = Array.isArray(dates) ? dates : [];
+          const app = getApp();
+          app.globalData.signedDates = signedDates;
+          app.globalData.continuousDays = calculateContinuousDays(signedDates);
+          this.signinStateReady = true;
+          this.syncSignInState();
+        })
+        .catch(() => null);
+    },
+
     closeSuccess() {
       this.setData({ successVisible: false });
     },
     openCalendar() {
-      this.setData({ calendarVisible: true });
+      this.setData({
+        calendarVisible: true,
+        calendarYear: this.data.calendarYear || new Date().getFullYear(),
+        calendarMonth: this.data.calendarMonth || new Date().getMonth() + 1
+      });
       this.syncSignInState();
     },
     closeCalendar() {
@@ -153,11 +199,6 @@ Page(
     openRules() {
       wx.navigateTo({ url: '/pages/points-signin-rules/points-signin-rules' });
     },
-    handleRewards() {
-      wx.showToast({ title: '我的奖品暂未接入', icon: 'none' });
-    },
     noop() {}
   })
 );
-
-

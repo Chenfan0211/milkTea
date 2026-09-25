@@ -56,7 +56,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.verifyPool, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('verifyPool', search, page, pageSize)
 };
 </script>
 

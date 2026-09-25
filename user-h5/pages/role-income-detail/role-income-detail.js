@@ -1,5 +1,6 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getIncomeRecordDetail } = require('../../utils/roles');
+const { formatDateTime } = require('../../utils/date-format');
+const { getCurrentBusinessRole, getIncomeRecordDetail, syncIncomeFromRemote } = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 
@@ -12,7 +13,8 @@ Page(
     },
     onLoad(options) {
       this.recordId = (options && options.id) || '';
-      this.syncRecord();
+      // 先从后端同步台账再取单条，避免直接进详情页时缓存为空
+      syncIncomeFromRemote().then(() => this.syncRecord());
     },
     syncRecord() {
       const role = getCurrentBusinessRole();
@@ -28,7 +30,7 @@ Page(
         wx.showToast({ title: '收益记录不存在', icon: 'none' });
         return;
       }
-      this.setData({ ready: true, record });
+      this.setData({ ready: true, record: Object.assign({}, record, { timeText: formatDateTime(record.time), timeline: (record.timeline || []).map(step => Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })) }) });
     },
     copyOrderNo() {
       const orderNo = this.data.record && this.data.record.orderNo;

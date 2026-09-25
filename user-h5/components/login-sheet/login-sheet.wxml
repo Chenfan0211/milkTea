@@ -1,0 +1,58 @@
+<view class="login-sheet-root">
+  <!-- 遮罩：点击关闭（图 1 可点遮罩收起） -->
+  <view
+    class="login-sheet__mask"
+    bindtap="handleClose"
+    aria-role="button"
+    aria-label="关闭登录弹层"
+  ></view>
+
+  <!-- 白色底部面板 -->
+  <view class="login-sheet__panel">
+    <view class="login-sheet__brand">
+      <view class="login-sheet__logo">
+        <image class="login-sheet__logo-icon" src="/assets/icons/lucide/leaf-white.svg" mode="aspectFit" />
+      </view>
+      <text class="login-sheet__title">欢迎加入{{brandName}}</text>
+      <text class="login-sheet__subtitle">加入后享专属活动&会员好礼</text>
+    </view>
+
+    <!-- 主操作：手机号一键登录（getPhoneNumber 必须由用户点击触发） -->
+    <button
+      class="login-sheet__primary"
+      open-type="getPhoneNumber"
+      bindgetphonenumber="handleGetPhoneNumber"
+      aria-role="button"
+      aria-label="手机号一键登录"
+    >
+      <text class="login-sheet__primary-text">手机号一键登录</text>
+    </button>
+
+    <!-- 暂时跳过 -->
+    <view
+      class="login-sheet__skip"
+      bindtap="handleSkip"
+      aria-role="button"
+      aria-label="暂时跳过登录"
+    >暂时跳过</view>
+
+    <!-- 协议勾选 -->
+    <view
+      class="login-sheet__consent"
+      bindtap="toggleAgreement"
+      aria-role="checkbox"
+      aria-label="允许我们在必要场景下合理使用您的个人信息"
+      aria-checked="{{agreementChecked}}"
+    >
+      <view class="login-sheet__box {{agreementChecked ? 'is-checked' : ''}}">
+        <image
+          wx:if="{{agreementChecked}}"
+          class="login-sheet__check"
+          src="/assets/icons/lucide/check.svg"
+          mode="aspectFit"
+        />
+      </view>
+      <text class="login-sheet__consent-text">允许我们在必要场景下，合理使用您的个人信息，且阅读并同意<text class="login-sheet__link" data-type="privacy" catchtap="openAgreement">《隐私条款》</text>、<text class="login-sheet__link" data-type="agreement" catchtap="openAgreement">《会员协议》</text>等内容</text>
+    </view>
+  </view>
+</view>

@@ -120,10 +120,19 @@ assert.ok(
 
 const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
-assert.ok(profileWxml.includes('bindtap="openProfileData"'), '我的页头像和姓名必须接通个人资料页');
+// 未登录点头像/姓名 -> 唤起登录弹层；已登录 -> openProfileData 进个人资料页。
+// 两条路径都必须存在，否则未登录用户会被直接推进资料页。
+assert.ok(
+  profileWxml.includes('bindtap="openLogin"'),
+  '我的页未登录时头像和姓名必须接通登录入口'
+);
+assert.ok(
+  profileJs.includes('openLogin') && profileJs.includes('loginSheetVisible'),
+  '我的页必须实现 openLogin 唤起登录弹层'
+);
 assert.ok(
   profileJs.includes('openProfileData') && profileJs.includes('/pages/profile-data/profile-data'),
-  '我的页必须跳转个人资料页'
+  '我的页必须保留跳转个人资料页的能力（已登录态使用）'
 );
 assert.ok(profileJs.includes('getUserProfile') && profileJs.includes('onShow'), '我的页返回时必须同步本地资料');
 
@@ -142,6 +151,16 @@ assert.equal(
 );
 
 const wxml = fs.readFileSync(`${pageRoot}.wxml`, 'utf8');
+const profileDataJs = fs.readFileSync(`${pageRoot}.js`, 'utf8');
+assert.ok(
+  profileDataJs.includes('clearSession') && profileDataJs.includes('handleLogout'),
+  '退出登录必须复用 auth.clearSession 清理登录态'
+);
+assert.ok(
+  !profileDataJs.includes('账号管理暂未接入'),
+  '账号管理占位提示必须移除'
+);
+
 const wxss = fs.readFileSync(`${pageRoot}.wxss`, 'utf8');
 assert.ok(
   wxml.includes('title="个人资料"') && wxml.includes('请输入您的姓名') && wxml.includes('完善生日，不错过惊喜'),
@@ -149,8 +168,8 @@ assert.ok(
 );
 assert.equal((wxml.match(/<picker-view-column/g) || []).length, 3, '生日选择器必须使用年/月/日三列滚轮');
 assert.ok(
-  wxml.includes('region-tabs') && wxml.includes('region-options') && wxml.includes('账号管理'),
-  '个人资料页必须包含地区步骤选择与账号管理'
+  wxml.includes('region-tabs') && wxml.includes('region-options') && wxml.includes('退出登录'),
+  '个人资料页必须包含地区步骤选择与退出登录'
 );
 assert.ok(
   wxml.includes('chevron-right-brand.svg') && wxml.includes('rotate-ccw-white.svg'),
@@ -175,5 +194,46 @@ assert.ok(!/\b\d+px\b/.test(wxss), '个人资料页 WXSS 不得使用 px');
 const iconScript = fs.readFileSync(path.join(root, 'scripts/sync-lucide-icons.mjs'), 'utf8');
 assert.ok(iconScript.includes("output: 'rotate-ccw-white'"), '必须生成白色 Lucide 头像编辑图标');
 assert.ok(fs.existsSync(path.join(root, 'assets/icons/lucide/rotate-ccw-white.svg')), '缺少 rotate-ccw-white.svg');
+
+// ---------- 登录态统一判定（三态）----------
+{
+  const authStateSrc = fs.readFileSync(path.join(root, 'utils/auth-state.js'), 'utf8');
+  assert.ok(
+    authStateSrc.includes('anonymous') && authStateSrc.includes('authorized') && authStateSrc.includes('full'),
+    '登录态必须区分未登录 / 已登录未绑手机号 / 可交易三态'
+  );
+
+  const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.ok(!appJs.includes('loggedIn:'), 'app.js 不得保留未被维护的 loggedIn 死字段');
+  assert.ok(appJs.includes('authState') && appJs.includes('syncAuthState'), 'app.js 必须同步真实登录态');
+
+  const guardSrc = fs.readFileSync(path.join(root, 'utils/login-guard.js'), 'utf8');
+  assert.ok(
+    guardSrc.includes("require('./auth-state')") && guardSrc.includes('authState.getAuthState()'),
+    'login-guard 的手机号判定必须复用 auth-state，避免多处判定不一致'
+  );
+
+  const requestSrc = fs.readFileSync(path.join(root, 'utils/request.js'), 'utf8');
+  assert.ok(
+    requestSrc.includes('UNAUTHORIZED_TOAST_INTERVAL') && requestSrc.includes('unauthorizedNotifiedAt'),
+    '401 提示必须节流，避免并发请求连弹多次「登录已过期」'
+  );
+
+  const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
+  assert.ok(
+    profileWxml.includes('authStateLevel') && profileWxml.includes("authStateLevel === 'authorized'"),
+    '我的页必须按三态渲染，明确展示「已登录未绑手机号」'
+  );
+  assert.ok(
+    profileWxml.includes('loginFailed') && profileWxml.includes('handleRetryLogin'),
+    '我的页必须展示可重试的登录失败提示条'
+  );
+
+  const authLoginJs = fs.readFileSync(path.join(root, 'pages/auth-login/auth-login.js'), 'utf8');
+  assert.ok(
+    /navigateBack\(\{[\s\S]*?complete[\s\S]*?flushPendingAction/.test(authLoginJs),
+    '授权完成后必须等返回来源页再续跑原操作（避免在授权页上下文执行业务动作）'
+  );
+}
 
 console.log('个人资料录入、生日与三级地区选择测试通过');

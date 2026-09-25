@@ -1,10 +1,13 @@
 const api = require('./api');
 
 /**
- * 会员等级成长值计算。
+ * 会员等级统一入口：等级缓存 + 成长值 / 等级进度 + 会员价折扣计算。
  *
  * 阶段 C 后会员等级来自 /api/v1/app/member-levels：
- * 页面在 onShow 先 await refreshMemberLevelsFromRemote() 再调用 buildLevelMeta()。
+ * - 等级展示：页面在 onShow 先 await refreshMemberLevelsFromRemote() 再调用 buildLevelMeta()；
+ * - 会员价：调用 calcMemberPrice(原价, 用户 vipLevel)，未就绪时会退回原价（无折扣）。
+ *
+ * 说明：等级缓存为进程内唯一来源，价格与成长值共用同一份数据，避免重复请求。
  */
 
 let memberLevels = [];
@@ -155,11 +158,50 @@ function buildLevelMeta(profile) {
   };
 }
 
+function roundMoney(value, digits = 2) {
+  const factor = Math.pow(10, digits);
+  return Math.round(value * factor) / factor;
+}
+
+/** '8折' -> 0.8；已经是 0~1 的小数则原样返回；无法解析时返回 1（不打折）。 */
+function parseDiscount(discountText) {
+  if (discountText == null) return 1;
+  const match = String(discountText).match(/(\d+(?:\.\d+)?)\s*折/);
+  if (match) {
+    const zhe = Number(match[1]);
+    // 折扣应落在 (0, 10] 折区间；超出范围视为脏数据，按不打折兜底。
+    return zhe > 0 && zhe <= 10 ? roundMoney(zhe / 10, 2) : 1;
+  }
+  const num = Number(discountText);
+  return Number.isFinite(num) && num > 0 && num <= 1 ? num : 1;
+}
+
+/** 按等级名称匹配等级对象；未匹配到时返回不打折的「普通」等级。 */
+function getUserLevel(vipLevelName) {
+  const name = String(vipLevelName || '');
+  const level = memberLevels.find(item => item.name === name);
+  return level || { name: '普通', discount: 1, level: '' };
+}
+
+/**
+ * 会员价 = 门市价（原价）× 当前用户等级折扣。
+ * listPrice 为「元」，vipLevelName 取自用户资料的 vipLevel。
+ */
+function calcMemberPrice(listPrice, vipLevelName) {
+  const level = getUserLevel(vipLevelName);
+  const discount = parseDiscount(level.discount);
+  return roundMoney(Number(listPrice || 0) * discount);
+}
+
 module.exports = {
   refreshMemberLevelsFromRemote,
   getMemberLevels,
   setMemberLevels,
   normalizeLevels,
   buildLevelMeta,
-  resolveLevelIndex
+  resolveLevelIndex,
+  roundMoney,
+  parseDiscount,
+  getUserLevel,
+  calcMemberPrice
 };

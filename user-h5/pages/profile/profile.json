@@ -1,5 +1,1 @@
-{
-  "usingComponents": {
-    "section-card": "/components/section-card/section-card"
-  }
-}
+{ "usingComponents": { "section-card": "/components/section-card/section-card", "login-sheet": "/components/login-sheet/login-sheet" } }

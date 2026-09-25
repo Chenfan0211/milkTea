@@ -11,10 +11,20 @@ import { useAdminStore } from '@/store/modules/admin';
 
 const store = useAdminStore();
 
+/**
+ * 微信账号绑定。
+ *
+ * 字段口径对齐 app_user 表（真实列名）：open_id=微信openId、nick_name=昵称。
+ *
+ * 历史问题：
+ *  页原用 openId / userId —— 库中是 open_id，且**没有 userId 列**（用户主键就是 id），
+ *  故 openId 改名为 open_id，userId 表单项移除（用户 id 由系统分配，不应手填）。
+ */
+
 const columns: DataTableColumns<any> = [
-  { title: 'openId', key: 'openId', minWidth: 160 },
+  { title: '用户ID', key: 'id', width: 90 },
+  { title: 'openId', key: 'openId', minWidth: 180 },
   { title: '微信昵称', key: 'nickName', width: 140 },
-  { title: '绑定用户', key: 'userId', width: 120 },
   {
     title: '经营角色',
     key: 'businessRole',
@@ -45,9 +55,8 @@ const rowActions: RowAction[] = [
   }
 ];
 const formFields: FormField[] = [
-  { key: 'userId', label: '用户ID' },
   { key: 'nickName', label: '昵称' },
-  { key: 'openId', label: 'openId' }
+  { key: 'openId', label: 'openId', rules: [{ required: true, message: '请输入 openId', trigger: ['input', 'blur'] }] }
 ];
 const config: AdminListConfig = {
   title: '微信账号绑定',
@@ -56,13 +65,13 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.users, search, page, pageSize),
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('users', search, page, pageSize),
   form: {
     title: '微信账号',
     fields: formFields,
-    onSubmit: (data, editing) => {
-      if (editing) store.update('users', editing.id, data, '用户管理', 'nickName');
-      else store.add('users', data, '用户管理', 'nickName');
+    onSubmit: async (data, editing) => {
+      if (editing) await store.update('users', editing.id, data, '用户管理', 'nickName');
+      else await store.add('users', data, '用户管理', 'nickName');
     }
   }
 };
@@ -73,4 +82,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

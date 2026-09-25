@@ -1,5 +1,11 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getResourceOrders, INCOME_STATUS_TEXT } = require('../../utils/roles');
+const {
+  getCurrentBusinessRole,
+  getResourceOrders,
+  syncResourceFromRemote,
+  INCOME_STATUS_TEXT
+} = require('../../utils/roles');
+const { formatDateTime } = require('../../utils/date-format');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 
@@ -22,7 +28,9 @@ Page(
       this.syncRole();
     },
     onShow() {
-      if (this.data.ready) this.syncOrders();
+      if (!this.data.ready) return;
+      // 绑定门店与提成订单来自后端；拉到后重渲染，失败保留现有列表
+      syncResourceFromRemote().then(() => this.syncOrders());
     },
     syncRole() {
       const role = getCurrentBusinessRole();
@@ -32,7 +40,11 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      this.setData({ ready: true }, () => this.syncOrders());
+      this.setData({ ready: true }, () => {
+        // 先渲染缓存（可能为空），随后拉取真实数据
+        this.syncOrders();
+        syncResourceFromRemote().then(() => this.syncOrders());
+      });
     },
     // 提成订单按绑定门店归属，支持按门店筛选。
     syncOrders() {
@@ -56,7 +68,8 @@ Page(
           Object.assign({}, group, {
             orders: group.orders.map(order =>
               Object.assign({}, order, {
-                statusLabel: INCOME_STATUS_TEXT[order.status] || order.status
+                statusLabel: INCOME_STATUS_TEXT[order.status] || order.status,
+                timeText: formatDateTime(order.time)
               })
             )
           })
@@ -77,7 +90,13 @@ Page(
       for (const group of this.data.groups) {
         const found = group.orders.find(order => order.id === id);
         if (found) {
-          target = Object.assign({}, found, { storeName: group.name });
+          target = Object.assign({}, found, {
+            storeName: group.name,
+            timeText: formatDateTime(found.time),
+            timeline: (found.timeline || []).map(step =>
+              Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })
+            )
+          });
           break;
         }
       }

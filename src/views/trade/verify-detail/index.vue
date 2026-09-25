@@ -4,11 +4,13 @@ import { useRoute } from 'vue-router';
 import AdminDetailPage from '@/views/_shared/AdminDetailPage.vue';
 import type { DetailGroup } from '@/views/_shared/AdminDetailPage.vue';
 import { useAdminStore } from '@/store/modules/admin';
+import { formatDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const route = useRoute();
 
 const resultLabel = (v: string) => ({ success: '核销成功', rejected: '重复拦截' })[v] ?? v;
+const typeLabel = (v: string) => ({ ORDER: '订单', EXCHANGE: '兑换' })[v] ?? v;
 
 const row = computed(() => store.verifies.find((item: any) => String(item.id) === String(route.query.id)) ?? null);
 
@@ -21,9 +23,9 @@ const groups: DetailGroup[] = [
       { label: '门店', key: 'store' },
       { label: '操作人', key: 'operator' },
       { label: '设备', key: 'device' },
-      { label: '核销类型', key: 'type' },
+      { label: '核销类型', render: (r: any) => typeLabel(r.type) },
       { label: '结果', render: (r: any) => resultLabel(r.result) },
-      { label: '时间', key: 'time' }
+      { label: '时间', render: (r: any) => formatDateTime(r.time) }
     ]
   }
 ];

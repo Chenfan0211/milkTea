@@ -107,7 +107,7 @@
         <text class="income-record__source">{{item.source}}</text>
 
         <view class="income-record__foot">
-          <text class="income-record__time">{{item.time}}</text>
+          <text class="income-record__time">{{item.timeText}}</text>
           <text class="income-record__status income-record__status--{{item.status}}">{{item.statusLabel}}</text>
         </view>
 

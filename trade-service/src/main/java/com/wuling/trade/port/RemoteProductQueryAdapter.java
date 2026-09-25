@@ -67,6 +67,7 @@ public class RemoteProductQueryAdapter implements ProductQueryPort {
             view.setName((String) body.get("name"));
             view.setPrice(asLong(body.get("price")));
             view.setOriginalPrice(asLong(body.get("originalPrice")));
+            view.setImage(body.get("image") == null ? null : String.valueOf(body.get("image")));
             view.setOnSale(asInt(body.get("onSale")));
             view.setSupplierSubjectId(asLong(body.get("supplierSubjectId")));
             return view;

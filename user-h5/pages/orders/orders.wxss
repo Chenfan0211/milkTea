@@ -322,6 +322,18 @@
   padding: 40rpx 0 0;
 }
 
+.orders-empty__action {
+  width: 240rpx;
+  height: 72rpx;
+  margin: 32rpx auto 0;
+  color: var(--card-bg);
+  font-size: var(--font-base);
+  line-height: 72rpx;
+  text-align: center;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
 .orders-end {
   padding: 24rpx 0;
   color: var(--text-muted);

@@ -19,8 +19,8 @@
           <text class="product-card__original">¥{{product.originalPrice}}</text>
         </view>
         <view class="product-card__price-row product-card__price-row--sub">
-          <text class="product-card__price-sub-label">储值付款到手价</text>
-          <text class="product-card__price-sub-symbol">¥</text>
+          <text class="product-card__price-sub-label">储值立减</text>
+          <text class="product-card__price-sub-symbol">-¥</text>
           <text class="product-card__price-sub">{{product.storedValuePrice}}</text>
         </view>
       </view>

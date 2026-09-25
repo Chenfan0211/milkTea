@@ -1,0 +1,154 @@
+/*
+ * 全屏固定层。
+ *
+ * 注意（Skyline 踩坑）：本组件必须由页面侧 `wx:if` 控制是否渲染。
+ * 若只在组件内部用 `wx:if`，Skyline 的 glass-easel 仍会为自定义组件宿主节点
+ * 保留占位，fixed 全屏层会拦住整页点击（表现为页面所有按钮点了没反应）。
+ * 这里额外显式声明 pointer-events，避免任何情况下误吞事件。
+ */
+.login-sheet-root {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1400;
+  pointer-events: auto;
+}
+
+.login-sheet__mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.46);
+}
+
+.login-sheet__panel {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 40rpx var(--page-gutter) calc(32rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* 品牌区：绿色圆形 logo + 标题 + 副标题 */
+.login-sheet__brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-sheet__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  height: 96rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
+.login-sheet__logo-icon {
+  width: 52rpx;
+  height: 52rpx;
+}
+
+.login-sheet__title {
+  margin-top: 24rpx;
+  color: var(--text-main);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  line-height: 56rpx;
+}
+
+.login-sheet__subtitle {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-base);
+  line-height: 44rpx;
+}
+
+/* 主按钮：实心绿胶囊 */
+.login-sheet__primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 96rpx;
+  margin-top: 48rpx;
+  padding: 0;
+  background: var(--brand-green);
+  border: none;
+  border-radius: var(--radius-pill);
+}
+
+.login-sheet__primary::after {
+  border: none;
+}
+
+.login-sheet__primary-text {
+  color: var(--card-bg);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+/* 次按钮：白底绿描边胶囊 */
+.login-sheet__skip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96rpx;
+  margin-top: 20rpx;
+  color: var(--brand-green);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  border: 2rpx solid var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
+/* 协议勾选 */
+.login-sheet__consent {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 32rpx;
+}
+
+.login-sheet__box {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  margin-top: 4rpx;
+  border: 2rpx solid var(--text-muted);
+  border-radius: var(--radius-pill);
+}
+
+.login-sheet__box.is-checked {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+}
+
+.login-sheet__check {
+  width: 26rpx;
+  height: 26rpx;
+}
+
+.login-sheet__consent-text {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.login-sheet__link {
+  color: var(--brand-green);
+}

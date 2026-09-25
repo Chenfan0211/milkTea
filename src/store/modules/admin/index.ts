@@ -6,12 +6,37 @@ import {
   crudDelete,
   crudUpdate,
   crudPage,
+  // 业务动作接口（审核 / 核销 / 退款 / 资金）
+  executeVerifyApi,
+  freezeAccount as freezeAccountApi,
+  refundOrderApi,
   reviewComment as reviewCommentApi,
+  adminApplyWithdraw as adminApplyWithdrawApi,
+  bindSubjectUser as bindSubjectUserApi,
+  bindChannelStore as bindChannelStoreApi,
+  unbindChannelStore as unbindChannelStoreApi,
+  bindUserRole as bindUserRoleApi,
+  reviewRoleApplication as reviewApplicationApi,
+  unbindSubjectUser as unbindSubjectUserApi,
+  unbindUserRole as unbindUserRoleApi,
+  reviewWithdraw as reviewWithdrawApi,
   saveReferralConfigApi,
   fetchReferralConfig,
   saveSigninRule as saveSigninRuleApi,
-  toggleSplitRule
+  unfreezeAccount as unfreezeAccountApi
 } from '@/service/api/crud';
+import { bindStoreInvestor as bindStoreInvestorApi, createSubjectStore, fetchSubjectStores, unbindStoreInvestor as unbindStoreInvestorApi, updateSubjectStore } from '@/service/api/subject';
+import {
+  createProduct,
+  deleteProduct,
+  fetchProductsPage,
+  fetchSpecGroups,
+  saveProductStores,
+  saveSpecGroups,
+  updateProduct,
+  updateProductOnSale
+} from '@/service/api/admin-product';
+import { fetchAdminOrders, fetchAdminOrderDetail } from '@/service/api/trade';
 
 /**
  * 远端资源映射：key = store 内部数据键，value = 后端 CrudRegistry 资源名。
@@ -64,7 +89,10 @@ const REMOTE_RESOURCES: Record<string, string> = {
   verifyPool: 'verifyPool',
   verifyRecords: 'verifyRecords',
   exchangeRecords: 'exchangeRecords',
-  comments: 'comments'
+  comments: 'comments',
+  // 小程序运营配置（app_config）：首页入口 / 活动文案 / 客服信息与常见问题 /
+  // 提现与结算说明 / 城市列表等，由后台维护、小程序只读。
+  appConfig: 'appConfig'
 };
 
 /** 是否使用远端接口读取配置类数据（由页面通过 loadRemote 触发） */
@@ -121,15 +149,15 @@ const KEY = 'milkTea:admin:data';
 function now() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-/** 返回 n 天前的日期时间字符串，格式 YYYY-MM-DD HH:mm，用于订单 seed 的 createTime 相对化 */
+/** 返回 n 天前的日期时间字符串，格式 YYYY-MM-DD HH:mm:ss，用于订单 seed 的 createTime 相对化 */
 function daysAgo(days: number, hhmm = '00:00') {
   const d = new Date();
   d.setDate(d.getDate() - days);
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${hhmm}`;
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${hhmm}:00`;
 }
 
 function seed(): AdminData {
@@ -1597,15 +1625,19 @@ function migrate(data: AdminData): AdminData {
   });
   if (!Array.isArray(data.storeTypes)) data.storeTypes = [];
   if (!Array.isArray(data.productCategories)) data.productCategories = [];
-  if (!Array.isArray(data.dictEntries) || data.dictEntries.length === 0) data.dictEntries = defaults.dictEntries || [];
-  if (!Array.isArray(data.fundPool) || data.fundPool.length === 0) data.fundPool = defaults.fundPool || [];
-  if (!Array.isArray(data.subjectAccounts) || data.subjectAccounts.length === 0) data.subjectAccounts = defaults.subjectAccounts || [];
+  // 注意：以下三张表**不做** defaults 回填。
+  // 早期实现会在「接口返回空数组」时塞回前端假数据，导致页面显示与数据库不一致却难以察觉
+  // （症状：库里明明是空，页面却有条目）。现统一遵循「接口返回什么就是什么」。
+  if (!Array.isArray(data.dictEntries)) data.dictEntries = [];
+  if (!Array.isArray(data.fundPool)) data.fundPool = [];
+  if (!Array.isArray(data.subjectAccounts)) data.subjectAccounts = [];
   if (!Array.isArray(data.fundFlows)) data.fundFlows = [];
   if (!Array.isArray(data.exchangeRecords)) data.exchangeRecords = [];
   if (!Array.isArray(data.giftCardOrders)) data.giftCardOrders = [];
   if (!Array.isArray(data.provinces)) data.provinces = [];
   if (!Array.isArray(data.cities)) data.cities = [];
-  if (!(data as any).referralConfig) (data as any).referralConfig = { id: 1, inviteCodePrefix: 'WLG', firstOrderPoints: 3, firstOrderCouponAmount: 3, socialStarThreshold: 5, socialStarProduct: '', recommenderThreshold: 10, recommenderRebateRate: 5 };
+  // 分享规则同理：不再塞硬编码默认值，缺省即为空对象（由页面自行处理）
+  if (!(data as any).referralConfig) (data as any).referralConfig = {};
   (data.pointsProducts || []).forEach((p: any) => {
     if (!p.image) p.image = '/assets/images/3x/points-product-pet.jpg';
     if (p.stock == null) p.stock = 0;
@@ -1685,27 +1717,160 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     data.value.auditLogs = logs;
   }
 
+  /**
+   * 写操作前的字段归一化（按资源类型）。
+   *
+   * <p>subjects：前端历史上用 `type`（小写，如 store/channel），
+   * 而数据库列为 `subject_type`，值为大写（STORE/CHANNEL...）。
+   * 若不转换，写库会因字段名不匹配被 CrudRegistry 白名单丢弃，
+   * 或因值大小写不符导致数据不一致。
+   */
+  /**
+   * 读操作后的字段归一化（按资源类型）。
+   *
+   * <p>subjects：后端返回 `subjectType`（大写值，如 STORE），
+   * 而页面历史代码按 `type`（小写）过滤与展示。若不归一化，
+   * 列表与内嵌下拉都会恒为空。这里做双写，保持对既有页面的兼容。
+   */
+  function normalizeRemoteRow(key: string, rows: any[]) {
+    if (!Array.isArray(rows) || key !== 'subjects') return rows;
+    return rows.map(r => ({
+      ...r,
+      subjectType: r.subjectType,
+      type: String(r.subjectType || '').toLowerCase()
+    }));
+  }
+
+  function normalizeWritePayload(key: string, payload: Record<string, any>) {
+    if (!payload || typeof payload !== 'object') return payload;
+    if (key !== 'subjects') return payload;
+
+    const raw = payload.subjectType ?? payload.type;
+    if (!raw) return payload;
+
+    const { type: _ignoredType, subjectType: _ignoredSubjectType, ...rest } = payload;
+    return { ...rest, subjectType: String(raw).toUpperCase() };
+  }
+
+  /** 资源 key -> 中文名，仅用于告警文案；未登记时回退为 key 本身 */
+  const RESOURCE_LABELS: Record<string, string> = {
+    productCategories: '分类管理',
+    splitRules: '分账规则',
+    features: '功能开关',
+    subjects: '主体管理',
+    users: '用户管理',
+    roles: '角色管理',
+    grants: '授权管理',
+    dictEntries: '数据字典',
+    cities: '城市管理',
+    coupons: '优惠券',
+    memberLevels: '会员等级',
+    pointsProducts: '积分商品',
+    pointsEarningRules: '积分规则',
+    storedValuePackages: '储值套餐',
+    giftCards: '礼品卡',
+    appConfig: '运营配置'
+  };
+
+  function labelOf(key: string, fallback: string) {
+    return RESOURCE_LABELS[key] ?? fallback ?? key;
+  }
+
+  /**
+   * 写库后比对「实际落库结果」，发现被后端丢弃的字段时显式告警。
+   *
+   * <p><b>为什么需要它</b>：后端 CrudService 只会写入 CrudRegistry 白名单内的列，
+   * 白名单外字段会被静默跳过，接口仍返回 200。
+   * 历史上因此出现过「界面提示保存成功、库里其实没变」的假成功，
+   * 且前端毫无感知（如分类的 tag/enabled、分账规则的 storePerItem）。
+   *
+   * <p>策略：把提交值与后端回读值逐一比对，仅对**明确规定过但未落库**的字段告警；
+   * 不阻断流程（写入本身已成功，只是部分字段未生效），但让问题可见。
+   *
+   * @param submitted 前端提交的字段（驼峰）
+   * @param persisted 后端返回的记录（驼峰）
+   * @param label     用于提示的资源中文名
+   */
+  function warnDroppedFields(submitted: Record<string, any>, persisted: any, label: string) {
+    if (!submitted || !persisted || typeof persisted !== 'object') return;
+    const dropped: string[] = [];
+    for (const [key, value] of Object.entries(submitted)) {
+      // 只校验有明确提交值的字段；空值/未填不参与比对
+      if (value === undefined || value === null || value === '') continue;
+      if (!(key in persisted)) {
+        // 字段在返回结果里完全不存在 -> 极可能是列名不匹配或未进白名单
+        dropped.push(key);
+        continue;
+      }
+      const persistedValue = persisted[key];
+      // 数字/字符串宽松比对（后端 tinyint 返回数字、前端 select 传字符串）
+      if (String(persistedValue) !== String(value)) {
+        dropped.push(key);
+      }
+    }
+    if (dropped.length) {
+      window.$message?.warning(`${label}：字段 ${dropped.join('、')} 未写入数据库，请联系开发检查后端白名单配置`);
+    }
+  }
+
+  async function fetchAdminStores(params: { current: number; size: number; search?: string; status?: string }) {
+    const page = await fetchSubjectStores(params);
+    return { data: page?.records || [], total: page?.total || 0 };
+  }
+
+  async function addAdminStore(payload: Record<string, any>) {
+    await createSubjectStore(payload);
+    await loadRemote('subjects');
+  }
+
+  async function updateAdminStore(id: number, payload: Record<string, any>) {
+    await updateSubjectStore(id, payload);
+    await loadRemote('subjects');
+  }
+
+  async function bindStoreInvestor(storeSubjectId: number, investorSubjectId: number) {
+    await bindStoreInvestorApi(storeSubjectId, investorSubjectId);
+    await loadRemote('subjects');
+  }
+
+  async function unbindStoreInvestor(storeSubjectId: number) {
+    await unbindStoreInvestorApi(storeSubjectId);
+    await loadRemote('subjects');
+  }
+
+  async function bindChannelStore(channelSubjectId: number, storeSubjectId: number) {
+    await bindChannelStoreApi(channelSubjectId, storeSubjectId);
+    await loadRemote('subjects');
+  }
+
+  async function unbindChannelStore(channelSubjectId: number, storeSubjectId: number) {
+    await unbindChannelStoreApi(channelSubjectId, storeSubjectId);
+    await loadRemote('subjects');
+  }
+
   function ensure(key: string) {
     if (!Array.isArray(data.value[key])) data.value[key] = [];
     return data.value[key];
   }
 
   // generic CRUD
-  function add(key: string, row: any, module: string, labelKey = 'name') {
+  /**
+   * 新增。远端模式下**先写库、成功后才更新本地镜像**，失败抛出异常由调用方处理。
+   *
+   * 为什么不再"乐观 UI"：原实现在请求返回前就插入 id=Date.now() 的假数据并立即 return，
+   * 接口失败时仅弹一个 toast，但页面已经渲染了这条不存在的数据，
+   * 用户会误以为新增成功（与列表查询"失败不回退"的策略也不一致）。
+   */
+  async function add(key: string, row: any, module: string, labelKey = 'name') {
     const remote = REMOTE_RESOURCES[key];
     if (remote) {
-      // 远端模式：写库后回填本地镜像，保证列表即时可见
-      crudCreate(remote, row)
-        .then(created => {
-          const list = ensure(key);
-          list.unshift(created);
-          persist();
-        })
-        .catch(error => {
-          window.$message?.error(error?.message || '新增失败');
-        });
-      const optimistic = { id: Date.now(), createTime: now(), ...row };
-      return optimistic;
+      const payload = normalizeWritePayload(key, row);
+      const created: any = await crudCreate(remote, payload);
+      warnDroppedFields(payload, created, labelOf(key, module));
+      const list = ensure(key);
+      list.unshift(created);
+      persist();
+      return created;
     }
     const list = ensure(key);
     const item = { id: nextId(list), createTime: now(), ...row };
@@ -1714,33 +1879,18 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     persist();
     return item;
   }
-  function update(key: string, id: number, updates: any, module: string, labelKey = 'name') {
+  async function update(key: string, id: number, updates: any, module: string, labelKey = 'name') {
     const remote = REMOTE_RESOURCES[key];
     if (remote) {
-      // 先乐观更新，远端失败则回滚，避免「界面已改、库里没改」
-      const list = ensure(key);
-      const idx = list.findIndex((x: any) => x.id === id);
-      const snapshot = idx >= 0 ? { ...list[idx] } : null;
-      if (idx >= 0) list[idx] = { ...list[idx], ...updates };
+      // 先写库，成功后才更新本地镜像；失败抛出，由页面提示，不产生"假成功"
+      const payload = normalizeWritePayload(key, updates);
+      const updated: any = await crudUpdate(remote, id, payload);
+      warnDroppedFields(payload, updated, labelOf(key, module));
+      const cur = ensure(key);
+      const ci = cur.findIndex((x: any) => x.id === id);
+      if (ci >= 0) cur[ci] = { ...cur[ci], ...updated };
       persist();
-
-      crudUpdate(remote, id, updates)
-        .then(updated => {
-          const cur = ensure(key);
-          const i = cur.findIndex((x: any) => x.id === id);
-          if (i >= 0) cur[i] = { ...cur[i], ...updated };
-          persist();
-        })
-        .catch(error => {
-          if (snapshot) {
-            const cur = ensure(key);
-            const i = cur.findIndex((x: any) => x.id === id);
-            if (i >= 0) cur[i] = snapshot;
-            persist();
-          }
-          window.$message?.error(error?.message || '更新失败');
-        });
-      return;
+      return updated;
     }
     const list = ensure(key);
     const idx = list.findIndex((x: any) => x.id === id);
@@ -1750,21 +1900,17 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     audit(module, '编辑', list[idx][labelKey] ?? id, before, list[idx]);
     persist();
   }
-  function remove(key: string, id: number, module: string, labelKey = 'name', reason = '') {
+  async function remove(key: string, id: number, module: string, labelKey = 'name', reason = '') {
     const remote = REMOTE_RESOURCES[key];
     if (remote) {
-      crudDelete(remote, id)
-        .then(() => {
-          const list = ensure(key);
-          const idx = list.findIndex((x: any) => x.id === id);
-          if (idx >= 0) {
-            list[idx] = { ...list[idx], deleted: true, deletedAt: now(), deleteReason: reason };
-          }
-          persist();
-        })
-        .catch(error => {
-          window.$message?.error(error?.message || '删除失败');
-        });
+      // 先删库，成功后才标记本地；失败抛出，页面不会显示"已删除"
+      await crudDelete(remote, id);
+      const list = ensure(key);
+      const idx = list.findIndex((x: any) => x.id === id);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], deleted: true, deletedAt: now(), deleteReason: reason };
+      }
+      persist();
       return;
     }
     patch(
@@ -1781,7 +1927,13 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       reason
     );
   }
-  function patch(
+  /**
+   * 局部更新。远端模式下先写库、成功后才改本地镜像，失败抛出。
+   *
+   * 与 add/update/remove 保持一致的「接口优先」策略，
+   * 避免出现「界面已改、库里没改」却无感知的情况。
+   */
+  async function patch(
     key: string,
     id: number,
     updates: any,
@@ -1790,6 +1942,18 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     labelKey = 'name',
     reason = ''
   ) {
+    const remote = REMOTE_RESOURCES[key];
+    if (remote) {
+      const payload = normalizeWritePayload(key, updates);
+      const updated: any = await crudUpdate(remote, id, payload);
+      warnDroppedFields(payload, updated, labelOf(key, module));
+      const cur = ensure(key);
+      const ci = cur.findIndex((x: any) => x.id === id);
+      // 以「后端返回值」为准回填，避免本地自造字段与库中不一致
+      if (ci >= 0) cur[ci] = { ...cur[ci], ...updated };
+      persist();
+      return cur[ci];
+    }
     const list = ensure(key);
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx < 0) return;
@@ -1800,33 +1964,34 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     return list[idx];
   }
 
-  function saveSignInRule(payload: { daily: number; rewards: Array<{ days: number; amount: number }> }) {
+  /**
+   * 保存签到规则（先写库、成功后再改本地；失败抛出）。
+   *
+   * 原实现先改本地 + 失败仅弹 toast，与 add/update 的「乐观 UI」是同一病症：
+   * 界面显示已保存，实际库中未变。
+   */
+  async function saveSignInRule(payload: { daily: number; rewards: Array<{ days: number; amount: number }> }) {
+    const first = payload.rewards && payload.rewards[0];
+    // 先落库：失败直接抛出，不更新本地，避免「界面已改、库里没改」
+    await saveSigninRuleApi({
+      daily: payload.daily,
+      streakDays: first?.days ?? 7,
+      streakReward: first?.amount ?? 20,
+      rewards: payload.rewards
+    });
     const before = { daily: (data.value as any).signInDaily ?? 1, rewards: (data.value as any).signInRewards || [] };
     (data.value as any).signInDaily = payload.daily;
     (data.value as any).signInRewards = payload.rewards;
     audit('营销中心', '编辑签到规则', '签到规则', before, { daily: payload.daily, rewards: payload.rewards });
     persist();
-
-    // 远端模式：同步到后端
-    const first = payload.rewards && payload.rewards[0];
-    saveSigninRuleApi({
-      daily: payload.daily,
-      streakDays: first?.days ?? 7,
-      streakReward: first?.amount ?? 20,
-      rewards: payload.rewards
-    }).catch(error => {
-      window.$message?.error(error?.message || '签到规则同步失败');
-    });
   }
-  function saveReferralConfig(payload: Record<string, any>) {
+  /** 保存分享规则（先写库、成功后再改本地；失败抛出） */
+  async function saveReferralConfig(payload: Record<string, any>) {
+    await saveReferralConfigApi(payload);
     const before = { ...(data.value as any).referralConfig };
     (data.value as any).referralConfig = { ...(data.value as any).referralConfig, ...payload };
     audit('营销中心', '编辑分享规则', '分享有礼', before, (data.value as any).referralConfig);
     persist();
-
-    saveReferralConfigApi(payload).catch(error => {
-      window.$message?.error(error?.message || '分享规则同步失败');
-    });
   }
 
   /** 从后端读取邀请配置并写入本地镜像（只读加载，不触发审计、不回写后端）。 */
@@ -1852,7 +2017,8 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     try {
       const page = await crudPage(remote, { current: 1, size: 200, ...params });
       const list = ensure(key);
-      list.splice(0, list.length, ...(page?.records || []));
+      // 同样应用字段归一化：页面内嵌下拉（如 subjects 按 type 过滤）依赖它
+      list.splice(0, list.length, ...normalizeRemoteRow(key, page?.records || []));
       remoteLoaded.value[key] = true;
       persist();
       return page;
@@ -1865,6 +2031,156 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   /** 批量加载多个远端资源 */
   async function loadRemoteAll(keys: string[]) {
     await Promise.all(keys.map(key => loadRemote(key)));
+  }
+
+  /**
+   * 统一远端分页查询（列表页专用）。
+   *
+   * <p>返回结构与 {@link listFiltered} 保持一致，便于页面无痛替换：
+   * {@code { data, total }}。
+   *
+   * <p><b>与 listFiltered 的区别</b>：这是真正的服务端分页查询，
+   * 数据直接来自数据库，不再依赖 localStorage 中的本地镜像。
+   *
+   * <p><b>失败策略（重要）</b>：接口失败时抛出异常，<b>不回退到本地假数据</b>。
+   * 目的是避免「界面显示的数据其实是旧假数据」这种误导性状态；
+   * 页面应捕获并展示错误，而不是静默使用本地数据。
+   */
+  async function queryRemote
+  (
+    key: string,
+    search: Record<string, any>,
+    page: number,
+    pageSize: number
+  ): Promise<{ data: any[]; total: number }> {
+    // 商品走 product-service 专用接口，见 loadProducts 的说明
+    if (key === 'products') {
+      const keyword = String((search && (search.name || search.code)) || '').trim();
+      const res = await fetchProductsPage({ current: page, size: pageSize, search: keyword || undefined });
+      return { data: (res as any)?.records || [], total: (res as any)?.total || 0 };
+    }
+
+    const normalize = (rows: any[]) => normalizeRemoteRow(key, rows);
+
+    const remote = REMOTE_RESOURCES[key];
+    if (!remote) {
+      throw new Error(`资源未接入后端：${key}`);
+    }
+    // 去除空搜索项，避免后端拼接无意义的 like 条件。
+    //
+    // 等值过滤约定：搜索项 key 以 eq_ 开头的，后端会按「等值过滤」处理
+    // （CrudController 把 eq_ 前缀参数交给 filters，其余按 LIKE 模糊搜索），
+    // 且受 CrudRegistry 的 filterable 白名单约束。
+    // 页面写法：searchFields 的 key 直接写 eq_enabled，由此原样透传即可。
+    // 之所以需要它：状态/枚举列用 LIKE 会误匹配（如 1 命中 10、11）且无法命中索引。
+    const params: Record<string, any> = { current: page, size: pageSize };
+    for (const [k, v] of Object.entries(search || {})) {
+      const value = String(v ?? '').trim();
+      if (value) params[k] = value;
+    }
+    const res = await crudPage(remote, params);
+    return { data: normalize((res as any)?.records || []), total: (res as any)?.total || 0 };
+  }
+
+  /**
+   * 加载商品列表（走 product-service 专用接口，非通用 CRUD）。
+   *
+   * 说明：商品接口路径为 /api/v1/admin/product/list，与通用 CRUD 的
+   * /api/v1/admin/crud/{resource} 不同，因此单独适配。
+   * 返回字段由后端组装（category 分类名、stores 门店数组、specCount、
+   * costPrice / platformCommission，金额单位为「分」）。
+   */
+  async function loadProducts(params?: Record<string, any>) {
+    try {
+      const page = await fetchProductsPage({ current: 1, size: 200, ...params });
+      const list = ensure('products');
+      list.splice(0, list.length, ...((page?.records || []) as any[]));
+      remoteLoaded.value.products = true;
+      persist();
+      return page;
+    } catch (error: any) {
+      window.$message?.error(error?.message || '加载商品失败');
+      return null;
+    }
+  }
+
+  /** 新增商品（写库后回填本地镜像） */
+  /**
+   * 加载订单列表（走 trade-service 专用接口 /api/v1/admin/trade/orders）。
+   *
+   * 与通用 CRUD 的区别：该接口返回完整 OrderDTO（含 items 商品明细、
+   * summary、mealType、payStatus、payTime/verifyTime/completeTime 等），
+   * 而通用 CRUD 只返回 orders 表裸列，缺商品明细与时间详情。
+   * 同时把完整列表写入 orders 镜像，供详情页 store.orders.find 使用。
+   */
+  async function loadAdminOrders(params?: Record<string, any>) {
+    const page = await fetchAdminOrders({ current: 1, size: 200, ...params });
+    const list = ensure('orders');
+    list.splice(0, list.length, ...((page?.records || []) as any[]));
+    remoteLoaded.value.orders = true;
+    persist();
+    return { data: (page as any)?.records || [], total: (page as any)?.total || 0 };
+  }
+
+  /** 订单详情（含商品明细），走后端专用接口 */
+  async function loadAdminOrderDetail(orderNo: string) {
+    return fetchAdminOrderDetail(orderNo);
+  }
+  async function addProduct(payload: Record<string, any>) {
+    const created: any = await createProduct(payload);
+    const list = ensure('products');
+    list.unshift(created);
+    persist();
+    return created;
+  }
+
+  /** 编辑商品 */
+  async function editProduct(id: number, payload: Record<string, any>) {
+    const updated: any = await updateProduct(id, payload);
+    const list = ensure('products');
+    const idx = list.findIndex((x: any) => x.id === id);
+    if (idx >= 0) list[idx] = { ...list[idx], ...updated };
+    persist();
+    return updated;
+  }
+
+  /** 商品上下架：onSale = on / off */
+  async function setProductOnSale(id: number, onSale: string) {
+    const updated: any = await updateProductOnSale(id, onSale);
+    const list = ensure('products');
+    const idx = list.findIndex((x: any) => x.id === id);
+    if (idx >= 0) list[idx] = { ...list[idx], ...updated };
+    persist();
+    return updated;
+  }
+
+  /** 读取商品规格组（product-service 专用接口） */
+  async function loadSpecGroups(productId: number) {
+    const res: any = await fetchSpecGroups(productId);
+    return (res?.groups || []) as any[];
+  }
+
+  /** 保存商品规格组（落库 product_spec） */
+  async function saveProductSpecGroups(productId: number, groups: any[]) {
+    const res: any = await saveSpecGroups(productId, groups);
+    await loadProducts();
+    return (res?.groups || []) as any[];
+  }
+
+  /** 保存商品门店关联（落库 product_store） */
+  async function saveProductStoreIds(productId: number, storeSubjectIds: number[]) {
+    const ids = await saveProductStores(productId, storeSubjectIds);
+    await loadProducts();
+    return ids;
+  }
+
+  /** 删除商品（后端逻辑删除） */
+  async function removeProduct(id: number) {
+    await deleteProduct(id);
+    const list = ensure('products');
+    const idx = list.findIndex((x: any) => x.id === id);
+    if (idx >= 0) list.splice(idx, 1);
+    persist();
   }
 
   /** 该 key 是否已启用远端模式 */
@@ -1892,12 +2208,19 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     return { data: rows.slice(start, start + pageSize), total };
   }
 
-  function bindUserRole(userId: number, roleType: RoleType, subjectId: string, subjectName: string) {
+  /**
+   * 绑定用户与主体（走后端接口）。
+   *
+   * 原实现只改本地数组，刷新即丢；现调用
+   * POST /api/v1/admin/subject/binding/user/{userId}/role/{roleCode}/subject/{subjectId}。
+   * 注意后端 subjectId 需要**数字主体 id**，而本方法的 subjectId 参数是主体 code，
+   * 故此处先按 code 查出实体再取其 id。
+   */
+  async function bindUserRole(userId: number, roleType: RoleType, subjectCode: string, subjectName: string) {
     const users = ensure('users');
     const subjects = ensure('subjects');
-    const userIdx = users.findIndex((u: any) => u.id === userId);
-    if (userIdx < 0) return;
-    const user = users[userIdx];
+    const user = users.find((u: any) => u.id === userId);
+    if (!user) return;
 
     // 一个用户只能绑定一个主体
     if (user.boundSubjectId) {
@@ -1905,49 +2228,59 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       return;
     }
 
-    const subject = subjects.find((s: any) => s.code === subjectId);
+    const subject = subjects.find((s: any) => s.code === subjectCode);
     if (!subject) {
       window.$message?.warning('主体不存在');
       return;
     }
 
     // 主体未被其他用户绑定
-    if (subject.boundUserId && subject.boundUserId !== user.userId) {
+    // app_user 主键即 id（接口无 userId 字段）；原写法 user.userId 恒为 undefined，
+    // 会导致判断恒真、把「未绑定」误判为「已绑定」，绑定功能不可用
+    if (subject.boundUserId && Number(subject.boundUserId) !== Number(user.id)) {
       window.$message?.warning('该经营者已绑定用户，请先解绑');
       return;
     }
 
-    const beforeUser = { ...user };
-    const beforeSubject = { ...subject };
-    users[userIdx] = { ...user, businessRole: roleType, boundSubjectId: subjectId, boundSubjectName: subjectName };
-    subject.boundUserId = user.userId;
-    subject.boundUserName = user.nickName;
-    audit('用户管理', '绑定角色', user.nickName, beforeUser, users[userIdx]);
-    audit('主体管理', '绑定用户', subjectName, beforeSubject, subject);
-    persist();
+    const roleCode = String(roleType || '').toUpperCase();
+    await bindUserRoleApi(userId, roleCode, Number(subject.id));
+    await loadRemote('users');
+    await loadRemote('subjects');
+    audit('用户管理', '绑定', user.nickName || String(userId), null, {
+      businessRole: roleCode,
+      boundSubjectId: subject.id,
+      boundSubjectName: subject.name
+    });
   }
 
-  function unbindUserRole(userId: number, reason = '') {
+  /**
+   * 解绑用户与主体（走后端接口）。
+   *
+   * 后端按 (userId, roleCode, subjectId) 定位绑定记录，三者都需提供。
+   */
+  async function unbindUserRole(userId: number, reason = '') {
     const users = ensure('users');
     const subjects = ensure('subjects');
-    const userIdx = users.findIndex((u: any) => u.id === userId);
-    if (userIdx < 0) return;
-    const user = users[userIdx];
+    const user = users.find((u: any) => u.id === userId);
+    if (!user) return;
     const subject = subjects.find((s: any) => s.code === user.boundSubjectId);
-    const beforeUser = { ...user };
-    users[userIdx] = { ...user, businessRole: null, boundSubjectId: null, boundSubjectName: null };
-    if (subject) {
-      const beforeSubject = { ...subject };
-      subject.boundUserId = null;
-      subject.boundUserName = null;
-      audit('主体管理', '解绑用户', subject.name, beforeSubject, subject, reason);
+    if (!subject) {
+      window.$message?.warning('该用户未绑定主体');
+      return;
     }
-    audit('用户管理', '解绑角色', user.nickName, beforeUser, users[userIdx], reason);
-    persist();
+    const roleCode = String(user.businessRole || subject.type || '').toUpperCase();
+    await unbindUserRoleApi(userId, roleCode, Number(subject.id));
+    await loadRemote('users');
+    await loadRemote('subjects');
+    audit('用户管理', '解绑', user.nickName || String(userId), {
+      businessRole: roleCode,
+      boundSubjectId: subject.id,
+      boundSubjectName: subject.name
+    }, null, reason);
   }
-
   /** 主体列表：绑定用户（任意活跃状态可绑定；已绑定需先解绑） */
-  function bindSubjectUser(subjectId: number, userId: number) {
+  /** 主体列表：绑定用户（任意活跃状态可绑定；已绑定需先解绑） */
+  async function bindSubjectUser(subjectId: number, userId: number) {
     const subjects = ensure('subjects');
     const subject = subjects.find((s: any) => s.id === subjectId);
     if (!subject) return;
@@ -1962,11 +2295,12 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       return;
     }
     const roleType = (subject.type === 'resource' ? 'resource' : subject.type) as RoleType;
-    bindUserRole(userId, roleType, subject.code, subject.name);
+    await bindUserRole(userId, roleType, subject.code, subject.name);
   }
 
   /** 主体列表：解绑用户（仅停用态可解绑） */
-  function unbindSubjectUser(subjectId: number, reason = '') {
+  /** 主体列表：解绑用户（仅停用态可解绑） */
+  async function unbindSubjectUser(subjectId: number, reason = '') {
     const subjects = ensure('subjects');
     const subject = subjects.find((s: any) => s.id === subjectId);
     if (!subject) return;
@@ -1980,44 +2314,37 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       window.$message?.warning('仅停用的经营者才能解绑用户');
       return;
     }
-    const user = ensure('users').find((u: any) => u.userId === subject.boundUserId);
-    if (user) unbindUserRole(user.id, reason || `解绑用户：${subject.name}`);
+    const user = ensure('users').find((u: any) => Number(u.id) === Number(subject.boundUserId));
+    if (user) await unbindUserRole(user.id, reason || `解绑用户：${subject.name}`);
   }
 
-  function reviewApplication(
+  /**
+   * 审核角色开通申请（走后端接口）。
+   *
+   * 原实现仅改本地数组，刷新即丢；现改为调用
+   * POST /api/v1/admin/subject/binding/application/{id}/review，
+   * 成功后再刷新本地申请列表，保证界面与库一致。
+   */
+  async function reviewApplication(
     id: number,
     approve: boolean,
     subjectId: string | null,
     subjectName: string | null,
     reason = ''
   ) {
-    const list = ensure('roleApplications');
-    const idx = list.findIndex((a: any) => a.id === id);
-    if (idx < 0) return;
-    const app = list[idx];
-    if (app.status !== 'pending') {
-      window.$message?.warning('该申请已审核，不能重复操作');
-      return;
-    }
-    const before = { ...app };
     if (approve && !subjectId) {
       window.$message?.error('该申请未携带主体，无法通过');
       return;
     }
-    list[idx] = {
-      ...app,
-      status: approve ? 'approved' : 'rejected',
-      reviewTime: now(),
-      reviewer: 'admin',
-      subjectId,
-      subjectName
-    };
-    if (approve && subjectId) {
-      const user = ensure('users').find((u: any) => u.userId === before.userId);
-      if (user) bindUserRole(user.id, before.roleType, subjectId, subjectName || '');
+    const list = ensure('roleApplications');
+    const idx = list.findIndex((a: any) => a.id === id);
+    if (idx >= 0 && list[idx].status !== 'PENDING' && list[idx].status !== 'pending') {
+      window.$message?.warning('该申请已审核，不能重复操作');
+      return;
     }
-    audit('申请审核', approve ? '通过' : '驳回', before.nickName, before, list[idx], reason);
-    persist();
+    await reviewApplicationApi(id, approve, reason, subjectId ? Number(subjectId) : undefined);
+    // 审核成功后重新拉取，避免本地与库不一致
+    await loadRemote('roleApplications');
   }
 
   function toggleFeature(id: number, on: boolean, reason = '') {
@@ -2032,142 +2359,84 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     );
   }
 
-  function refundOrder(id: number, reason = '') {
+  /**
+   * 整单退款（走后端接口）。
+   *
+   * 原实现直接改本地订单状态并本地拼一条退款记录，刷新即丢；
+   * 现调用 POST /api/v1/admin/trade/refund，由后端完成
+   * 「订单状态流转 + 退款记录 + 资金冲正」。
+   */
+  async function refundOrder(id: number, reason = '') {
     const list = ensure('orders');
-    const idx = list.findIndex((o: any) => o.id === id);
-    if (idx < 0) return;
-    const order = list[idx];
-    // 仅待支付(CREATED)/已支付(PAID)可取消；已核销(VERIFIED)/已完成(COMPLETED)/已退款(REFUNDED)不可取消
-    if (order.status === 'VERIFIED' || order.status === 'COMPLETED') {
+    const order = list.find((o: any) => o.id === id);
+    if (!order) return;
+    const st = String(order.status || '').toUpperCase();
+    if (st === 'VERIFIED' || st === 'COMPLETED') {
       window.$message?.error('已核销订单不可取消');
       return;
     }
-    if (order.status === 'REFUNDED') {
+    if (st === 'REFUNDED') {
       window.$message?.warning('该订单已退款，不能重复取消');
       return;
     }
-    const before = { ...order };
-    order.status = 'REFUNDED';
-    order.payStatus = 'REFUNDED';
-    // 取消后自动生成退款记录（无需审核，直接退款成功）
-    const refunds = ensure('refunds');
-    refunds.unshift({
-      id: nextId(refunds),
-      refundNo: `R${Date.now()}`,
-      orderNo: order.orderNo,
-      user: order.user || '—',
-      title: order.summary || '—',
-      product: order.summary || '—',
-      amount: order.paidAmount,
-      status: 'SUCCESS',
-      applyTime: now(),
-      refundType: 'paid'
-    });
-    audit('交易中心', '整单退款', order.orderNo, before, order, reason);
-    persist();
-    window.$message?.success('已取消，退款将原路退回');
+    await refundOrderApi(order.orderNo, reason);
+    await loadRemote('orders');
+    await loadRemote('refunds');
   }
 
-  function reviewWithdraw(id: number, approve: boolean, reason = '') {
+  /**
+   * 提现审核（走后端接口）。
+   *
+   * 原实现自行扣减本地账户与资金池，属「界面记账」，刷新即丢；
+   * 现改为调用 POST /api/v1/admin/finance/withdrawals/{id}/review，
+   * 由后端在事务内完成「余额扣减 + 资金池 + 流水」，前端只负责刷新镜像。
+   */
+  async function reviewWithdraw(id: number, approve: boolean, reason = '') {
     const list = ensure('withdrawals');
-    const idx = list.findIndex((x: any) => x.id === id);
-    if (idx < 0) return;
-    const item = list[idx];
-    if (item.status !== 'pending') {
+    const item = list.find((x: any) => x.id === id);
+    const st = String(item?.status || '').toUpperCase();
+    if (st && st !== 'APPLIED' && st !== 'PENDING') {
       window.$message?.warning('该提现申请已处理，不能重复审核');
       return;
     }
-    if (approve) {
-      const acc = ensure('subjectAccounts').find((a: any) => a.subjectId === item.subjectId);
-      if (acc) {
-        if (item.amount > acc.availableBalance) {
-          window.$message?.error('可提现余额不足，无法通过');
-          return;
-        }
-        debitAccount(acc, item.amount);
-        const pool = ensure('fundPool')[0];
-        pool.totalBalance = Math.round((pool.totalBalance - item.amount) * 100) / 100;
-        pool.updateTime = now();
-        addFlow({
-          type: 'WITHDRAW', direction: 'out', amount: item.amount,
-          subjectId: acc.subjectId, subjectName: acc.subjectName, roleType: acc.roleType,
-          orderNo: '', poolBalanceAfter: pool.totalBalance, remark: reason || '提现出款'
-        });
-      }
-    }
-    patch(
-      'withdrawals',
-      id,
-      { status: approve ? 'approved' : 'rejected', reviewTime: now(), reviewer: 'admin' },
-      '财务中心',
-      approve ? '提现通过' : '提现驳回',
-      'nickName',
-      reason
-    );
+    await reviewWithdrawApi(id, approve, reason);
+    await loadRemote('withdrawals');
+    await loadRemote('subjectAccounts');
+    await loadRemote('fundFlows');
   }
 
-  function executeVerify(id: number, reason = '') {
+  /**
+   * 执行核销（走后端接口）。
+   *
+   * 后端负责订单状态流转（PAID -> VERIFIED）与核销记录落库，
+   * 前端不再本地拼装核销记录，避免「界面有记录、库里没有」。
+   */
+  async function executeVerify(id: number, reason = '') {
     const pool = ensure('verifyPool');
-    const idx = pool.findIndex((x: any) => x.id === id);
-    if (idx < 0) return;
-    const [item] = pool.splice(idx, 1);
-    item.status = 'verified';
-    item.verifiedTime = now();
-
-    // 点单奶茶核销：通过取餐码联动订单状态 PAID -> VERIFIED
-    let orderNo = item.orderNo;
-    if (item.type !== 'exchange' && item.pickupCode) {
-      const orders = ensure('orders');
-      const order = orders.find((o: any) => o.pickupCode === item.pickupCode && o.status === 'PAID');
-      if (order) {
-        order.status = 'VERIFIED';
-        orderNo = order.orderNo;
-      }
-    }
-
-    const list = ensure('verifies');
-    list.unshift({
-      id: nextId(list),
+    const item = pool.find((x: any) => x.id === id);
+    if (!item) return;
+    await executeVerifyApi({
+      type: item.type === 'exchange' ? 'EXCHANGE' : 'ORDER',
+      orderNo: item.orderNo,
       verifyCode: item.code || item.pickupCode,
-      orderNo,
-      store: item.store || '五一广场店',
-      operator: 'admin',
-      device: '后台',
-      type: item.type === 'exchange' ? '兑换' : '订单',
-      result: 'success',
-      time: now()
+      reason
     });
-    audit('交易中心', '执行核销', orderNo, item, item, reason);
-    persist();
+    await loadRemote('verifyPool');
+    await loadRemote('verifies');
+    await loadRemote('orders');
   }
 
-  function reviewComment(id: number, approve: boolean, reason = '') {
+  /** 评论审核（走后端接口，成功后再改本地镜像；失败抛出） */
+  async function reviewComment(id: number, approve: boolean, reason = '') {
     const list = ensure('comments');
-    const idx = list.findIndex((x: any) => x.id === id);
-    if (idx < 0) return;
-    const item = list[idx];
-    if (item.status !== 'pending') {
+    const item = list.find((x: any) => x.id === id);
+    const st = String(item?.status || '').toUpperCase();
+    if (st && st !== 'PENDING') {
       window.$message?.warning('该评论已审核，不能重复操作');
       return;
     }
-
-    const apply = () =>
-      patch(
-        'comments',
-        id,
-        { status: approve ? 'approved' : 'rejected' },
-        '营销中心',
-        approve ? '评论通过' : '评论驳回',
-        'content',
-        reason
-      );
-
-    // 远端模式：审核落库；失败则不动本地状态
-    reviewCommentApi(id, approve, reason)
-      .then(apply)
-      .catch(error => {
-        window.$message?.error(error?.message || '评论审核失败');
-      });
+    await reviewCommentApi(id, approve, reason);
+    await loadRemote('comments');
   }
 
   function refundAudit(id: number, approve: boolean, reason = '') {
@@ -2190,23 +2459,13 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     );
   }
 
-  function enableSplitRule(id: number, reason = '') {
-    // 远端模式：交由后端校验万分比合计与同范围唯一启用
-    toggleSplitRule(id, true)
-      .then(() => {
-        const list = ensure('splitRules');
-        list.forEach((r: any) => {
-          if (r.scope === 'GLOBAL' && r.id !== id) r.status = 'disabled';
-        });
-        const idx = list.findIndex((r: any) => r.id === id);
-        if (idx >= 0) list[idx].status = 'enabled';
-        audit('商品中心', '启用规则', String(id), null, { status: 'enabled', reason });
-        persist();
-      })
-      .catch(error => {
-        window.$message?.error(error?.message || '启用失败（请检查分账比例合计是否为 100%）');
-      });
-  }
+  /**
+   * 【已移除】原 enableSplitRule。
+   *
+   * 原因：该函数在本地镜像上做「同范围唯一启用」的切换，与后端规则不一致，
+   * 且页面已统一改用 store.patch('splitRules', ...) 真写库，留着容易被误用。
+   * 分账规则的启用/停用一律走 store.patch('splitRules')。
+   */
 
   /**
    * 分账计算：
@@ -2287,63 +2546,36 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   /**
    * 订单支付入账：统一进资金池，按分账规则记账到各方账户（不入真实账户）
    */
+  /**
+   * 【已停用】手动入账。
+   *
+   * 后端已有完整自动分账链路：
+   * trade 发布 OrderVerifiedEvent -> OrderVerifiedSplitConsumer
+   * -> LedgerService.executeSplit，即「核销后自动入账」。
+   *
+   * 保留前端手动入账会造成**同一订单被重复入账**（资损风险），
+   * 故本方法不再执行任何记账，仅提示用户入账由核销自动触发。
+   * 若后续确有「自动分账失败后人工补录」需求，应另行设计幂等的补录接口。
+   */
   function orderIncome(orderId: number) {
-    const orders = ensure('orders');
-    const order = orders.find((o: any) => o.id === orderId);
-    if (!order) return;
-    if (order.incomeRecorded) {
-      window.$message?.warning('该订单已入账，不能重复入账');
-      return;
-    }
-    const paid = order.paidAmount / 100; // 分转元
-    const split = order.split || {};
-    const pool = ensure('fundPool')[0];
-    const subjects = ensure('subjects');
-
-    // 平台账户（最高级，收益留在池子）
-    const platform = subjects.find((subj: any) => subj.type === 'platform');
-    const platformAcc = ensureAccount(platform?.id ?? 40, platform?.name ?? '平台', 'platform');
-    creditAccount(platformAcc, split.platformShare ?? 0);
-
-    // 门店
-    const store = subjects.find((subj: any) => subj.name === order.store && subj.type === 'store');
-    if (store) creditAccount(ensureAccount(store.id, store.name, 'store'), split.storeShare ?? 0);
-
-    // 供应商（成本）
-    const supplierAmount = split.costTotal ?? 0;
-    if (supplierAmount > 0) {
-      const supplier = subjects.find((subj: any) => subj.type === 'supplier');
-      if (supplier) creditAccount(ensureAccount(supplier.id, supplier.name, 'supplier'), supplierAmount);
-    }
-
-    // 资源方
-    if (split.channelShare > 0) {
-      const resource = subjects.find((subj: any) => subj.type === 'resource');
-      if (resource) creditAccount(ensureAccount(resource.id, resource.name, 'resource'), split.channelShare);
-    }
-
-    // 投资人
-    if (split.investorShare > 0) {
-      const investor = subjects.find((subj: any) => subj.type === 'investor');
-      if (investor) creditAccount(ensureAccount(investor.id, investor.name, 'investor'), split.investorShare);
-    }
-
-    pool.totalBalance = Math.round((pool.totalBalance + paid) * 100) / 100;
-    pool.updateTime = now();
-    order.incomeRecorded = true;
-
-    addFlow({
-      type: 'INCOME', direction: 'in', amount: paid,
-      subjectId: platform?.id ?? 40, subjectName: platform?.name ?? '平台', roleType: 'platform',
-      orderNo: order.orderNo, poolBalanceAfter: pool.totalBalance, remark: '订单支付入账'
-    });
-    persist();
+    window.$message?.info('订单入账由「核销」自动触发，无需手动操作');
   }
 
   /**
    * 提现：金额 <= 免审阈值直接出款，否则待审核
    */
-  function applyWithdraw(subjectId: number, amount: number) {
+  /**
+   * 后台代经营方发起提现（走后端接口）。
+   *
+   * 原实现是纯本地记账（本地扣余额、本地写提现记录），刷新即丢，
+   * 且金额单位是「元」，与后端不一致。
+   * 现调用 POST /api/v1/admin/finance/withdrawals/apply，由后端在事务内完成
+   * 「余额原子冻结 + 小额即时到账/大额进入审核 + 写资金流水」。
+   *
+   * @param subjectId 主体 id
+   * @param amount    提现金额，单位：**元**（内部换算为分后传后端）
+   */
+  async function applyWithdraw(subjectId: number, amount: number) {
     const accounts = ensure('subjectAccounts');
     const acc = accounts.find((a: any) => a.subjectId === subjectId);
     if (!acc) {
@@ -2354,134 +2586,74 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       window.$message?.warning('平台账户不支持提现');
       return;
     }
-    if (amount <= 0) {
+    if (!(amount > 0)) {
       window.$message?.warning('提现金额必须大于 0');
       return;
     }
-    if (amount > acc.availableBalance) {
+    const amountFen = Math.round(amount * 100);
+    if (amountFen > acc.availableBalance) {
       window.$message?.error('可提现余额不足');
       return;
     }
-    const platform = getPlatformConfig();
-    const threshold = Number(platform.withdrawFreeAuditThreshold || 0);
-    const withdrawals = ensure('withdrawals');
-    const free = amount <= threshold;
-    const status = free ? 'approved' : 'pending';
-
-    withdrawals.unshift({
-      id: nextId(withdrawals),
-      subjectId,
-      nickName: acc.subjectName,
-      roleType: acc.roleType,
-      amount,
-      status,
-      applyTime: now(),
-      reviewTime: free ? now() : null,
-      reviewer: free ? 'system' : null
-    });
-
-    if (free) {
-      debitAccount(acc, amount);
-      const pool = ensure('fundPool')[0];
-      pool.totalBalance = Math.round((pool.totalBalance - amount) * 100) / 100;
-      pool.updateTime = now();
-      addFlow({
-        type: 'WITHDRAW', direction: 'out', amount,
-        subjectId, subjectName: acc.subjectName, roleType: acc.roleType,
-        orderNo: '', poolBalanceAfter: pool.totalBalance, remark: '提现出款（免审）'
-      });
+    // 后端 apply 需要「发起人 app_user.id」用于记录申请人。
+    // 说明：subject_account 表本身**不含**用户字段（已核对表结构），
+    // 绑定关系存放在 biz_subject.bound_user_id，故从主体查取。
+    // 原实现用 `?? 1` 兜底 —— 会把提现错误记到 1 号用户名下，构成数据污染，现改为强校验。
+    const subject = ensure('subjects').find((s: any) => s.id === subjectId);
+    const ownerUserId = Number(subject?.boundUserId ?? 0);
+    if (!ownerUserId) {
+      window.$message?.error('该主体未绑定用户，无法代发起提现；请先在主体管理中绑定用户');
+      return;
     }
-    persist();
+    // 校验该用户确实存在且未删除，避免绑定了失效用户
+    // app_user 主键即 id（接口无 userId 字段），主体上的 bound_user_id 存的就是该 id
+    const owner = ensure('users').find((u: any) => u.id === ownerUserId);
+    if (!owner || owner.deleted) {
+      window.$message?.error('该主体绑定的用户不存在或已删除，无法代发起提现');
+      return;
+    }
+    const userId = Number(owner.id);
+    const roleType = String(acc.roleType || '').toUpperCase();
+    await adminApplyWithdrawApi(userId, subjectId, roleType, amountFen);
+    await loadRemote('withdrawals');
+    await loadRemote('subjectAccounts');
+    await loadRemote('fundFlows');
   }
 
-  function freezeAccount(subjectId: number, reason = '') {
+  /** 冻结账户余额（走后端接口；成功后再刷新本地账户镜像） */
+  async function freezeAccount(subjectId: number, reason = '') {
     const acc = ensure('subjectAccounts').find((a: any) => a.subjectId === subjectId);
-    if (!acc) return;
+    if (!acc) {
+      window.$message?.warning('未找到该主体账户');
+      return;
+    }
     if (acc.availableBalance <= 0) {
       window.$message?.warning('无可冻结余额');
       return;
     }
-    const amount = acc.availableBalance;
-    acc.availableBalance = 0;
-    acc.frozenBalance = Math.round((acc.frozenBalance + amount) * 100) / 100;
-    acc.updateTime = now();
-    addFlow({ type: 'FREEZE', direction: 'out', amount, subjectId, subjectName: acc.subjectName, roleType: acc.roleType, remark: reason || '冻结余额' });
-    persist();
+    // 后端按「全部可用余额」冻结，与界面语义一致
+    await freezeAccountApi(subjectId, acc.availableBalance);
+    await loadRemote('subjectAccounts');
+    await loadRemote('fundFlows');
   }
 
-  function unfreezeAccount(subjectId: number, reason = '') {
+  /** 解冻账户余额（走后端接口；成功后再刷新本地账户镜像） */
+  async function unfreezeAccount(subjectId: number, reason = '') {
     const acc = ensure('subjectAccounts').find((a: any) => a.subjectId === subjectId);
-    if (!acc) return;
+    if (!acc) {
+      window.$message?.warning('未找到该主体账户');
+      return;
+    }
     if (acc.frozenBalance <= 0) {
       window.$message?.warning('无可解冻余额');
       return;
     }
-    const amount = acc.frozenBalance;
-    acc.frozenBalance = 0;
-    acc.availableBalance = Math.round((acc.availableBalance + amount) * 100) / 100;
-    acc.updateTime = now();
-    addFlow({ type: 'UNFREEZE', direction: 'in', amount, subjectId, subjectName: acc.subjectName, roleType: acc.roleType, remark: reason || '解冻余额' });
-    persist();
+    await unfreezeAccountApi(subjectId, acc.frozenBalance);
+    await loadRemote('subjectAccounts');
+    await loadRemote('fundFlows');
   }
 
-  function bindInvestorToStore(storeId: number, investorCode: string, reason = '') {
-    const subjects = ensure('subjects');
-    const store = subjects.find((s: any) => s.id === storeId && s.type === 'store');
-    if (!store) return;
-    if (store.investorId) {
-      window.$message?.warning('该门店已绑定投资人，请先解绑');
-      return;
-    }
-    const investor = subjects.find((s: any) => s.code === investorCode && s.type === 'investor');
-    if (!investor) return;
-    // 门店一对一
-    patch('subjects', storeId, { investorId: investorCode, investorName: investor.name }, '主体管理', '绑定投资人', 'name', reason);
-    // 投资人一对多：追加门店 code
-    const ids = Array.isArray(investor.relatedStoreIds) ? investor.relatedStoreIds : [];
-    if (!ids.includes(store.code)) {
-      patch('subjects', investor.id, { relatedStoreIds: [...ids, store.code], relatedStore: store.name }, '主体管理', '绑定门店', 'name', reason);
-    }
-  }
-
-  function unbindInvestorFromStore(storeId: number, reason = '') {
-    const subjects = ensure('subjects');
-    const store = subjects.find((s: any) => s.id === storeId && s.type === 'store');
-    if (!store) return;
-    if (!store.investorId) {
-      window.$message?.warning('该门店未绑定投资人');
-      return;
-    }
-    const investorCode = store.investorId;
-    patch('subjects', storeId, { investorId: null, investorName: '未绑定' }, '主体管理', '解绑投资人', 'name', reason);
-    const investor = subjects.find((s: any) => s.code === investorCode && s.type === 'investor');
-    if (investor) {
-      const ids = (Array.isArray(investor.relatedStoreIds) ? investor.relatedStoreIds : []).filter((c: string) => c !== store.code);
-      const remainNames = subjects.filter((s: any) => s.type === 'store' && ids.includes(s.code)).map((s: any) => s.name);
-      patch('subjects', investor.id, { relatedStoreIds: ids, relatedStore: remainNames.join('、') || '未绑定' }, '主体管理', '解绑门店', 'name', reason);
-    }
-  }
-
-
-
-  function bindResourceToStore(resourceId: number, storeCode: string, reason = '') {
-    const subjects = ensure('subjects');
-    const resource = subjects.find((s: any) => s.id === resourceId && s.type === 'resource');
-    if (!resource) return;
-    const store = subjects.find((s: any) => s.code === storeCode && s.type === 'store');
-    if (!store) return;
-    const ids = Array.isArray(resource.boundStoreIds) ? resource.boundStoreIds : [];
-    if (!ids.includes(store.code)) {
-      patch('subjects', resourceId, { boundStoreIds: [...ids, store.code], boundStoreCount: ids.length + 1 }, '主体管理', '绑定门店', 'name', reason);
-    }
-  }
-
-  function unbindResourceFromStore(resourceId: number, storeCode: string, reason = '') {
-    const subjects = ensure('subjects');
-    const resource = subjects.find((s: any) => s.id === resourceId && s.type === 'resource');
-    if (!resource) return;
-    const ids = (Array.isArray(resource.boundStoreIds) ? resource.boundStoreIds : []).filter((c: string) => c !== storeCode);
-    patch('subjects', resourceId, { boundStoreIds: ids, boundStoreCount: ids.length }, '主体管理', '解绑门店', 'name', reason);
-  }  return {
+  return {
     data,
     subjects: computed(() => ensure('subjects')),
     users: computed(() => ensure('users')),
@@ -2529,21 +2701,34 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     listFiltered,
     loadRemote,
     loadRemoteAll,
+    queryRemote,
+    loadProducts,
+    loadAdminOrders,
+    loadAdminOrderDetail,
+    addProduct,
+    editProduct,
+    setProductOnSale,
+    removeProduct,
+    loadSpecGroups,
+    saveProductSpecGroups,
+    saveProductStoreIds,
     isRemote,
     remoteLoaded,
     bindUserRole,
     unbindUserRole,
     bindSubjectUser,
+    fetchAdminStores,
+    addAdminStore,
+    updateAdminStore,
+    bindStoreInvestor,
+    unbindStoreInvestor,
+    bindChannelStore,
+    unbindChannelStore,
     unbindSubjectUser,
     reviewApplication,
     toggleFeature,
     refundOrder,
-    enableSplitRule,
     calcOrderSplit,
-    bindInvestorToStore,
-    unbindInvestorFromStore,
-    bindResourceToStore,
-    unbindResourceFromStore,
     saveSignInRule,
     saveReferralConfig,
     loadReferralConfig,

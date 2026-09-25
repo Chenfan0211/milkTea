@@ -42,7 +42,6 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   product: { title: '商品中心', icon: 'mdi:cup-outline', order: 30, roles: op },
   product_category: { title: '分类管理', order: 1, roles: op, keepAlive: true },
   product_list: { title: '商品管理', order: 2, roles: op, keepAlive: true },
-  product_spec: { title: '规格管理', order: 3, roles: op, keepAlive: true },
   product_split: { title: '分账规则', order: 4, roles: op, keepAlive: true },
 
   trade: { title: '交易中心', icon: 'mdi:receipt-text', order: 40, roles: op },

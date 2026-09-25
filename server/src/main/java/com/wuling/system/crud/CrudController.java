@@ -40,7 +40,21 @@ public class CrudController {
                                                         @RequestParam Map<String, String> params) {
         params.remove("current");
         params.remove("size");
-        return Result.ok(crudService.page(resource, current, size, params));
+
+        // 约定：以 eq_ 前缀的参数视为「等值过滤」，其余为「模糊搜索」。
+        // 例：?eq_subjectType=STORE -> where subject_type = 'STORE'
+        //     ?name=张三            -> where name like '%张三%'
+        // 等值列仍受 CrudRegistry 的 filterable 白名单约束。
+        Map<String, String> search = new java.util.LinkedHashMap<>();
+        Map<String, String> filters = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            if (entry.getKey().startsWith("eq_")) {
+                filters.put(entry.getKey().substring(3), entry.getValue());
+            } else {
+                search.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return Result.ok(crudService.page(resource, current, size, search, filters));
     }
 
     @GetMapping("/{resource}/{id}")

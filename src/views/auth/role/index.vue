@@ -8,6 +8,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
+import { renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -15,7 +16,7 @@ const columns: DataTableColumns<any> = [
   { title: '角色编码', key: 'code', width: 140 },
   { title: '名称', key: 'name', width: 140 },
   { title: '数据范围', key: 'dataScope', width: 120 },
-  { title: '创建时间', key: 'createTime', width: 150 }
+  { title: '创建时间', key: 'createTime', render: renderDateTime('createTime'), width: 150 }
 ];
 const searchFields: SearchField[] = [
   { key: 'name', label: '角色', placeholder: '角色名称' },
@@ -49,7 +50,7 @@ const rowActions: RowAction[] = [
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该角色？（请填写备注）',
-    handler: (row, reason) => store.remove('roles', row.id, '授权中心', 'name', reason)
+    handler: async (row, reason) => await store.remove('roles', row.id, '授权中心', 'name', reason)
   }
 ];
 const config: AdminListConfig = {
@@ -59,13 +60,13 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.roles, search, page, pageSize),
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('roles', search, page, pageSize),
   form: {
     title: '角色',
     fields: formFields,
-    onSubmit: (data, editing) => {
-      if (editing) store.update('roles', editing.id, data, '授权中心', 'name');
-      else store.add('roles', data, '授权中心', 'name');
+    onSubmit: async (data, editing) => {
+      if (editing) await store.update('roles', editing.id, data, '授权中心', 'name');
+      else await store.add('roles', data, '授权中心', 'name');
     }
   }
 };

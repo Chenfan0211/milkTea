@@ -34,8 +34,28 @@ const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
   };
 });
 
+/** 水平居中弹窗：登录相关错误统一走这里，保证中文文案可见 */
+function showLoginError(message: string) {
+  window.$dialog?.error({
+    title: '登录失败',
+    content: message || '登录失败，请稍后重试',
+    class: 'login-error-dialog-center',
+    style: { textAlign: 'center' },
+    maskClosable: false,
+    closable: false,
+    positiveText: '我知道了'
+  });
+}
+
 async function handleSubmit() {
-  await validate();
+  try {
+    await validate();
+  } catch {
+    // 表单校验未通过（用户名/密码为空等），给出居中提示，避免用户以为按钮没反应
+    showLoginError('请输入用户名和密码');
+    return;
+  }
+
   await authStore.login(model.userName, model.password);
 }
 
@@ -58,7 +78,7 @@ const accounts = computed<Account[]>(() => [
   {
     key: 'operation',
     label: '运营',
-    userName: 'Admin',
+    userName: 'operator',
     password: '123456'
   },
   {

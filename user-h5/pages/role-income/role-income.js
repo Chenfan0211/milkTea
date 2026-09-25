@@ -1,5 +1,5 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getIncomeData } = require('../../utils/roles');
+const { getCurrentBusinessRole, getIncomeData, syncIncomeFromRemote, syncWorkbenchFromRemote } = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 const RECORDS_URL = '/pages/role-income-records/role-income-records';
@@ -32,7 +32,20 @@ Page(
       this.syncRole();
     },
     onShow() {
-      if (this.data.ready) this.syncIncome();
+      if (this.data.ready) this.refreshFromRemote();
+    },
+    /**
+     * 收益数据来自后端结算台账 + 账户概览。
+     *
+     * 说明：原实现只读本地 mock，接口拉取后会覆盖为真实数据；
+     * 概览与台账都拉完再统一渲染，避免出现「金额是后端、记录是 mock」的混合态。
+     */
+    refreshFromRemote() {
+      const role = this.data.role;
+      if (!role) return;
+      Promise.all([syncWorkbenchFromRemote(role.id), syncIncomeFromRemote(role.id)]).then(() => {
+        this.syncIncome();
+      });
     },
     syncRole() {
       const role = getCurrentBusinessRole();

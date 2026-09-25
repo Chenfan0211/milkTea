@@ -62,6 +62,8 @@ public class ProductInternalQueryController {
         result.put("name", product.getName());
         result.put("price", product.getPrice());
         result.put("originalPrice", product.getOriginalPrice());
+        // 商品图：供 trade 下单时快照进 order_item.image，小程序订单详情据此展示
+        result.put("image", product.getImage());
         result.put("onSale", product.getOnSale());
         result.put("supplierSubjectId", product.getSupplierSubjectId());
         return result;

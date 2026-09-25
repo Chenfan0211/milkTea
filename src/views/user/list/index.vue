@@ -11,7 +11,7 @@ import type { DataTableColumns } from 'naive-ui';
 import { NAvatar } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import type { RoleType } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -43,6 +43,7 @@ const columns: DataTableColumns<any> = [
         : h('span', { style: 'color:#9B9B96' }, '—')
   },
   { title: '用户ID', key: 'userId', width: 110 },
+  { title: '手机号', key: 'phone', width: 130, render: (row: any) => row.phone || '—' },
   { title: '昵称', key: 'nickName', width: 140 },
   {
     title: '性别',
@@ -65,7 +66,8 @@ const columns: DataTableColumns<any> = [
     width: 95,
     render: (row: any) => roleLabel(row.businessRole)
   },
-  { title: '绑定主体', key: 'boundSubjectName', minWidth: 140, render: (row: any) => row.boundSubjectName || '—' }
+  { title: '绑定主体', key: 'boundSubjectName', minWidth: 140, render: (row: any) => row.boundSubjectName || '—' },
+  { title: '注册时间', key: 'createTime', width: 170, render: renderDateTime('createTime') }
 ];
 
 const searchFields: SearchField[] = [
@@ -77,6 +79,7 @@ const rowActions: RowAction[] = [
   {
     label: '绑定',
     type: 'info',
+    visible: row => !row.businessRole,
     cascadePicker: {
       title: '绑定主体',
       steps: [
@@ -96,9 +99,9 @@ const rowActions: RowAction[] = [
               .map(s => ({ label: s.name, value: s.code }))
         }
       ],
-      handler: (row, values) => {
+      handler: async (row, values) => {
         const subj = store.subjects.find(x => x.code === values.second);
-        if (subj) store.bindUserRole(row.id, values.first as RoleType, subj.code, subj.name);
+        if (subj) await store.bindUserRole(row.id, values.first as RoleType, subj.code, subj.name);
       }
     }
   },
@@ -106,13 +109,14 @@ const rowActions: RowAction[] = [
     label: '解绑',
     type: 'error',
     reasonPrompt: '确认解绑该用户的经营角色？（请填写备注）',
-    handler: (row, reason) => store.unbindUserRole(row.id, reason)
+    handler: (row, reason) => store.unbindUserRole(row.id, reason),
+    visible: row => Boolean(row.businessRole)
   },
   {
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该用户？删除后列表不再展示（逻辑删除），请填写备注',
-    handler: (row, reason) => store.remove('users', row.id, '用户管理', 'nickName', reason)
+    handler: async (row, reason) => await store.remove('users', row.id, '用户管理', 'nickName', reason)
   }
 ];
 
@@ -123,7 +127,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar: [],
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.users, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('users', search, page, pageSize)
 };
 </script>
 

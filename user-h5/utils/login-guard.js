@@ -104,6 +104,13 @@ function requireLogin(action, options) {
   const opts = options || {};
   return ensureSilentLogin()
     .then(() => {
+      // 未注册用户静默登录后没有 token（后端查无 openid 只下发 registerToken），
+      // 不能误判为已登录而直接执行 action，必须先引导注册登录。
+      if (!auth.isLoggedIn()) {
+        pendingAction = typeof action === 'function' ? action : null;
+        openLoginSheet({ phone: false, reason: opts.reason || '请先登录' });
+        return null;
+      }
       if (typeof action === 'function') return action();
       return null;
     })
@@ -122,6 +129,12 @@ function requirePhone(action, options) {
   const opts = options || {};
   return ensureSilentLogin()
     .then(() => {
+      // 未注册用户必须先注册登录（后端查无 openid 时没有 token）
+      if (!auth.isLoggedIn()) {
+        pendingAction = typeof action === 'function' ? action : null;
+        openLoginSheet({ phone: true, reason: '请先登录并绑定手机号' });
+        return null;
+      }
       if (hasPhone()) {
         return typeof action === 'function' ? action() : null;
       }

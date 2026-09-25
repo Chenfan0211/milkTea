@@ -1,6 +1,8 @@
 package com.wuling.marketing.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.wuling.common.api.PageResult;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.marketing.entity.GiftCard;
@@ -73,10 +75,14 @@ public class GiftCardService {
                 .orderByDesc(GiftCard::getId));
     }
 
-    public List<GiftCardOrder> myOrders(Long userId) {
-        return orderMapper.selectList(new LambdaQueryWrapper<GiftCardOrder>()
-                .eq(GiftCardOrder::getUserId, userId)
-                .orderByDesc(GiftCardOrder::getId));
+    /** 我的礼品卡订单（分页） */
+    public PageResult<GiftCardOrder> myOrders(Long userId, long current, long size) {
+        Page<GiftCardOrder> page = orderMapper.selectPage(
+                new Page<>(current, size),
+                new LambdaQueryWrapper<GiftCardOrder>()
+                        .eq(GiftCardOrder::getUserId, userId)
+                        .orderByDesc(GiftCardOrder::getId));
+        return PageResult.of(page.getRecords(), page.getCurrent(), page.getSize(), page.getTotal());
     }
 
     /** 取消礼品卡订单：待支付/已支付均可取消；已支付取消需标记退款金额 */

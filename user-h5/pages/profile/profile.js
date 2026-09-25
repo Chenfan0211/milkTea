@@ -48,7 +48,9 @@ Page(
       progressCurrent: initialMeta.currentGrowth,
       progressTarget: initialMeta.progressTarget,
       // 未授权头像时的默认头像（避免空白）
-      defaultAvatar: DEFAULT_AVATAR
+      defaultAvatar: DEFAULT_AVATAR,
+      // 登录弹层：未登录时「我的」页的登录入口（页内唤起，不跳独立页）
+      loginSheetVisible: false
     },
     onLoad() {
       this.syncLevel();
@@ -158,6 +160,33 @@ Page(
     /** 打开授权弹层（供 login-guard 调用） */
 
 
+    /** 未登录时的登录入口：页内唤起登录弹层（不跳独立授权页） */
+    openLogin() {
+      this.setData({ loginSheetVisible: true });
+    },
+    closeLoginSheet() {
+      this.setData({ loginSheetVisible: false });
+    },
+    /** 弹层内「暂时跳过」：仅关闭弹层，页面保持未登录态（个人数据仍隐藏） */
+    handleLoginSkip() {
+      this.setData({ loginSheetVisible: false });
+      loginGuard.clearPendingAction();
+    },
+    /** 弹层内授权成功：刷新登录态与资料，并续跑被拦截的操作 */
+    handleLoginSuccess() {
+      this.setData({ loginSheetVisible: false });
+      refreshUserProfileFromRemote()
+        .then(() => {
+          if (typeof this.syncUserCard === 'function') this.syncUserCard();
+          this.onShow();
+        })
+        .catch(() => null);
+      loginGuard.flushPendingAction();
+    },
+    handleLoginFail() {
+      loginGuard.toast('登录失败，请稍后重试');
+    },
+
     /** 绑定手机号入口 */
     handleBindPhone() {
       loginGuard.requirePhone(null, { reason: '绑定手机号后可下单与领取优惠券' });
@@ -207,12 +236,20 @@ Page(
         { reason: '登录后可查看和编辑个人资料' }
       );
     },
-    openGiftCards() {
+    openGiftCardOrders() {
       loginGuard.requireLogin(
         () => {
           wx.navigateTo({ url: '/pages/gift-card-orders/gift-card-orders' });
         },
         { reason: '登录后可查看礼品卡订单' }
+      );
+    },
+    openGiftCards() {
+      loginGuard.requireLogin(
+        () => {
+          wx.navigateTo({ url: '/pages/gift-card/gift-card' });
+        },
+        { reason: '登录后可查看礼品卡' }
       );
     },
     openGiftCardOrder(event) {
@@ -262,7 +299,7 @@ Page(
         return;
       }
       if (id === 'gift') {
-        this.openGiftCards();
+        this.openGiftCardOrders();
         return;
       }
       if (id === 'points') {
@@ -285,6 +322,17 @@ Page(
         wx.navigateTo({ url: '/pages/service/service' });
         return;
       }
+      // 收货地址：小程序未单独建页，收货信息在下单流程内填写，这里引导去点单
+      if (id === 'address') {
+        wx.showToast({ title: '收货信息可在下单时填写', icon: 'none' });
+        return;
+      }
+      // 活动报名 / 活动规则：跳活动规则页
+      if (id === 'activity') {
+        wx.navigateTo({ url: '/pages/activity-rules/activity-rules' });
+        return;
+      }
+      // 兜底：配置了但前端未接入的入口，明确提示而不是静默无反应
       wx.showToast({ title: `${label || '功能'}暂未接入`, icon: 'none' });
     },
     showUnavailable(event) {

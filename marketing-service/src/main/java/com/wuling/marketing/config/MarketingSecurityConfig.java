@@ -36,15 +36,19 @@ public class MarketingSecurityConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         // 用户优惠券
                         "/api/v1/app/users/**",
-                        // 储值：订单与充值需登录（套餐列表公开）
+                        // 储值：创建订单/查单需登录（套餐列表公开）。
+                        // 用 /** 通配以覆盖 /orders/{orderNo}，避免新增路径漏配导致未鉴权。
                         "/api/v1/app/stored-value/orders",
-                        "/api/v1/app/stored-value/recharge",
+                        "/api/v1/app/stored-value/orders/**",
                         // 礼品卡：我的卡与购买需登录（面额列表公开）
                         "/api/v1/app/gift-cards",
                         "/api/v1/app/gift-cards/purchase",
                         // 时光币：记录/签到/兑换需登录（商品与规则公开）
                         "/api/v1/app/points/records",
                         "/api/v1/app/points/signin",
+                        // 签到日期查询：前端据此还原「今日是否已签到」，必须覆盖，
+                        // 否则鉴权缺失会返回 8888，导致页面误显示「可签到」。
+                        "/api/v1/app/points/signin-dates",
                         "/api/v1/app/points/exchange",
                         "/api/v1/app/points/exchange-orders",
                         // 评论

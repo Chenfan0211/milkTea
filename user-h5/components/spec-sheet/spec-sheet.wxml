@@ -33,17 +33,17 @@
         <text class="spec-sheet__description">{{product.specDetail.description}}</text>
         <text wx:if="{{mode !== 'edit'}}" class="spec-sheet__description spec-sheet__description--secondary">（0奶精/0植脂末/0氢化植物油）</text>
 
-        <view class="spec-sheet__info-block">
+        <view wx:if="{{product.specDetail.ingredients}}" class="spec-sheet__info-block">
           <text class="spec-sheet__info-title">【主要原料】</text>
           <text class="spec-sheet__info-text">{{product.specDetail.ingredients}}</text>
         </view>
 
         <block wx:if="{{state.expanded}}">
-          <view class="spec-sheet__info-block">
+          <view wx:if="{{product.specDetail.allergens}}" class="spec-sheet__info-block">
             <text class="spec-sheet__info-title">【致敏原信息】</text>
             <text class="spec-sheet__info-text">{{product.specDetail.allergens}}</text>
           </view>
-          <view class="spec-sheet__info-block">
+          <view wx:if="{{product.specDetail.cupCapacity}}" class="spec-sheet__info-block">
             <text class="spec-sheet__info-title">【杯型容量】</text>
             <text class="spec-sheet__info-text">{{product.specDetail.cupCapacity}}</text>
           </view>
@@ -103,9 +103,9 @@
             </view>
           </view>
           <view class="spec-sheet__estimate-line">
-            <text class="spec-sheet__estimate-label">储值付款到手价</text>
-            <text class="spec-sheet__estimate-symbol">¥</text>
-            <text class="spec-sheet__estimate-price">{{state.storedValuePrice}}</text>
+            <text class="spec-sheet__estimate-label">储值立减</text>
+            <text class="spec-sheet__estimate-symbol">-¥</text>
+            <text class="spec-sheet__estimate-price">{{state.storedValueDiscount}}</text>
             <image class="spec-sheet__estimate-icon" src="/assets/icons/lucide/info.svg" mode="aspectFit" />
           </view>
           <view class="spec-sheet__spec-line">

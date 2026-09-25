@@ -18,7 +18,7 @@ for (const content of [
   'store.promotion',
   'store.name',
   'store.distanceLabel',
-  'store.queueText',
+  'store.statusText',
   'store.address',
   'store.businessHours',
   'leaf-white.svg',
@@ -56,8 +56,14 @@ assert.ok(
   '公共门店卡必须派发完整交互事件'
 );
 assert.ok(
-  /\.store-list-card\s*\{[^}]*min-height:\s*372rpx[^}]*padding:\s*20rpx 24rpx/.test(componentWxss),
-  '公共门店卡必须按图二使用 372rpx 高度与 20/24rpx 内边距'
+  // 卡片改为内容撑高（不再用 min-height 兜底），并收紧内边距与间距，使一屏能展示更多门店
+  !/\.store-list-card\s*\{[^}]*min-height/.test(componentWxss) &&
+    /\.store-list-card\s*\{[^}]*padding:\s*16rpx 20rpx/.test(componentWxss),
+  '公共门店卡必须由内容撑高并收紧内边距'
+);
+assert.ok(
+  /\.store-list-card\s*\+[^{]*\{[^}]*margin-top:\s*20rpx/.test(componentWxss),
+  '门店卡之间的间距必须收紧至 20rpx'
 );
 assert.ok(
   componentWxss.includes('background: var(--card-bg)') &&
@@ -80,12 +86,12 @@ const colorLiterals = [
 ];
 assert.deepEqual(colorLiterals, [], '公共门店卡不得写死品牌颜色');
 assert.ok(
-  !componentWxml.includes('store-list-card__status') && !componentWxml.includes('statusText'),
-  '公共门店卡不得显示可外卖或仅自提状态标签'
-);
-assert.ok(
-  !componentWxss.includes('.store-list-card__status'),
-  '公共门店卡不得保留可外卖或仅自提状态标签样式'
+  // 状态行只承载营业/排队文案（如「现在下单，立即制作」），
+  // 不得退回「可外卖 / 仅自提」这类取餐方式标签。
+  componentWxml.includes('store.statusText') &&
+    !componentWxml.includes('可外卖') &&
+    !componentWxml.includes('仅自提'),
+  '公共门店卡状态行不得显示可外卖或仅自提标签'
 );
 const storeMockSource = fs.readFileSync(path.join(root, 'data/mock.js'), 'utf8');
 assert.ok(
@@ -151,9 +157,9 @@ assert.ok(
   componentWxml.includes('store-list-card__decor') &&
     componentWxml.includes('/assets/icons/lucide/store-decor-sprout.svg') &&
     /\.store-list-card__decor\s*\{[^}]*position:\s*absolute/.test(componentWxss) &&
-    /\.store-list-card__decor\s*\{[^}]*right:\s*224rpx/.test(componentWxss) &&
-    /\.store-list-card__decor\s*\{[^}]*bottom:\s*-64rpx/.test(componentWxss) &&
-    /\.store-list-card__decor\s*\{[^}]*width:\s*132rpx[^}]*height:\s*132rpx/.test(componentWxss),
+    /\.store-list-card__decor\s*\{[^}]*right:\s*8rpx/.test(componentWxss) &&
+    /\.store-list-card__decor\s*\{[^}]*bottom:\s*-48rpx/.test(componentWxss) &&
+    /\.store-list-card__decor\s*\{[^}]*width:\s*160rpx[^}]*height:\s*160rpx/.test(componentWxss),
   '公共门店卡必须按图二在右下角放置 Lucide 叶芽水印并被底边裁切'
 );
 

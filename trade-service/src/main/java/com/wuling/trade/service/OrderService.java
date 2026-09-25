@@ -105,6 +105,7 @@ public class OrderService {
             item.setProductId(product.getProductId());
             item.setProductName(product.getName());
             item.setSpecSnapshot(reqItem.getSpec());
+            item.setImage(product.getImage());
             item.setUnitPrice(unitPrice);
             item.setOriginalPrice(originalPrice);
             item.setQuantity(quantity);
@@ -138,6 +139,11 @@ public class OrderService {
             orderItemMapper.insert(item);
         }
 
+        // 关键业务日志：下单成功（金额为「分」，便于对账核对）
+        log.info("订单创建成功 orderNo={} userId={} storeSubjectId={} items={} 实付={}分 应付={}分",
+                order.getOrderNo(), order.getUserId(), order.getStoreSubjectId(),
+                items.size(), order.getPaidAmount(), order.getTotalAmount());
+
         // 发送延迟消息：15 分钟未支付则自动关闭（MQ 基础设施示例用法）
         try {
             mqProducer.sendDelay(MqConstants.ORDER_TIMEOUT_ROUTING_KEY, order.getOrderNo(), order.getOrderNo());
@@ -156,6 +162,22 @@ public class OrderService {
             throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
         }
         return toDTO(order, loadItems(order.getId()));
+    }
+
+    /**
+     * 我的订单（分页）：在数据库层按 userId 过滤。
+     * 原实现是「取全表前 N 条再内存过滤」，会导致分页结果失真（前 N 条都属于他人时自己看不到订单）。
+     */
+    public PageResult<OrderDTO> pageOrdersByUser(Long userId, long current, long size) {
+        Page<Order> page = orderMapper.selectPage(
+                new Page<>(current, size),
+                new LambdaQueryWrapper<Order>()
+                        .eq(Order::getUserId, userId)
+                        .orderByDesc(Order::getId));
+        List<OrderDTO> records = page.getRecords().stream()
+                .map(o -> toDTO(o, loadItems(o.getId())))
+                .toList();
+        return PageResult.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
 
     public PageResult<OrderDTO> pageOrders(long current, long size, String status, String search) {
@@ -310,6 +332,49 @@ public class OrderService {
         return orderMapper.updateById(patch) > 0;
     }
 
+
+    /**
+     * 用户主动取消「未支付」订单。
+     *
+     * <p>与 {@link #closeIfUnpaid(String)}（系统超时关闭）的区别：
+     * <ul>
+     *   <li><b>校验订单归属</b>：只能取消自己的订单，防止越权取消他人订单；</li>
+     *   <li>备注记录为用户主动取消，便于审计区分超时关闭。</li>
+     * </ul>
+     *
+     * <p>并发安全：行锁读取；仅 CREATED + UNPAID 才可取消，
+     * 已支付订单应走退款流程（见 RefundService），此处直接拒绝。
+     *
+     * @param orderNo  订单号
+     * @param userId   当前登录用户 ID（取自 JWT）
+     * @return 取消后的订单详情
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public OrderDTO cancelUnpaid(String orderNo, Long userId) {
+        Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderNo, orderNo).last("for update"));
+        if (order == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
+        }
+        if (userId != null && !userId.equals(order.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权取消该订单");
+        }
+        if (STATUS_CANCELED.equals(order.getStatus())) {
+            // 幂等：已取消直接返回当前状态，避免重复取消报错
+            return toDTO(order, loadItems(order.getId()));
+        }
+        if (!STATUS_CREATED.equals(order.getStatus()) || !"UNPAID".equals(order.getPayStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "订单当前状态不可取消，请走退款流程");
+        }
+        Order patch = new Order();
+        patch.setId(order.getId());
+        patch.setStatus(STATUS_CANCELED);
+        patch.setRemark("用户主动取消");
+        orderMapper.updateById(patch);
+        order.setStatus(STATUS_CANCELED);
+        return toDTO(order, loadItems(order.getId()));
+    }
+
     public OrderDTO toDTO(Order order, List<OrderItem> items) {
         OrderDTO dto = new OrderDTO();
         dto.setId(order.getId());
@@ -323,10 +388,13 @@ public class OrderService {
         dto.setStatus(order.getStatus());
         dto.setPayStatus(order.getPayStatus());
         dto.setPickupCode(order.getPickupCode());
+        // 门店订单固定来源分类，供小程序订单页页签过滤
+        dto.setCategory("store");
         dto.setTotalAmount(order.getTotalAmount());
         dto.setOriginalAmount(order.getOriginalAmount());
         dto.setDiscountAmount(order.getDiscountAmount());
         dto.setPaidAmount(order.getPaidAmount());
+        dto.setCouponDiscount(order.getCouponDiscount());
         dto.setRefundStatus(order.getRefundStatus());
         dto.setCreateTime(fmt(order.getCreateTime()));
         dto.setPayTime(fmt(order.getPayTime()));
@@ -336,9 +404,11 @@ public class OrderService {
         Map<String, OrderDTO.Item> itemMap = new LinkedHashMap<>();
         for (OrderItem item : items) {
             OrderDTO.Item dtoItem = new OrderDTO.Item();
+            dtoItem.setId(item.getId());
             dtoItem.setProductId(item.getProductId());
             dtoItem.setName(item.getProductName());
             dtoItem.setSpec(item.getSpecSnapshot());
+            dtoItem.setImage(item.getImage());
             dtoItem.setUnitPrice(item.getUnitPrice());
             dtoItem.setOriginalPrice(item.getOriginalPrice());
             dtoItem.setQuantity(item.getQuantity());
@@ -357,5 +427,4 @@ public class OrderService {
         return time == null ? null : time.format(FMT);
     }
 }
-
 

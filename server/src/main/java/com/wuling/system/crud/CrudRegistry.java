@@ -26,7 +26,16 @@ public final class CrudRegistry {
      * @param orderBy    默认排序
      */
     public record Resource(String resource, String table, List<String> writable,
-                           List<String> searchable, String orderBy) {
+                           List<String> searchable, String orderBy, List<String> filterable) {
+
+        /**
+         * 兼容构造：未声明「等值过滤列」的资源配置，等价于不可按列过滤。
+         * 等值过滤用于按外键/枚举精确筛选（如 subjects 按 subject_type）。
+         */
+        public Resource(String resource, String table, List<String> writable,
+                        List<String> searchable, String orderBy) {
+            this(resource, table, writable, searchable, orderBy, List.of());
+        }
     }
 
     private static final Map<String, Resource> RESOURCES = Map.ofEntries(
@@ -34,8 +43,9 @@ public final class CrudRegistry {
             Map.entry("dictEntries", new Resource("dictEntries", "sys_dict_item",
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),
                     List.of("item_code", "item_name"), "sort asc, id asc")),
+            // latitude/longitude：城市经纬度（V31 新增列）
             Map.entry("cities", new Resource("cities", "region",
-                    List.of("parent_id", "code", "name", "level", "sort"),
+                    List.of("parent_id", "code", "name", "level", "sort", "latitude", "longitude"),
                     List.of("code", "name"), "sort asc, id asc")),
             Map.entry("provinces", new Resource("provinces", "region",
                     List.of("parent_id", "code", "name", "level", "sort"),
@@ -45,21 +55,27 @@ public final class CrudRegistry {
                     List.of("code", "name"), "id asc")),
 
             // ---------- 主体管理 ----------
+            // withdraw_free_audit_threshold：平台主体提现免审阈值（分，V31 新增列）
             Map.entry("subjects", new Resource("subjects", "biz_subject",
-                    List.of("code", "name", "subject_type", "status", "bound_user_id"),
-                    List.of("code", "name"), "id asc")),
+                    List.of("code", "name", "subject_type", "status", "bound_user_id",
+                            "withdraw_free_audit_threshold"),
+                    List.of("code", "name"), "id asc", List.of("subject_type", "status"))),
             Map.entry("storeTypes", new Resource("storeTypes", "sys_dict_item",
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),
                     List.of("item_code", "item_name"), "sort asc, id asc")),
+            // open_id：供「微信账号绑定」页维护微信 openId（V31 起放行写入与搜索）
             Map.entry("users", new Resource("users", "app_user",
-                    List.of("nick_name", "phone", "vip_level", "points", "balance",
+                    List.of("open_id", "nick_name", "phone", "vip_level", "points", "balance",
                             "business_role", "bound_subject_id", "status"),
-                    List.of("nick_name", "phone"), "id asc")),
+                    List.of("nick_name", "phone", "open_id"), "id asc")),
 
             // ---------- 第3批：商品配置 ----------
+            // 分类管理：tag=分类标签，enabled=状态（1启用/0停用，V30 新增）；
+            // enabled 同时登记为 filterable，使页面「状态」下拉走等值过滤而非 LIKE
+            // （LIKE 查 boolean 列既会误匹配又无法命中索引）。
             Map.entry("productCategories", new Resource("productCategories", "product_category",
-                    List.of("parent_id", "code", "name", "type", "sort"),
-                    List.of("code", "name"), "sort asc, id asc")),
+                    List.of("parent_id", "code", "name", "tag", "type", "sort", "enabled"),
+                    List.of("code", "name"), "sort asc, id asc", List.of("enabled"))),
             // 规格组模板（与商品级 product_spec 语义不同）
             Map.entry("specGroups", new Resource("specGroups", "spec_group_template",
                     List.of("code", "name", "sort"),
@@ -70,24 +86,32 @@ public final class CrudRegistry {
             Map.entry("specOptions", new Resource("specOptions", "spec_option_template",
                     List.of("group_id", "code", "name", "price_delta", "icon", "sort"),
                     List.of("code", "name"), "sort asc, id asc")),
-            // 分账规则：比例字段为万分比（0~10000，五方合计须为 10000）
+            // 分账规则：比例字段为万分比（0~10000，五方合计须为 10000）。
+            // V30 新增投资人阈值配置：投资人在当月累计分账额达到 investor_threshold_amount（分）
+            // 后，该月起改用 investor_ratio_after（万分比）；阈值为 0 表示不启用该规则。
+            // scope 登记为 filterable，供页面「范围」下拉做精确筛选。
             Map.entry("splitRules", new Resource("splitRules", "split_rule",
                     List.of("code", "name", "scope", "product_id", "platform_ratio", "store_ratio",
-                            "channel_ratio", "investor_ratio", "supplier_ratio", "status"),
-                    List.of("code", "name"), "id asc")),
+                            "channel_ratio", "investor_ratio", "investor_threshold_amount",
+                            "investor_ratio_after", "supplier_ratio", "status"),
+                    List.of("code", "name"), "id asc", List.of("scope"))),
 
             // ---------- 第4批：营销配置 ----------
+            // channel / payment_restriction：优惠券渠道与支付限制（V31 新增列）；
+            // validity_start / validity_end：有效期改为日期区间后需可写。
             Map.entry("coupons", new Resource("coupons", "coupon",
                     List.of("code", "name", "type", "amount", "threshold", "brand", "scenes", "source",
-                            "description", "image", "validity_type", "validity_days", "usage_time",
+                            "description", "image", "validity_type", "validity_start", "validity_end",
+                            "validity_days", "usage_time", "channel", "payment_restriction",
                             "applicable_store_ids", "applicable_product_ids", "stock", "status"),
-                    List.of("code", "name"), "id asc")),
+                    List.of("code", "name"), "id asc", List.of("status"))),
             Map.entry("storedValuePackages", new Resource("storedValuePackages", "stored_value_package",
                     List.of("code", "name", "amount", "status"),
                     List.of("code", "name"), "id asc")),
+            // category：积分商品分区（pet=宠物公益专区 / coupon=优惠券区）
             Map.entry("pointsProducts", new Resource("pointsProducts", "points_product",
                     List.of("code", "name", "image", "points", "stock", "badge", "limit_text",
-                            "description", "status"),
+                            "description", "category", "status"),
                     List.of("code", "name"), "id asc")),
             Map.entry("pointsEarningRules", new Resource("pointsEarningRules", "points_earning_rule",
                     List.of("code", "action", "reward", "note", "sort"),
@@ -95,8 +119,9 @@ public final class CrudRegistry {
             Map.entry("giftCardDenominations", new Resource("giftCardDenominations", "gift_card_denomination",
                     List.of("code", "name", "amount", "status"),
                     List.of("code", "name"), "id asc")),
+            // card_image：卡面图（库中已有列，V31 起放行写入）
             Map.entry("giftCards", new Resource("giftCards", "gift_card_denomination",
-                    List.of("code", "name", "amount", "status"),
+                    List.of("code", "name", "card_image", "amount", "status"),
                     List.of("code", "name"), "id asc")),
             Map.entry("giftCardOrders", new Resource("giftCardOrders", "gift_card_order",
                     List.of("pay_status"),
@@ -130,7 +155,7 @@ public final class CrudRegistry {
                     List.of("pool_name"), "id asc")),
             Map.entry("fundFlows", new Resource("fundFlows", "fund_flow",
                     List.of("remark"),
-                    List.of("flow_no", "order_no"), "id desc")),
+                    List.of("flow_no", "order_no"), "id desc", List.of("subject_id", "role_type", "direction"))),
             Map.entry("snapshots", new Resource("snapshots", "split_snapshot",
                     List.of("status", "total_check"),
                     List.of("snapshot_no", "order_no"), "id desc")),
@@ -151,7 +176,8 @@ public final class CrudRegistry {
                     List.of("content"), "id desc")),
             Map.entry("auditLogs", new Resource("auditLogs", "audit_log",
                     List.of("operator", "module", "action", "target", "reason", "ip"),
-                    List.of("module", "action", "target"), "id desc")),
+                    List.of("operator", "module", "action", "target", "before_value", "after_value", "reason"), "id desc",
+                    List.of("module", "action", "target"))),
 
             // ---------- 交易只读视图 ----------
             Map.entry("orders", new Resource("orders", "orders",

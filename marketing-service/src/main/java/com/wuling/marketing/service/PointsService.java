@@ -17,6 +17,8 @@ import com.wuling.marketing.mapper.PointsSigninMapper;
 import com.wuling.marketing.mapper.PointsSigninRuleMapper;
 import com.wuling.user.entity.AppUser;
 import com.wuling.user.mapper.AppUserMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,9 @@ import java.util.List;
 /** 时光币（积分）：获取 / 签到 / 兑换 */
 @Service
 public class PointsService {
+
+    private static final Logger log = LoggerFactory.getLogger(PointsService.class);
+
 
     public static final String PENDING = "PENDING";
     public static final String VERIFIED = "VERIFIED";
@@ -103,6 +108,17 @@ public class PointsService {
         return next;
     }
 
+    /** 用户所有签到日期（yyyy-MM-dd，倒序），供小程序端还原签到状态 */
+    public List<String> signinDates(Long userId) {
+        return pointsSigninMapper.selectList(new LambdaQueryWrapper<PointsSignin>()
+                .eq(PointsSignin::getUserId, userId)
+                .orderByDesc(PointsSignin::getSignDate))
+                .stream()
+                .map(item -> item.getSignDate() == null ? "" : item.getSignDate().toString())
+                .filter(value -> !value.isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     /** 每日签到（幂等：同一天重复签到被拒绝） */
     @Transactional(rollbackFor = Exception.class)
     public long signIn(Long userId) {
@@ -122,7 +138,10 @@ public class PointsService {
                 new LambdaQueryWrapper<PointsSigninRule>().orderByAsc(PointsSigninRule::getId))
                 .stream().findFirst().orElse(null);
         long daily = rule == null || rule.getDaily() == null ? 1L : rule.getDaily();
-        return change(userId, "EARN", daily, "signin", null, "每日签到");
+        long balance = change(userId, "EARN", daily, "signin", null, "每日签到");
+        // 关键业务日志：签到发放时光币
+        log.info("签到成功 userId={} 发放={} 余额={}", userId, daily, balance);
+        return balance;
     }
 
     /** 积分兑换（扣库存 + 扣币 + 生成自提码） */
@@ -149,6 +168,9 @@ public class PointsService {
         order.setPickupCode(pickupCode);
         order.setStatus(PENDING);
         exchangeOrderMapper.insert(order);
+        // 关键业务日志：兑换下单（消耗时光币 + 自提码）
+        log.info("兑换成功 userId={} productId={} product={} 消耗={} 自提码={}",
+                userId, productId, product.getName(), points, pickupCode);
         return order;
     }
 

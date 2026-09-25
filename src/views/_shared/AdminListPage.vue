@@ -11,7 +11,6 @@ import {
   NModal,
   NImage,
   NUpload,
-  NUploadDragger,
   NDatePicker,
   NPopconfirm,
   NCheckbox,
@@ -129,14 +128,20 @@ function openModal(mode: 'add' | 'edit', row: any) {
     formModel[key] = undefined;
   }
   if (mode === 'edit' && row) {
-    Object.assign(formModel, row);
+    const data = props.config.form?.toFormData ? props.config.form.toFormData(row) : row;
+    Object.assign(formModel, data);
   }
   modalVisible.value = true;
 }
 
 async function submitModal() {
   if (props.config.form) {
-    await props.config.form.onSubmit({ ...formModel }, modalMode.value === 'edit' ? editingRow.value : null);
+    try {
+      await props.config.form.onSubmit({ ...formModel }, modalMode.value === 'edit' ? editingRow.value : null);
+    } catch (e: any) {
+      window.$message?.error(e?.message || '提交失败');
+      return;
+    }
   }
   modalVisible.value = false;
   loadData();
@@ -151,12 +156,12 @@ function openPicker(action: RowAction, row: any) {
   pickerVisible.value = true;
 }
 
-function confirmPicker() {
+async function confirmPicker() {
   if (pickedValue.value == null) {
     window.$message?.warning('请先选择');
     return;
   }
-  pendingPickerAction.value?.handler?.(pendingPickerRow.value, pickedValue.value);
+  await pendingPickerAction.value?.handler?.(pendingPickerRow.value, pickedValue.value);
   pickerVisible.value = false;
   loadData();
 }
@@ -169,13 +174,13 @@ function openReason(action: RowAction, row: any) {
   reasonVisible.value = true;
 }
 
-function confirmReason() {
+async function confirmReason() {
   const reason = reasonText.value.trim();
   if (!reason) {
     window.$message?.warning('请填写备注信息');
     return;
   }
-  pendingReasonAction.value?.handler?.(pendingReasonRow.value, reason);
+  await pendingReasonAction.value?.handler?.(pendingReasonRow.value, reason);
   reasonVisible.value = false;
   loadData();
 }
@@ -291,16 +296,20 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function confirmImport() {
+async function confirmImport() {
   const cfg = props.config.importConfig;
   if (!cfg || !importPreview.value.length) {
     window.$message?.warning('没有可导入的数据');
     return;
   }
-  const result = cfg.commit(importPreview.value);
-  importVisible.value = false;
-  window.$message?.success('导入完成：新增 ' + result.added + ' 条' + (result.skipped ? '，跳过 ' + result.skipped + ' 条' : ''));
-  loadData();
+  try {
+    const result = await cfg.commit(importPreview.value);
+    importVisible.value = false;
+    window.$message?.success('导入完成：新增 ' + result.added + ' 条' + (result.skipped ? '，跳过 ' + result.skipped + ' 条' : ''));
+    loadData();
+  } catch (e: any) {
+    window.$message?.error(e?.message || '导入失败');
+  }
 }
 
 function handleAction(action: RowAction, row: any) {
@@ -343,10 +352,10 @@ function renderAction(action: RowAction, row: any) {
 
 const rowActionsWidth = computed(() => {
   const acts = props.config.rowActions ?? [];
-  if (acts.length <= 2) return 140;
-  if (acts.length <= 3) return 210;
-  if (acts.length <= 4) return 280;
-  return 340;
+  if (acts.length <= 2) return 180;
+  if (acts.length <= 3) return 300;
+  if (acts.length <= 4) return 380;
+  return 440;
 });
 
 function visibleActions(row: any) {
@@ -576,6 +585,15 @@ function renderField(field: FormField) {
       value: formModel[field.key] ?? null,
       placeholder: field.placeholder,
       'onUpdate:value': (v: any) => (formModel[field.key] = v)
+    });
+  }
+  if (field.type === 'password') {
+    return h(NInput, {
+      value: formModel[field.key] ?? '',
+      type: 'password',
+      showPasswordOn: 'click',
+      placeholder: field.placeholder ?? '请输入',
+      'onUpdate:value': (v: string) => (formModel[field.key] = v)
     });
   }
   return h(NInput, {

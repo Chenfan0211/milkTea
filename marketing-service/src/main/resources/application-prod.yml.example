@@ -85,11 +85,7 @@ app:
 
 logging:
   level:
-    root: WARN
+    root: INFO
     com.wuling: INFO
-  file:
-    name: /opt/wuling/logs/wuling-marketing-service.log
-  logback:
-    rollingpolicy:
-      max-file-size: 50MB
-      max-history: 30
+    # 请求日志：每次调用的方法/路径/参数(脱敏)/耗时/状态码
+    REQUEST: INFO

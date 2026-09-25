@@ -230,21 +230,6 @@
   background: var(--brand-tint);
 }
 
-.signin-prizes {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 72rpx;
-  color: var(--text-secondary);
-  font-size: var(--font-md);
-}
-
-.signin-prizes__arrow {
-  width: 24rpx;
-  height: 24rpx;
-  margin-left: 4rpx;
-}
-
 .signin-rewards-card__title {
   display: block;
   color: var(--text-main);

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted } from 'vue';
 import { NTag } from 'naive-ui';
+import { formatDateTime } from '@/views/_shared/render';
 import { useAppStore } from '@/store/modules/app';
 import { useAdminStore } from '@/store/modules/admin';
 import { useEcharts, type ECOption } from '@/hooks/common/echarts';
@@ -97,8 +98,7 @@ const statusLabel: Record<string, string> = {
   PAID: '待核销',
   VERIFIED: '已核销',
   COMPLETED: '已完成',
-  REFUNDED: '已退款'
-};
+  REFUNDED: '已退款', CANCELED: '已取消' };
 
 const pieOptions = computed(() => {
   const map: Record<string, number> = {};
@@ -165,7 +165,7 @@ const pendingRows = computed<Row[]>(() => {
         type: '退款',
         amount: `¥${formatMoney(r.amount)}`,
         status: '待审核',
-        time: r.applyTime?.slice(11) || '—'
+        time: formatDateTime(r.applyTime)
       });
     });
 
@@ -179,7 +179,7 @@ const pendingRows = computed<Row[]>(() => {
         type: '对账',
         amount: `¥${formatMoney(r.diffAmount)}`,
         status: '金额差异',
-        time: r.foundTime?.slice(11) || '—'
+        time: formatDateTime(r.foundTime)
       });
     });
 
@@ -193,7 +193,7 @@ const pendingRows = computed<Row[]>(() => {
         type: '提现',
         amount: `¥${formatMoney(w.amount)}`,
         status: '待审核',
-        time: w.applyTime?.slice(11) || '—'
+        time: formatDateTime(w.applyTime)
       });
     });
 

@@ -67,7 +67,7 @@
 
         <view class="gift-order-card__info">
           <text class="gift-order-card__meta">订单号 {{item.orderInfo.orderNo}}</text>
-          <text wx:if="{{item.payTime}}" class="gift-order-card__meta">支付时间 {{item.payTime}}</text>
+          <text wx:if="{{item.payTimeText}}" class="gift-order-card__meta">支付时间 {{item.payTimeText}}</text>
         </view>
 
         <view wx:if="{{item.isPendingPayment}}" class="gift-order-card__actions">

@@ -66,3 +66,17 @@ server/.env.local.properties
 fix_*.py
 gen_*.py
 patch-*.cjs
+
+# 部署产物 / 构建备份（本地打包生成，不入库）
+web-ip-*.tar.gz
+backend-*.tar.gz
+*.tar.gz
+
+
+# 临时 IP 直连构建配置（含生产 IP，不入库）
+.env.prod-ip
+
+
+# 部署暂存目录（含编译产物 jar，不入库）
+.deploy-staging/
+

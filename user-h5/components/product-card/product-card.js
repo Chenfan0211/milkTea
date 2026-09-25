@@ -1,4 +1,5 @@
-const { calcMemberPrice } = require('../../utils/pricing');
+const { calcMemberPrice } = require('../../utils/member-level');
+const { getUserProfile } = require('../../utils/user-profile');
 
 Component({
   options: { styleIsolation: 'apply-shared' },
@@ -14,7 +15,7 @@ Component({
       if (!product || !product.name) return;
       const listPrice = Number(product.originalPrice || product.price || 0);
       this.setData({
-        displayPrice: calcMemberPrice(listPrice)
+        displayPrice: calcMemberPrice(listPrice, getUserProfile().vipLevel || '')
       });
     }
   },

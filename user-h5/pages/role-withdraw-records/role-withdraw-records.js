@@ -1,7 +1,9 @@
 const { withShare } = require('../../utils/share');
+const { formatDateTime } = require('../../utils/date-format');
 const {
   getCurrentBusinessRole,
   getWithdrawData,
+  syncWithdrawalsFromRemote,
   WITHDRAW_STATUS_TEXT
 } = require('../../utils/roles');
 
@@ -83,7 +85,10 @@ Page(
       this.syncRole();
     },
     onShow() {
-      if (this.data.ready) this.syncRecords();
+      // 提现记录以后端为唯一来源：拉到后重渲染，失败保留现有列表
+      syncWithdrawalsFromRemote().then(() => {
+        if (this.data.ready) this.syncRole();
+      });
     },
     syncRole() {
       const role = getCurrentBusinessRole();
@@ -110,7 +115,8 @@ Page(
     decorate(records) {
       return (records || []).map(item =>
         Object.assign({}, item, {
-          statusLabel: WITHDRAW_STATUS_TEXT[item.status] || item.status || ''
+          statusLabel: WITHDRAW_STATUS_TEXT[item.status] || item.status || '',
+          timeText: formatDateTime(item.time)
         })
       );
     },

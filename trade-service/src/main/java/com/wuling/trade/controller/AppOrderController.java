@@ -1,6 +1,7 @@
 package com.wuling.trade.controller;
 
 import com.wuling.security.CurrentUser;
+import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
 import com.wuling.trade.dto.CreateOrderRequest;
 import com.wuling.trade.dto.OrderDTO;
@@ -10,6 +11,7 @@ import com.wuling.trade.port.UserQueryPort;
 import com.wuling.trade.service.OrderService;
 import com.wuling.trade.service.PaymentGatewayResolver;
 import com.wuling.trade.service.PaymentService;
+import com.wuling.trade.service.RefundService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +26,7 @@ public class AppOrderController {
 
     private final OrderService orderService;
     private final PaymentService paymentService;
+    private final RefundService refundService;
     private final PaymentGatewayResolver gatewayResolver;
     private final UserQueryPort userQueryPort;
     private final com.wuling.common.security.PaymentCallbackSigner signer;
@@ -31,12 +34,14 @@ public class AppOrderController {
 
     public AppOrderController(OrderService orderService,
                               PaymentService paymentService,
+                              RefundService refundService,
                               PaymentGatewayResolver gatewayResolver,
                               UserQueryPort userQueryPort,
                               com.wuling.common.security.PaymentCallbackSigner signer,
                               com.wuling.common.audit.AuditLogService auditLog) {
         this.orderService = orderService;
         this.paymentService = paymentService;
+        this.refundService = refundService;
         this.gatewayResolver = gatewayResolver;
         this.userQueryPort = userQueryPort;
         this.signer = signer;
@@ -50,13 +55,12 @@ public class AppOrderController {
         return Result.ok(orderService.createOrder(request));
     }
 
-    /** 我的订单（用户取自 JWT） */
+    /** 我的订单（分页，默认 20 条/页；用户取自 JWT） */
     @GetMapping("/orders")
-    public Result<List<OrderDTO>> list() {
-        Long userId = CurrentUser.require();
-        return Result.ok(orderService.pageOrders(1, 50, null, null).getRecords().stream()
-                .filter(o -> o.getUserId().equals(userId))
-                .toList());
+    public Result<PageResult<OrderDTO>> list(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size) {
+        return Result.ok(orderService.pageOrdersByUser(CurrentUser.require(), page, size));
     }
 
     /** 订单详情：校验归属，禁止查看他人订单 */
@@ -112,6 +116,36 @@ public class AppOrderController {
         auditLog.record(String.valueOf(userId), "PAY", "PREPAY", orderNo,
                 "通道=" + gatewayResolver.activeChannel() + " 金额=" + order.getPaidAmount(), null);
         return Result.ok(prepay);
+    }
+
+    /**
+     * 取消订单（用户主动）。
+     *
+     * <p>按订单当前状态分流：
+     * <ul>
+     *   <li><b>未支付</b>（CREATED）：直接关闭订单，不产生退款；</li>
+     *   <li><b>已支付待核销</b>（PAID）：走整单退款，原路退回并冲正台账；
+     *       已核销 / 已结算等状态由 RefundService 拒绝。</li>
+     * </ul>
+     *
+     * <p>安全：订单归属取自 JWT，禁止取消他人订单。
+     */
+    @PostMapping("/orders/{orderNo}/cancel")
+    public Result<OrderDTO> cancel(@PathVariable String orderNo) {
+        Long userId = CurrentUser.require();
+        OrderDTO order = orderService.getByOrderNo(orderNo);
+        if (!userId.equals(order.getUserId())) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.FORBIDDEN, "无权取消该订单");
+        }
+        if (OrderService.STATUS_CREATED.equals(order.getStatus())) {
+            return Result.ok(orderService.cancelUnpaid(orderNo, userId));
+        }
+        if (OrderService.STATUS_PAID.equals(order.getStatus())) {
+            return Result.ok(refundService.refund(orderNo, "用户主动取消"));
+        }
+        throw new com.wuling.common.exception.BusinessException(
+                com.wuling.common.api.ResultCode.BAD_REQUEST, "订单当前状态不可取消: " + order.getStatus());
     }
 
     /**

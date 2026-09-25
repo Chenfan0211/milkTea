@@ -107,7 +107,7 @@
         <text class="withdraw-record__note">{{item.note}}</text>
 
         <view class="withdraw-record__foot">
-          <text class="withdraw-record__time">{{item.time}}</text>
+          <text class="withdraw-record__time">{{item.timeText}}</text>
           <image class="withdraw-record__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
         </view>
       </view>

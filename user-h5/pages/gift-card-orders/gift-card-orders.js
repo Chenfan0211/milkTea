@@ -1,5 +1,6 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
+const { formatDateTime } = require('../../utils/date-format');
 
 const statusTabs = [
   { id: 'all', label: '全部' },
@@ -54,7 +55,7 @@ function decorate(order, denom) {
     coverImage: (denom && denom.cardImage) || '/assets/images/3x/gift-card-matcha.jpg',
     amountText: (amount / 100).toFixed(2),
     orderInfo: { orderNo: order.orderNo },
-    payTime: order.payTime || '',
+    payTime: formatDateTime(order.payTime),
     isPendingPayment,
     isPendingVerify,
     isCanceled,

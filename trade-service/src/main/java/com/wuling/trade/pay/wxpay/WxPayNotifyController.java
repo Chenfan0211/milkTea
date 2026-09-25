@@ -82,7 +82,10 @@ public class WxPayNotifyController {
                 return success();
             }
 
-            paymentService.handleWxPayCallback(transaction);
+            // 按单号前缀路由：订单支付走 handleWxPayCallback，
+            // 储值充值走 handleStoredValueCallback（第 15 期）。
+            // 此前直接调 handleWxPayCallback 会让储值回调因查不到订单而失败。
+            paymentService.routeWxPayCallback(transaction);
             return success();
         } catch (Exception e) {
             // 入账失败应答 FAIL，让微信按策略重试；

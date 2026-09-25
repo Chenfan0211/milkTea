@@ -112,11 +112,11 @@
         </view>
         <view class="info-row">
           <text class="info-row__label">下单时间</text>
-          <text class="info-row__value">{{order.orderInfo.createdAt}}</text>
+          <text class="info-row__value">{{order.createdAtText}}</text>
         </view>
         <view class="info-row">
           <text class="info-row__label">支付方式</text>
-          <text class="info-row__value">{{order.orderInfo.payMethod}}</text>
+          <text class="info-row__value">{{order.payMethodText || '未支付'}}</text>
         </view>
         <view wx:if="{{order.orderStatus === 'completed' && order.completedTime}}" class="info-row">
           <text class="info-row__label">完成时间</text>

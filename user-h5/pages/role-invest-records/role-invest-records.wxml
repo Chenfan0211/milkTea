@@ -114,7 +114,7 @@
         </view>
 
         <view class="invest-record__foot">
-          <text class="invest-record__time">{{item.time}}</text>
+          <text class="invest-record__time">{{item.timeText}}</text>
           <image class="invest-record__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
         </view>
       </view>

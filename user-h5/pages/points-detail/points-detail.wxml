@@ -9,7 +9,7 @@
           <text class="points-record__date">{{item.date}}</text>
         </view>
         <view class="points-record__side">
-          <text class="points-record__amount">{{item.amount}}</text>
+          <text class="points-record__amount {{item.amount.startsWith('-') ? 'is-negative' : ''}}">{{item.amount}}</text>
           <text class="points-record__source">{{item.source}}</text>
         </view>
       </view>

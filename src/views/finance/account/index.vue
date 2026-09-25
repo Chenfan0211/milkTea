@@ -64,7 +64,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar: [],
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.subjectAccounts, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('subjectAccounts', search, page, pageSize)
 };
 </script>
 

@@ -60,6 +60,7 @@ Page(
       const nextPaymentMethod = paymentMethod || this.data.paymentMethod || 'wechat';
       const summary = summarize(items, nextPaymentMethod);
       const storedSummary = summarize(items, 'stored-value');
+      const storedDiscountTotal = roundMoney(summary.amount - storedSummary.amount);
       this.setData({
         items,
         store,
@@ -82,7 +83,7 @@ Page(
         count: summary.count,
         amountText: formatOrderAmount(summary.amount),
         discountText: formatOrderAmount(summary.discount),
-        storedAmountText: formatOrderAmount(storedSummary.amount),
+        storedAmountText: formatOrderAmount(storedDiscountTotal),
         pointCount: Math.floor(summary.amount)
       });
     },

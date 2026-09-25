@@ -2,6 +2,7 @@ const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { pointsCategories } = require('../../data/mock');
 const { getPoints } = require('../../utils/points');
+const { refreshUserProfileFromRemote } = require('../../utils/user-profile');
 const { resolveStoreCatalog } = require('../../utils/store');
 
 Page(
@@ -20,7 +21,12 @@ Page(
       api
         .fetchPointsProducts()
         .then(list => {
-          if (Array.isArray(list) && list.length) this.setData({ pointsProducts: list });
+          if (Array.isArray(list) && list.length) {
+            const filteredProducts = this.data.activeCategory === 'all'
+              ? list
+              : list.filter(item => item.category === this.data.activeCategory);
+            this.setData({ pointsProducts: list, filteredProducts });
+          }
         })
         .catch(() => null);
       this.syncStore();
@@ -32,6 +38,9 @@ Page(
         pointsBalance: getPoints(),
         signedToday: Boolean(this.data.todayKey) && app.globalData.signedDates.includes(this.data.todayKey)
       });
+      refreshUserProfileFromRemote()
+        .then(profile => this.setData({ pointsBalance: profile.points }))
+        .catch(() => null);
     },
     syncStore() {
       const catalog = resolveStoreCatalog();

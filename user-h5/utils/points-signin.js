@@ -45,8 +45,46 @@ function signInOnce(state, dateKey, dateTime) {
   return { state: nextState, awarded: true, record };
 }
 
+/** 生成最近7天（含今天）的周历数据；label 为 M.D 格式 */
+function buildWeekDates(now = new Date(), signedDates = []) {
+  const signedSet = new Set(signedDates || []);
+  return Array.from({ length: 7 }, (_, offset) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - offset));
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return {
+      key,
+      label: `${date.getMonth() + 1}.${date.getDate()}`,
+      today: offset === 6,
+      signed: signedSet.has(key)
+    };
+  });
+}
+
+/** 根据签到日期集合计算连续签到天数（今天或昨天结尾均可连续） */
+function calculateContinuousDays(signedDates, now = new Date()) {
+  const set = new Set(signedDates || []);
+  const keyOf = date => {
+    const value = date instanceof Date ? date : new Date(date);
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  };
+  const dayMs = 24 * 60 * 60 * 1000;
+  let cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (!set.has(keyOf(cursor))) {
+    cursor = new Date(cursor.getTime() - dayMs);
+    if (!set.has(keyOf(cursor))) return 0;
+  }
+  let days = 0;
+  while (set.has(keyOf(cursor))) {
+    days += 1;
+    cursor = new Date(cursor.getTime() - dayMs);
+  }
+  return days;
+}
+
 module.exports = {
   buildMonthCells,
+  buildWeekDates,
+  calculateContinuousDays,
   formatDateKey,
   signInOnce
 };

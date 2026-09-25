@@ -22,6 +22,9 @@ class GatewayAuthPolicyTest {
         assertFalse(policy.requiresAuth("/auth/login"));
         assertFalse(policy.requiresAuth("/auth/refreshToken"));
         assertFalse(policy.requiresAuth("/api/v1/app/auth/wx-login"));
+        assertFalse(policy.requiresAuth("/api/v1/app/auth/sms/send"));
+        assertFalse(policy.requiresAuth("/api/v1/app/auth/register-by-sms"));
+        assertFalse(policy.requiresAuth("/api/v1/app/auth/register-by-phone"));
         assertFalse(policy.requiresAuth("/api/v1/app/store-types"));
         assertFalse(policy.requiresAuth("/api/v1/app/menu"));
         assertFalse(policy.requiresAuth("/api/v1/app/stores"));
@@ -48,7 +51,7 @@ class GatewayAuthPolicyTest {
         assertTrue(policy.requiresAuth("/api/v1/app/comments"));
         assertTrue(policy.requiresAuth("/api/v1/app/workbench/subject/1/overview"));
         assertTrue(policy.requiresAuth("/api/v1/app/auth/me"));
-        assertTrue(policy.requiresAuth("/api/v1/app/auth/sms/send"));
+        assertTrue(policy.requiresAuth("/api/v1/app/auth/sms/bind"));
     }
 
     @Test

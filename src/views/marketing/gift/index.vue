@@ -24,7 +24,7 @@ function openFaceEditor(row: any) {
   faceVisible.value = true;
 }
 
-function saveFace() {
+async function saveFace() {
   if (!faceRow.value) return;
   const values = faceText.value
     .split(/[,，、\s]+/)
@@ -32,7 +32,7 @@ function saveFace() {
     .filter((s: string) => s.length > 0)
     .map((s: string) => Number(s))
     .filter((n: number) => Number.isFinite(n) && n > 0);
-  store.update('giftCards', faceRow.value.id, { faceValues: values }, '营销中心', 'name');
+  await store.update('giftCards', faceRow.value.id, { faceValues: values }, '营销中心', 'name');
   faceVisible.value = false;
   window.$message?.success('面额已保存');
 }
@@ -41,11 +41,11 @@ const columns: DataTableColumns<any> = [
   { title: '卡种名称', key: 'name', minWidth: 160 },
   {
     title: '卡面',
-    key: 'image',
+    key: 'cardImage',
     minWidth: 180,
     render: (row: any) =>
       h(NImage, {
-        src: row.image,
+        src: row.cardImage,
         width: 90,
         height: 54,
         objectFit: 'cover',
@@ -64,7 +64,7 @@ const columns: DataTableColumns<any> = [
 const searchFields: SearchField[] = [{ key: 'name', label: '卡种', placeholder: '卡种名称' }];
 const formFields: FormField[] = [
   { key: 'name', label: '卡种名称' },
-  { key: 'image', label: '卡面图', type: 'image' }
+  { key: 'cardImage', label: '卡面图', type: 'image' }
 ];
 const toolbar: RowAction[] = [{ label: '新增卡种', type: 'primary', modal: 'add' }];
 const rowActions: RowAction[] = [
@@ -74,7 +74,7 @@ const rowActions: RowAction[] = [
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该卡种？（请填写备注）',
-    handler: (row, reason) => store.remove('giftCards', row.id, '营销中心', 'name', reason)
+    handler: async (row, reason) => await store.remove('giftCards', row.id, '营销中心', 'name', reason)
   }
 ];
 const config: AdminListConfig = {
@@ -84,14 +84,14 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.giftCards, search, page, pageSize),
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('giftCards', search, page, pageSize),
   form: {
     title: '礼品卡',
     fields: formFields,
-    onSubmit: (data, editing) => {
+    onSubmit: async (data, editing) => {
       const payload = { ...data, faceValues: editing?.faceValues || [] };
-      if (editing) store.update('giftCards', editing.id, payload, '营销中心', 'name');
-      else store.add('giftCards', payload, '营销中心', 'name');
+      if (editing) await store.update('giftCards', editing.id, payload, '营销中心', 'name');
+      else await store.add('giftCards', payload, '营销中心', 'name');
     }
   }
 };

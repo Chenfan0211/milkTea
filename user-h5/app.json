@@ -52,7 +52,16 @@
     "pages/role-withdraw-detail/role-withdraw-detail",
     "pages/share-referral/share-referral"
   ],
-  "entryPagePath": "pages/home/home",
+  "entryPagePath": "pages/launch/launch",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于按距离排序附近门店、估算到店距离"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation"
+  ],
+
   "window": {
     "navigationBarTextStyle": "black",
     "navigationStyle": "custom",
@@ -103,5 +112,3 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents"
 }
-
-

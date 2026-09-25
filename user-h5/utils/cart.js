@@ -17,7 +17,8 @@ function mergeEditedCartItem(items, editedId, payload) {
     spec: payload.specText,
     price: payload.unitPrice,
     originalPrice: payload.originalPrice,
-    storedValuePrice: payload.storedValuePrice || payload.product.storedValuePrice || 0,
+    storedValuePrice: payload.storedValuePrice || 0,
+    storedValueDiscount: payload.storedValueDiscount || 0,
     quantity: payload.quantity,
     image: payload.product.image
   });

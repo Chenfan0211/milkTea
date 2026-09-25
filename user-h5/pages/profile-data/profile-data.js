@@ -1,7 +1,9 @@
 const { withShare } = require('../../utils/share');
 const regions = require('../../data/regions');
 const api = require('../../utils/api');
+const { clearSession } = require('../../utils/auth');
 const {
+  DEFAULT_AVATAR,
   formatBirthday,
   getDaysInMonth,
   getDefaultBirthday,
@@ -50,6 +52,7 @@ Page(
   withShare({
     data: {
       avatar: '',
+      defaultAvatar: DEFAULT_AVATAR,
       nickname: '',
       gender: '',
       phoneMasked: '',
@@ -95,6 +98,11 @@ Page(
     },
     selectGender(event) {
       this.setData({ gender: event.currentTarget.dataset.gender || '' });
+    },
+    // 头像加载失败（URL 失效 / 历史脏数据）：回落到默认头像
+    handleAvatarError() {
+      if (this.data.avatar === DEFAULT_AVATAR) return;
+      this.setData({ avatar: DEFAULT_AVATAR });
     },
     handleAvatar() {
       // 新版头像选择：chooseAvatar 无需授权弹窗，返回临时文件路径
@@ -276,8 +284,16 @@ Page(
       wx.showToast({ title: '保存成功', icon: 'success' });
       wx.navigateBack();
     },
-    handleAccountManagement() {
-      wx.showToast({ title: '账号管理暂未接入', icon: 'none' });
+    handleLogout() {
+      wx.showModal({
+        title: '退出登录',
+        content: '确定要退出当前账号吗？',
+        success: res => {
+          if (!res.confirm) return;
+          clearSession();
+          wx.reLaunch({ url: '/pages/auth-login/auth-login' });
+        }
+      });
     }
   })
 );

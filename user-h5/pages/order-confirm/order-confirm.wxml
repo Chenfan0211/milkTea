@@ -92,7 +92,7 @@
           <view class="payment-option {{paymentMethod === 'stored-value' ? 'is-active' : ''}}" data-method="stored-value" bindtap="selectPaymentMethod" aria-role="button" aria-label="储值支付">
             <image class="payment-option__icon" src="/assets/icons/lucide/wallet.svg" mode="aspectFit" />
             <text class="payment-option__label">储值支付</text>
-            <text class="payment-option__hint">储值价 ¥{{storedAmountText}}</text>
+            <text class="payment-option__hint">储值立减 ¥{{storedAmountText}}</text>
             <view wx:if="{{paymentMethod === 'stored-value'}}" class="payment-option__check">
               <image class="payment-option__check-icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
             </view>

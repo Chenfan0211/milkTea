@@ -19,7 +19,7 @@ interface Props {
   title: string;
   backPath: string;
   groups: DetailGroup[];
-  fetchRow: () => any | null;
+  fetchRow: () => any | null | Promise<any | null>;
 }
 
 const props = defineProps<Props>();
@@ -44,7 +44,7 @@ function display(field: DetailField): VNodeChild | string | number {
 async function load() {
   loading.value = true;
   try {
-    row.value = props.fetchRow();
+    row.value = await props.fetchRow();
   } finally {
     loading.value = false;
   }

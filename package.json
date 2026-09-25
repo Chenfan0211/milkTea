@@ -41,7 +41,8 @@
     "preview": "vite preview",
     "release": "sa release",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
-    "update-pkg": "sa update-pkg"
+    "update-pkg": "sa update-pkg",
+    "build:prod-ip": "vite build --mode prod-ip"
   },
   "dependencies": {
     "@better-scroll/core": "2.5.1",

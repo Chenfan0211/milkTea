@@ -155,6 +155,15 @@ public class ProductQueryService {
         return PageResult.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
 
+    /** 按 id 组装单个商品 DTO（写操作后回填用） */
+    public AdminProductDTO getAdminProduct(Long id) {
+        Product product = productMapper.selectById(id);
+        if (product == null) {
+            return null;
+        }
+        return toAdminProduct(product);
+    }
+
     public List<CategoryDTO> listCategories() {
         return categoryMapper.selectList(new LambdaQueryWrapper<ProductCategory>()
                         .orderByAsc(ProductCategory::getSort)
@@ -229,6 +238,16 @@ public class ProductQueryService {
         dto.setName(product.getName());
         dto.setPrice(product.getPrice());
         dto.setOriginalPrice(product.getOriginalPrice());
+        dto.setCostPrice(product.getCostPrice());
+        dto.setPlatformCommission(product.getPlatformCommission());
+        dto.setStoredValuePrice(product.getStoredValuePrice());
+        dto.setGalleryImage(product.getGalleryImage() == null ? product.getImage() : product.getGalleryImage());
+        dto.setImageDisclaimer(product.getImageDisclaimer());
+        dto.setPromotionText(product.getPromotionText());
+        dto.setIngredients(product.getIngredients());
+        dto.setAllergens(product.getAllergens());
+        dto.setCupCapacity(product.getCupCapacity());
+        dto.setTips(parseStringList(product.getTips()));
         dto.setDescription(product.getDescription());
         dto.setOnSale(product.getOnSale() != null && product.getOnSale() == 1 ? "on" : "off");
         dto.setSplitReady(product.getSplitRuleId() != null ? "ready" : "incomplete");

@@ -24,11 +24,20 @@
           <image class="service-card__icon" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
           <text class="service-card__title">客服热线</text>
         </view>
-        <view class="service-row" data-phone="{{info.hotline}}" bindtap="callPhone" aria-role="button" aria-label="拨打客服热线">
+        <view
+          wx:if="{{info.hotline}}"
+          class="service-row"
+          data-phone="{{info.hotline}}"
+          bindtap="callPhone"
+          aria-role="button"
+          aria-label="拨打客服热线"
+        >
           <text class="service-row__label">{{info.hotline}}</text>
           <text class="service-row__action">拨打</text>
         </view>
-        <text class="service-tip">{{info.serviceHours}} · {{info.responseNote}}</text>
+        <text wx:elif="{{loadFailed}}" class="service-tip">客服热线加载失败，请下拉重试或稍后再试。</text>
+        <text wx:else class="service-tip">客服热线暂未配置，可通过上方在线客服联系我们。</text>
+        <text wx:if="{{info.hotline}}" class="service-tip">{{info.serviceHours}} · {{info.responseNote}}</text>
       </view>
 
       <view class="service-card">
@@ -36,6 +45,7 @@
           <image class="service-card__icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
           <text class="service-card__title">常见问题</text>
         </view>
+        <text wx:if="{{loaded && !faqs.length}}" class="service-tip">暂无常见问题，可通过在线客服咨询。</text>
         <view
           wx:for="{{faqs}}"
           wx:key="id"

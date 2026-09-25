@@ -17,6 +17,8 @@ const USER_KEY = 'milkTea:auth:user';
 // 用户信息缓存：TTL 内直接读缓存，避免每次请求数据库
 const USER_CACHE_KEY = 'milkTea:auth:user-cache';
 const USER_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+// 未注册用户的一次性注册凭证（后端按 openid 查无此人时下发）
+const REGISTER_KEY = 'milkTea:auth:register';
 
 function readStorage(key) {
   try {
@@ -73,6 +75,20 @@ function isLoggedIn() {
   return Boolean(getToken());
 }
 
+/** 读取未注册用户的一次性注册上下文（{ registerToken, openId }） */
+function getRegisterContext() {
+  const ctx = readStorage(REGISTER_KEY);
+  return ctx && typeof ctx === 'object' ? ctx : null;
+}
+
+function saveRegisterContext(ctx) {
+  if (ctx && typeof ctx === 'object') writeStorage(REGISTER_KEY, ctx);
+}
+
+function clearRegisterContext() {
+  removeStorage(REGISTER_KEY);
+}
+
 /** wx.login 封装为 Promise */
 function wxLogin() {
   return new Promise((resolve, reject) => {
@@ -104,21 +120,62 @@ function loginWithCode(code) {
       const fake = { code: 0, data: { token: '', userId: 0, openId: '', newUser: false }, message: 'ok' };
       return fake;
     }
-  }).then(res => saveSession(unwrap(res)));
+  }).then(res => {
+    const data = unwrap(res);
+    if (data && data.token) {
+      // 已注册：写入登录态
+      saveSession(data);
+      clearRegisterContext();
+    } else if (data && data.registerToken) {
+      // 未注册：只保留一次性注册凭证，不建立登录态
+      saveRegisterContext({ registerToken: data.registerToken, openId: data.openId || '' });
+      clearSession();
+    }
+    return data;
+  });
 }
 
-/** 静默登录：已登录则直接返回缓存，否则走 wx.login */
-function ensureLogin() {
-  const cached = getCachedUser();
+/**
+ * 静默登录：已登录则直接返回缓存，否则走 wx.login。
+ *
+ * 并发去重（关键）：微信 code 是一次性的，同一时刻发起多次 wx.login 会导致
+ * 只有第一个 code 有效，其余全部返回 40029。启动时序里 app.js 的静默登录、
+ * request.js 的 401 重登、页面主动调用可能同时发生，因此这里做「进程内单飞」：
+ * 进行中的登录 Promise 直接复用，结束后无论成败都清空，允许下次重试。
+ */
+let loginPromise = null;
+
+function ensureLogin(force) {
+  const cached = force ? null : getCachedUser();
   if (cached && cached.token) {
     return Promise.resolve(cached);
   }
-  return wxLogin()
+  if (loginPromise) {
+    return loginPromise;
+  }
+  loginPromise = wxLogin()
     .then(code => loginWithCode(code))
     .catch(error => {
       clearSession();
       throw error;
+    })
+    .finally(() => {
+      loginPromise = null;
     });
+  return loginPromise;
+}
+
+/** 当前是否有登录请求进行中（供页面做 loading / 提示判断）。 */
+function isLoginPending() {
+  return Boolean(loginPromise);
+}
+
+/**
+ * 测试用：清空进行中的静默登录单飞 Promise。
+ * 生产代码不得调用；仅供 scripts/*.test.mjs 在用例之间复位模块态。
+ */
+function __resetForTest() {
+  loginPromise = null;
 }
 
 /** 读取用户信息缓存（含时间戳），未过期返回缓存，避免重复请求数据库 */
@@ -191,14 +248,50 @@ function bindProfile(encryptedData, iv) {
   }).then(res => unwrap(res));
 }
 
+/** 新用户通过微信手机号授权注册并登录（未注册态） */
+function registerByPhone(registerToken, encryptedData, iv) {
+  return request({
+    url: '/api/v1/app/auth/register-by-phone',
+    method: 'POST',
+    data: { registerToken, encryptedData, iv },
+    skipAuth: true
+  }).then(res => {
+    const data = unwrap(res);
+    saveSession(data);
+    clearRegisterContext();
+    return data;
+  });
+}
+
+/** 新用户通过短信验证码注册并登录（未注册态） */
+function registerBySms(registerToken, phone, code) {
+  return request({
+    url: '/api/v1/app/auth/register-by-sms',
+    method: 'POST',
+    data: { registerToken, phone, code },
+    skipAuth: true
+  }).then(res => {
+    const data = unwrap(res);
+    saveSession(data);
+    clearRegisterContext();
+    return data;
+  });
+}
+
 module.exports = {
   TOKEN_KEY,
   USER_KEY,
+  isLoginPending,
+  __resetForTest,
   getToken,
   getCachedUser,
   saveSession,
   clearSession,
   isLoggedIn,
+  getRegisterContext,
+  clearRegisterContext,
+  registerByPhone,
+  registerBySms,
   wxLogin,
   loginWithCode,
   ensureLogin,

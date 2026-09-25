@@ -9,24 +9,24 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
+import { createSubjectChannel, fetchSubjectChannelsPage, updateSubjectChannel } from '@/service/api/subject';
 
 const store = useAdminStore();
 const router = useRouter();
 
-const load = async (p: any) =>
-  store.listFiltered(
-    store.subjects.filter(s => s.type === 'resource'),
-    p.search,
-    p.page,
-    p.pageSize
-  );
+const load = async (p: any) => {
+  const keyword = String(p.search?.name || '').trim();
+  const status = String(p.search?.status || '').trim();
+  const page = await fetchSubjectChannelsPage({ current: p.page, size: p.pageSize, search: keyword || undefined, status: status || undefined });
+  return { data: page?.records || [], total: page?.total || 0 };
+};
 
 const columns: DataTableColumns<any> = [
   { title: '编码', key: 'code', width: 120 },
   { title: '名称', key: 'name', minWidth: 160 },
   { title: '绑定用户', key: 'boundUserName', width: 120, render: (row: any) => row.boundUserName || '未绑定' },
-    { title: '可提现余额(元)', key: 'balance', width: 115, align: 'right', render: (row: any) => { const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id); return acc ? (acc.availableBalance ?? 0).toFixed(2) : '—'; } },
+    { title: '可提现余额(元)', key: 'balance', width: 115, align: 'right', render: (row: any) => { const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id); return (acc ? acc.availableBalance ?? 0 : 0).toFixed(2); } },
   { title: '所在地', key: 'location', width: 120 },
   { title: '门店类型', key: 'storeType', width: 110 },
   { title: '绑定门店数', key: 'boundStoreCount', width: 95, align: 'right' },
@@ -36,7 +36,7 @@ const columns: DataTableColumns<any> = [
     width: 95,
     render: renderTag('status', statusMap({ active: ['启用', 'success'], disabled: ['停用', 'default'] }))
   },
-  { title: '创建时间', key: 'createTime', width: 150 }
+  { title: '创建时间', key: 'createTime', render: renderDateTime('createTime'), width: 150 }
 ];
 
 const searchFields: SearchField[] = [
@@ -60,8 +60,8 @@ const rowActions: RowAction[] = [
       title: '选择用户',
       options: () => store.users.filter((u: any) => !u.boundSubjectId && !u.deleted).map((u: any) => ({ label: u.nickName, value: String(u.id) }))
     },
-    handler: (row, picked) => {
-      if (picked) store.bindSubjectUser(row.id, Number(picked));
+    handler: async (row, picked) => {
+      if (picked) await store.bindSubjectUser(row.id, Number(picked));
     },
     visible: row => !row.boundUserId
   },
@@ -79,48 +79,74 @@ const rowActions: RowAction[] = [
     type: 'info',
     picker: {
       title: '选择门店',
-      options: () => store.subjects.filter(s => s.type === 'store').map(s => ({ label: s.name, value: s.code }))
+      options: (row) => {
+        const boundIds = Array.isArray(row?.boundStoreIds) ? row.boundStoreIds : [];
+        return store.subjects
+          .filter((s: any) => s.type === 'store' && !boundIds.includes(Number(s.id)))
+          .map((s: any) => ({ label: s.name, value: String(s.id) }));
+      }
     },
-    handler: (row, picked) => {
-      if (picked) store.bindResourceToStore(row.id, picked, `绑定门店：${picked}`);
+    handler: async (row, picked) => {
+      if (picked) await store.bindChannelStore(row.id, Number(picked));
+    }
+  },
+  {
+    label: '解绑门店',
+    type: 'warning',
+    picker: {
+      title: '选择要解绑的门店',
+      options: (row) => {
+        const boundIds = Array.isArray(row?.boundStoreIds) ? row.boundStoreIds : [];
+        return store.subjects
+          .filter((s: any) => s.type === 'store' && boundIds.includes(Number(s.id)))
+          .map((s: any) => ({ label: s.name, value: String(s.id) }));
+      }
+    },
+    handler: async (row, picked) => {
+      if (picked) await store.unbindChannelStore(row.id, Number(picked));
     }
   },
   {
     label: '停用',
     type: 'warning',
     reasonPrompt: '确认停用该资源方？（请填写备注）',
-    handler: (row, reason) => store.patch('subjects', row.id, { status: 'disabled' }, '主体管理', '停用', 'name', reason),
+    handler: async (row, reason) => await store.patch('subjects', row.id, { status: 'disabled' }, '主体管理', '停用', 'name', reason),
     visible: row => row.status === 'active'
   },
   {
     label: '启用',
     type: 'success',
     reasonPrompt: '确认启用该资源方？（请填写备注）',
-    handler: (row, reason) => store.patch('subjects', row.id, { status: 'active' }, '主体管理', '启用', 'name', reason),
+    handler: async (row, reason) => await store.patch('subjects', row.id, { status: 'active' }, '主体管理', '启用', 'name', reason),
     visible: row => row.status === 'disabled'
   },
   {
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该资源方？删除后列表不再展示（逻辑删除），请填写备注',
-    handler: (row, reason) => store.remove('subjects', row.id, '主体管理', 'name', reason)
+    handler: async (row, reason) => await store.remove('subjects', row.id, '主体管理', 'name', reason),
+    visible: row => row.status === 'disabled'
   }
 ];
+const requiredRule = { required: true, message: '请填写', trigger: ['blur', 'change'] } as const;
+
 const formFields: FormField[] = [
   { key: 'code', label: '编码' },
-  { key: 'name', label: '名称' },
-  { key: 'location', label: '所在地' },
+  { key: 'name', label: '名称', rules: [requiredRule] },
+  { key: 'location', label: '所在地', rules: [requiredRule] },
   {
     key: 'storeType',
     label: '门店类型',
     type: 'select',
-    options: () => store.storeTypes.filter((t: any) => t.enabled !== false).map((t: any) => ({ label: t.name, value: t.name }))
+    options: () => store.storeTypes.filter((t: any) => t.enabled !== false).map((t: any) => ({ label: t.name, value: t.name })),
+    rules: [requiredRule]
   }
 ];
 
 const config: AdminListConfig = {
   remoteKey: 'subjects',
   title: '资源方管理',
+  refreshOnEnter: true,
   columns,
   searchFields,
   loadData: load,
@@ -129,9 +155,13 @@ const config: AdminListConfig = {
   form: {
     title: '资源方',
     fields: formFields,
-    onSubmit: (data, editing) => {
-      if (editing) store.update('subjects', editing.id, { ...data, type: 'resource' }, '主体管理', 'name');
-      else store.add('subjects', { ...data, type: 'resource', boundStoreIds: [], boundStoreCount: 0 }, '主体管理', 'name');
+    onSubmit: async (data, editing) => {
+      if (!String(data.name ?? '').trim()) throw new Error('名称必填');
+      if (!String(data.location ?? '').trim()) throw new Error('所在地必填');
+      if (!String(data.storeType ?? '').trim()) throw new Error('门店类型必填');
+      const payload = { code: data.code, name: data.name, location: data.location, storeType: data.storeType, status: data.status };
+      if (editing) await updateSubjectChannel(editing.id, payload);
+      else await createSubjectChannel(payload);
     }
   },
   importConfig: {
@@ -152,15 +182,13 @@ const config: AdminListConfig = {
       });
       return { ok, errors };
     },
-    commit: (rows) => {
-      let added = 0, skipped = 0;
-      rows.forEach(r => {
-        const exists = store.subjects.some(s => s.type === 'resource' && s.code === r.code);
-        if (exists) { skipped++; return; }
-        store.add('subjects', { ...r, type: 'resource', status: 'active', boundStoreIds: [], boundStoreCount: 0 }, '主体管理', 'name');
+    commit: async (rows) => {
+      let added = 0;
+      for (const r of rows) {
+        await createSubjectChannel({ code: r.code, name: r.name, location: r.location, storeType: r.storeType, status: 'active' });
         added++;
-      });
-      return { added, skipped };
+      }
+      return { added, skipped: 0 };
     }
   }
 };

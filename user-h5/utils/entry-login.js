@@ -1,6 +1,7 @@
 const guard = require('./login-guard');
 const auth = require('./auth');
 const authState = require('./auth-state');
+const api = require('./api');
 const { refreshUserProfileFromRemote } = require('./user-profile');
 
 /**
@@ -103,9 +104,57 @@ function ensureEntryLogin(options = {}) {
 
     guard
       .ensureSilentLogin()
-      .then(() => refreshUserProfileFromRemote())
-      .then(() => finish({ ok: true, state: authState.getAuthState(), timedOut: false }))
-      .catch(error => finish({ ok: false, state: authState.getAuthState(), timedOut: false, error }));
+      .then(() => {
+        const state = authState.getAuthState();
+        const registerContext = auth.getRegisterContext();
+        // 已注册：校验 token 有效性（/me），401 时清旧 token 重登
+        if (state.hasToken) {
+          return api.fetchUserProfile()
+            .then(() =>
+              finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false })
+            )
+            .catch(error => {
+              const res = error && error.res;
+              const isAuthError = res && (res.code === 8888 || res.code === 9999);
+              if (!isAuthError) {
+                // 非 401 错误（网络抖动等），保持原放行逻辑
+                finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false });
+                return;
+              }
+              // token 过期/无效：清除旧会话，重新 wx.login 获取新 token 或 registerToken
+              auth.clearSession();
+              return guard.ensureSilentLogin().then(() => {
+                const newState = authState.getAuthState();
+                const registerContext = auth.getRegisterContext();
+                if (newState.hasToken) {
+                  return refreshUserProfileFromRemote().then(() =>
+                    finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false })
+                  );
+                }
+                if (registerContext && registerContext.registerToken) {
+                  finish({ ok: true, needsRegister: true, state: newState, timedOut: false });
+                  return;
+                }
+                finish({ ok: false, needsRegister: false, state: newState, timedOut: false });
+              }).catch(() => {
+                finish({ ok: false, needsRegister: false, state: authState.getAuthState(), timedOut: false });
+              });
+            });
+        }
+        // 未注册：静默登录拿到的是「一次性注册凭证」而非 token，未建立登录态。
+        // 不再请求 /me（会 401 并触发登录提示），直接标记 needsRegister，
+        // 交给入口层/页面引导注册；用户仍可先浏览公开内容。
+        if (registerContext && registerContext.registerToken) {
+          finish({ ok: true, needsRegister: true, state, timedOut: false });
+          return null;
+        }
+        // 真失败：连注册凭证都没有（wx.login 失败 / 网络异常）
+        finish({ ok: false, needsRegister: false, state, timedOut: false });
+        return null;
+      })
+      .catch(error =>
+        finish({ ok: false, needsRegister: false, state: authState.getAuthState(), timedOut: false, error })
+      );
   });
 }
 

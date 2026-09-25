@@ -14,7 +14,7 @@
         <view class="store-row__distance">
           <image class="store-row__distance-icon" src="/assets/icons/lucide/map-pin.svg" mode="aspectFit" />
           <text>{{currentStore.distanceText}}</text>
-          <view wx:if="{{currentStore.id}}" class="store-row__queue">
+          <view wx:if="{{currentStore.queueText}}" class="store-row__queue">
             <image class="store-row__queue-icon" src="{{currentStore.queueIcon}}" mode="aspectFit" />
             <text class="store-row__queue-text">{{currentStore.queueText}}</text>
           </view>
@@ -51,7 +51,7 @@
   </view>
 
   <view class="menu-content">
-    <scroll-view class="category-scroll" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
+    <scroll-view class="category-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view
         wx:for="{{activeMenu.groups}}"
         wx:for-item="group"
@@ -75,38 +75,28 @@
     </scroll-view>
 
     <scroll-view
-      class="product-scroll"
+      class="product-scroll {{cartCount > 0 ? 'has-cart' : ''}}"
+      type="list"
       scroll-y
-      scroll-with-animation
-      enhanced="{{false}}"
+      enhanced
       show-scrollbar="{{false}}"
       scroll-into-view="{{scrollIntoView}}"
     >
-      <view class="product-scroll__inner" id="product-top">
+      <list-item id="product-top" class="product-scroll__inner">
         <text class="ad-title">新品广告标题文字</text>
         <image class="ad-banner" src="/assets/images/3x/menu-banner.jpg" mode="widthFix" data-label="新品活动" bindtap="showUnavailable" aria-role="button" aria-label="新品活动" />
+      </list-item>
 
-        <block wx:for="{{activeMenu.groups}}" wx:for-item="group" wx:key="id">
-          <view
-            wx:for="{{group.categories}}"
-            wx:for-item="category"
-            wx:key="id"
-            id="category-{{category.id}}"
-            class="product-section"
-          >
-            <product-card
-              wx:for="{{category.products}}"
-              wx:for-item="product"
-              wx:for-index="productIndex"
-              wx:key="id"
-              product="{{product}}"
-              show-divider="{{productIndex < category.products.length - 1}}"
-              bind:spec="handleSpec"
-              data-label="规格选择"
-            />
-          </view>
-        </block>
-      </view>
+      <list-item wx:for="{{productRows}}" wx:key="id" id="{{item.id}}">
+        <view wx:if="{{item.type === 'category'}}" class="product-section">{{item.label}}</view>
+        <product-card
+          wx:else
+          product="{{item.product}}"
+          show-divider="{{item.showDivider}}"
+          bind:spec="handleSpec"
+          data-label="规格选择"
+        />
+      </list-item>
     </scroll-view>
   </view>
 
@@ -136,68 +126,71 @@
   />
 </view>
 
-<view wx:if="{{storePickerVisible}}" class="store-picker">
+<view wx:if="{{storePickerVisible}}" class="store-page">
+  <!-- 门店页（点单页无门店态）：顶部真实地图 + 悬浮筛选条 + 门店卡片列表。
+       点单页运行在 webview 渲染器下（见 menu.json），<map> 才能正常显示。 -->
   <map
-    class="store-picker__map"
+    class="store-page__map"
     latitude="{{pickerAnchor.latitude}}"
     longitude="{{pickerAnchor.longitude}}"
-    scale="15"
-    markers="{{mapMarkers}}"
-    show-location="{{false}}"
+    scale="14"
+    markers="{{pickerMarkers}}"
+    show-location="{{true}}"
     enable-zoom
     enable-scroll
-    bindmarkertap="handleMarkerTap"
+    bindmarkertap="handlePickerMarkerTap"
   />
 
-  <navigation-bar ext-class="store-picker__nav" variant="transparent" back="{{true}}" delta="{{0}}" bind:back="closeStorePicker">
-    <view slot="center" class="store-picker__title-group">
-      <text class="store-picker__title">附近</text>
-      <view class="store-picker__favorite" bindtap="openFavoriteStores" aria-role="button" aria-label="查看收藏门店">
-        <image class="store-picker__favorite-icon" src="/assets/icons/lucide/bookmark.svg" mode="aspectFit" />
-        <text>收藏</text>
+  <cover-view class="store-page__nav">
+    <cover-view class="store-page__nav-side" bindtap="closeStorePicker">
+      <cover-image class="store-page__nav-icon" src="/assets/icons/lucide/chevron-left.svg" />
+    </cover-view>
+    <cover-view class="store-page__nav-title">附近</cover-view>
+    <cover-view class="store-page__nav-side store-page__nav-favorite" bindtap="openFavoriteStores">
+      <cover-image class="store-page__nav-icon" src="/assets/icons/lucide/bookmark.svg" />
+      <cover-view class="store-page__nav-text">收藏</cover-view>
+    </cover-view>
+  </cover-view>
+
+  <view class="store-page__filter">
+    <view class="store-page__city" bindtap="selectCity" aria-role="button" aria-label="选择城市">
+      <text>{{pickerCityName}}</text>
+      <image class="store-page__city-arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+    </view>
+    <view class="store-page__search">
+      <image class="store-page__search-icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+      <input
+        class="store-page__search-input"
+        value="{{pickerSearchKeyword}}"
+        placeholder="搜索门店"
+        placeholder-class="store-page__search-placeholder"
+        confirm-type="search"
+        bindinput="handlePickerSearch"
+      />
+      <view wx:if="{{pickerSearchKeyword}}" class="store-page__search-clear" bindtap="clearPickerSearch" aria-role="button" aria-label="清空搜索">
+        <image src="/assets/icons/lucide/x.svg" mode="aspectFit" />
       </view>
     </view>
-  </navigation-bar>
-
-  <view class="store-picker__panel">
-    <view class="store-picker__filter">
-      <view class="store-picker__city" bindtap="selectCity" aria-role="button" aria-label="选择城市">
-        <text>{{pickerCityName}}</text>
-        <image class="store-picker__city-arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
-      </view>
-      <view class="store-picker__search">
-        <image class="store-picker__search-icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
-        <input
-          class="store-picker__search-input"
-          value="{{pickerSearchKeyword}}"
-          placeholder="搜索门店"
-          placeholder-class="store-picker__search-placeholder"
-          confirm-type="search"
-          bindinput="handlePickerSearch"
-        />
-        <view wx:if="{{pickerSearchKeyword}}" class="store-picker__search-clear" bindtap="clearPickerSearch" aria-role="button" aria-label="清空搜索">
-          <image src="/assets/icons/lucide/x.svg" mode="aspectFit" />
-        </view>
-      </view>
-      <view class="store-picker__locate" bindtap="handleLocate" aria-role="button" aria-label="重新定位">
-        <image class="store-picker__locate-icon" src="/assets/icons/lucide/locate-fixed.svg" mode="aspectFit" />
-      </view>
+    <view class="store-page__locate" bindtap="handleLocate" aria-role="button" aria-label="重新定位">
+      <image class="store-page__locate-icon" src="/assets/icons/lucide/locate-fixed.svg" mode="aspectFit" />
     </view>
-
-    <scroll-view class="store-picker__list" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
-      <view class="store-picker__list-inner">
-        <store-list-card
-          wx:for="{{pickerStores}}"
-          wx:key="id"
-          store="{{item}}"
-          selected="{{currentStore.id === item.id && pickerHasCurrentStore}}"
-          bind:select="handleSelectPickerStore"
-          bind:phone="handleStorePhone"
-          bind:navigate="handleStoreNavigate"
-        />
-
-        <empty-state wx:if="{{!pickerStores.length}}" title="没有找到门店" description="换个关键词，或切换城市后再搜索" icon="/assets/icons/lucide/search.svg" />
-      </view>
-    </scroll-view>
   </view>
+
+  <scroll-view class="store-page__list" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="store-page__list-inner">
+      <store-list-card
+        wx:for="{{pickerStores}}"
+        wx:key="id"
+        store="{{item}}"
+        selected="{{currentStore.id === item.id && pickerHasCurrentStore}}"
+        bind:select="handleSelectPickerStore"
+        bind:phone="handleStorePhone"
+        bind:navigate="handleStoreNavigate"
+      />
+
+      <empty-state wx:if="{{!pickerStores.length}}" title="没有找到门店" description="换个关键词，或切换城市后再搜索" icon="/assets/icons/lucide/search.svg" />
+
+      <view class="tabbar-safe-space"></view>
+    </view>
+  </scroll-view>
 </view>

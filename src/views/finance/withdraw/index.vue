@@ -10,7 +10,7 @@ import type { AdminListConfig } from '@/views/_shared/types';
 import type { SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const withdrawVisible = ref(false);
@@ -28,10 +28,10 @@ const columns: DataTableColumns<any> = [
     width: 110,
     render: renderTag(
       'status',
-      statusMap({ pending: ['待审核', 'warning'], approved: ['已通过', 'success'], rejected: ['已驳回', 'error'] })
+      statusMap({ APPLIED: ['待审核', 'warning'], AUDITING: ['审核中', 'info'], APPROVED: ['已通过', 'success'], PAID: ['已出款', 'success'], REJECTED: ['已驳回', 'error'], FAILED: ['出款失败', 'error'] })
     )
   },
-  { title: '申请时间', key: 'applyTime', width: 150 },
+  { title: '申请时间', key: 'applyTime', width: 170, render: renderDateTime('applyTime') },
   { title: '审核人', key: 'reviewer', width: 110, render: (row: any) => row.reviewer || '—' }
 ];
 const searchFields: SearchField[] = [
@@ -41,9 +41,9 @@ const searchFields: SearchField[] = [
     label: '状态',
     type: 'select',
     options: [
-      { label: '待审核', value: 'pending' },
-      { label: '已通过', value: 'approved' },
-      { label: '已驳回', value: 'rejected' }
+      { label: '待审核', value: 'APPLIED' },
+      { label: '已通过', value: 'APPROVED' },
+      { label: '已驳回', value: 'REJECTED' }
     ]
   }
 ];
@@ -54,14 +54,14 @@ const rowActions: RowAction[] = [
     type: 'success',
     reasonPrompt: '确认通过该提现申请？（请填写备注）',
     handler: (row, reason) => store.reviewWithdraw(row.id, true, reason),
-    visible: row => row.status === 'pending'
+    visible: row => row.status === 'APPLIED'
   },
   {
     label: '驳回',
     type: 'error',
     reasonPrompt: '确认驳回该提现申请？（请填写备注）',
     handler: (row, reason) => store.reviewWithdraw(row.id, false, reason),
-    visible: row => row.status === 'pending'
+    visible: row => row.status === 'APPLIED'
   }
 ];
 const config: AdminListConfig = {
@@ -71,10 +71,10 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.withdrawals, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('withdrawals', search, page, pageSize)
 };
 
-function submitWithdraw() {
+async function submitWithdraw() {
   if (!withdrawSubjectId.value) {
     window.$message?.warning('请选择经营方');
     return;
@@ -83,7 +83,7 @@ function submitWithdraw() {
     window.$message?.warning('请输入提现金额');
     return;
   }
-  store.applyWithdraw(withdrawSubjectId.value, withdrawAmount.value);
+  await store.applyWithdraw(withdrawSubjectId.value, withdrawAmount.value);
   withdrawVisible.value = false;
   withdrawSubjectId.value = null;
   withdrawAmount.value = null;

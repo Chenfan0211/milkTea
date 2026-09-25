@@ -35,6 +35,7 @@ public class MenuDTO {
         private String description;
         private Long price;
         private Long originalPrice;
+        /** 储值立减金额（单位：分） */
         private Long storedValuePrice;
         private String image;
         /** 详情主图 */

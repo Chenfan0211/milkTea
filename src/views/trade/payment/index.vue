@@ -8,7 +8,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -21,15 +21,15 @@ const columns: DataTableColumns<any> = [
     title: '三方状态',
     key: 'thirdStatus',
     width: 120,
-    render: renderTag('thirdStatus', statusMap({ SUCCESS: ['成功', 'success'], PENDING: ['处理中', 'warning'] }))
+    render: renderTag('thirdStatus', statusMap({ SUCCESS: ['成功', 'success'], PENDING: ['处理中', 'warning'], PROCESSING: ['处理中', 'info'], FAIL: ['失败', 'error'], DUPLICATE_PAY: ['重复支付', 'error'] }))
   },
   {
     title: '标准状态',
     key: 'standardStatus',
     width: 120,
-    render: renderTag('standardStatus', statusMap({ PAID: ['已支付', 'primary'], PAYING: ['支付中', 'info'] }))
+    render: renderTag('standardStatus', statusMap({ PAID: ['已支付', 'primary'], PAYING: ['支付中', 'info'], CLOSED: ['已关闭', 'default'], REFUNDED: ['已退款', 'warning'], FAILED: ['支付失败', 'error'] }))
   },
-  { title: '回调时间', key: 'callbackTime', width: 150 }
+  { title: '回调时间', key: 'callbackTime', width: 170, render: renderDateTime('callbackTime') }
 ];
 const searchFields: SearchField[] = [
   { key: 'merchantOrderNo', label: '订单号', placeholder: '商户订单号' },
@@ -39,7 +39,10 @@ const searchFields: SearchField[] = [
     type: 'select',
     options: [
       { label: '已支付', value: 'PAID' },
-      { label: '支付中', value: 'PAYING' }
+      { label: '支付中', value: 'PAYING' },
+      { label: '已关闭', value: 'CLOSED' },
+      { label: '已退款', value: 'REFUNDED' },
+      { label: '支付失败', value: 'FAILED' }
     ]
   }
 ];
@@ -54,8 +57,8 @@ const rowActions: RowAction[] = [
     label: '异常重试',
     type: 'warning',
     reasonPrompt: '确认重新发起三方查询？（请填写备注）',
-    handler: (row, reason) =>
-      store.patch(
+    handler: async (row, reason) =>
+      await store.patch(
         'payments',
         row.id,
         { standardStatus: 'PAID', thirdStatus: 'SUCCESS' },
@@ -73,7 +76,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.payments, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('payments', search, page, pageSize)
 };
 </script>
 

@@ -57,6 +57,8 @@ public interface ProductQueryPort {
         private Long price;
         /** 原价（分） */
         private Long originalPrice;
+        /** 商品图 URL（下单时快照进 order_item.image） */
+        private String image;
         /** 是否上架：1=上架 */
         private Integer onSale;
         /** 供应商主体 ID */
@@ -100,6 +102,14 @@ public interface ProductQueryPort {
 
         public void setOriginalPrice(Long originalPrice) {
             this.originalPrice = originalPrice;
+        }
+
+        public String getImage() {
+            return image;
+        }
+
+        public void setImage(String image) {
+            this.image = image;
         }
 
         public Integer getOnSale() {

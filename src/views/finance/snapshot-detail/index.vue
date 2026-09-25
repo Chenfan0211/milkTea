@@ -4,12 +4,14 @@ import { useRoute } from 'vue-router';
 import AdminDetailPage from '@/views/_shared/AdminDetailPage.vue';
 import type { DetailGroup } from '@/views/_shared/AdminDetailPage.vue';
 import { useAdminStore } from '@/store/modules/admin';
+import { formatDateTime } from '@/views/_shared/render';
 
 
 const store = useAdminStore();
 const route = useRoute();
 
 const statusLabel = (v: string) => ({ valid: '有效', invalid: '已作废' })[v] ?? v;
+const totalCheckLabel = (v: string) => ({ 一致: '一致', 不一致: '不一致', ok: '一致', mismatch: '不一致' })[v] ?? v;
 
 const row = computed(() => store.snapshots.find((item: any) => String(item.id) === String(route.query.id)) ?? null);
 
@@ -21,9 +23,9 @@ const groups: DetailGroup[] = [
       { label: '订单号', key: 'orderNo' },
       { label: '商品信息', key: 'summary' },
       { label: '商品件数', key: 'itemCount' },
-      { label: '合计校验', key: 'totalCheck' },
+      { label: '合计校验', render: (r: any) => totalCheckLabel(r.totalCheck) },
       { label: '状态', render: (r: any) => statusLabel(r.status) },
-      { label: '创建时间', key: 'createTime' }
+      { label: '创建时间', render: (r: any) => formatDateTime(r.createTime) }
     ]
   },
   {

@@ -21,6 +21,7 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 小程序端登录与用户信息维护。
@@ -35,6 +36,9 @@ public class MiniAppAuthService {
     // key 后缀：完整 key = RedisNamespace.AUTH 前缀 + 后缀
     private static final String SESSION_KEY_PREFIX = "wx:session:";
     private static final String LOCATION_KEY_PREFIX = "user:location:";
+    // 未注册用户的一次性注册凭证 key 后缀
+    private static final String REGISTER_KEY_PREFIX = "wx:register:";
+    private static final Duration REGISTER_TOKEN_TTL = Duration.ofMinutes(30);
 
     private final WxAuthService wxAuthService;
     private final AppUserMapper appUserMapper;
@@ -68,31 +72,62 @@ public class MiniAppAuthService {
         return RedisNamespace.AUTH.key(suffix);
     }
 
-    /** 微信登录：换 openid，建立/复用用户，签发 token */
+        /** 微信登录：换 openid，查询用户；未注册不自动建号，返回注册凭证 */
     @Transactional(rollbackFor = Exception.class)
     public WxLoginResponse login(String code) {
-        WxAuthService.Session session = wxAuthService.code2Session(code);
+        WxAuthService.Session session;
+        try {
+            session = wxAuthService.code2Session(code);
+        } catch (BusinessException e) {
+            // 业务异常原样抛出（由 GlobalExceptionHandler 转成业务错误，非 500）
+            throw e;
+        } catch (Exception e) {
+            // 非预期异常必须落错误日志：否则只会看到 500，无法定位。
+            log.error("wx-login code2Session unexpected failure", e);
+            throw new BusinessException(ResultCode.ERROR, "微信登录失败，请稍后重试");
+        }
 
-        AppUser user = appUserMapper.selectOne(new LambdaQueryWrapper<AppUser>()
-                .eq(AppUser::getOpenId, session.openId()));
-        boolean newUser = false;
+        AppUser user;
+        try {
+            user = appUserMapper.selectOne(new LambdaQueryWrapper<AppUser>()
+                    .eq(AppUser::getOpenId, session.openId()));
+        } catch (Exception e) {
+            // 数据库不可用 / 表结构异常：落详细日志，避免只暴露 500 无上下文。
+            log.error("wx-login query app_user failed openId={}", maskOpenId(session.openId()), e);
+            throw new BusinessException(ResultCode.ERROR, "登录服务暂时不可用，请稍后重试");
+        }
+
+        // 未注册：不再自动建号，返回「未注册」信号与一次性注册凭证，
+        // 前端据此进入登录/注册流程（绑手机号建号）。
         if (user == null) {
-            user = new AppUser();
-            user.setOpenId(session.openId());
-            user.setUnionId(session.unionId());
-            user.setNickName("微信用户");
-            user.setVipLevel("Lv1");
-            user.setPoints(0L);
-            user.setBalance(0L);
-            user.setStatus(1);
-            appUserMapper.insert(user);
-            newUser = true;
-            log.info("new app user created id={}", user.getId());
-        } else if (session.unionId() != null && !session.unionId().equals(user.getUnionId())) {
+            String registerToken = UUID.randomUUID().toString().replace("-", "");
+            Map<String, String> context = new HashMap<>();
+            context.put("openId", session.openId());
+            if (session.unionId() != null) {
+                context.put("unionId", session.unionId());
+            }
+            if (session.sessionKey() != null) {
+                context.put("sessionKey", session.sessionKey());
+            }
+            try {
+                authRedis().opsForValue().set(authKey(REGISTER_KEY_PREFIX + registerToken),
+                        objectMapper.writeValueAsString(context), REGISTER_TOKEN_TTL);
+            } catch (Exception e) {
+                log.warn("cache register token failed: {}", e.getMessage());
+            }
+
+            WxLoginResponse response = new WxLoginResponse();
+            response.setRegistered(false);
+            response.setRegisterToken(registerToken);
+            response.setOpenId(session.openId());
+            return response;
+        }
+
+        // 已注册：补齐 unionId 并签发 token
+        if (session.unionId() != null && !session.unionId().equals(user.getUnionId())) {
             user.setUnionId(session.unionId());
             appUserMapper.updateById(user);
         }
-
         if (user.getStatus() != null && user.getStatus() == 0) {
             throw new BusinessException(ResultCode.FORBIDDEN, "账号已停用");
         }
@@ -107,18 +142,140 @@ public class MiniAppAuthService {
             }
         }
 
+        // 关键业务日志：登录成功（openid 仅记前 12 位，避免完整凭据落盘）
+        log.info("微信登录成功 userId={} openId={}", user.getId(), maskOpenId(session.openId()));
+        return buildLoginResponse(user, false);
+    }
+
+    /** 新用户通过微信手机号授权建号并登录（未注册态） */
+    @Transactional(rollbackFor = Exception.class)
+    public WxLoginResponse registerByPhone(String registerToken, String encryptedData, String iv) {
+        RegisterContext context = readRegisterContext(registerToken);
+        if (!StringUtils.hasText(context.sessionKey())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "微信授权已失效，请重新登录");
+        }
+        String plain = wxAuthService.decrypt(context.sessionKey(), encryptedData, iv);
+        String phone = readField(plain, "phoneNumber");
+        if (!StringUtils.hasText(phone)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "未获取到手机号");
+        }
+        AppUser user = createRegisteredUser(context.openId(), context.unionId(), phone);
+        deleteRegisterToken(registerToken);
+        return buildLoginResponse(user, true);
+    }
+
+    /** 新用户通过短信验证码建号并登录（未注册态） */
+    @Transactional(rollbackFor = Exception.class)
+    public WxLoginResponse registerBySms(String registerToken, String phone, String code) {
+        smsCodeService.verify(phone, code);
+        RegisterContext context = readRegisterContext(registerToken);
+        AppUser user = createRegisteredUser(context.openId(), context.unionId(), phone);
+        deleteRegisterToken(registerToken);
+        return buildLoginResponse(user, true);
+    }
+
+    private AppUser createRegisteredUser(String openId, String unionId, String phone) {
+        AppUser existingByPhone = appUserMapper.selectOne(new LambdaQueryWrapper<AppUser>()
+                .eq(AppUser::getPhone, phone));
+        if (existingByPhone != null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该手机号已绑定其他账号");
+        }
+        AppUser user = new AppUser();
+        user.setOpenId(openId);
+        user.setUnionId(unionId);
+        user.setPhone(phone);
+        user.setNickName("微信用户");
+        user.setVipLevel("Lv1");
+        user.setPoints(0L);
+        user.setBalance(0L);
+        user.setStatus(1);
+        try {
+            appUserMapper.insert(user);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 幂等兜底：open_id 唯一键（uk_app_user_open_id）冲突说明该微信已建号，
+            // 多为「重复点击授权 / 注册凭证复用 / 并发请求」导致。
+            // 这里回查并直接登录，避免把 DuplicateKeyException 抛成 500。
+            AppUser existingByOpenId = appUserMapper.selectOne(new LambdaQueryWrapper<AppUser>()
+                    .eq(AppUser::getOpenId, openId));
+            if (existingByOpenId == null) {
+                // 唯一键冲突但不是 open_id（例如手机号），按业务错误回传，便于前端提示。
+                log.warn("register conflict but user not found by openId openId={}", maskOpenId(openId));
+                throw new BusinessException(ResultCode.BAD_REQUEST, "注册失败，请稍后重试");
+            }
+            log.info("register idempotent hit, reuse existing user id={} openId={}",
+                    existingByOpenId.getId(), maskOpenId(openId));
+            return existingByOpenId;
+        }
+        log.info("new app user registered id={} openId={}", user.getId(), maskOpenId(openId));
+        return user;
+    }
+
+    private WxLoginResponse buildLoginResponse(AppUser user, boolean newUser) {
         WxLoginResponse response = new WxLoginResponse();
-        response.setToken(tokenProvider.createToken(user.getId(), user.getOpenId()));
+        try {
+            response.setToken(tokenProvider.createToken(user.getId(), user.getOpenId()));
+        } catch (Exception e) {
+            // 签发失败多为 JWT 密钥问题；落日志后转业务错误，避免前端只见 500。
+            log.error("wx-login createToken failed userId={}", user.getId(), e);
+            throw new BusinessException(ResultCode.ERROR, "登录凭证签发失败，请稍后重试");
+        }
         response.setUserId(user.getId());
         response.setOpenId(user.getOpenId());
         response.setNewUser(newUser);
+        response.setRegistered(true);
         response.setNickName(user.getNickName());
         response.setAvatar(user.getAvatar());
         response.setPhone(user.getPhone());
         return response;
     }
 
-    /** 解密并更新手机号 */
+    private RegisterContext readRegisterContext(String registerToken) {
+        if (!StringUtils.hasText(registerToken)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "缺少注册凭证");
+        }
+        String raw = null;
+        try {
+            raw = authRedis().opsForValue().get(authKey(REGISTER_KEY_PREFIX + registerToken));
+        } catch (Exception e) {
+            log.warn("read register token failed: {}", e.getMessage());
+        }
+        if (!StringUtils.hasText(raw)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "注册凭证已失效，请重新登录");
+        }
+        try {
+            JsonNode node = objectMapper.readTree(raw);
+            String openId = node.path("openId").asText(null);
+            String unionId = node.path("unionId").asText(null);
+            String sessionKey = node.path("sessionKey").asText(null);
+            if (!StringUtils.hasText(openId)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "注册凭证已失效，请重新登录");
+            }
+            return new RegisterContext(openId, unionId, sessionKey);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "注册凭证已失效，请重新登录");
+        }
+    }
+
+    private void deleteRegisterToken(String registerToken) {
+        try {
+            authRedis().delete(authKey(REGISTER_KEY_PREFIX + registerToken));
+        } catch (Exception e) {
+            log.warn("delete register token failed: {}", e.getMessage());
+        }
+    }
+
+    private String maskOpenId(String openId) {
+        return openId == null ? "-"
+                : openId.substring(0, Math.min(12, openId.length())) + "...";
+    }
+
+    /** 未注册用户的一次性注册上下文 */
+    private record RegisterContext(String openId, String unionId, String sessionKey) {
+    }
+
+/** 解密并更新手机号 */
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> bindPhone(Long userId, String encryptedData, String iv) {
         String sessionKey = getSessionKey(userId);

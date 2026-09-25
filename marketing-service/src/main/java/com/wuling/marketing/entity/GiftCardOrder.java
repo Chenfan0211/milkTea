@@ -2,6 +2,7 @@ package com.wuling.marketing.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -28,6 +29,10 @@ public class GiftCardOrder {
     private LocalDateTime verifyTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /** 订单来源分类（非数据库字段）：供小程序订单页统一聚合与页签过滤 */
+    @TableField(exist = false)
+    private String category = "gift-card";
 
     @TableLogic
     private Integer deleted;

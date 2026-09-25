@@ -5,6 +5,8 @@ import com.wuling.common.api.Result;
 import com.wuling.user.dto.WxDecryptRequest;
 import com.wuling.user.dto.WxLoginRequest;
 import com.wuling.user.dto.WxLoginResponse;
+import com.wuling.user.dto.RegisterByPhoneRequest;
+import com.wuling.user.dto.RegisterBySmsRequest;
 import com.wuling.user.entity.AppUser;
 import com.wuling.user.dto.SmsBindRequest;
 import com.wuling.user.dto.SmsSendRequest;
@@ -39,6 +41,20 @@ public class MiniAppAuthController {
     @PostMapping("/wx-login")
     public Result<WxLoginResponse> wxLogin(@Valid @RequestBody WxLoginRequest request) {
         return Result.ok(miniAppAuthService.login(request.getCode()));
+    }
+
+    /** 新用户通过微信手机号授权注册并登录（未注册态） */
+    @PostMapping("/register-by-phone")
+    public Result<WxLoginResponse> registerByPhone(@Valid @RequestBody RegisterByPhoneRequest request) {
+        return Result.ok(miniAppAuthService.registerByPhone(
+                request.getRegisterToken(), request.getEncryptedData(), request.getIv()));
+    }
+
+    /** 新用户通过短信验证码注册并登录（未注册态） */
+    @PostMapping("/register-by-sms")
+    public Result<WxLoginResponse> registerBySms(@Valid @RequestBody RegisterBySmsRequest request) {
+        return Result.ok(miniAppAuthService.registerBySms(
+                request.getRegisterToken(), request.getPhone(), request.getCode()));
     }
 
     /** 当前登录用户资料 */

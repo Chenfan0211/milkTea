@@ -2,8 +2,11 @@ package com.wuling.system.crud;
 
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.ResultCode;
+import com.wuling.common.cache.AppConfigCacheService;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.common.sql.SqlGuard;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,8 +14,10 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 通用 CRUD 服务。
@@ -26,13 +31,43 @@ import java.util.Map;
 @Service
 public class CrudService {
 
-    private final JdbcTemplate jdbcTemplate;
+    /**
+     * app_config 资源名：写入该资源后需主动失效 Redis 配置缓存。
+     *
+     * <p>为什么必须显式失效：配置读取走 {@code AppConfigCacheService}，TTL 长达 30 天。
+     * 若改动只落库不清缓存，小程序在缓存过期前仍拿到旧值 —— 表现为
+     * 「后台改了客服热线，小程序却一直显示旧号码」，且没有任何报错，排查成本极高。
+     */
+    private static final String RESOURCE_APP_CONFIG = "appConfig";
 
-    public CrudService(JdbcTemplate jdbcTemplate) {
+    /**
+     * 审计日志表名。
+     *
+     * <p>为什么后端要自己写审计：原实现只在**前端** localStore 里记一份「假审计」，
+     * 库里 audit_log 长期只有登录/提现等少数记录，导致「后台改了什么、谁改的」无从追溯。
+     * 后台所有配置类写操作都经本服务，这里落库才能保证审计可信。
+     */
+    private static final String AUDIT_TABLE = "audit_log";
+
+    /** 审计字段的最大长度（与 audit_log 表结构一致），超长截断避免写入失败 */
+    private static final int AUDIT_OPERATOR_MAX = 64;
+    private static final int AUDIT_MODULE_MAX = 64;
+    private static final int AUDIT_ACTION_MAX = 64;
+    private static final int AUDIT_TARGET_MAX = 255;
+    private static final int AUDIT_REASON_MAX = 255;
+
+    private static final Logger log = LoggerFactory.getLogger(CrudService.class);
+
+    private final JdbcTemplate jdbcTemplate;
+    private final AppConfigCacheService appConfigCacheService;
+
+    public CrudService(JdbcTemplate jdbcTemplate, AppConfigCacheService appConfigCacheService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.appConfigCacheService = appConfigCacheService;
     }
 
-    public PageResult<Map<String, Object>> page(String resource, long current, long size, Map<String, String> search) {
+    public PageResult<Map<String, Object>> page(String resource, long current, long size,
+                                              Map<String, String> search, Map<String, String> filters) {
         CrudRegistry.Resource def = require(resource);
         // SQL 安全：表名与排序子句经 SqlGuard 强制校验（标识符无法参数化，只能白名单约束）
         String table = SqlGuard.ident(def.table());
@@ -52,6 +87,24 @@ public class CrudService {
                 }
                 where.append(" and ").append(column).append(" like ?");
                 args.add("%" + value.trim() + "%");
+            }
+        }
+
+        // 等值过滤：仅对 filterable 白名单列生效。
+        // 用于按外键/枚举精确筛选（如 subjects 按 subject_type、fund_flows 按 subject_id），
+        // 这类列不适合用 LIKE（会误匹配），且走 LIKE 也无法命中索引。
+        if (filters != null) {
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String value = entry.getValue();
+                if (!StringUtils.hasText(value)) {
+                    continue;
+                }
+                String column = camelToSnake(entry.getKey());
+                if (!def.filterable().contains(column)) {
+                    continue;
+                }
+                where.append(" and ").append(column).append(" = ?");
+                args.add(value.trim());
             }
         }
 
@@ -98,7 +151,10 @@ public class CrudService {
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
-        return getOne(resource, key == null ? 0L : key.longValue());
+        Map<String, Object> created = getOne(resource, key == null ? 0L : key.longValue());
+        writeAudit(resource, "新增", created, null, created);
+        evictAppConfigCache(resource, created);
+        return created;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -108,6 +164,8 @@ public class CrudService {
         if (values.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "没有可更新的字段");
         }
+        // 审计需要「改前/改后」对比，故先取原值（失败则不存在，直接抛错）
+        Map<String, Object> before = getOne(resource, id);
         String sets = String.join(", ", values.keySet().stream().map(c -> c + " = ?").toList());
         List<Object> args = new ArrayList<>(values.values());
         args.add(id);
@@ -116,20 +174,154 @@ public class CrudService {
         if (affected == 0) {
             throw new BusinessException(ResultCode.NOT_FOUND, "记录不存在");
         }
-        return getOne(resource, id);
+        Map<String, Object> updated = getOne(resource, id);
+        writeAudit(resource, "编辑", updated, before, updated);
+        evictAppConfigCache(resource, updated);
+        return updated;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void delete(String resource, long id) {
         CrudRegistry.Resource def = require(resource);
+        // 逻辑删除后记录带 deleted=1，但审计仍需原始内容，故统一在删除前取出
+        Map<String, Object> before = getOne(resource, id);
         int affected = jdbcTemplate.update(
                 "update " + SqlGuard.ident(def.table()) + " set deleted = 1 where id = ? and deleted = 0", id);
         if (affected == 0) {
             throw new BusinessException(ResultCode.NOT_FOUND, "记录不存在");
         }
+        writeAudit(resource, "删除", before, before, null);
+        evictAppConfigCache(resource, before);
     }
 
     // ---------- 内部工具 ----------
+
+    /**
+     * 写入审计日志（与业务写操作同事务，失败则一并回滚）。
+     *
+     * <p>为什么不复用 AdminAuthQueryController 的 /audit 接口：
+     * 那是给前端「关键操作」显式调用的，前端一旦忘了调用就没有记录；
+     * 而后台配置类写操作全部经本服务，在这里落库才能保证「改了就有痕」不依赖调用方自觉。
+     *
+     * <p>安全：表名与列名均为本类常量，值全部占位符绑定。
+     *
+     * @param resource 资源名（写入 module 便于按模块检索）
+     * @param action   动作（新增/编辑/删除）
+     * @param row      用于取业务主键/名称作为 target 的记录
+     * @param before   变更前快照（新增为 null）
+     * @param after    变更后快照（删除为 null）
+     */
+    private void writeAudit(String resource, String action, Map<String, Object> row,
+                            Map<String, Object> before, Map<String, Object> after) {
+        try {
+            jdbcTemplate.update("insert into " + AUDIT_TABLE
+                            + " (operator, module, action, target, before_value, after_value, reason, ip)"
+                            + " values (?, ?, ?, ?, ?, ?, ?, ?)",
+                    truncate(currentOperator(), AUDIT_OPERATOR_MAX),
+                    truncate(resource, AUDIT_MODULE_MAX),
+                    truncate(action, AUDIT_ACTION_MAX),
+                    truncate(targetOf(row), AUDIT_TARGET_MAX),
+                    diffSummary(before),
+                    diffSummary(after),
+                    truncate(reasonOf(row), AUDIT_REASON_MAX),
+                    currentIp());
+        } catch (Exception e) {
+            // 审计写入不应阻断业务（如表结构差异导致），记录后继续
+            log.warn("写审计日志失败 resource={} action={}: {}", resource, action, e.getMessage());
+        }
+    }
+
+    /** 备注：部分资源会带 reason 字段（前端 reasonPrompt 收集），无则留空 */
+    private String reasonOf(Map<String, Object> row) {
+        if (row == null) {
+            return null;
+        }
+        Object reason = row.get("reason");
+        return reason == null ? null : String.valueOf(reason);
+    }
+
+    /** target 取业务标识：优先 name / code，回退 id */
+    private String targetOf(Map<String, Object> row) {
+        if (row == null) {
+            return "";
+        }
+        for (String key : List.of("name", "code", "configKey")) {
+            Object v = row.get(key);
+            if (v != null && !String.valueOf(v).isBlank()) {
+                return String.valueOf(v);
+            }
+        }
+        Object id = row.get("id");
+        return id == null ? "" : String.valueOf(id);
+    }
+
+    /**
+     * 生成变更摘要：仅保留「真正发生变化」的字段，避免整行 JSON 塞进审计。
+     * 新增时无 before，直接输出 after；删除时无 after，直接输出 before。
+     */
+    private String diffSummary(Map<String, Object> row) {
+        if (row == null) {
+            return null;
+        }
+        // 剔除无信息量的列，避免审计被噪声淹没
+        Map<String, Object> cleaned = new LinkedHashMap<>(row);
+        cleaned.keySet().removeAll(Set.of("createTime", "updateTime", "deleted"));
+        return cleaned.toString();
+    }
+
+    /** 操作人：从 Spring Security 上下文取，取不到则记 system（如定时任务/内部调用） */
+    private String currentOperator() {
+        try {
+            var auth = org.springframework.security.core.context.SecurityContextHolder
+                    .getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getName() != null
+                    && !"anonymousUser".equals(auth.getName())) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {
+            // 无 Security 上下文（如单元测试）时按 system 记录
+        }
+        return "system";
+    }
+
+    /** 请求 IP：取不到则记 unknown */
+    private String currentIp() {
+        try {
+            var attrs = (org.springframework.web.context.request.ServletRequestAttributes)
+                    org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                return attrs.getRequest().getRemoteAddr();
+            }
+        } catch (Exception ignored) {
+            // 非 Web 线程（如单元测试）无请求上下文
+        }
+        return "unknown";
+    }
+
+    /** 按列长度截断，避免因超长导致审计插入失败 */
+    private String truncate(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    /**
+     * 运营配置（app_config）写操作后失效对应的 Redis 缓存。
+     *
+     * <p>非 appConfig 资源直接跳过；configKey 缺失时保守起见不做处理
+     * （宁可缓存多存一会儿，也不误删其他 key 的缓存）。
+     */
+    private void evictAppConfigCache(String resource, Map<String, Object> row) {
+        if (!RESOURCE_APP_CONFIG.equals(resource) || row == null) {
+            return;
+        }
+        Object configKey = row.get("configKey");
+        if (configKey == null || String.valueOf(configKey).isBlank()) {
+            return;
+        }
+        appConfigCacheService.evict(String.valueOf(configKey));
+    }
 
     private CrudRegistry.Resource require(String resource) {
         CrudRegistry.Resource def = CrudRegistry.get(resource);
@@ -139,15 +331,27 @@ public class CrudService {
         return def;
     }
 
-    /** 只保留白名单字段，并把驼峰 key 转为下划线列名 */
+    /**
+     * 只保留白名单字段，并把驼峰 key 转为下划线列名。
+     *
+     * <p><b>为什么对「被丢弃的字段」记 WARN 日志</b>：
+     * 这里是历史上最隐蔽的坑 —— 前端传了字段名不等同于后端列名（如 storePerItem vs store_ratio），
+     * 白名单校验会静默 continue，接口照样返回 200，页面却永远读不到值，
+     * 表现为「填了数据不显示、改了没同步」，排查成本极高。
+     * 记日志后此类问题可直接从服务端日志定位，无需逐层比对字段名。
+     *
+     * <p>注意：仅记录不抛错，保持对既有调用方的兼容（多传字段不算错误）。
+     */
     private Map<String, Object> filterWritable(CrudRegistry.Resource def, Map<String, Object> payload) {
         Map<String, Object> values = new LinkedHashMap<>();
         if (payload == null) {
             return values;
         }
+        Set<String> dropped = new LinkedHashSet<>();
         for (Map.Entry<String, Object> entry : payload.entrySet()) {
             String column = camelToSnake(entry.getKey());
             if (!def.writable().contains(column)) {
+                dropped.add(column);
                 continue;
             }
             Object value = entry.getValue();
@@ -155,6 +359,9 @@ public class CrudService {
                 value = bool ? 1 : 0;
             }
             values.put(column, value);
+        }
+        if (!dropped.isEmpty()) {
+            log.warn("资源 {} 忽略非白名单字段（未写入）: {}", def.resource(), dropped);
         }
         return values;
     }

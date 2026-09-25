@@ -1,6 +1,8 @@
 package com.wuling.marketing.controller;
 
+import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
+import com.wuling.marketing.dto.StoredValuePackageDTO;
 import com.wuling.marketing.entity.*;
 import com.wuling.marketing.service.*;
 import com.wuling.user.entity.AppUser;
@@ -66,18 +68,41 @@ public class AppMarketingController {
 
     // ---------- 储值 ----------
     @GetMapping("/stored-value/packages")
-    public Result<List<StoredValuePackage>> packages() {
+    public Result<List<StoredValuePackageDTO>> packages() {
         return Result.ok(storedValueService.listPackages());
     }
 
-    @PostMapping("/stored-value/recharge")
-    public Result<StoredValueOrder> recharge(@RequestParam Long packageId) {
-        return Result.ok(storedValueService.recharge(CurrentUser.require(), packageId));
+    /**
+     * 创建储值订单（待支付）。
+     *
+     * <p>第 15 期改造：原 {@code recharge} 一步完成「建单 + 置 PAID + 入账」，
+     * 是 mock 时代写法。接入微信支付后必须拆开 —— 建单只落 UNPAID，
+     * 入账改由支付回调驱动（见 {@code StoredValueInternalController#settle}）。
+     * 前端 {@code requestPayment} 的 success 回调<b>不代表资金到账</b>，不可用于入账。
+     *
+     * <p>金额以服务端套餐配置为准，不接受前端传入。
+     */
+    @PostMapping("/stored-value/orders")
+    public Result<StoredValueOrder> createStoredValueOrder(@RequestParam Long packageId) {
+        return Result.ok(storedValueService.createOrder(CurrentUser.require(), packageId));
+    }
+
+    /**
+     * 储值订单视图（供小程序支付后主动查单）。
+     *
+     * <p>前端唤起收银台后轮询本接口，以<b>服务端状态</b>为准展示结果，
+     * 不信任前端 requestPayment 的成功回调。
+     */
+    @GetMapping("/stored-value/orders/{orderNo}")
+    public Result<StoredValueOrder> storedValueOrder(@PathVariable String orderNo) {
+        return Result.ok(storedValueService.orderView(CurrentUser.require(), orderNo));
     }
 
     @GetMapping("/stored-value/orders")
-    public Result<List<StoredValueOrder>> storedOrders() {
-        return Result.ok(storedValueService.myOrders(CurrentUser.require()));
+    public Result<PageResult<StoredValueOrder>> storedOrders(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size) {
+        return Result.ok(storedValueService.myOrders(CurrentUser.require(), page, size));
     }
 
     // ---------- 礼品卡 ----------
@@ -97,8 +122,10 @@ public class AppMarketingController {
     }
 
     @GetMapping("/gift-cards/orders")
-    public Result<List<GiftCardOrder>> myGiftCardOrders() {
-        return Result.ok(giftCardService.myOrders(CurrentUser.require()));
+    public Result<PageResult<GiftCardOrder>> myGiftCardOrders(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size) {
+        return Result.ok(giftCardService.myOrders(CurrentUser.require(), page, size));
     }
 
     @PostMapping("/gift-cards/orders/{orderId}/cancel")

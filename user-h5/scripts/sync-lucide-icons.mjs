@@ -65,6 +65,7 @@ const jobs = [
   { source: 'shopping-bag', output: 'shopping-bag-white', color: '#FFFFFF' },
   { source: 'clipboard-pen-line', output: 'empty-design', color: '#53882C' },
   { source: 'check', output: 'check', color: '#FFFFFF' },
+  { source: 'check', output: 'check-brand', color: '#53882C' },
   { source: 'trash-2', output: 'trash-2', color: '#8D8D88' },
   { source: 'pencil', output: 'pencil', color: '#53882C' },
   { source: 'minus', output: 'minus', color: '#53882C' },

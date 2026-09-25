@@ -8,7 +8,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -24,7 +24,7 @@ const columns: DataTableColumns<any> = [
   { title: '商品', key: 'product', minWidth: 180 },
   { title: '时光币', key: 'points', width: 90, align: 'right' },
   { title: '状态', key: 'status', width: 100, render: renderTag('status', statusMapDef) },
-  { title: '申请时间', key: 'applyTime', width: 145 }
+  { title: '申请时间', key: 'applyTime', render: renderDateTime('applyTime'), width: 145 }
 ];
 
 const searchFields: SearchField[] = [
@@ -47,8 +47,8 @@ const rowActions: RowAction[] = [
     label: '门店核销',
     type: 'success',
     reasonPrompt: '确认门店核销该兑换？（请填写备注）',
-    handler: (row, reason) => {
-      store.patch('exchangeRecords', row.id, { status: 'completed' }, '营销中心', '兑换核销', 'recordNo', reason);
+    handler: async (row, reason) => {
+      await store.patch('exchangeRecords', row.id, { status: 'completed' }, '营销中心', '兑换核销', 'recordNo', reason);
     },
     visible: row => row.status === 'pending_verify'
   }
@@ -61,7 +61,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar: [],
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.exchangeRecords, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('exchangeRecords', search, page, pageSize)
 };
 </script>
 

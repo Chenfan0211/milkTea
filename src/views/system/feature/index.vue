@@ -38,8 +38,8 @@ const rowActions: RowAction[] = [
     label: '开启',
     type: 'success',
     reasonPrompt: '确认开启该功能开关？（请填写备注）',
-    handler: (row, reason) => {
-      store.toggleFeature(row.id, true, reason);
+    handler: async (row, reason) => {
+      await store.toggleFeature(row.id, true, reason);
       routeStore.refreshGlobalMenus();
     }
   },
@@ -47,8 +47,8 @@ const rowActions: RowAction[] = [
     label: '关闭',
     type: 'error',
     reasonPrompt: '确认关闭该功能开关？（请填写备注）',
-    handler: (row, reason) => {
-      store.toggleFeature(row.id, false, reason);
+    handler: async (row, reason) => {
+      await store.toggleFeature(row.id, false, reason);
       routeStore.refreshGlobalMenus();
     }
   }
@@ -60,7 +60,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.features, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('features', search, page, pageSize)
 };
 </script>
 

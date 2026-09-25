@@ -1,4 +1,7 @@
 Component({
+  // styleIsolation 只在 js 声明（与 product-card 一致）：
+  // · 不得与 json 重复声明，否则 Skyline 按需注入下会触发框架解析崩溃；
+  // · 必须是 apply-shared，否则 slot 插槽内容（如订单页「开发票」）样式会被隔离而不可见。
   options: { multipleSlots: true, styleIsolation: 'apply-shared' },
   properties: {
     extClass: { type: String, value: '' },

@@ -1,7 +1,6 @@
 .store-list-card {
   position: relative;
-  min-height: 372rpx;
-  padding: 20rpx 24rpx;
+  padding: 16rpx 20rpx;
   overflow: hidden;
   background: var(--card-bg);
   border: 2rpx solid transparent;
@@ -18,16 +17,16 @@
 }
 
 .store-list-card + .store-list-card {
-  margin-top: 32rpx;
+  margin-top: 20rpx;
 }
 
 .store-list-card__decor {
   position: absolute;
-  right: 224rpx;
-  bottom: -64rpx;
+  right: 8rpx;
+  bottom: -48rpx;
   z-index: 0;
-  width: 132rpx;
-  height: 132rpx;
+  width: 160rpx;
+  height: 160rpx;
   opacity: 0.55;
   pointer-events: none;
 }
@@ -64,7 +63,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-top: 24rpx;
+  margin-top: 12rpx;
 }
 
 .store-list-card__name {
@@ -118,7 +117,7 @@
   border-radius: var(--radius-pill);
 }
 
-.store-list-card__queue {
+.store-list-card__status {
   display: flex;
   align-items: center;
   margin-top: 8rpx;
@@ -127,7 +126,7 @@
   line-height: 36rpx;
 }
 
-.store-list-card__queue-icon {
+.store-list-card__status-icon {
   flex: none;
   width: 20rpx;
   height: 20rpx;
@@ -136,7 +135,7 @@
 
 .store-list-card__address {
   display: -webkit-box;
-  margin-top: 8rpx;
+  margin-top: 4rpx;
   overflow: hidden;
   color: var(--store-card-ink);
   font-size: var(--font-sm);
@@ -155,8 +154,8 @@
 
 .store-list-card__actions {
   position: absolute;
-  right: 24rpx;
-  bottom: 20rpx;
+  right: 20rpx;
+  bottom: 16rpx;
   z-index: 3;
   display: flex;
   flex-direction: row;
@@ -168,8 +167,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72rpx;
-  height: 72rpx;
+  width: 64rpx;
+  height: 64rpx;
   background: linear-gradient(180deg, var(--store-action-from), var(--store-action-to));
   border-radius: 50%;
 }

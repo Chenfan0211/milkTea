@@ -1,4 +1,5 @@
 const loginGuard = require('../../utils/login-guard');
+const api = require('../../utils/api');
 const { withShare } = require('../../utils/share');
 const { getRoleDefinitions, hasRole, applyRole } = require('../../utils/roles');
 const { getStoreTypes } = require('../../utils/store-types');
@@ -96,13 +97,17 @@ Page(
         wx.showToast({ title: `请填写${missing.label}`, icon: 'none' });
         return;
       }
-      const state = applyRole(selectedRoleId);
-      if (state.status !== 'pending') {
-        wx.showToast({ title: '该角色已申请，请勿重复提交', icon: 'none' });
-        return;
-      }
-      wx.showToast({ title: '已提交，等待运营审核', icon: 'none' });
-      setTimeout(() => wx.navigateBack(), 800);
+      // 申请为服务端写操作：提交到后端审核队列，成功后再写本地待审核态
+      api
+        .applyBusinessRole(selectedRoleId, Object.assign({}, form))
+        .then(() => {
+          applyRole(selectedRoleId);
+          wx.showToast({ title: '已提交，等待运营审核', icon: 'none' });
+          setTimeout(() => wx.navigateBack(), 800);
+        })
+        .catch(error => {
+          wx.showToast({ title: (error && error.message) || '提交失败，请稍后重试', icon: 'none' });
+        });
     }
   })
 );

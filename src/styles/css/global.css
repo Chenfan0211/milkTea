@@ -13,3 +13,29 @@ html {
   overflow-x: hidden;
   color: rgb(var(--base-text-color));
 }
+
+/* =============================================================
+   错误弹窗：水平 + 垂直居中
+   说明：naive-ui 的 dialog 默认水平居中、垂直偏上；这里统一收敛，
+        保证登录失败等错误提示在视口正中显示（需求：水平居中弹窗）。
+   ============================================================= */
+.n-dialog.error-dialog-center,
+.n-dialog.login-error-dialog-center {
+  /* 弹窗宽度在窄屏下自适应，避免小屏溢出 */
+  max-width: calc(100vw - 32px);
+}
+
+/* 弹窗内容水平居中显示 */
+.n-dialog.error-dialog-center .n-dialog__content,
+.n-dialog.login-error-dialog-center .n-dialog__content {
+  text-align: center;
+}
+
+/* 让弹窗整体位于视口水平居中位置（naive-ui 默认已水平居中，这里显式声明以避免主题覆盖） */
+.n-dialog.error-dialog-center,
+.n-dialog.login-error-dialog-center {
+  margin-left: auto;
+  margin-right: auto;
+  left: 0;
+  right: 0;
+}

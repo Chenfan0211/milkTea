@@ -16,8 +16,9 @@ onMounted(async () => {
         ? rule.rewards
         : [{ days: rule.streakDays ?? 7, amount: rule.streakReward ?? 20 }];
     }
-  } catch {
-    // 拉取失败时沿用本地默认值
+  } catch (error: any) {
+    // 不回退到本地默认值：避免界面显示与数据库不一致的规则却不易察觉
+    window.$message?.error(error?.message || '签到规则加载失败');
   }
 });
 
@@ -41,8 +42,8 @@ function removeReward(index: number) {
   rewards.value.splice(index, 1);
 }
 
-function saveSignRule() {
-  store.saveSignInRule({
+async function saveSignRule() {
+  await store.saveSignInRule({
     daily: Number(dailyReward.value),
     rewards: rewards.value.map(r => ({ days: Number(r.days), amount: Number(r.amount) }))
   });
@@ -64,17 +65,17 @@ function openRuleModal(mode: 'add' | 'edit', row?: any) {
   ruleModalVisible.value = true;
 }
 
-function submitRule() {
+async function submitRule() {
   if (ruleMode.value === 'edit' && editingRule.value) {
-    store.update('pointsEarningRules', editingRule.value.id, { ...ruleForm }, '营销中心', 'action');
+    await store.update('pointsEarningRules', editingRule.value.id, { ...ruleForm }, '营销中心', 'action');
   } else {
-    store.add('pointsEarningRules', { ...ruleForm }, '营销中心', 'action');
+    await store.add('pointsEarningRules', { ...ruleForm }, '营销中心', 'action');
   }
   ruleModalVisible.value = false;
 }
 
-function removeRule(row: any) {
-  store.remove('pointsEarningRules', row.id, '营销中心', 'action');
+async function removeRule(row: any) {
+  await store.remove('pointsEarningRules', row.id, '营销中心', 'action');
 }
 
 const ruleColumns = [

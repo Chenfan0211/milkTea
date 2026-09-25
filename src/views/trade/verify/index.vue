@@ -9,7 +9,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const router = useRouter();
@@ -24,7 +24,7 @@ const columns: DataTableColumns<any> = [
     title: '核销类型',
     key: 'type',
     width: 88,
-    render: renderTag('type', statusMap({ 订单: ['订单', 'success'], 兑换: ['兑换', 'warning'] }))
+    render: renderTag('type', statusMap({ ORDER: ['订单', 'success'], EXCHANGE: ['兑换', 'warning'] }))
   },
   {
     title: '结果',
@@ -32,7 +32,7 @@ const columns: DataTableColumns<any> = [
     width: 95,
     render: renderTag('result', statusMap({ success: ['核销成功', 'success'], rejected: ['重复拦截', 'error'] }))
   },
-  { title: '时间', key: 'time', width: 150 }
+  { title: '时间', key: 'time', width: 170, render: renderDateTime('time') }
 ];
 const searchFields: SearchField[] = [
   { key: 'orderNo', label: '订单号', placeholder: '订单号' },
@@ -66,7 +66,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.verifies, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('verifies', search, page, pageSize)
 };
 </script>
 

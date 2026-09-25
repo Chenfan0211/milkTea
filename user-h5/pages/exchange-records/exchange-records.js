@@ -7,26 +7,53 @@ Page(
     data: {
       exchangeRecordCategories,
       activeCategory: 'all',
-      filteredRecords: []
+      records: [],
+      filteredRecords: [],
+      loading: true
     },
     onShow() {
-      // 兑换记录从后端拉取
-      api
+      this.refreshRecords();
+    },
+    /**
+     * 兑换记录以后端为唯一数据源。
+     *
+     * 修复说明：原实现调用 fetchExchangeOrders() 后，紧接着又从
+     * app.globalData.exchangeRecords（本地旧数据）读取并渲染，
+     * 接口结果被立即覆盖 —— 表现为「兑换成功但记录页看不到」，
+     * 且切换页签同样只读本地数据。现统一以接口返回为准。
+     */
+    refreshRecords() {
+      this.setData({ loading: true });
+      return api
         .fetchExchangeOrders()
         .then(list => {
-          if (Array.isArray(list)) this.setData({ records: list });
+          const records = (Array.isArray(list) ? list : []).map(this.normalizeRecord);
+          this.setData({ records, loading: false });
+          this.applyFilter(this.data.activeCategory, records);
         })
-        .catch(() => null);      const app = getApp();
-      const records = app.globalData.exchangeRecords || [];
-      this.applyFilter(this.data.activeCategory, records);
+        .catch(() => {
+          // 接口失败时明确置空并提示，避免展示来源不明的旧数据
+          this.setData({ records: [], filteredRecords: [], loading: false });
+          wx.showToast({ title: '兑换记录加载失败，请稍后重试', icon: 'none' });
+        });
+    },
+    /** 后端 ExchangeOrder -> 页面展示结构（字段缺失时兜底，避免渲染空白） */
+    normalizeRecord(item) {
+      const record = item && typeof item === 'object' ? item : {};
+      return {
+        id: String(record.id == null ? record.exchangeNo || '' : record.id),
+        exchangeNo: record.exchangeNo || '',
+        name: record.name || record.productName || record.exchangeNo || '时光币兑换',
+        pickupCode: record.pickupCode || '',
+        status: record.status || '',
+        points: Number(record.points) || 0,
+        time: record.createTime || '',
+        statusLabel: this.statusText(record.status)
+      };
     },
     applyFilter(id, records) {
-      const withLabel = (records || []).map(item =>
-        Object.assign({}, item, {
-          statusLabel: this.statusText(item.status)
-        })
-      );
-      const filteredRecords = id === 'all' ? withLabel : withLabel.filter(item => item.status === id);
+      const source = records || [];
+      const filteredRecords = id === 'all' ? source : source.filter(item => item.status === id);
       this.setData({ activeCategory: id, filteredRecords });
     },
     statusText(status) {
@@ -38,13 +65,12 @@ Page(
         verified: '已核销',
         completed: '已完成'
       };
-      return map[status] || status || '';
+      const value = String(status || '');
+      return map[value] || map[value.toUpperCase()] || value;
     },
     switchCategory(event) {
       const { id } = event.currentTarget.dataset;
-      const app = getApp();
-      const records = app.globalData.exchangeRecords || [];
-      this.applyFilter(id, records);
+      this.applyFilter(id, this.data.records);
     }
   })
 );

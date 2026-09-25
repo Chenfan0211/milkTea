@@ -54,6 +54,8 @@ page {
   --shadow-float: 0 12rpx 30rpx rgba(0, 0, 0, 0.22);
   /* 尺寸 */
   --tabbar-height: 112rpx;
+  /* 自定义导航栏高度：与 navigation-bar.js 中「胶囊按钮上下留白 + 按钮高度」的口径一致 */
+  --nav-bar-height: 88rpx;
   --page-gutter: 20rpx;
   min-height: 100%;
   background: var(--page-bg);

@@ -1,6 +1,14 @@
 const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getWithdrawData, getWithdrawRule } = require('../../utils/roles');
+const {
+  getCurrentBusinessRole,
+  getWithdrawData,
+  getWithdrawRule,
+  submitWithdraw,
+  syncWithdrawalsFromRemote,
+  syncWithdrawRuleFromRemote,
+  syncWorkbenchFromRemote
+} = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 const RECORDS_URL = '/pages/role-withdraw-records/role-withdraw-records';
@@ -50,6 +58,16 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
+      // 余额与规则来自后端；拉到后重渲染，失败时保留现有数据
+      Promise.all([
+        syncWorkbenchFromRemote(role.id),
+        syncWithdrawalsFromRemote(role.id),
+        syncWithdrawRuleFromRemote()
+      ]).then(() => this.applyRoleData(role));
+      this.applyRoleData(role);
+    },
+    /** 用当前缓存（可能为空）渲染提现页 */
+    applyRoleData(role) {
       const data = getWithdrawData(role.id);
       if (!data) {
         this.setData({ ready: false, role, title: '提现' });
@@ -122,6 +140,15 @@ Page(
       loginGuard.requirePhone(() => this.doSubmit(), { reason: '提现需要绑定手机号' });
     },
 
+    /**
+     * 提交提现申请（真实写库）。
+     *
+     * 修复说明：原实现只在本地拼一条假记录塞进列表，
+     * 既没落库、也没冻结余额、更没有后台审核入口 ——
+     * 用户看到「提交成功」但后台查无此单，钱也没动。
+     * 现改为调用 POST /api/v1/app/withdrawals（金额单位为「分」），
+     * 成功后再从后端重新拉取记录与余额，保证页面与库内一致。
+     */
     doSubmit() {
       const amount = parseAmount(this.data.amount);
       const balance = parseBalance(this.data.data.balance);
@@ -133,79 +160,29 @@ Page(
         wx.showToast({ title: '提现金额不能超过余额', icon: 'none' });
         return;
       }
-      const status = amount > this.data.instantLimit ? 'pending' : 'processing';
-      const now = this.formatNow();
-      const record = {
-        id: 'w-' + Date.now(),
-        orderNo: this.buildOrderNo(),
-        amount: '¥' + formatMoney(amount),
-        feeText: '¥0.00',
-        arrivalText: '¥' + formatMoney(amount),
-        channel: '微信零钱',
-        status,
-        time: now,
-        note: status === 'pending' ? '已提交，等待后台审核' : '小额即时出款，预计 2 小时内到账',
-        timeline: [
-          {
-            id: 'submitted',
-            title: '已提交',
-            description: '提现申请已提交，等待系统受理',
-            state: 'done',
-            time: now
-          },
-          {
-            id: status === 'pending' ? 'auditing' : 'paying',
-            title: status === 'pending' ? '审核中' : '出款中',
-            description: status === 'pending' ? '后台审核中，请耐心等待' : '小额即时出款，预计 2 小时内到账',
-            state: 'active',
-            time: now
-          },
-          {
-            id: status === 'pending' ? 'arrived' : 'arrived',
-            title: '已到账',
-            description: '款项将打入指定收款账户',
-            state: 'todo',
-            time: ''
-          }
-        ]
-      };
-      const nextRecords = [record].concat(
-        this.data.records.map(item => Object.assign({}, item))
-      );
-      const nextData = Object.assign({}, this.data.data, { records: nextRecords });
-      this.setData({ data: nextData, records: nextRecords, amount: '' }, () => {
-        this.syncRecords();
-        this.syncPreview();
-      });
-      wx.showToast({
-        title: status === 'pending' ? '已提交，等待后台审核' : '提现申请已提交',
-        icon: 'none'
-      });
+      if (this.submitting) return;
+      this.submitting = true;
+      wx.showLoading({ title: '提交中', mask: true });
+      submitWithdraw(amount)
+        .then(() => {
+          wx.hideLoading();
+          this.submitting = false;
+          this.setData({ amount: '' });
+          wx.showToast({ title: '提现申请已提交', icon: 'none' });
+          // 重新拉取记录与余额，确保展示与后端一致
+          const role = getCurrentBusinessRole();
+          if (!role) return null;
+          return Promise.all([
+            syncWorkbenchFromRemote(role.id),
+            syncWithdrawalsFromRemote(role.id)
+          ]).then(() => this.applyRoleData(role));
+        })
+        .catch(error => {
+          wx.hideLoading();
+          this.submitting = false;
+          wx.showToast({ title: (error && error.message) || '提现申请失败，请稍后重试', icon: 'none' });
+        });
     },
-    buildOrderNo() {
-      const now = new Date();
-      const pad = value => String(value).padStart(2, '0');
-      const stamp =
-        now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + pad(now.getHours()) + pad(now.getMinutes());
-      return 'WD' + stamp + String(now.getSeconds()).padStart(2, '0').slice(-2);
-    },
-    formatNow() {
-      const now = new Date();
-      const pad = value => String(value).padStart(2, '0');
-      return (
-        now.getFullYear() +
-        '-' +
-        pad(now.getMonth() + 1) +
-        '-' +
-        pad(now.getDate()) +
-        ' ' +
-        pad(now.getHours()) +
-        ':' +
-        pad(now.getMinutes()) +
-        ':' +
-        pad(now.getSeconds())
-      );
-    }
   })
 );
 

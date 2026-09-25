@@ -13,6 +13,7 @@ import com.wuling.trade.mapper.OrderItemMapper;
 import com.wuling.trade.mapper.PaymentMapper;
 import com.wuling.trade.pay.wxpay.WxPayPrepayResult;
 import com.wuling.trade.pay.wxpay.WxPayStatusMapper;
+import com.wuling.trade.pay.storedvalue.StoredValueOrderPort;
 import com.wuling.trade.pay.wxpay.WxPayTransaction;
 
 import org.slf4j.Logger;
@@ -53,17 +54,20 @@ public class PaymentService {
     private final OrderItemMapper orderItemMapper;
     private final PaymentGatewayResolver gatewayResolver;
     private final AlertChannel alertChannel;
+    private final StoredValueOrderPort storedValueOrderPort;
 
     public PaymentService(OrderService orderService,
                           PaymentMapper paymentMapper,
                           OrderItemMapper orderItemMapper,
                           PaymentGatewayResolver gatewayResolver,
-                          AlertChannel alertChannel) {
+                          AlertChannel alertChannel,
+                          StoredValueOrderPort storedValueOrderPort) {
         this.orderService = orderService;
         this.paymentMapper = paymentMapper;
         this.orderItemMapper = orderItemMapper;
         this.gatewayResolver = gatewayResolver;
         this.alertChannel = alertChannel;
+        this.storedValueOrderPort = storedValueOrderPort;
     }
 
     /** 发起支付：创建支付单（不改变订单状态） */
@@ -86,6 +90,8 @@ public class PaymentService {
         payment.setPaymentNo(gatewayResolver.active().prepay(orderNo, request.getAmount()));
         payment.setOrderId(order.getId());
         payment.setOrderNo(orderNo);
+        payment.setBizType(Payment.BIZ_ORDER);
+        payment.setBizNo(orderNo);
         payment.setAmount(request.getAmount());
         payment.setChannel(request.getChannel());
         payment.setThirdStatus("PENDING");
@@ -143,6 +149,8 @@ public class PaymentService {
         payment.setPaymentNo(nextPaymentNo(orderNo));
         payment.setOrderId(order.getId());
         payment.setOrderNo(orderNo);
+        payment.setBizType(Payment.BIZ_ORDER);
+        payment.setBizNo(orderNo);
         payment.setAmount(amountFen);
         payment.setChannel(channel);
         payment.setThirdStatus("PENDING");
@@ -176,6 +184,110 @@ public class PaymentService {
      *
      * @param transaction 已验签解密的微信交易信息
      */
+    /**
+     * 储值订单号前缀（与 marketing 域 StoredValueService#nextNo 的 "CZ" 强绑定）。
+     *
+     * <p>为什么靠前缀识别业务域：微信回调只带回 out_trade_no，
+     * 此时对应支付单可能尚未落库（下单与回调存在竞态）。
+     * 按单号前缀判断无需查库即可路由。两处前缀若不一致，
+     * 储值回调会被误判为订单回调，因查不到订单而失败。
+     */
+    public static final String STORED_VALUE_ORDER_PREFIX = "CZ";
+
+    /** 判断单号是否属于储值业务 */
+    public static boolean isStoredValueOrder(String orderNo) {
+        return orderNo != null && orderNo.startsWith(STORED_VALUE_ORDER_PREFIX);
+    }
+
+    /**
+     * 储值充值下单（第 15 期新增）。
+     *
+     * <p>与 {@link #prepayForMiniApp} 的差异：本方法<b>不校验订单表</b>
+     * （储值订单在 marketing 域），而是直接用调用方已校验过的金额下单，
+     * 并落一条 bizType=STORED_VALUE 的支付单，供回调路由与对账使用。
+     *
+     * <p>金额与 openid 均由调用方（{@code StoredValuePayController}）
+     * 在服务端完成校验与查询，本方法不接受未校验的外部输入。
+     *
+     * @param orderNo      储值订单号（CZ 前缀）
+     * @param amountFen    金额（分），已由服务端储值订单确认
+     * @param payerOpenid  支付者 openid，服务端按 JWT 查询所得
+     * @param description  收银台展示描述
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public WxPayPrepayResult prepayStoredValue(String orderNo, long amountFen,
+                                               String payerOpenid, String description) {
+        String channel = gatewayResolver.activeChannel();
+        WxPayPrepayResult result = gatewayResolver.active()
+                .prepayForMiniApp(orderNo, amountFen, payerOpenid, description);
+        if (result == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "当前支付通道不支持小程序支付: " + channel);
+        }
+
+        Payment payment = new Payment();
+        payment.setPaymentNo(nextPaymentNo(orderNo));
+        // 储值支付单不关联 order 表，故 orderId / orderNo 留空
+        payment.setOrderId(null);
+        payment.setOrderNo(null);
+        payment.setBizType(Payment.BIZ_STORED_VALUE);
+        payment.setBizNo(orderNo);
+        payment.setAmount(amountFen);
+        payment.setChannel(channel);
+        payment.setThirdStatus("PENDING");
+        payment.setStandardStatus("PAYING");
+        payment.setPrepayId(result.getPrepayId());
+        payment.setPayerOpenid(payerOpenid);
+        paymentMapper.insert(payment);
+        return result;
+    }
+
+    /**
+     * 微信支付回调统一入口：按单号前缀路由到「订单」或「储值」入账链路。
+     *
+     * <p>第 15 期新增。此前 {@link #handleWxPayCallback} 直接查 order 表，
+     * 而储值单号（CZ 前缀）在 order 表中不存在，导致回调必然失败：
+     * 应答 FAIL → 微信重试仍失败 → 用户已付款但余额永不入账。
+     *
+     * @return 订单支付返回订单视图；储值支付返回 null（储值无订单实体）
+     */
+    public OrderDTO routeWxPayCallback(WxPayTransaction transaction) {
+        String orderNo = transaction.getOutTradeNo();
+        if (isStoredValueOrder(orderNo)) {
+            handleStoredValueCallback(transaction);
+            return null;
+        }
+        return handleWxPayCallback(transaction);
+    }
+
+    /**
+     * 储值订单入账（第 15 期新增）。
+     *
+     * <p>金额校验在 marketing 侧完成（它以订单金额为权威值），
+     * 这里只把回调信息透传过去并驱动幂等入账。
+     *
+     * <p>入账失败刻意抛异常，由回调控制器应答 FAIL 让微信重试：
+     * 宁可重复回调（marketing 侧条件更新兜底幂等），也不能丢单。
+     */
+    public void handleStoredValueCallback(WxPayTransaction transaction) {
+        String orderNo = transaction.getOutTradeNo();
+        StoredValueOrderPort.StoredValueOrderView order =
+                storedValueOrderPort.findByOrderNo(orderNo);
+        if (order == null) {
+            // 查不到业务单仍抛异常：静默吞掉等于放弃一笔已收款的回调
+            log.error("储值订单不存在，回调无法入账 orderNo={} 微信交易号={}",
+                    orderNo, transaction.getTransactionId());
+            throw new BusinessException(ResultCode.BAD_REQUEST, "储值订单不存在: " + orderNo);
+        }
+        if ("PAID".equalsIgnoreCase(order.getPayStatus())) {
+            log.info("duplicate stored value callback ignored, orderNo={} notifyId={}",
+                    orderNo, transaction.getNotifyId());
+            return;
+        }
+        storedValueOrderPort.markPaid(orderNo, transaction.getTransactionId(),
+                null, transaction.getTotalAmount());
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public OrderDTO handleWxPayCallback(WxPayTransaction transaction) {
         String orderNo = transaction.getOutTradeNo();

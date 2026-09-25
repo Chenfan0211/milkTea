@@ -39,12 +39,43 @@
         <text>选择充值金额</text>
       </view>
 
-      <view class="package-card">
-        <text class="package-card__amount">¥{{storedValuePackage.amount}}</text>
-        <text class="package-card__benefit">{{storedValuePackage.couponLabel}}</text>
+      <!--
+        多张储值卡：卡片由后台配置，数量与金额均不写死。
+        整卡可点选中，选中态以品牌绿描边 + 浅底区分；
+        步进器只在选中卡上展示，避免多张卡各自带一个步进器造成歧义。
+      -->
+      <view class="package-list">
+        <view
+          wx:for="{{packages}}"
+          wx:key="id"
+          class="package-card {{selectedIndex === index ? 'is-selected' : ''}}"
+          data-index="{{index}}"
+          bindtap="selectPackage"
+          aria-role="button"
+          aria-label="选择{{item.amount}}元储值卡"
+          aria-checked="{{selectedIndex === index}}"
+        >
+          <text class="package-card__amount">¥{{item.amount}}</text>
+          <text class="package-card__benefit">{{item.benefitText}}</text>
+          <image
+            wx:if="{{selectedIndex === index}}"
+            class="package-card__check"
+            src="/assets/icons/lucide/check-brand.svg"
+            mode="aspectFit"
+          />
+        </view>
+      </view>
+
+      <!-- 后台未配置任何储值卡时的空态：给出可读提示而非空白 -->
+      <view wx:if="{{!packages.length}}" class="package-empty">
+        <text class="package-empty__text">暂无可用的储值卡，请稍后再试</text>
+      </view>
+
+      <view wx:if="{{selectedIndex >= 0}}" class="quantity-row">
+        <text class="quantity-row__label">充值份数</text>
         <view class="quantity-stepper">
           <view
-            class="quantity-stepper__button quantity-stepper__button--minus {{quantity === 1 ? 'is-disabled' : ''}}"
+            class="quantity-stepper__button {{quantity === 1 ? 'is-disabled' : ''}}"
             data-delta="-1"
             bindtap="changeQuantity"
             aria-role="button"
@@ -55,7 +86,7 @@
           </view>
           <text class="quantity-stepper__value">{{quantity}}</text>
           <view
-            class="quantity-stepper__button quantity-stepper__button--plus {{quantity === maxQuantity ? 'is-disabled' : ''}}"
+            class="quantity-stepper__button {{quantity === maxQuantity ? 'is-disabled' : ''}}"
             data-delta="1"
             bindtap="changeQuantity"
             aria-role="button"

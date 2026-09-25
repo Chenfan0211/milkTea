@@ -61,6 +61,24 @@ public class RemoteTradeOrderQueryAdapter implements TradeOrderQueryPort {
 
     @Override
     @SuppressWarnings("unchecked")
+    public long countStoreQueueItems(Long storeSubjectId) {
+        try {
+            Map<String, Object> body = internalRestClient.get()
+                    .uri("/internal/store-queue-count?storeSubjectId={id}", storeSubjectId)
+                    .retrieve()
+                    .body(Map.class);
+            if (body == null || body.get("count") == null) {
+                return 0L;
+            }
+            return Long.parseLong(String.valueOf(body.get("count")));
+        } catch (Exception e) {
+            log.error("查询门店排队件数失败 store={} err={}", storeSubjectId, e.getMessage());
+            return 0L;
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
     public List<Map<String, Object>> ordersByStores(List<Long> storeSubjectIds) {
         if (storeSubjectIds == null || storeSubjectIds.isEmpty()) {
             return List.of();

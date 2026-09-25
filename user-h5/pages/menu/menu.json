@@ -1,4 +1,6 @@
 {
+  "renderer": "webview",
+  "navigationStyle": "custom",
   "usingComponents": {
     "navigation-bar": "/components/navigation-bar/navigation-bar",
     "product-card": "/components/product-card/product-card",
@@ -8,6 +10,5 @@
     "activity-sheet": "/components/activity-sheet/activity-sheet",
     "store-list-card": "/components/store-list-card/store-list-card",
     "empty-state": "/components/empty-state/empty-state"
-  },
-  "renderer": "webview"
+  }
 }

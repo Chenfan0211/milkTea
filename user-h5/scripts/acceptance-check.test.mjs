@@ -664,8 +664,16 @@ assert.ok(
   '我的页礼品卡列表必须为一行两个的网格布局'
 );
 assert.ok(
-  profileGiftJs.includes('/pages/gift-card-orders/gift-card-orders') && profileGiftJs.includes('openGiftCards'),
-  '我的页礼品卡必须跳转礼品卡订单页'
+  profileGiftJs.includes('this.openGiftCardOrders();') &&
+    profileGiftJs.includes('/pages/gift-card-orders/gift-card-orders') &&
+    profileGiftJs.includes('openGiftCardOrders'),
+  '我的页顶部礼品卡统计必须跳转礼品卡订单页'
+);
+assert.ok(
+  profileWxml.includes('bindtap="openGiftCards"') &&
+    profileGiftJs.includes('/pages/gift-card/gift-card') &&
+    profileGiftJs.includes('openGiftCards'),
+  '我的页礼品卡区块必须跳转礼品卡页'
 );
 assert.ok(
   true,
@@ -1143,8 +1151,11 @@ assert.ok(
     confirmJs.includes('余额不足，请先充值'),
   '储值支付必须扣减余额且余额不足时阻止提交'
 );
-const mockSource = fs.readFileSync(path.join(root, 'data/mock.js'), 'utf8');
-assert.ok(mockSource.includes('storedValuePrice'), '商品数据必须包含储值价字段');
+// 阶段 C：商品储值价由菜单接口提供，不再内置于 data/mock.js
+assert.ok(
+  confirmJs.includes('storedValuePrice'),
+  '订单确认页必须从接口商品数据读取储值价'
+);
 
 assert.ok(
   !confirmWxml.includes('isGiftCardOrder') &&
@@ -1482,20 +1493,42 @@ assert.ok(
 );
 assert.ok(/\.ad-banner\s*\{[\s\S]*?height:\s*140rpx/.test(menuWxss), '商品广告图必须按素材比例使用约 140rpx 高度');
 assert.ok(
-  menuWxml.includes('<map') &&
-    menuWxml.includes('markers="{{mapMarkers}}"') &&
-    menuWxml.includes('wx:for="{{pickerStores}}"'),
-  '点单页必须包含地图、marker 和门店列表'
+  // 点单页运行在 Skyline 下，内嵌 <map> 会白屏，且不再保留「假地图」静态占位图：
+  // 门店列表直出，导航按钮经 wx.openLocation 拉起真实腾讯地图。
+  !menuWxml.includes('store-picker__map--entry') &&
+    menuWxml.includes('wx:for="{{pickerStores}}"') &&
+    menuWxml.includes('bind:navigate='),
+  '点单页必须直出门店列表且不含假地图占位'
 );
+{
+  const mapJson = JSON.parse(fs.readFileSync(path.join(root, 'pages/store-map/store-map.json'), 'utf8'));
+  assert.equal(mapJson.renderer, 'webview', '独立地图页必须显式使用 webview 渲染器');
+  const mapWxml = fs.readFileSync(path.join(root, 'pages/store-map/store-map.wxml'), 'utf8');
+  assert.ok(
+    mapWxml.includes('<map') && mapWxml.includes('markers="{{markers}}"'),
+    '独立地图页必须渲染地图与 marker'
+  );
+}
 const menuJsonSource = fs.readFileSync(path.join(root, 'pages/menu/menu.json'), 'utf8');
-assert.equal(JSON.parse(menuJsonSource).renderer, undefined, '点单页必须继承全局 Skyline，不得局部降级 webview');
+// 点单页门店态内嵌原生 <map>（顶部真实地图），Skyline 对原生组件支持受限会白屏，
+// 因此点单页显式降级为 webview；其余页面仍继承全局 Skyline。
+assert.equal(
+  JSON.parse(menuJsonSource).renderer,
+  'webview',
+  '点单页必须显式使用 webview 渲染器，否则内嵌 <map> 会白屏'
+);
 assert.ok(
   menuWxml.includes('locate-fixed.svg') && menuWxml.includes('搜索门店'),
   '门店选择层必须包含本地搜索和定位按钮'
 );
 assert.ok(
-  menuWxml.includes('slot="center"') && menuWxml.includes('store-picker__favorite') && menuWxml.includes('bookmark'),
-  '顶部附近和收藏必须位于居中插槽'
+  // <map> 是原生组件，层级恒在最上层，普通 view 会被盖住；
+  // 因此地图上的导航与筛选必须用 cover-view / cover-image 承载。
+  menuWxml.includes('<cover-view class="store-page__nav">') &&
+    menuWxml.includes('store-page__nav-favorite') &&
+    menuWxml.includes('<cover-image') &&
+    menuWxml.includes('bookmark.svg'),
+  '地图上的导航必须使用 cover-view 并包含附近标题与收藏入口'
 );
 assert.ok(
   storeListCardWxml.includes('store.isFavorite') && storeListCardWxml.includes('star-gold.svg'),
@@ -1514,7 +1547,12 @@ assert.ok(
     !menuWxml.includes('handleFavorite'),
   '门店五角星负责收藏，顶部收藏负责查看列表'
 );
-assert.ok(/store-picker__map[\s\S]*?height:\s*790rpx/.test(menuWxss), '门店选择地图高度必须约 790rpx');
+assert.ok(
+  // 筛选条改为悬浮在地图下沿的白底卡片，本身不再需要避让状态栏；
+  // 状态栏 / 导航栏避让改由地图上的 cover-view 导航承担。
+  /\.store-page__nav\s*\{[\s\S]*?padding-top:\s*env\(safe-area-inset-top/.test(menuWxss),
+  '地图导航必须避让状态栏与导航栏'
+);
 assert.ok(
   stores.every(store => store.promotion === '新中式养生茶系列上新'),
   '所有门店促销文案必须统一'
@@ -1524,31 +1562,35 @@ assert.ok(
   '门店数据不得保留 decorImage'
 );
 assert.ok(
-  /store-picker__panel[\s\S]*?top:\s*770rpx[\s\S]*?border-radius:\s*var\(--radius-lg\)/.test(menuWxss),
-  '门店面板必须按参考图覆盖地图并保留顶部圆角'
-);
-assert.ok(
-  /\.store-list-card\s*\{[^}]*min-height:\s*372rpx[^}]*padding:\s*20rpx 24rpx[^}]*background:\s*var\(--card-bg\)[^}]*border-radius:\s*var\(--radius-lg\)/.test(
-    storeListCardWxss
-  ),
-  '公共门店卡必须按方案 D 使用白底 372rpx 与 20/24rpx 内边距'
-);
-assert.ok(/store-picker__filter[\s\S]*?height:\s*104rpx/.test(menuWxss), '门店筛选区必须按参考图增高到 104rpx');
-assert.ok(
-  /store-picker__list-inner[\s\S]*?padding:\s*24rpx 28rpx calc\(20rpx \+ env\(safe-area-inset-bottom\)\)/.test(
+  /\.store-page__filter\s*\{[\s\S]*?background:\s*var\(--card-bg\)[\s\S]*?border-radius:\s*var\(--radius-lg\)[\s\S]*?box-shadow:\s*var\(--shadow-float\)/.test(
     menuWxss
   ),
-  '门店列表必须使用自身安全区，不复用 TabBar 安全区'
+  '门店筛选条必须是白底圆角悬浮卡片'
 );
-assert.ok(!menuWxml.includes('tabbar-safe-space'), '门店选择层隐藏 TabBar 时不得保留 tabbar-safe-space');
+assert.ok(
+  /\.store-list-card\s*\{[^}]*padding:\s*16rpx 20rpx[^}]*background:\s*var\(--card-bg\)[^}]*border-radius:\s*var\(--radius-lg\)/.test(
+    storeListCardWxss
+  ),
+  '公共门店卡必须使用白底与 16/20rpx 内边距'
+);
+assert.ok(/\.store-page__filter[\s\S]*?height:\s*104rpx/.test(menuWxss), '门店筛选条必须按参考图增高到 104rpx');
+assert.ok(
+  /\.store-page__list-inner\s*\{[\s\S]*?padding:\s*20rpx/.test(menuWxss),
+  '门店列表必须使用 20rpx 页面边距'
+);
+assert.ok(
+  // 门店页是 Tab 页的无门店态，TabBar 常显，因此必须保留 tabbar-safe-space
+  menuWxml.includes('tabbar-safe-space'),
+  '门店页作为 Tab 页必须保留 tabbar-safe-space，避免最后一张卡被 TabBar 遮挡'
+);
 assert.ok(storeListCardWxml.includes('leaf-white.svg'), '公共门店卡上新横幅必须使用 Lucide 白色叶芽图标');
 assert.ok(
   storeListCardWxml.includes('phone-white.svg') && storeListCardWxml.includes('navigation-white.svg'),
   '公共门店卡电话与导航按钮必须使用白色 Lucide 图标'
 );
 assert.ok(
-  /store-picker__panel[\s\S]*?background:\s*var\(--store-page-mint\)/.test(menuWxss),
-  '门店选择层列表必须使用图二浅绿底色'
+  /\.store-page\s*\{[\s\S]*?background:\s*var\(--store-page-mint\)/.test(menuWxss),
+  '门店页必须使用图二浅绿底色'
 );
 assert.ok(
   !menuWxml.includes('store-queue') &&
@@ -1579,14 +1621,14 @@ assert.ok(
   '公共门店卡必须使用图二对应的店名、横幅与地址字号'
 );
 assert.ok(
-  /\.store-list-card__action[\s\S]*?width:\s*72rpx[\s\S]*?height:\s*72rpx/.test(storeListCardWxss) &&
+  /\.store-list-card__action[\s\S]*?width:\s*64rpx[\s\S]*?height:\s*64rpx/.test(storeListCardWxss) &&
     storeListCardWxss.includes('linear-gradient(180deg, var(--store-action-from), var(--store-action-to))'),
-  '公共门店卡电话和导航按钮必须为 72rpx 鲜绿渐变圆'
+  '公共门店卡电话和导航按钮必须为 64rpx 鲜绿渐变圆'
 );
 assert.ok(
   storeListCardWxml.includes('store-list-card__decor') &&
     storeListCardWxml.includes('/assets/icons/lucide/store-decor-sprout.svg') &&
-    /\.store-list-card__decor\s*\{[^}]*right:\s*224rpx[^}]*bottom:\s*-64rpx/.test(storeListCardWxss),
+    /\.store-list-card__decor\s*\{[^}]*right:\s*8rpx[^}]*bottom:\s*-48rpx/.test(storeListCardWxss),
   '公共门店卡必须在右下角放置被裁切的 Lucide 叶芽水印'
 );
 assert.ok(
@@ -1673,9 +1715,9 @@ assert.ok(
 );
 assert.ok(
   productCardWxml.includes('会员价') &&
-    productCardWxml.includes('储值付款到手价') &&
+    productCardWxml.includes('储值立减') &&
     productCardWxml.includes('{{product.storedValuePrice}}'),
-  '商品卡必须展示会员价与储值付款到手价'
+  '商品卡必须展示会员价与储值立减金额'
 );
 assert.ok(
   productCardWxml.includes('product-card__original') && productCardWxml.includes('{{product.originalPrice}}'),
@@ -1800,23 +1842,14 @@ assert.ok(
   '购物车必须包含遮罩和底部弹层'
 );
 assert.ok(/\.cart-sheet__list\s*\{[\s\S]*?height:\s*230rpx/.test(cartSheetWxss), '购物车商品列表必须使用固定可视高度');
-assert.equal(initialCartItems.length, 1, '购物车初始必须包含一件截图商品');
-assert.equal(initialCartItems[0].name, '红苹果乌龙冰奶', '购物车初始商品名称必须与设计稿一致');
-assert.equal(initialCartItems[0].price, 14.9, '购物车初始现价必须为 14.9');
-assert.equal(initialCartItems[0].originalPrice, 16, '购物车初始原价必须为 16');
-assert.equal(initialCartItems[0].storedValuePrice, 13.9, '购物车初始商品必须包含储值价');
-assert.equal(initialCartItems[0].quantity, 1, '购物车初始数量必须为 1');
-assert.equal(initialCartItems[0].selected, true, '购物车初始商品必须默认选中');
-assert.equal(initialCartItems[0].productId, 'classic-005', '购物车初始商品必须保存真实商品 ID');
-assert.deepEqual(
-  initialCartItems[0].selectedOptionIds,
-  ['medium', 'standard-ice'],
-  '购物车初始商品必须保存份量与温度已选规格'
-);
+// 阶段 C 假数据清理：购物车不再预置商品，初始必须为空且不依赖本地 mock。
+assert.equal(initialCartItems, undefined, 'data/mock.js 不得再导出 initialCartItems 假数据');
+assert.ok(!menuJs.includes('initialCartItems'), '点单页不得再引用本地购物车假数据');
 assert.ok(
-  menuJs.includes('initialCartItems') && menuJs.includes('summarizeCart'),
-  '点单页必须从 Mock 初始化并计算购物车汇总'
+  /cartItems:\s*\[\]/.test(menuJs) && /cartCount:\s*0/.test(menuJs) && /cartTotal:\s*0/.test(menuJs),
+  '点单页购物车初始必须为空（商品由菜单接口提供）'
 );
+assert.ok(menuJs.includes('summarizeCart'), '点单页必须使用 summarizeCart 计算购物车汇总');
 
 const specSheetWxml = fs.readFileSync(path.join(root, 'components/spec-sheet/spec-sheet.wxml'), 'utf8');
 const specSheetWxss = fs.readFileSync(path.join(root, 'components/spec-sheet/spec-sheet.wxss'), 'utf8');

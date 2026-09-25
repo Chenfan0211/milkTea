@@ -105,6 +105,7 @@ Component({
         quantity: this.data.state.quantity,
         unitPrice: this.data.state.memberPrice,
         storedValuePrice: this.data.state.storedValuePrice,
+        storedValueDiscount: this.data.state.storedValueDiscount,
         originalPrice: this.data.state.originalPrice,
         specText: this.data.state.specText
       };

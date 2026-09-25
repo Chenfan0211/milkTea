@@ -18,9 +18,12 @@
 #     所有端口一律绑定 127.0.0.1，仅让本机 Nginx 反代可达。
 #
 # 日志：
-#   - 应用日志由 logback 写入容器内 /opt/wuling/logs/*.log，
+#   - 应用日志由 logback-spring.xml（各服务自带）写入容器内 /opt/wuling/logs，
 #     再挂载到宿主机 /opt/wuling/logs，与升级前的路径【完全一致】，
-#     现有运维脚本、health.log、备份任务无需改动；
+#     现有运维脚本、health.log、备份任务无需改动。
+#   - 日志按天滚动：当天写 {SERVICE}.log，跨天归档为 {SERVICE}.yyyy-MM-dd.log，
+#     历史保留 90 天（由 logback maxHistory=LOG_MAX_HISTORY 控制，
+#     配合宿主机 /opt/wuling/scripts/clean-logs.sh 定时清理，最长保留 3 个月）。
 #   - 同时用 json-file 收集 stdout，方便 docker logs 直接排查启动问题。
 #
 # 启动顺序：靠 healthcheck + depends_on.condition 控制，

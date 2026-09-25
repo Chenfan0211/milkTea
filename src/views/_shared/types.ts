@@ -20,7 +20,8 @@ export interface SearchField {
 export interface FormField {
   key: string;
   label: string;
-  type?: 'input' | 'select' | 'number' | 'multiple' | 'image' | 'date' | 'textarea' | 'geocode';
+  rules?: any[];
+  type?: 'input' | 'select' | 'number' | 'multiple' | 'image' | 'date' | 'textarea' | 'geocode' | 'password';
   options?: SelectOption[] | (() => SelectOption[]);
   placeholder?: string;
   multiple?: boolean;
@@ -74,7 +75,8 @@ export interface ImportConfig {
   /** 解析并校验导入数据，返回合法行与错误信息 */
   parse: (rows: Record<string, string>[]) => { ok: Record<string, any>[]; errors: string[] };
   /** 批量提交（写入 store） */
-  commit: (rows: Record<string, any>[]) => { added: number; skipped: number };
+  /** 批量提交。远端模式下为异步写库，故允许返回 Promise。 */
+  commit: (rows: Record<string, any>[]) => { added: number; skipped: number } | Promise<{ added: number; skipped: number }>;
 }
 export interface AdminListConfig {
   title: string;
@@ -85,6 +87,8 @@ export interface AdminListConfig {
   remoteKey?: string;
   /** 需要预加载的其他远端资源（如下拉选项依赖的 provinces） */
   remoteDeps?: string[];
+  /** 从菜单重新进入页面（onActivated）时是否重新查询后端数据；默认 true，仅当显式设为 false 时关闭 */
+  refreshOnEnter?: boolean;
   columns: DataTableColumns<any>;
   searchFields?: SearchField[];
   /** 初始搜索条件（进入页面时合入搜索表单，可用于 URL 回显） */
@@ -98,6 +102,11 @@ export interface AdminListConfig {
   form?: {
     title: string;
     fields: FormField[];
+    /**
+     * 打开表单时对行数据做预处理（如「分 -> 元」换算、字段改名）。
+     * 不配置则直接以行数据回填。
+     */
+    toFormData?: (row: any) => Record<string, any>;
     onSubmit: (data: Record<string, any>, editing: any | null) => void | Promise<void>;
   };
   importConfig?: ImportConfig;

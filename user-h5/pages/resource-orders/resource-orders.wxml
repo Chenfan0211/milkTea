@@ -86,7 +86,7 @@
               </view>
 
               <view class="order-card__foot">
-                <text class="order-card__time">{{order.time}}</text>
+                <text class="order-card__time">{{order.timeText}}</text>
                 <text class="order-card__status order-card__status--{{order.status}}">{{order.statusLabel}}</text>
               </view>
             </view>
@@ -155,7 +155,7 @@
           </view>
           <view class="order-sheet__row">
             <text class="order-sheet__label">下单时间</text>
-            <text class="order-sheet__value">{{detail.time}}</text>
+            <text class="order-sheet__value">{{detail.timeText}}</text>
           </view>
         </view>
 
@@ -177,7 +177,7 @@
               <view class="timeline-item__body">
                 <view class="timeline-item__head">
                   <text class="timeline-item__title">{{item.title}}</text>
-                  <text class="timeline-item__time">{{item.time || '待处理'}}</text>
+                  <text class="timeline-item__time">{{item.timeText || '待处理'}}</text>
                 </view>
                 <text class="timeline-item__desc">{{item.description}}</text>
               </view>

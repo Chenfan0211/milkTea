@@ -39,7 +39,10 @@ public class SecurityConfig {
                         // 管理端接口：JWT 已由网关（GatewayAuthFilter）前置校验，
                         // 本服务不再重复校验。生产约束：仅监听 127.0.0.1 且必须经网关访问。
                         .requestMatchers("/api/v1/admin/**").permitAll()
-                        .requestMatchers("/actuator/health", "/internal/service-info").permitAll()
+                        // 内部接口：供 trade-service 支付回调链路调用（储值订单反查与入账）。
+                        // 不经网关暴露，且服务仅监听内网/本机，故放行。
+                        .requestMatchers("/internal/**").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, ex) -> {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

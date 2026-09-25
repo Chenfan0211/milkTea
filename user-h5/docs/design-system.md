@@ -22,6 +22,7 @@
 > | --- | --- | --- |
 > | `pages/home/home.wxss` `.user-strip` | `padding: 0 62rpx` | 首页用户信息栏左右留白对齐参考图 |
 > | `pages/menu/menu.wxss` `.menu-tabs__item` | `margin-right: 58rpx` | 点单顶部菜单 Tab 间距对齐参考图 |
+> | `pages/menu/menu.wxss` `.store-page__map` | `height: 640rpx` | 门店页顶部地图区高度对齐参考图比例 |
 > | `pages/profile-data/profile-data.wxss` `.profile-data-scroll__inner` | `padding-top: 100rpx` | 个人资料页顶部让位参考图（同规则内的 `280rpx` 已被验收测试固化） |
 >
 > 新增类似取值前必须先确认参考图依据，并在本表登记；未登记的非档位间距一律视为违规。

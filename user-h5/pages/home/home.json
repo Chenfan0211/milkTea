@@ -1,1 +1,1 @@
-{ "usingComponents": {} }
+{ "usingComponents": { "login-sheet": "/components/login-sheet/login-sheet" } }

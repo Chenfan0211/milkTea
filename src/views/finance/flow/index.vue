@@ -9,7 +9,7 @@ import type { AdminListConfig, SearchField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useRoute } from 'vue-router';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const route = useRoute();
@@ -23,7 +23,7 @@ const typeMap = statusMap({
   REFUND: ['退款', 'error'],
   FREEZE: ['冻结', 'info'],
   UNFREEZE: ['解冻', 'primary'],
-  ADJUST: ['调整', 'default']
+  SETTLE: ['结算入账', 'primary']
 });
 
 const columns: DataTableColumns<any> = [
@@ -40,7 +40,7 @@ const columns: DataTableColumns<any> = [
   { title: '关联订单', key: 'orderNo', width: 125, render: (row: any) => row.orderNo || '—' },
   { title: '变动后池子余额(元)', key: 'poolBalanceAfter', width: 120, align: 'right', render: renderMoney('poolBalanceAfter') },
   { title: '备注', key: 'remark', minWidth: 160, render: (row: any) => row.remark || '—' },
-  { title: '时间', key: 'createTime', width: 145 }
+  { title: '时间', key: 'createTime', width: 170, render: renderDateTime('createTime') }
 ];
 
 const searchFields: SearchField[] = [
@@ -74,11 +74,11 @@ const config: AdminListConfig = {
   toolbar: [],
   rowActions: [],
   loadData: async ({ page, pageSize, search }) => {
+    // 资金流水走通用 CRUD 真分页；subjectId 为等值过滤（后端 eq_ 前缀约定）
     const { subjectId: searchSubjectId, ...restSearch } = search;
     const subjectId = searchSubjectId ?? route.query.subjectId;
-    let list = store.fundFlows;
-    if (subjectId) list = list.filter((f: any) => String(f.subjectId) === String(subjectId));
-    return store.listFiltered(list, restSearch, page, pageSize);
+    const params = subjectId ? { ...restSearch, eq_subjectId: String(subjectId) } : restSearch;
+    return store.queryRemote('fundFlows', params, page, pageSize);
   }
 };
 </script>

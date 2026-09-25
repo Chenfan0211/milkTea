@@ -4,7 +4,7 @@ import { request } from '../request';
  * 后台通用 CRUD 客户端。
  *
  * 对应后端 /api/v1/admin/crud/{resource}，资源白名单由后端 CrudRegistry 维护。
- * 注意：底层 request 为 flatRequest，失败时返回 { isSuccess:false, error }，
+ * 注意：底层 request 为 flatRequest，成功返回 { data, error: null }、失败 { data: null, error }，
  * 这里统一解包为「成功返回数据 / 失败抛异常」，便于 store 用 try/catch 处理。
  */
 
@@ -17,9 +17,10 @@ export interface CrudPage<T = any> {
 
 /** 解包 flatRequest 结果 */
 function unwrap<T>(result: any): T {
-  if (result && typeof result === 'object' && 'isSuccess' in result) {
-    if (!result.isSuccess) {
-      throw result.error || new Error('请求失败');
+  // flatRequest 返回 { data, error, response }（成功时 error 为 null）
+  if (result && typeof result === 'object' && 'error' in result) {
+    if (result.error) {
+      throw result.error;
     }
     return result.data as T;
   }
@@ -218,6 +219,41 @@ export async function saveReferralConfigApi(payload: Record<string, any>): Promi
   return unwrap<void>(res);
 }
 
+/** 后台代经营方发起提现（金额单位：分） */
+export async function adminApplyWithdraw(
+  userId: number,
+  subjectId: number,
+  roleType: string,
+  amount: number
+): Promise<any> {
+  const res = await request<any>({
+    url: '/api/v1/admin/finance/withdrawals/apply',
+    method: 'post',
+    params: { userId, subjectId, roleType, amount }
+  });
+  return unwrap<any>(res);
+}
+
+/** 提现审核（后台）：approve=true 通过，false 驳回 */
+export async function reviewWithdraw(id: number, approve: boolean, reason?: string): Promise<any> {
+  const res = await request<any>({
+    url: `/api/v1/admin/finance/withdrawals/${id}/review`,
+    method: 'post',
+    params: { approve, reason }
+  });
+  return unwrap<any>(res);
+}
+
+/** 标记提现出款失败（后端自动解冻） */
+export async function failWithdraw(id: number, reason?: string): Promise<any> {
+  const res = await request<any>({
+    url: `/api/v1/admin/finance/withdrawals/${id}/fail`,
+    method: 'post',
+    params: { reason }
+  });
+  return unwrap<any>(res);
+}
+
 /** 评论审核 */
 export async function reviewComment(id: number, approve: boolean, reason?: string): Promise<void> {
   const res = await request<void>({
@@ -334,3 +370,32 @@ export async function fetchAuditLogs(params?: Record<string, any>): Promise<Crud
   return unwrap<CrudPage>(res);
 }
 
+
+// ---------------- 平台主体配置（AppID / AppSecret / 商户号） ----------------
+
+/** 平台配置（AppSecret 永不回显，只返回是否已配置） */
+export interface PlatformProfile {
+  appId?: string | null;
+  mchId?: string | null;
+  secretConfigured?: boolean;
+}
+
+export async function fetchPlatformProfile(subjectId = 1): Promise<PlatformProfile> {
+  const res = await request<PlatformProfile>({
+    url: '/api/v1/admin/platform/profile',
+    method: 'get',
+    params: { subjectId }
+  });
+  return unwrap<PlatformProfile>(res);
+}
+
+export async function savePlatformProfile(payload: {
+  subjectId?: number;
+  appId?: string;
+  /** 传空则保留旧值 */
+  appSecret?: string;
+  mchId?: string;
+}): Promise<void> {
+  const res = await request<void>({ url: '/api/v1/admin/platform/profile', method: 'put', data: payload });
+  return unwrap<void>(res);
+}

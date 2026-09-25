@@ -8,7 +8,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const columns: DataTableColumns<any> = [
@@ -22,10 +22,10 @@ const columns: DataTableColumns<any> = [
     width: 110,
     render: renderTag(
       'status',
-      statusMap({ pending: ['待审核', 'warning'], approved: ['已通过', 'success'], rejected: ['已驳回', 'error'] })
+      statusMap({ PENDING: ['待审核', 'warning'], APPROVED: ['已通过', 'success'], REJECTED: ['已驳回', 'error'] })
     )
   },
-  { title: '时间', key: 'time', width: 150 }
+  { title: '时间', key: 'time', render: renderDateTime('time'), width: 150 }
 ];
 const searchFields: SearchField[] = [
   { key: 'product', label: '商品', placeholder: '商品名称' },
@@ -34,9 +34,9 @@ const searchFields: SearchField[] = [
     label: '状态',
     type: 'select',
     options: [
-      { label: '待审核', value: 'pending' },
-      { label: '已通过', value: 'approved' },
-      { label: '已驳回', value: 'rejected' }
+      { label: '待审核', value: 'PENDING' },
+      { label: '已通过', value: 'APPROVED' },
+      { label: '已驳回', value: 'REJECTED' }
     ]
   }
 ];
@@ -47,14 +47,14 @@ const rowActions: RowAction[] = [
     type: 'success',
     reasonPrompt: '确认通过该评论？（请填写备注）',
     handler: (row, reason) => store.reviewComment(row.id, true, reason),
-    visible: row => row.status === 'pending'
+    visible: row => row.status === 'PENDING'
   },
   {
     label: '驳回',
     type: 'error',
     reasonPrompt: '确认驳回该评论？（请填写备注）',
     handler: (row, reason) => store.reviewComment(row.id, false, reason),
-    visible: row => row.status === 'pending'
+    visible: row => row.status === 'PENDING'
   }
 ];
 const config: AdminListConfig = {
@@ -64,7 +64,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.comments, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('comments', search, page, pageSize)
 };
 </script>
 

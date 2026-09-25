@@ -10,9 +10,16 @@
 //   · 与后端数据结构无关的格式化工具函数
 // - 新增业务数据请改数据库 seed 或运营后台，不要往本文件加。
 
-/** 金额展示：整数不带小数位，小数保留一位（与后端「分 -> 元」口径一致）。 */
+/**
+ * 金额展示：整数不带小数位，小数保留一位。
+ *
+ * 入参必须是「元」。后端下发的是「分」，调用方需先换算。
+ * 对 null / undefined / 非数字 / NaN 统一返回 '0'，避免历史数据缺字段时抛异常。
+ */
 function formatOrderAmount(amount) {
-  return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '0';
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 /** 订单页分类页签（纯 UI 枚举）。 */
@@ -49,29 +56,10 @@ const storeTypes = [
   { id: 4, code: 'milk-tea', name: '奶茶/饮品', sort: 4, enabled: true }
 ];
 
-/** 本地购物车初始商品；仅用于冷启动展示，商品本体来自接口。 */
-const initialCartItems = [
-  {
-    id: 'classic-005-medium-standard-ice',
-    productId: 'classic-005',
-    selectedOptionIds: ['medium', 'standard-ice'],
-    name: '红苹果乌龙冰奶',
-    spec: '中杯,标准冰',
-    price: 14.9,
-    originalPrice: 16,
-    storedValuePrice: 13.9,
-    quantity: 1,
-    selected: true,
-    image: '/assets/images/3x/menu-product.jpg',
-    isNew: true
-  }
-];
-
 module.exports = {
   formatOrderAmount,
   orderCategories,
   pointsCategories,
   exchangeRecordCategories,
-  storeTypes,
-  initialCartItems
+  storeTypes
 };

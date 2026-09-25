@@ -272,11 +272,18 @@
   flex: 1;
   height: 100%;
   min-width: 0;
+  /* 默认只为底部安全区留白；有购物车时由 has-cart 追加高度 */
+  padding: 0 20rpx calc(40rpx + env(safe-area-inset-bottom)) 12rpx;
   background: var(--card-bg);
 }
 
+/* 购物车栏可见时为其预留空间，避免遮挡最后一个商品（280rpx 为已登记豁免值） */
+.product-scroll.has-cart {
+  padding-bottom: calc(280rpx + env(safe-area-inset-bottom));
+}
+
 .product-scroll__inner {
-  padding: 0 20rpx calc(280rpx + env(safe-area-inset-bottom)) 12rpx;
+  padding: 0;
 }
 
 .ad-title {
@@ -297,78 +304,92 @@
 .product-section {
   padding-top: 24rpx;
 }
-.store-picker {
+
+/* ===== 门店页（点单页无门店态）：地图 + 悬浮筛选条 + 卡片列表 ===== */
+.store-page {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 9000;
-  background: var(--page-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--store-page-mint);
 }
 
-.store-picker__map {
+.store-page__map {
+  position: relative;
+  flex: none;
   width: 100%;
-  height: 790rpx;
+  /* 地图区高度：参考图比例折算值，已登记为档位豁免值 */
+  height: 640rpx;
 }
 
-.store-picker__nav {
+.store-page__nav {
   position: absolute;
   top: 0;
   right: 0;
   left: 0;
   z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  box-sizing: content-box;
+  height: var(--nav-bar-height);
+  padding: 0 16rpx;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
-.store-picker__title-group {
+.store-page__nav-side {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 16rpx;
+  width: 88rpx;
+  height: 88rpx;
 }
 
-.store-picker__title {
-  color: var(--text-main);
-  font-size: var(--font-lg);
-  font-weight: 600;
+.store-page__nav-favorite {
+  width: auto;
 }
 
-.store-picker__favorite {
-  display: flex;
-  align-items: center;
+.store-page__nav-icon {
+  flex: none;
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.store-page__nav-text {
+  margin-left: 8rpx;
   color: var(--text-main);
   font-size: var(--font-base);
   font-weight: 600;
 }
 
-.store-picker__favorite-icon {
-  width: 28rpx;
-  height: 28rpx;
-  margin-right: 4rpx;
+.store-page__nav-title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
 }
 
-.store-picker__panel {
-  position: absolute;
-  top: 770rpx;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--store-page-mint);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-}
-
-.store-picker__filter {
+.store-page__filter {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex: none;
   align-items: center;
   height: 104rpx;
-  padding: 0 var(--page-gutter);
+  margin: -24rpx 20rpx 0;
+  padding: 0 20rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
 }
 
-.store-picker__city {
+.store-page__city {
   display: flex;
   flex: none;
   align-items: center;
@@ -378,14 +399,14 @@
   font-weight: 600;
 }
 
-.store-picker__city-arrow {
+.store-page__city-arrow {
   flex: none;
   width: 28rpx;
   height: 28rpx;
   margin-left: 4rpx;
 }
 
-.store-picker__search {
+.store-page__search {
   display: flex;
   flex: 1;
   align-items: center;
@@ -397,13 +418,13 @@
   border-radius: var(--radius-md);
 }
 
-.store-picker__search-icon {
+.store-page__search-icon {
   flex: none;
   width: 32rpx;
   height: 32rpx;
 }
 
-.store-picker__search-input {
+.store-page__search-input {
   flex: 1;
   min-width: 0;
   height: 48rpx;
@@ -412,11 +433,11 @@
   font-size: var(--font-base);
 }
 
-.store-picker__search-placeholder {
+.store-page__search-placeholder {
   color: var(--text-muted);
 }
 
-.store-picker__search-clear {
+.store-page__search-clear {
   display: flex;
   flex: none;
   align-items: center;
@@ -425,12 +446,12 @@
   height: 32rpx;
 }
 
-.store-picker__search-clear image {
+.store-page__search-clear image {
   width: 28rpx;
   height: 28rpx;
 }
 
-.store-picker__locate {
+.store-page__locate {
   display: flex;
   flex: none;
   align-items: center;
@@ -443,16 +464,16 @@
   border-radius: 50%;
 }
 
-.store-picker__locate-icon {
+.store-page__locate-icon {
   width: 32rpx;
   height: 32rpx;
 }
 
-.store-picker__list {
+.store-page__list {
   flex: 1;
   min-height: 0;
 }
 
-.store-picker__list-inner {
-  padding: 24rpx 28rpx calc(20rpx + env(safe-area-inset-bottom));
+.store-page__list-inner {
+  padding: 20rpx;
 }

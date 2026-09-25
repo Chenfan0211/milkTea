@@ -22,6 +22,11 @@ public class Product {
     private String description;
     private Long price;
     private Long originalPrice;
+    /** 成本价（单位：分） */
+    private Long costPrice;
+    /** 平台分佣（单位：分） */
+    private Long platformCommission;
+    /** 储值立减金额（单位：分），用储值余额支付时每件商品少多少分 */
     private Long storedValuePrice;
     private String image;
     /** 详情主图 */

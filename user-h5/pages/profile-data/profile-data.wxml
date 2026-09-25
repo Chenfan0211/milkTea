@@ -5,7 +5,7 @@
     <view class="profile-data-scroll__inner">
       <view class="profile-data-card">
         <view class="profile-data-avatar-wrap" bindtap="handleAvatar" aria-role="button" aria-label="更换头像">
-          <image class="profile-data-avatar" src="{{avatar}}" mode="aspectFill" />
+          <image class="profile-data-avatar" src="{{avatar || defaultAvatar}}" mode="aspectFill" binderror="handleAvatarError" />
           <view class="profile-data-avatar__edit">
             <image class="profile-data-avatar__edit-icon" src="/assets/icons/lucide/rotate-ccw-white.svg" mode="aspectFit" />
           </view>
@@ -78,7 +78,7 @@
 
   <view class="profile-data-actions">
     <view class="profile-data-save" bindtap="handleSave" hover-class="profile-data-save--pressed" aria-role="button" aria-label="保存个人资料">保存</view>
-    <view class="profile-data-account" bindtap="handleAccountManagement" aria-role="button" aria-label="账号管理">账号管理</view>
+    <view class="profile-data-account" bindtap="handleLogout" aria-role="button" aria-label="退出登录">退出登录</view>
   </view>
 
   <view wx:if="{{birthdayVisible}}" class="profile-sheet">

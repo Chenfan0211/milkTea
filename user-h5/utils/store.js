@@ -137,6 +137,10 @@ function calculateDistanceKm(origin, destination) {
 
 function getQueueStatus(queueCount) {
   const count = Math.max(0, Number(queueCount) || 0);
+  // 无排队订单时不展示「前方N杯制作中」
+  if (count <= 0) {
+    return { level: 'none', text: '', icon: '', className: '' };
+  }
   if (count > 10) {
     return {
       level: 'danger',
@@ -161,6 +165,21 @@ function getQueueStatus(queueCount) {
   };
 }
 
+/**
+ * 门店卡片状态行文案。
+ *
+ * 为什么：参考图里门店卡在店名下方有一行状态文案（如「现在下单，立即制作」）。
+ * 排队中优先展示排队进度（信息量更大），无排队时展示营业状态。
+ *
+ * @param {Object} store 门店
+ * @param {{level:string,text:string}} queueStatus 队列状态
+ */
+function getStoreStatusText(store, queueStatus) {
+  if (queueStatus.text) return queueStatus.text;
+  if (store.businessStatus === 'closed') return '暂停营业，敬请期待';
+  return '现在下单，立即制作';
+}
+
 function decorateStore(store, origin) {
   const distanceValue = calculateDistanceKm(origin, store);
   const distance = distanceValue.toFixed(2);
@@ -174,7 +193,46 @@ function decorateStore(store, origin) {
     queueText: queueStatus.text,
     queueLevel: queueStatus.level,
     queueIcon: queueStatus.icon,
-    queueClass: queueStatus.className
+    queueClass: queueStatus.className,
+    statusText: getStoreStatusText(store, queueStatus)
+  });
+}
+
+/**
+ * 用服务端返回的真实驾车距离装饰门店列表。
+ *
+ * 为什么不在前端算：直线距离（Haversine）与实际驾车距离差异较大，
+ * 用户看到「直线 13.70km」会与实际导航里程不符。真实距离由服务端代理
+ * 腾讯距离矩阵获取（密钥不出服务器）。
+ *
+ * 降级策略：传入的`distances`为空（未配置密钥 / 腾讯失败 / 网络异常）时，
+ * 整体回落到 `decorateStore` 的直线估算，保证门店列表始终可展示。
+ *
+ * @param {Array} storeList 门店列表
+ * @param {Object} origin 用户位置 { latitude, longitude }
+ * @param {Array<{index:number, distanceKm:number, durationMinutes:number}>} distances 服务端返回
+ */
+function decorateStoresWithRealDistance(storeList, origin, distances) {
+  if (!Array.isArray(distances) || !distances.length) {
+    return (storeList || []).map(store => decorateStore(store, origin));
+  }
+  return (storeList || []).map((store, index) => {
+    const decorated = decorateStore(store, origin);
+    const entry = distances.find(item => Number(item.index) === index);
+    if (!entry || !Number.isFinite(Number(entry.distanceKm))) {
+      return decorated;
+    }
+    const distanceValue = Number(entry.distanceKm);
+    const durationMinutes = Number(entry.durationMinutes) || 0;
+    return Object.assign({}, decorated, {
+      distanceValue,
+      distanceKm: `${distanceValue.toFixed(2)}km`,
+      distanceLabel: `驾车${distanceValue.toFixed(2)}km`,
+      distanceText: `距您${distanceValue.toFixed(1)}km`,
+      durationMinutes,
+      durationLabel: durationMinutes > 0 ? `约${Math.round(durationMinutes)}分钟` : '',
+      distanceSource: 'server'
+    });
   });
 }
 
@@ -355,6 +413,8 @@ module.exports = {
   STORE_SELECTION_TTL,
   STORAGE_KEYS,
   calculateDistanceKm,
+  decorateStore,
+  decorateStoresWithRealDistance,
   findNearestStore,
   getCityByCode,
   getCityList,
@@ -362,6 +422,7 @@ module.exports = {
   getStoresByCity,
   getFavoriteStoreIds,
   getQueueStatus,
+  getStoreStatusText,
   handleAppHide,
   isFavoriteStore,
   resolveLocationContext,

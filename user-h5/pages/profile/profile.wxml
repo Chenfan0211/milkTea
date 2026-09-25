@@ -16,54 +16,69 @@
     <view class="profile-content">
       <view class="profile-card user-card">
         <view class="user-card__main">
-          <image class="user-card__avatar" src="{{userProfile.avatar || defaultAvatar}}" mode="aspectFill" binderror="handleAvatarError" bindtap="openProfileData" aria-role="button" aria-label="编辑个人资料" />
-          <view class="user-card__identity" bindtap="openProfileData" aria-role="button" aria-label="查看和编辑个人资料">
-            <text class="user-card__name">{{authLabel === '未登录' ? '点击登录' : userProfile.nickname}}</text>
-            <text wx:if="{{authStateLevel === 'full' && phoneMasked}}" class="user-card__phone">{{phoneMasked}}</text>
-            <text wx:elif="{{authStateLevel === 'authorized'}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
-            <text wx:elif="{{authStateLevel === 'anonymous'}}" class="user-card__phone">登录后可下单与领券</text>
-            <view class="user-card__badges">
-              <text class="user-card__vip">{{userProfile.vipLevel}}</text>
-              <text wx:if="{{businessRole}}" class="user-card__role-badge">{{businessRole.label}}</text>
+          <image class="user-card__avatar" src="{{defaultAvatar}}" mode="aspectFill" bindtap="openLogin" aria-role="button" aria-label="登录" />
+          <view class="user-card__identity" bindtap="openLogin" aria-role="button" aria-label="登录后查看个人资料">
+            <!-- 未登录：只展示登录引导，不渲染任何昵称 / 手机号 / 等级 -->
+            <block wx:if="{{authStateLevel === 'anonymous'}}">
+              <text class="user-card__name">点击登录</text>
+              <text class="user-card__phone">登录后可下单与领券</text>
+            </block>
+            <block wx:else>
+              <text class="user-card__name">{{userProfile.nickname || '微信用户'}}</text>
+              <text wx:if="{{authStateLevel === 'full' && phoneMasked}}" class="user-card__phone">{{phoneMasked}}</text>
+              <text wx:elif="{{authStateLevel === 'authorized'}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
+              <view class="user-card__badges">
+                <text class="user-card__vip">{{userProfile.vipLevel}}</text>
+                <text wx:if="{{businessRole}}" class="user-card__role-badge">{{businessRole.label}}</text>
+              </view>
+            </block>
           </view>
         </view>
-        <image
-          class="user-card__code"
-          src="/assets/icons/lucide/qr-code.svg"
-          mode="aspectFit"
-          data-label="会员码"
-          bindtap="showUnavailable"
-          aria-role="button"
-          aria-label="会员码"
-        />
       </view>
 
-      <!-- 已登录未绑手机号：常驻引导条，点击复用 handleBindPhone（不新增接口） -->
+      <!-- 未登录：登录引导卡（替代全部个人数据区） -->
       <view
-        wx:if="{{authStateLevel === 'authorized'}}"
-        class="bind-phone-bar"
-        bindtap="handleBindPhone"
+        wx:if="{{authStateLevel === 'anonymous'}}"
+        class="profile-card login-invite"
+        bindtap="openLogin"
         aria-role="button"
-        aria-label="绑定手机号以便下单与领取优惠券"
+        aria-label="立即登录"
       >
-        <image class="bind-phone-bar__icon" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
-        <text class="bind-phone-bar__text">绑定手机号，下单与领券更顺畅</text>
-        <image class="bind-phone-bar__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        <text class="login-invite__title">登录享会员权益</text>
+        <text class="login-invite__desc">下单、领券、查订单，还可查看余额与时光币</text>
+        <view class="login-invite__action">立即登录</view>
       </view>
 
-      <view class="progress" bindtap="openMemberRights" aria-role="button" aria-label="查看会员权益">
-        <view class="progress__labels">
-          <text>{{vipLevel}}</text>
-          <text>{{nextLevel}}</text>
+      <block wx:else>
+        <!-- 已登录未绑手机号：常驻引导条 -->
+        <view
+          wx:if="{{authStateLevel === 'authorized'}}"
+          class="bind-phone-bar"
+          bindtap="handleBindPhone"
+          aria-role="button"
+          aria-label="绑定手机号以便下单与领取优惠券"
+        >
+          <image class="bind-phone-bar__icon" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
+          <text class="bind-phone-bar__text">绑定手机号，下单与领券更顺畅</text>
+          <image class="bind-phone-bar__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
         </view>
-        <view class="progress__track">
-          <view class="progress__value" style="width: {{progressPercent}}%;"></view>
+
+        <!-- 会员等级进度：仅登录后展示 -->
+        <view class="progress" bindtap="openMemberRights" aria-role="button" aria-label="查看会员权益">
+          <view class="progress__labels">
+            <text>{{vipLevel}}</text>
+            <text>{{nextLevel}}</text>
+          </view>
+          <view class="progress__track">
+            <view class="progress__value" style="width: {{progressPercent}}%;"></view>
+          </view>
+          <text class="progress__count">{{progressCurrent}}/{{progressTarget}}</text>
         </view>
-        <text class="progress__count">{{progressCurrent}}/{{progressTarget}}</text>
-      </view>
+      </block>
     </view>
 
-    <view class="profile-card stats">
+    <!-- 资产统计（余额 / 积分 / 券数 / 礼品卡）：未登录一律不展示，避免暴露他人或空数据 -->
+    <view wx:if="{{authStateLevel !== 'anonymous'}}" class="profile-card stats">
       <view
         wx:for="{{stats}}"
         wx:key="id"
@@ -79,12 +94,12 @@
       </view>
     </view>
 
-    <view wx:if="{{pendingRoleCount > 0}}" class="pending-notice">
+    <view wx:if="{{authStateLevel !== 'anonymous' && pendingRoleCount > 0}}" class="pending-notice">
       <image class="pending-notice__icon" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
       <text class="pending-notice__text">您有 {{pendingRoleCount}} 个角色申请审核中</text>
     </view>
 
-    <view class="profile-card role-entry" bindtap="openRoleCenter" aria-role="button" aria-label="进入角色中心">
+    <view wx:if="{{authStateLevel !== 'anonymous'}}" class="profile-card role-entry" bindtap="openRoleCenter" aria-role="button" aria-label="进入角色中心">
       <image class="role-entry__icon" src="/assets/icons/lucide/users-brand.svg" mode="aspectFit" />
       <view class="role-entry__body">
         <text class="role-entry__title">角色中心</text>
@@ -123,7 +138,8 @@
       </view>
     </section-card>
 
-    <section-card>
+    <!-- 礼品卡：未登录不展示（属于个人资产） -->
+    <section-card wx:if="{{authStateLevel !== 'anonymous'}}">
       <view class="gift-head">
         <text class="gift-head__title">礼品卡</text>
         <view class="gift-head__more" bindtap="openGiftCards" aria-role="button" aria-label="查看更多礼品卡">
@@ -150,8 +166,19 @@
   </view>
 
   <view class="tabbar-safe-space"></view>
-</view>
 </scroll-view>
 
-
-
+  <!--
+    登录弹层（未登录时的登录入口）。
+    注意：必须由页面侧 wx:if 控制「组件本身是否渲染」。
+    Skyline 渲染器下自定义组件的宿主节点即使子节点 wx:if 为 false 也会占位，
+    内部 fixed 全屏层会把整页点击吃掉（表现为「我的」页所有图标点了没反应）。
+  -->
+  <login-sheet
+    wx:if="{{loginSheetVisible}}"
+    brand-name="五零时光"
+    bind:close="closeLoginSheet"
+    bind:skip="handleLoginSkip"
+    bind:success="handleLoginSuccess"
+    bind:fail="handleLoginFail"
+  />

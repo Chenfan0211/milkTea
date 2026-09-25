@@ -145,6 +145,14 @@
   margin-right: 8rpx;
 }
 
+/* 多张储值卡：两列网格，卡片数量由后台决定 */
+.package-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin: 24rpx 0 0;
+}
+
 .package-card {
   position: relative;
   display: flex;
@@ -152,31 +160,79 @@
   align-items: center;
   justify-content: center;
   width: 336rpx;
-  height: 224rpx;
-  margin: 32rpx 0 40rpx;
-  background: var(--brand-soft);
-  border: 2rpx solid var(--brand-green);
+  height: 200rpx;
+  margin-bottom: 24rpx;
+  background: var(--card-bg);
+  border: 2rpx solid var(--line-color);
   border-radius: var(--radius-md);
 }
 
+/* 选中态：品牌绿描边 + 浅底，与未选中形成明确层级 */
+.package-card.is-selected {
+  background: var(--brand-soft);
+  border-color: var(--brand-green);
+}
+
 .package-card__amount {
-  color: var(--brand-green);
+  color: var(--text-main);
   font-size: var(--font-display);
   font-weight: 600;
   line-height: 56rpx;
 }
 
+.package-card.is-selected .package-card__amount {
+  color: var(--brand-green);
+}
+
 .package-card__benefit {
+  max-width: 100%;
   margin-top: 8rpx;
+  padding: 0 12rpx;
   color: var(--text-secondary);
-  font-size: var(--font-sm);
+  font-size: var(--font-caption);
   line-height: 32rpx;
+  text-align: center;
+}
+
+/* 选中角标：卡片右上角，仅选中时展示 */
+.package-card__check {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  width: 32rpx;
+  height: 32rpx;
+}
+
+/* 空态：后台未配置储值卡时避免整块留白 */
+.package-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160rpx;
+  margin: 24rpx 0 0;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+}
+
+.package-empty__text {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+/* 份数行：步进器独立成行，不再悬挂于卡片底部 */
+.quantity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8rpx;
+}
+
+.quantity-row__label {
+  color: var(--text-main);
+  font-size: var(--font-base);
 }
 
 .quantity-stepper {
-  position: absolute;
-  bottom: -24rpx;
-  left: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -185,7 +241,6 @@
   background: var(--card-bg);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-card);
-  transform: translateX(-50%);
 }
 
 .quantity-stepper__button {

@@ -5,7 +5,7 @@ import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views
 import type { DataTableColumns } from 'naive-ui';
 import { NImage } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { formatFen, renderTag, statusMap } from '@/views/_shared/render';
 import SpecGroupsEditor from './SpecGroupsEditor.vue';
 
 defineOptions({
@@ -20,55 +20,37 @@ const specVisible = ref(false);
 const specRow = ref<any>(null);
 const specModel = ref<any[]>([]);
 
-// 商品详情编辑弹窗
-const detailVisible = ref(false);
-const detailRow = ref<any>(null);
-const detailModel = ref<Record<string, any>>({});
+/** 分 -> 元（保留两位小数）；空值返回 undefined，避免表单出现 NaN */
+function fenToYuan(fen: any): number | undefined {
+  if (fen === null || fen === undefined || fen === '') return undefined;
+  const n = Number(fen);
+  if (Number.isNaN(n)) return undefined;
+  return Number((n / 100).toFixed(2));
+}
 
-function openSpecEditor(row: any) {
+async function openSpecEditor(row: any) {
   specRow.value = row;
-  specModel.value = JSON.parse(JSON.stringify(row.specGroups || []));
+  specModel.value = [];
+  try {
+    // 规格存储于 product_spec（行式），由后端组装为「组 -> 选项」
+    const groups = await store.loadSpecGroups(row.id);
+    specModel.value = JSON.parse(JSON.stringify(groups || []));
+  } catch (error: any) {
+    window.$message?.error(error?.message || '规格加载失败');
+  }
   specVisible.value = true;
 }
 
-function saveSpec() {
+async function saveSpec() {
   if (!specRow.value) return;
   const cleaned = specModel.value.filter(group => (group.label || '').trim() !== '温馨提示' && group.id !== 'tip');
   const removed = specModel.value.length - cleaned.length;
   if (removed > 0) {
     window.$message?.warning('已自动移除 ' + removed + ' 个「温馨提示」规格组，请改在「商品详情-饮用提示」中维护');
   }
-  store.update('products', specRow.value.id, { specGroups: cleaned, specCount: cleaned.length }, '商品中心', 'name');
+  await store.saveProductSpecGroups(specRow.value.id, cleaned);
   specVisible.value = false;
   window.$message?.success('规格已保存');
-  listRef.value?.reload();
-}
-
-function openDetailEditor(row: any) {
-  detailRow.value = row;
-  detailModel.value = {
-    galleryImage: row.galleryImage || '',
-    imageDisclaimer: row.imageDisclaimer || '',
-    promotionText: row.promotionText || '',
-    discountRate: row.discountRate ?? 1,
-    ingredients: row.ingredients || '',
-    allergens: row.allergens || '',
-    cupCapacity: row.cupCapacity || '',
-    tipsText: (row.tips || []).join('\n')
-  };
-  detailVisible.value = true;
-}
-
-function saveDetail() {
-  if (!detailRow.value) return;
-  const tips = String(detailModel.value.tipsText || '')
-    .split('\n')
-    .map((s: string) => s.trim())
-    .filter((s: string) => s.length > 0);
-  const { tipsText: _ignored, ...rest } = detailModel.value;
-  store.update('products', detailRow.value.id, { ...rest, tips }, '商品中心', 'name');
-  detailVisible.value = false;
-  window.$message?.success('商品详情已保存');
   listRef.value?.reload();
 }
 
@@ -93,14 +75,14 @@ const columns: DataTableColumns<any> = [
     align: 'right',
     render: (row: any) => (row.specGroups?.length ?? row.specCount ?? 0)
   },
-  { title: '原价(元)', key: 'originalPrice', width: 90, align: 'right', render: (row: any) => (row.originalPrice != null ? `¥${row.originalPrice}` : '—') },
-  { title: '成本价(元)', key: 'costPrice', width: 88, align: 'right', render: (row: any) => (row.costPrice != null ? `¥${row.costPrice}` : '—') },
-  { title: '平台分佣(元)', key: 'platformCommission', width: 95, align: 'right', render: (row: any) => (row.platformCommission != null ? `¥${row.platformCommission}` : '—') },
-  { title: '储值价(元)', key: 'storedValuePrice', width: 88, align: 'right', render: (row: any) => (row.storedValuePrice != null ? `¥${row.storedValuePrice}` : '—') },
+  { title: '原价(元)', key: 'originalPrice', width: 90, align: 'right', render: (row: any) => (row.originalPrice != null ? `¥${formatFen(row.originalPrice)}` : '—') },
+  { title: '成本价(元)', key: 'costPrice', width: 88, align: 'right', render: (row: any) => (row.costPrice != null ? `¥${formatFen(row.costPrice)}` : '—') },
+  { title: '平台分佣(元)', key: 'platformCommission', width: 95, align: 'right', render: (row: any) => (row.platformCommission != null ? `¥${formatFen(row.platformCommission)}` : '—') },
+  { title: '储值立减(元)', key: 'storedValuePrice', width: 88, align: 'right', render: (row: any) => (row.storedValuePrice != null ? '-' + formatFen(row.storedValuePrice) : '—') },
   {
     title: '门店',
     key: 'stores',
-    width: 120,
+    minWidth: 220,
     render: (row: any) => (row.stores || []).join('、') || row.store || '—'
   },
   {
@@ -136,23 +118,44 @@ const searchFields: SearchField[] = [
   }
 ];
 
+const requiredRule = { required: true, message: '请填写', trigger: ['blur', 'change'] } as const;
+
 const formFields: FormField[] = [
-  { key: 'image', label: '商品图片', type: 'image' },
-  { key: 'code', label: '编码' },
-  { key: 'name', label: '名称' },
-  { key: 'category', label: '分类', type: 'select', options: () => store.productCategories.filter((c: any) => c.enabled !== false).map((c: any) => ({ label: c.name, value: c.name })) },
-  { key: 'originalPrice', label: '原价(元)', type: 'number' },
+  { key: 'image', label: '商品图片', type: 'image', rules: [requiredRule] },
+  { key: 'code', label: '编码', rules: [requiredRule] },
+  { key: 'name', label: '名称', rules: [requiredRule] },
+  {
+    key: 'categoryId',
+    label: '分类',
+    type: 'select',
+    // 后端按 category_id 落库；仅列出 CATEGORY 层（商品实际挂载层）
+    options: () =>
+      store.productCategories
+        .filter((c: any) => c.type === 'CATEGORY')
+        .map((c: any) => ({ label: c.name, value: c.id })),
+    rules: [requiredRule]
+  },
+  { key: 'originalPrice', label: '原价(元)', type: 'number', rules: [requiredRule] },
   { key: 'costPrice', label: '成本价(元)', type: 'number' },
   { key: 'platformCommission', label: '平台分佣(元)', type: 'number' },
-  { key: 'storedValuePrice', label: '储值价(元)', type: 'number' },
+  { key: 'storedValuePrice', label: '储值立减(元)', type: 'number', placeholder: '用储值支付每件少多少元，0 表示不优惠', rules: [requiredRule] },
   { key: 'tags', label: '标签(逗号分隔)' },
   {
     key: 'stores',
     label: '门店',
     type: 'multiple',
     multiple: true,
-    options: () => store.subjects.filter(s => s.type === 'store').map(s => ({ label: s.name, value: s.name }))
+    // 用 id 作为值：后端 product_store 按 store_subject_id 落库
+    options: () => store.subjects.filter(s => s.type === 'store').map(s => ({ label: s.name, value: s.id })),
+    rules: [requiredRule]
   },
+  { key: 'galleryImage', label: '详情大图', type: 'image', rules: [requiredRule] },
+  { key: 'promotionText', label: '促销文案', rules: [requiredRule] },
+  { key: 'imageDisclaimer', label: '图片免责声明', rules: [requiredRule] },
+  { key: 'ingredients', label: '配料' },
+  { key: 'allergens', label: '过敏原' },
+  { key: 'cupCapacity', label: '杯容量' },
+  { key: 'tipsText', label: '饮用提示', type: 'textarea', placeholder: '每行一条提示' },
   {
     key: 'onSale',
     label: '上架状态',
@@ -169,28 +172,37 @@ const toolbar: RowAction[] = [{ label: '新增商品', type: 'primary', modal: '
 const rowActions: RowAction[] = [
   { label: '编辑', type: 'primary', modal: 'edit' },
   { label: '规格', type: 'info', handler: (row: any) => openSpecEditor(row) },
-  { label: '详情', type: 'info', handler: (row: any) => openDetailEditor(row) },
   {
     label: '下架',
     type: 'warning',
     reasonPrompt: '确认下架该商品？（请填写备注）',
-    handler: (row, reason) =>
-      store.patch('products', row.id, { onSale: 'off', offSaleReason: reason, offSaleTime: new Date().toISOString().slice(0, 16) }, '商品中心', '下架', 'name', reason),
+    handler: async (row: any) => {
+      await store.setProductOnSale(row.id, 'off');
+      window.$message?.success('商品已下架');
+      listRef.value?.reload();
+    },
     visible: row => row.onSale === 'on'
   },
   {
     label: '上架',
     type: 'success',
     reasonPrompt: '确认上架该商品？（请填写备注）',
-    handler: (row, reason) =>
-      store.patch('products', row.id, { onSale: 'on', offSaleReason: null, offSaleTime: null }, '商品中心', '上架', 'name', reason),
+    handler: async (row: any) => {
+      await store.setProductOnSale(row.id, 'on');
+      window.$message?.success('商品已上架');
+      listRef.value?.reload();
+    },
     visible: row => row.onSale === 'off'
   },
   {
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该商品？（请填写备注）',
-    handler: (row, reason) => store.remove('products', row.id, '商品中心', 'name', reason)
+    handler: async (row: any) => {
+      await store.removeProduct(row.id);
+      window.$message?.success('商品已删除');
+      listRef.value?.reload();
+    }
   }
 ];
 
@@ -201,21 +213,70 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.products, search, page, pageSize),
+  loadData: async ({ page, pageSize, search }) => {
+    // 走 product-service 专用接口（非通用 CRUD）：/api/v1/admin/product/list
+    const keyword = String((search && (search.name || search.code)) || '').trim();
+    const res = await store.loadProducts({ current: page, size: pageSize, search: keyword || undefined });
+    if (!res) return { data: [], total: 0 };
+    return { data: res.records || [], total: res.total || 0 };
+  },
   form: {
     title: '商品',
     fields: formFields,
-    onSubmit: (data, editing) => {
+    /**
+     * 编辑回填时把「分」换算为「元」，避免输入框显示 640 而非 6.40。
+     * 提交时后端负责「元 -> 分」换算（AdminProductWriteService#yuanToFen）。
+     */
+    toFormData: (row: any) => ({
+      ...row,
+      // 后端返回的是门店名称数组，表单需要 id 列表
+      stores: (row.stores || [])
+        .map((name: string) => store.subjects.find((s: any) => s.type === 'store' && s.name === name)?.id)
+        .filter((id: any) => id != null),
+      price: fenToYuan(row.price),
+      originalPrice: fenToYuan(row.originalPrice),
+      costPrice: fenToYuan(row.costPrice),
+      platformCommission: fenToYuan(row.platformCommission),
+      storedValuePrice: fenToYuan(row.storedValuePrice),
+      galleryImage: row.galleryImage || row.image || '',
+      promotionText: row.promotionText || '',
+      imageDisclaimer: row.imageDisclaimer || '',
+      ingredients: row.ingredients || '',
+      allergens: row.allergens || '',
+      cupCapacity: row.cupCapacity || '',
+      tipsText: (row.tips || []).join('\n')
+    }),
+    onSubmit: async (data, editing) => {
       const tags = String(data.tags || '')
         .split(/[,，、]/)
         .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
-      const { tags: _ignored, ...rest } = data;
-      const payload = { ...rest, tags };
-      if (editing)
-        store.update('products', editing.id, { ...payload, store: (data.stores || [])[0] || editing.store || '', specCount: editing.specGroups?.length ?? 0 }, '商品中心', 'name');
-      else
-        store.add('products', { ...payload, specCount: 0, specGroups: [], splitReady: 'ready', store: (data.stores || [])[0] || '' }, '商品中心', 'name');
+      const tips = String(data.tipsText || '')
+        .split('\n')
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
+      // stores 是门店关联，不属于 product 表字段，单独通过 /stores 接口落库
+      const { tags: _ignored, stores: storeIds, tipsText: _tipsIgnored, ...rest } = data;
+      const payload = { ...rest, tags, tips };
+      try {
+        let productId = editing?.id;
+        if (editing) await store.editProduct(editing.id, payload);
+        else {
+          const created: any = await store.addProduct(payload);
+          productId = created?.id;
+        }
+        if (productId && Array.isArray(storeIds)) {
+          await store.saveProductStoreIds(productId, storeIds as number[]);
+        }
+        window.$message?.success(editing ? '商品已更新' : '商品已新增');
+        listRef.value?.reload();
+      } catch (error: any) {
+        window.$dialog?.error({
+          title: '保存失败',
+          content: error?.message || '保存失败，请稍后重试',
+          positiveText: '我知道了'
+        });
+      }
     }
   }
 };
@@ -233,28 +294,6 @@ const config: AdminListConfig = {
       <div class="flex flex-wrap justify-end gap-12px mt-20px">
         <NButton @click="specVisible = false">取消</NButton>
         <NButton type="primary" @click="saveSpec">保存</NButton>
-      </div>
-    </div>
-  </NModal>
-
-  <NModal v-model:show="detailVisible" preset="card" title="商品详情编辑" class="w-680px">
-    <div v-if="detailRow" class="modal-body">
-      <div class="modal-name">商品：{{ detailRow.name }}</div>
-      <NForm label-placement="left" :label-width="100">
-        <NFormItem label="详情大图"><NInput v-model:value="detailModel.galleryImage" /></NFormItem>
-        <NFormItem label="促销文案"><NInput v-model:value="detailModel.promotionText" /></NFormItem>
-        <NFormItem label="折扣率"><NInputNumber v-model:value="detailModel.discountRate" :min="0" :max="1" :step="0.01" /></NFormItem>
-        <NFormItem label="配料"><NInput v-model:value="detailModel.ingredients" /></NFormItem>
-        <NFormItem label="过敏原"><NInput v-model:value="detailModel.allergens" /></NFormItem>
-        <NFormItem label="杯容量"><NInput v-model:value="detailModel.cupCapacity" /></NFormItem>
-        <NFormItem label="图片免责"><NInput v-model:value="detailModel.imageDisclaimer" /></NFormItem>
-        <NFormItem label="饮用提示">
-          <NInput v-model:value="detailModel.tipsText" type="textarea" :rows="4" placeholder="每行一条提示" />
-        </NFormItem>
-      </NForm>
-      <div class="flex flex-wrap justify-end gap-12px mt-20px">
-        <NButton @click="detailVisible = false">取消</NButton>
-        <NButton type="primary" @click="saveDetail">保存</NButton>
       </div>
     </div>
   </NModal>

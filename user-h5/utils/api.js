@@ -36,6 +36,48 @@ function fetchProductDetail(productId) {
 }
 
 // ============================================================
+// 地理位置（服务端代理腾讯位置服务）
+// ============================================================
+//
+// 小程序端不持有腾讯 Key/SK：只传坐标，由服务端带签名调用腾讯接口。
+// 未配置密钥时服务端返回空结果，前端需自行回落到直线距离估算。
+
+/**
+ * 逆地址解析：经纬度 -> 地址。
+ * @param {number} latitude 纬度
+ * @param {number} longitude 经度
+ * @returns {Promise<{address?:string, formattedAddress?:string, city?:string}>}
+ */
+function fetchReverseGeocode(latitude, longitude) {
+  return request({
+    url: '/api/v1/app/geo/regeo',
+    method: 'POST',
+    data: { latitude, longitude }
+  }).then(unwrap);
+}
+
+/**
+ * 真实驾车距离：用户位置 -> 多个门店。
+ * @param {number} latitude 用户纬度
+ * @param {number} longitude 用户经度
+ * @param {Array<{latitude:number, longitude:number}>} stores 门店坐标列表
+ * @returns {Promise<Array<{index:number, distanceKm:number, durationMinutes:number}>>}
+ */
+function fetchStoreDistances(latitude, longitude, stores) {
+  const destinations = (stores || [])
+    .filter(store => store && store.latitude && store.longitude)
+    .map(store => `${store.latitude},${store.longitude}`);
+  if (!destinations.length) return Promise.resolve([]);
+  return request({
+    url: '/api/v1/app/geo/distance',
+    method: 'POST',
+    data: { latitude, longitude, destinations }
+  })
+    .then(unwrap)
+    .then(result => (result && result.items) || []);
+}
+
+// ============================================================
 // 订单 / 支付 / 核销
 // ============================================================
 
@@ -48,14 +90,24 @@ function createOrder(payload) {
   return request({ url: '/api/v1/app/orders', method: 'POST', data: payload }).then(unwrap);
 }
 
-/** 我的订单 */
-function fetchOrders() {
-  return request({ url: '/api/v1/app/orders', method: 'GET' }).then(unwrap);
+/** 我的订单（分页）：后端返回 PageResult { records, current, size, total } */
+function fetchOrders(page = 1, size = 20) {
+  return request({ url: '/api/v1/app/orders', method: 'GET', data: { page, size } }).then(unwrap);
 }
 
 /** 订单详情 */
 function fetchOrderDetail(orderNo) {
   return request({ url: `/api/v1/app/orders/${orderNo}`, method: 'GET' }).then(unwrap);
+}
+
+/**
+ * 取消订单（用户主动）。
+ *
+ * 后端按订单状态分流：未支付 -> 直接关闭；已支付待核销 -> 整单退款原路退回。
+ * 必须在服务端执行，前端不再本地改状态，避免「界面已取消、后端仍是待核销」的数据不一致。
+ */
+function cancelOrder(orderNo) {
+  return request({ url: `/api/v1/app/orders/${orderNo}/cancel`, method: 'POST' }).then(unwrap);
 }
 
 /**
@@ -122,16 +174,42 @@ function fetchStoredValuePackages() {
   return request({ url: '/api/v1/app/stored-value/packages', method: 'GET' }).then(unwrap);
 }
 
-function rechargeStoredValue(packageId) {
+/**
+ * 创建储值订单（待支付）。
+ *
+ * 注意：本接口只建单，**不入账**。余额入账由微信支付回调驱动，
+ * 前端拿到订单号后需调起收银台，再轮询 {@link fetchStoredValueOrder} 确认结果。
+ */
+function createStoredValueOrder(packageId) {
   return request({
-    url: '/api/v1/app/stored-value/recharge',
+    url: '/api/v1/app/stored-value/orders',
     method: 'POST',
     data: { packageId }
   }).then(unwrap);
 }
 
-function fetchStoredValueOrders() {
-  return request({ url: '/api/v1/app/stored-value/orders', method: 'GET' }).then(unwrap);
+/** 储值订单详情：支付后主动查单，以服务端状态为准 */
+function fetchStoredValueOrder(orderNo) {
+  return request({ url: `/api/v1/app/stored-value/orders/${orderNo}`, method: 'GET' }).then(unwrap);
+}
+
+/**
+ * 储值支付：发起微信支付统一下单，返回小程序唤起收银台所需参数。
+ *
+ * @param {string} orderNo 储值订单号
+ * @returns {Promise<{prepayId:string, params:object}>}
+ */
+function prepayStoredValue(orderNo) {
+  return request({
+    url: '/api/v1/app/payments/stored-value/prepay',
+    method: 'POST',
+    data: { orderNo }
+  }).then(unwrap);
+}
+
+/** 我的储值订单（分页）：后端返回 PageResult */
+function fetchStoredValueOrders(page = 1, size = 20) {
+  return request({ url: '/api/v1/app/stored-value/orders', method: 'GET', data: { page, size } }).then(unwrap);
 }
 
 function fetchGiftCardDenominations() {
@@ -150,9 +228,24 @@ function fetchMyGiftCards() {
   return request({ url: '/api/v1/app/gift-cards', method: 'GET' }).then(unwrap);
 }
 
-/** 我的礼品卡订单 */
-function fetchGiftCardOrders() {
-  return request({ url: '/api/v1/app/gift-cards/orders', method: 'GET' }).then(unwrap);
+/** 我的礼品卡订单（分页）：后端返回 PageResult */
+function fetchGiftCardOrders(page = 1, size = 20) {
+  return request({ url: '/api/v1/app/gift-cards/orders', method: 'GET', data: { page, size } }).then(unwrap);
+}
+
+/**
+ * 核销礼品卡 / 兑换订单（按订单号）。
+ *
+ * 用于「我的订单」扫码核销与门店核销兑换自提码：
+ * 后端会校验归属（订单必须属于当前登录用户）与支付状态，
+ * 重复核销会被拒绝，因此前端不再本地自行判定核销结果。
+ */
+function verifyGiftCardOrder(orderNo) {
+  return request({
+    url: '/api/v1/app/gift-cards/verify',
+    method: 'POST',
+    data: { orderNo }
+  }).then(unwrap);
 }
 
 /** 取消礼品卡订单 */
@@ -194,6 +287,63 @@ function exchangePointsProduct(productId) {
 
 function fetchExchangeOrders() {
   return request({ url: '/api/v1/app/points/exchange-orders', method: 'GET' }).then(unwrap);
+}
+
+// ============================================================
+// 经营角色
+// ============================================================
+
+/** 当前登录用户的经营角色与绑定主体（经营角色的唯一数据来源） */
+function fetchMyRoles() {
+  return request({ url: '/api/v1/app/roles/mine', method: 'GET' }).then(unwrap);
+}
+
+/** 提交经营角色申请 */
+function applyBusinessRole(roleType, form) {
+  return request({
+    url: '/api/v1/app/roles/apply',
+    method: 'POST',
+    data: Object.assign({ roleType }, form || {})
+  }).then(unwrap);
+}
+
+/** 我的角色申请记录 */
+function fetchRoleApplications() {
+  return request({ url: '/api/v1/app/roles/applications', method: 'GET' }).then(unwrap);
+}
+
+/** 门店核销记录（按主体） */
+function fetchStoreVerifyRecords(subjectId) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/verify-records`,
+    method: 'GET'
+  }).then(unwrap);
+}
+
+/** 门店待核销池（按主体） */
+function fetchStoreVerifyPool(subjectId) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/verify-pool`,
+    method: 'GET'
+  }).then(unwrap);
+}
+
+/**
+ * 执行门店核销（扫码 / 输码）。
+ *
+ * 核销是资金相关写操作：后端会校验「当前登录用户确实经营该门店」
+ * （越权返回 403），并按订单状态机拒绝重复核销 / 未支付订单。
+ *
+ * @param {number|string} subjectId 门店主体 ID
+ * @param {string} code 取餐码或订单号
+ * @param {{operator?:string, device?:string}} meta 可选：操作人 / 设备标识
+ */
+function verifyStoreOrder(subjectId, code, meta) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/verify`,
+    method: 'POST',
+    data: Object.assign({ code, type: 'ORDER' }, meta || {})
+  }).then(unwrap);
 }
 
 // ============================================================
@@ -244,11 +394,22 @@ function fetchWithdrawRule() {
   return request({ url: '/api/v1/app/withdrawals/rule', method: 'GET' }).then(unwrap);
 }
 
+/**
+ * 申请提现。
+ *
+ * 注意：后端该接口用 @RequestParam 接收参数（查询串形式），
+ * 而非 JSON 请求体。若按 body 传参，服务端会因取不到 subjectId
+ * 抛 MissingServletRequestParameterException（HTTP 500）。
+ * 因此这里显式拼查询串，amount 单位为「分」。
+ */
 function applyWithdraw(subjectId, roleType, amount) {
+  const query =
+    'subjectId=' + encodeURIComponent(subjectId) +
+    '&roleType=' + encodeURIComponent(roleType) +
+    '&amount=' + encodeURIComponent(amount);
   return request({
-    url: '/api/v1/app/withdrawals',
-    method: 'POST',
-    data: { subjectId, roleType, amount }
+    url: '/api/v1/app/withdrawals?' + query,
+    method: 'POST'
   }).then(unwrap);
 }
 
@@ -391,19 +552,23 @@ module.exports = {
   createOrder,
   fetchOrders,
   fetchOrderDetail,
+  cancelOrder,
   payOrder,
   fetchUserProfile,
   fetchCoupons,
   fetchUserCoupons,
   receiveCoupon,
   fetchStoredValuePackages,
-  rechargeStoredValue,
+  createStoredValueOrder,
+  fetchStoredValueOrder,
+  prepayStoredValue,
   fetchStoredValueOrders,
   fetchGiftCardDenominations,
   purchaseGiftCard,
   fetchMyGiftCards,
   fetchGiftCardOrders,
   cancelGiftCardOrder,
+  verifyGiftCardOrder,
   fetchPointsProducts,
   fetchPointsRules,
   fetchPointsRecords,
@@ -411,6 +576,12 @@ module.exports = {
   signIn,
   exchangePointsProduct,
   fetchExchangeOrders,
+  fetchMyRoles,
+  applyBusinessRole,
+  fetchRoleApplications,
+  fetchStoreVerifyRecords,
+  fetchStoreVerifyPool,
+  verifyStoreOrder,
   fetchMemberLevels,
   fetchWorkbenchOverview,
   fetchWorkbenchFlows,
@@ -422,5 +593,7 @@ module.exports = {
   fetchWithdrawRule,
   applyWithdraw,
   fetchWithdrawals,
-  submitComment
+  submitComment,
+  fetchReverseGeocode,
+  fetchStoreDistances
 };

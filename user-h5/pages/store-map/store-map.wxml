@@ -1,0 +1,41 @@
+<view class="store-map-page">
+  <map
+    class="store-map-page__map"
+    latitude="{{anchor.latitude}}"
+    longitude="{{anchor.longitude}}"
+    scale="15"
+    markers="{{markers}}"
+    show-location="{{true}}"
+    enable-zoom
+    enable-scroll
+    bindmarkertap="handleMarkerTap"
+  />
+
+  <navigation-bar
+    ext-class="store-map-page__nav"
+    variant="transparent"
+    back="{{true}}"
+    delta="{{0}}"
+    bind:back="handleBack"
+  >
+    <view slot="center" class="store-map-page__title-group">
+      <text class="store-map-page__title">门店地图</text>
+    </view>
+  </navigation-bar>
+
+  <view wx:if="{{activeStore.name}}" class="store-map-page__card">
+    <view class="store-map-page__card-main">
+      <text class="store-map-page__name ellipsis">{{activeStore.name}}</text>
+      <text class="store-map-page__address">{{activeStore.address}}</text>
+      <text class="store-map-page__hours">{{activeStore.businessHours}}</text>
+    </view>
+    <view class="store-map-page__actions">
+      <view class="store-map-page__action" catchtap="handlePhone" aria-role="button" aria-label="拨打门店电话">
+        <image src="/assets/icons/lucide/phone-white.svg" mode="aspectFit" />
+      </view>
+      <view class="store-map-page__action" catchtap="handleNavigate" aria-role="button" aria-label="导航到门店">
+        <image src="/assets/icons/lucide/navigation-white.svg" mode="aspectFit" />
+      </view>
+    </view>
+  </view>
+</view>

@@ -9,45 +9,45 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
+import { createSubjectInvestor, fetchSubjectInvestorsPage, updateSubjectInvestor } from '@/service/api/subject';
 
 const store = useAdminStore();
 const router = useRouter();
 
-const load = async (p: any) =>
-  store.listFiltered(
-    store.subjects.filter(s => s.type === 'investor'),
-    p.search,
-    p.page,
-    p.pageSize
-  );
+const load = async (p: any) => {
+  const keyword = String(p.search?.name || '').trim();
+  const status = String(p.search?.status || '').trim();
+  const page = await fetchSubjectInvestorsPage({ current: p.page, size: p.pageSize, search: keyword || undefined, status: status || undefined });
+  return { data: page?.records || [], total: page?.total || 0 };
+};
 
 const columns: DataTableColumns<any> = [
   { title: '编码', key: 'code', width: 120 },
   { title: '名称', key: 'name', minWidth: 160 },
   { title: '绑定用户', key: 'boundUserName', width: 120, render: (row: any) => row.boundUserName || '未绑定' },
-    { title: '可提现余额(元)', key: 'balance', width: 130, align: 'right', render: (row: any) => { const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id); return acc ? (acc.availableBalance ?? 0).toFixed(2) : '—'; } },
+    { title: '可提现余额(元)', key: 'balance', width: 130, align: 'right', render: (row: any) => { const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id); return (acc ? acc.availableBalance ?? 0 : 0).toFixed(2); } },
   { title: '可投门店数', key: 'investableStoreCount', width: 110, align: 'right' },
   { title: '关联门店', key: 'relatedStore', minWidth: 180 },
   {
     title: '签约状态',
-    key: 'signStatus',
+    key: 'status',
     width: 110,
-    render: renderTag('signStatus', statusMap({ signed: ['已签约', 'success'], pending: ['审核中', 'warning'], disabled: ['停用', 'default'] }))
+    render: renderTag('status', statusMap({ signed: ['已签约', 'success'], active: ['启用', 'success'], inactive: ['停用', 'default'] }))
   },
-  { title: '创建时间', key: 'createTime', width: 150 }
+  { title: '创建时间', key: 'createTime', render: renderDateTime('createTime'), width: 150 }
 ];
 
 const searchFields: SearchField[] = [
   { key: 'name', label: '名称', placeholder: '名称' },
   {
-    key: 'signStatus',
+    key: 'status',
     label: '签约状态',
     type: 'select',
     options: [
       { label: '已签约', value: 'signed' },
-      { label: '审核中', value: 'pending' },
-      { label: '停用', value: 'disabled' }
+      { label: '启用', value: 'active' },
+      { label: '停用', value: 'inactive' }
     ]
   }
 ];
@@ -59,22 +59,22 @@ const rowActions: RowAction[] = [
     label: '签约审批',
     type: 'info',
     reasonPrompt: '确认通过签约审批？（请填写备注）',
-    handler: (row, reason) => store.patch('subjects', row.id, { signStatus: 'signed' }, '主体管理', '签约审批', 'name', reason),
-    visible: row => row.signStatus === 'pending'
+    handler: async (row, reason) => await store.patch('subjects', row.id, { status: 'signed' }, '主体管理', '签约审批', 'name', reason),
+    visible: _row => false
   },
   {
     label: '停用',
     type: 'warning',
     reasonPrompt: '确认停用该投资人？（请填写备注）',
-    handler: (row, reason) => store.patch('subjects', row.id, { signStatus: 'disabled' }, '主体管理', '停用', 'name', reason),
-    visible: row => row.signStatus === 'signed'
+    handler: async (row, reason) => await store.patch('subjects', row.id, { status: 'inactive' }, '主体管理', '停用', 'name', reason),
+    visible: row => row.status === 'signed'
   },
   {
     label: '启用',
     type: 'success',
     reasonPrompt: '确认启用该投资人？（请填写备注）',
-    handler: (row, reason) => store.patch('subjects', row.id, { signStatus: 'signed' }, '主体管理', '启用', 'name', reason),
-    visible: row => row.signStatus === 'disabled'
+    handler: async (row, reason) => await store.patch('subjects', row.id, { status: 'signed' }, '主体管理', '启用', 'name', reason),
+    visible: row => row.status === 'inactive'
   },
   {
     label: '绑定用户',
@@ -83,8 +83,8 @@ const rowActions: RowAction[] = [
       title: '选择用户',
       options: () => store.users.filter((u: any) => !u.boundSubjectId && !u.deleted).map((u: any) => ({ label: u.nickName, value: String(u.id) }))
     },
-    handler: (row, picked) => {
-      if (picked) store.bindSubjectUser(row.id, Number(picked));
+    handler: async (row, picked) => {
+      if (picked) await store.bindSubjectUser(row.id, Number(picked));
     },
     visible: row => !row.boundUserId
   },
@@ -93,7 +93,7 @@ const rowActions: RowAction[] = [
     type: 'warning',
     reasonPrompt: '确认解绑该投资人绑定的用户？（请填写备注）',
     handler: (row, reason) => store.unbindSubjectUser(row.id, reason),
-    visible: row => row.boundUserId && row.signStatus === 'disabled'
+    visible: row => row.boundUserId && row.status === 'inactive'
   },
   {
     label: '绑定门店',
@@ -103,14 +103,12 @@ const rowActions: RowAction[] = [
       options: (row) => {
         const boundIds = Array.isArray(row?.relatedStoreIds) ? row.relatedStoreIds : [];
         return store.subjects
-          .filter(s => s.type === 'store' && !boundIds.includes(s.code))
-          .map(s => ({ label: s.name, value: s.code }));
+          .filter((s: any) => s.type === 'store' && !boundIds.includes(Number(s.id)))
+          .map((s: any) => ({ label: s.name, value: String(s.id) }));
       }
     },
-    handler: (row, picked) => {
-      if (!picked) return;
-      const st = store.subjects.find(s => s.code === picked);
-      if (st) store.bindInvestorToStore(st.id, row.code, `绑定门店：${st.name}`);
+    handler: async (row, picked) => {
+      if (picked) await store.bindStoreInvestor(Number(picked), row.id);
     }
   },
   {
@@ -120,25 +118,28 @@ const rowActions: RowAction[] = [
       title: '选择要解绑的门店',
       options: (row) => {
         const ids = Array.isArray(row?.relatedStoreIds) ? row.relatedStoreIds : [];
-        return store.subjects.filter(s => s.type === 'store' && ids.includes(s.code)).map(s => ({ label: s.name, value: s.code }));
+        return store.subjects
+          .filter((s: any) => s.type === 'store' && ids.includes(Number(s.id)))
+          .map((s: any) => ({ label: s.name, value: String(s.id) }));
       }
     },
-    handler: (row, picked) => {
-      if (!picked) return;
-      const st = store.subjects.find(s => s.code === picked);
-      if (st) store.unbindInvestorFromStore(st.id, `解绑门店：${st.name}`);
+    handler: async (_row, picked) => {
+      if (picked) await store.unbindStoreInvestor(Number(picked));
     }
   },
   {
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该投资人？删除后列表不再展示（逻辑删除），请填写备注',
-    handler: (row, reason) => store.remove('subjects', row.id, '主体管理', 'name', reason)
+    handler: async (row, reason) => await store.remove('subjects', row.id, '主体管理', 'name', reason),
+    visible: row => row.status === 'inactive'
   }
 ];
+const requiredRule = { required: true, message: '请填写', trigger: ['blur', 'change'] } as const;
+
 const formFields: FormField[] = [
   { key: 'code', label: '编码' },
-  { key: 'name', label: '姓名' }
+  { key: 'name', label: '姓名', rules: [requiredRule] }
 ];
 
 const config: AdminListConfig = {
@@ -152,9 +153,11 @@ const config: AdminListConfig = {
   form: {
     title: '投资人',
     fields: formFields,
-    onSubmit: (data, editing) => {
-      if (editing) store.update('subjects', editing.id, { ...data, type: 'investor' }, '主体管理', 'name');
-      else store.add('subjects', { ...data, type: 'investor' }, '主体管理', 'name');
+    onSubmit: async (data, editing) => {
+      if (!String(data.name ?? '').trim()) throw new Error('姓名必填');
+      const payload = { code: data.code, name: data.name, status: data.status };
+      if (editing) await updateSubjectInvestor(editing.id, payload);
+      else await createSubjectInvestor(payload);
     }
   },
   importConfig: {
@@ -162,7 +165,7 @@ const config: AdminListConfig = {
     fields: [
       { key: 'code', label: '编码', required: true },
       { key: 'name', label: '姓名', required: true },
-      { key: 'signStatus', label: '签约状态' },
+      { key: 'status', label: '签约状态' },
       { key: 'relatedStore', label: '关联门店' }
     ],
     template: () => '编码,姓名,签约状态,关联门店(逗号分隔)\nIV-1004,投资人丁,已签约,五一广场店,岳麓店\n',
@@ -172,26 +175,25 @@ const config: AdminListConfig = {
       rows.forEach((r, i) => {
         if (!r.code || !r.name) { errors.push('第 ' + (i + 2) + ' 行：编码和姓名必填'); return; }
         const storeNames = String(r.relatedStore || '').split(/[,，、]/).map(s => s.trim()).filter(Boolean);
-        ok.push({ code: r.code, name: r.name, signStatus: r.signStatus === '审核中' ? 'pending' : 'signed', relatedStore: storeNames.join('、') || '未绑定' });
+        const rawStatus = String(r.status || '').trim();
+        const status = rawStatus === '停用' || rawStatus === 'inactive' ? 'inactive' : (rawStatus === '启用' || rawStatus === 'active' ? 'active' : 'signed');
+        ok.push({ code: r.code, name: r.name, status, signStatus: status, relatedStore: storeNames.join('、') || '未绑定' });
       });
       return { ok, errors };
     },
-    commit: (rows) => {
-      let added = 0, skipped = 0;
-      rows.forEach(r => {
-        const exists = store.subjects.some(s => s.type === 'investor' && s.code === r.code);
-        if (exists) { skipped++; return; }
-        const { relatedStore, ...rest } = r;
-        store.add('subjects', { ...rest, type: 'investor', investableStoreCount: 0, relatedStoreIds: [] }, '主体管理', 'name');
-        if (relatedStore && relatedStore !== '未绑定') {
-          relatedStore.split('、').filter(Boolean).forEach((n: string) => {
-            const st = store.subjects.find(s => s.type === 'store' && s.name === n);
-            if (st) store.bindInvestorToStore(st.id, r.code, '导入绑定：' + n);
-          });
+    commit: async (rows) => {
+      let added = 0;
+      for (const r of rows) {
+        const created = await createSubjectInvestor({ code: r.code, name: r.name, status: r.status || 'signed', signStatus: r.signStatus || r.status || 'signed', investableStoreCount: 0 });
+        if (r.relatedStore && r.relatedStore !== '未绑定') {
+          for (const n of String(r.relatedStore).split('、').filter(Boolean)) {
+            const st = store.subjects.find((s: any) => s.type === 'store' && s.name === n);
+            if (st && created?.id) await store.bindStoreInvestor(st.id, created.id);
+          }
         }
         added++;
-      });
-      return { added, skipped };
+      }
+      return { added, skipped: 0 };
     }
   },
 };

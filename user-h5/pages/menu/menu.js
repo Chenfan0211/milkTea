@@ -1,9 +1,10 @@
 const { withShare } = require('../../utils/share');
-const { initialCartItems } = require('../../data/mock');
 const api = require('../../utils/api');
 const { getListedMenuTabs, isProductListed, refreshMenuFromRemote, getMenuCatalog } = require('../../utils/product-listing');
 const { buildCartId, mergeEditedCartItem } = require('../../utils/cart');
 const { buildStoreMarkers } = require('../../utils/store-markers');
+const { normalizeSpecProduct } = require('../../utils/spec-sheet');
+const { refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 const {
   getFavoriteStoreIds,
   refreshCitiesFromRemote,
@@ -11,8 +12,10 @@ const {
   resolveStoreCatalog,
   selectStore: persistSelectedStore,
   toggleFavoriteStore,
-  useDeviceLocation
+  useDeviceLocation,
+  decorateStoresWithRealDistance
 } = require('../../utils/store');
+const location = require('../../utils/location');
 
 function getFirstCategoryId(menu) {
   return menu.groups[0].categories[0].id;
@@ -33,6 +36,27 @@ function findProductById(menus, productId) {
     }
   }
   return null;
+}
+
+function buildProductRows(activeMenu) {
+  const rows = [];
+  (activeMenu.groups || []).forEach(group => {
+    (group.categories || []).forEach(category => {
+      rows.push({ type: 'category', id: 'anchor-' + category.id, label: category.label });
+      const products = category.products || [];
+      products.forEach((product, index) => {
+        rows.push({
+          type: 'product',
+          id: 'product-' + product.id,
+          // 后端商品金额为「分」且字段扁平，统一经 normalizeSpecProduct 转为「元」+ specDetail，
+          // 保证卡片与规格弹层使用同一份数据，避免出现 ¥1600 这类未换算的价格。
+          product: normalizeSpecProduct(product),
+          showDivider: index < products.length - 1
+        });
+      });
+    });
+  });
+  return rows;
 }
 
 function summarizeCart(items) {
@@ -70,6 +94,7 @@ Page(
       selectedCategoryId: '',
       selectedGroupId: '',
       scrollIntoView: '',
+      productRows: [],
       cartVisible: false,
       activityVisible: false,
       menuActivity: {},
@@ -79,16 +104,19 @@ Page(
       specInitialQuantity: 1,
       specInitialSelectedOptionIds: [],
       editingCartItemId: '',
-      cartItems: initialCartItems,
-      cartCount: summarizeCart(initialCartItems).count,
-      cartTotal: summarizeCart(initialCartItems).total,
+      cartItems: [],
+      cartCount: 0,
+      cartTotal: 0,
       storePickerVisible: true,
+      // 定位进行中标记：防止用户连点「重新定位」并发申请授权
+      locating: false,
       pickerCityName: '长沙市',
       pickerCityCode: 'changsha',
       pickerAnchor: { latitude: 28.2282, longitude: 112.9388 },
+      pickerLocation: { latitude: 28.2282, longitude: 112.9388 },
       pickerStores: [],
+      pickerMarkers: [],
       pickerSearchKeyword: '',
-      mapMarkers: [],
       pickerHasCurrentStore: false,
       favoriteStoreIds: []
     },
@@ -105,7 +133,9 @@ Page(
             this.syncCurrentStore();
           }
         }),
-        refreshMenuFromRemote()
+        refreshMenuFromRemote(),
+        // 规格弹层的会员价依赖会员等级折扣，必须先就绪，否则会员价会等于原价
+        refreshMemberLevelsFromRemote()
       ]).then(() => this.renderMenu());
       api
         .fetchHomeConfig()
@@ -134,7 +164,8 @@ Page(
             activeMenu,
             selectedCategoryId: getFirstCategoryId(activeMenu),
             selectedGroupId: activeMenu.groups[0].id,
-            scrollIntoView: ''
+            scrollIntoView: '',
+            productRows: buildProductRows(activeMenu)
           },
           this.buildCatalogUpdates(catalog, { openPicker: !catalog.currentStore }),
           this.buildCartUpdates(catalog.currentStore && catalog.currentStore.id)
@@ -154,7 +185,8 @@ Page(
           return;
         }
         this.setData({ storePickerVisible: true });
-        this.setTabBarHidden(true);
+        // 门店页 TabBar 常显，无需隐藏
+        this.setTabBarHidden(false);
         return;
       }
       if (this.returningFrom === 'city') {
@@ -200,6 +232,7 @@ Page(
         : {};
       // 城市数据来自接口，拉取失败时降级为空，避免页面崩溃
       const city = catalog.city || { name: '', code: '', latitude: 0, longitude: 0 };
+      const origin = catalog.origin || city;
       const updates = {
         pickerCityName: city.name,
         pickerCityCode: city.code,
@@ -207,8 +240,16 @@ Page(
           latitude: currentStore.latitude || city.latitude,
           longitude: currentStore.longitude || city.longitude
         },
+        // 真实距离计算原点：优先用户定位，无定位时回落城市中心
+        pickerLocation: {
+          latitude: origin.latitude || city.latitude,
+          longitude: origin.longitude || city.longitude
+        },
         pickerStores,
-        mapMarkers: buildStoreMarkers(catalog.stores || [], currentStore.id),
+        pickerMarkers: buildStoreMarkers(
+          pickerStores,
+          catalog.currentStore ? catalog.currentStore.id : null
+        ),
         pickerHasCurrentStore: Boolean(catalog.currentStore),
         currentStore,
         favoriteStoreIds
@@ -229,7 +270,50 @@ Page(
       updates.pickerStores = filterStores(updates.pickerStores, updates.pickerSearchKeyword);
       this.syncGlobals(catalog);
       this.setData(updates);
-      this.setTabBarHidden(true);
+      // 门店页是 Tab 页的无门店态：TabBar 常显，列表末尾用 tabbar-safe-space 兜底
+      this.setTabBarHidden(false);
+      // 先渲染直线距离，再异步替换为服务端真实驾车距离
+      this.refreshPickerRealDistance();
+    },
+    /**
+     * 用服务端真实驾车距离刷新门店列表。
+     *
+     * 为什么异步后置：真实距离需请求服务端代理腾讯接口，若阻塞在打开选择层之前，
+     * 用户会先看到一段空白。这里先渲染直线距离，拿到真实距离后再原地刷新。
+     *
+     * 降级：未配置密钥 / 腾讯失败 / 请求异常时静默保留直线距离，不打断用户。
+     */
+    refreshPickerRealDistance() {
+      const updates = this.data.pickerStores || [];
+      if (!updates.length) return;
+      const origin = this.data.pickerLocation || null;
+      if (!origin || !origin.latitude || !origin.longitude) return;
+      const stores = updates;
+      api
+        .fetchStoreDistances(origin.latitude, origin.longitude, stores)
+        .then(distances => {
+          if (!Array.isArray(distances) || !distances.length) return;
+          // 请求返回时用户可能已关层或换城，这里校验后再刷新
+          if (!this.data.storePickerVisible) return;
+          const refreshed = decorateStoresWithRealDistance(stores, origin, distances);
+          this.setData({ pickerStores: refreshed });
+        })
+        .catch(() => {
+          // 静默降级：保留直线距离
+        });
+    },
+    /** 查看门店地图：跳独立地图页（Skyline 不支持原生 map） */
+    openStoreMap() {
+      wx.navigateTo({ url: '/pages/store-map/store-map' });
+    },
+    /** 点击地图标记：把地图中心移到该门店 */
+    handlePickerMarkerTap(event) {
+      const markerId = event && event.detail && event.detail.markerId;
+      const marker = (this.data.pickerMarkers || []).find(item => item.id === markerId);
+      if (!marker) return;
+      this.setData({
+        pickerAnchor: { latitude: marker.latitude, longitude: marker.longitude }
+      });
     },
     closeStorePicker() {
       if (!this.data.pickerHasCurrentStore) {
@@ -251,14 +335,6 @@ Page(
     clearPickerSearch() {
       const pickerStores = applyFavoriteState(resolveStoreCatalog().stores, getFavoriteStoreIds());
       this.setData({ pickerSearchKeyword: '', pickerStores });
-    },
-    handleMarkerTap(event) {
-      const markerId = Number(event.detail.markerId);
-      const marker = this.data.mapMarkers.find(item => item.id === markerId);
-      if (!marker) return;
-      const store = resolveStoreCatalog().stores.find(item => item.id === marker.storeId);
-      if (!store) return;
-      this.setData({ pickerAnchor: { latitude: store.latitude, longitude: store.longitude } });
     },
     handleSelectPickerStore(event) {
       const { id } = event.detail.store;
@@ -287,12 +363,37 @@ Page(
         scale: 16
       });
     },
+    /**
+     * 重新定位：申请 scope.userLocation -> wx.getLocation -> 逆地理 -> 刷新门店排序。
+     *
+     * 降级：拒绝授权 / 定位失败时回落到城市中心坐标，仍能正常排序（不阻断用户）。
+     * 真实驾车距离随后由 refreshPickerRealDistance 异步补齐。
+     */
     handleLocate() {
-      const result = useDeviceLocation();
-      const catalog = resolveStoreCatalog();
-      this.syncGlobals(catalog);
-      this.setData(this.buildCatalogUpdates(catalog, { openPicker: true }));
-      wx.showToast({ title: `已定位到${result.city.name}`, icon: 'none' });
+      if (this.data.locating) return;
+      this.setData({ locating: true });
+      wx.showLoading({ title: '定位中', mask: true });
+      location
+        .locate({ force: true })
+        .then(result => {
+          wx.hideLoading();
+          this.setData({ locating: false });
+          const catalog = resolveStoreCatalog();
+          this.syncGlobals(catalog);
+          this.setData(this.buildCatalogUpdates(catalog, { openPicker: true }));
+          if (result && result.source === location.LOCATION_SOURCE.DEVICE) {
+            wx.showToast({ title: `已定位到${result.cityName || '当前位置'}`, icon: 'none' });
+            this.refreshPickerRealDistance();
+            return;
+          }
+          // 未拿到设备坐标：说明用户拒绝或定位失败，明确提示并提供去设置入口
+          wx.showToast({ title: '未开启定位，已按城市中心排序', icon: 'none' });
+        })
+        .catch(() => {
+          wx.hideLoading();
+          this.setData({ locating: false });
+          wx.showToast({ title: '定位失败，请稍后重试', icon: 'none' });
+        });
     },
     selectCity() {
       this.returningFrom = 'city';
@@ -397,7 +498,7 @@ Page(
       this.setTabBarHidden(true);
       this.setData({
         specVisible: true,
-        specProduct: event.detail.product,
+        specProduct: normalizeSpecProduct(event.detail.product),
         specMode: 'add',
         specInitialQuantity: 1,
         specInitialSelectedOptionIds: [],
@@ -416,7 +517,7 @@ Page(
       });
     },
     handleSpecAddCart(event) {
-      const { product, selectedOptions, quantity, unitPrice, originalPrice, storedValuePrice, specText } = event.detail;
+      const { product, selectedOptions, quantity, unitPrice, originalPrice, storedValuePrice, storedValueDiscount, specText } = event.detail;
       const selectedOptionIds = selectedOptions.map(option => option.id);
       const cartId = buildCartId(product.id, selectedOptionIds);
       const cartItems = this.data.cartItems.map(item => ({ ...item }));
@@ -433,11 +534,8 @@ Page(
           spec: specText,
           price: unitPrice,
           originalPrice,
-          storedValuePrice:
-            storedValuePrice ||
-            product.storedValuePrice ||
-            (product.specDetail && product.specDetail.storedValuePrice) ||
-            0,
+          storedValuePrice: storedValuePrice || 0,
+          storedValueDiscount: storedValueDiscount || 0,
           quantity,
           selected: true,
           listed: true,
@@ -485,8 +583,8 @@ Page(
         wx.showToast({ title: '商品规格暂不可编辑', icon: 'none' });
         return;
       }
-      const product = findProductById(this.data.menuTabs, cartItem.productId);
-      if (!product) {
+      const product = normalizeSpecProduct(findProductById(this.data.menuTabs, cartItem.productId));
+      if (!product || !product.id) {
         wx.showToast({ title: '商品规格暂不可编辑', icon: 'none' });
         return;
       }
@@ -557,7 +655,8 @@ Page(
         activeMenu,
         selectedCategoryId,
         selectedGroupId: activeMenu.groups[0].id,
-        scrollIntoView: 'product-top'
+        scrollIntoView: 'product-top',
+        productRows: buildProductRows(activeMenu)
       });
     },
     selectCategory(event) {
@@ -565,7 +664,7 @@ Page(
       this.setData({
         selectedCategoryId: id,
         selectedGroupId: getGroupIdByCategoryId(this.data.activeMenu, id),
-        scrollIntoView: `category-${id}`
+        scrollIntoView: 'anchor-' + id
       });
     },
     showUnavailable(event) {

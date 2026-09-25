@@ -10,6 +10,7 @@
 #   ./deploy-backend.sh status    查看状态与端口
 #   ./deploy-backend.sh logs <svc>  查看某服务日志
 #   ./deploy-backend.sh verify    冒烟验证
+#   ./deploy-backend.sh sync-scripts  同步运维脚本到 /opt/wuling/scripts/
 #
 # 设计说明：
 #   1. 幂等：可重复执行 build/up，不会产生重复容器；
@@ -86,6 +87,7 @@ preflight() {
   chmod 600 "$APP_ROOT/secrets.env"
 
   fix_logging
+  sync_scripts
   log "前置检查通过"
 }
 
@@ -164,6 +166,39 @@ status() {
   done
 }
 
+# ---------- 运维脚本同步 ----------
+# 把项目 scripts/ 下的运维脚本（clean-logs.sh / alert-check.sh 等）
+# 从 BUILD_ROOT/scripts/ 复制到 /opt/wuling/scripts/ 并赋可执行权限。
+# 为什么单独一个命令：
+#   运维脚本（日志清理、告警检查）与 jar/配置一样属于部署产物，
+#   但服务器上 BUILD_ROOT 只放 compose/Dockerfile/jar，不含 scripts，
+#   因此约定：scripts/ 随部署上传到 BUILD_ROOT/scripts/，本函数负责落位。
+sync_scripts() {
+  local SRC="$BUILD_ROOT/scripts"
+  local DST="/opt/wuling/scripts"
+
+  [ -d "$SRC" ] || { warn "未找到运维脚本目录 $SRC，跳过同步（不影响应用启动）"; return 0; }
+
+  mkdir -p "$DST"
+  local n=0
+  for s in "$SRC"/*.sh; do
+    [ -e "$s" ] || continue
+    cp -f "$s" "$DST/" 2>/dev/null || { warn "复制失败：$s"; continue; }
+    chmod +x "$DST/$(basename "$s")"
+    n=$((n+1))
+  done
+
+  if [ "$n" -gt 0 ]; then
+    log "已同步 $n 个运维脚本到 $DST"
+    # 校验关键脚本已就位（缺了日志清理会导致日志无限增长）
+    for need in clean-logs.sh alert-check.sh; do
+      [ -f "$DST/$need" ] || warn "缺少运维脚本 $DST/$need（日志清理/告警检查可能未生效）"
+    done
+  else
+    warn "运维脚本目录 $SRC 下未找到 *.sh，请确认已上传"
+  fi
+}
+
 # ---------- 日志目录权限 ----------
 # 为什么单独一个命令：
 #   容器以非 root（uid 1000）运行，而 /opt/wuling/logs 原属主是 root。
@@ -238,6 +273,16 @@ case "${1:-}" in
   restart)   down; up ;;
   status)    status ;;
   verify)    verify ;;
+  clean-logs) CLEAN_SCRIPT=/opt/wuling/scripts/clean-logs.sh
+              [ -f "$CLEAN_SCRIPT" ] && bash "$CLEAN_SCRIPT" || { err "缺少 $CLEAN_SCRIPT（请先同步 scripts/ 到服务器）"; exit 1; } ;;
+  sync-scripts) sync_scripts ;;
+  install-log-cron) cat > /etc/cron.d/wuling-logs <<'EOF'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+10 3 * * * root /opt/wuling/scripts/clean-logs.sh >>/var/log/wuling-clean.log 2>&1
+EOF
+              chmod 644 /etc/cron.d/wuling-logs
+              log "已安装日志清理 cron（每日 03:10，保留 90 天）" ;;
   logs)      shift; compose logs -f --tail=200 "${1:-gateway}" ;;
   *) cat <<USAGE
 五零时光后端部署脚本（Docker）
@@ -251,6 +296,9 @@ case "${1:-}" in
   $0 status           状态与端口
   $0 verify           冒烟验证
   $0 logs <service>   跟踪日志
+  $0 clean-logs       立即清理过期归档日志（保留 90 天）
+  $0 sync-scripts     同步运维脚本到 /opt/wuling/scripts/
+  $0 install-log-cron 安装每日日志清理 cron
 
 示例：
   $0 preflight && $0 build && $0 up && $0 verify

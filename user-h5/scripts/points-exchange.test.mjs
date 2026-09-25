@@ -42,75 +42,73 @@ const mockApp = {
 };
 globalThis.getApp = () => mockApp;
 
-const { getPoints, setPoints, exchangeProduct } = require(path.join(root, 'utils/points.js'));
+const { getPoints, setPoints, verifyExchange } = require(path.join(root, 'utils/points.js'));
 
-// 余额不足不扣
-const insufficient = exchangeProduct({
-  product: { points: 500.6, name: '测试商品' },
-  quantity: 3,
-  currentPoints: 100,
-  pointsRecords: [],
-  exchangeRecords: []
-});
-assert.equal(insufficient.ok, false, '余额不足必须返回失败');
-assert.equal(insufficient.points, 100, '余额不足时余额不变');
+// 假数据清理：兑换与核销均为服务端写操作，前端不再有本地状态机。
+// utils/points.js 只保留余额读写（缓存镜像）与核销接口封装。
+assert.equal(
+  typeof require(path.join(root, 'utils/points.js')).exchangeProduct,
+  'undefined',
+  'exchangeProduct must be removed (exchange is a server-side write now)'
+);
 
-// 成功扣减并写入记录
-const result = exchangeProduct({
-  product: { points: 20, name: '五零时光公益宠粮' },
-  quantity: 2,
-  currentPoints: 100,
-  pointsRecords: [],
-  exchangeRecords: []
-});
-assert.equal(result.ok, true, '余额充足必须成功');
-assert.equal(result.cost, 40, '扣减金额必须等于单价乘数量');
-assert.equal(result.points, 60, '兑换后余额必须正确');
-assert.equal(result.pointsRecord.amount, '-40', '明细必须为负值');
-assert.equal(result.pointsRecord.title, '五零时光公益宠粮', '明细标题必须为商品名');
-assert.equal(result.pointsRecord.source, '时光币兑换', '明细来源必须为时光币兑换');
-assert.equal(result.exchangeRecord.status, 'pending_verify', '兑换记录状态必须为待核销');
-assert.ok(result.pickupCode && /^CZ\d{14}$/.test(result.pickupCode), '兑换必须生成长订单号风格自提码');
+// 余额读写：以 profile 为持久源
+setPoints(60);
+assert.equal(getPoints(), 60, 'setPoints/getPoints must round-trip the balance');
+setPoints(-5);
+assert.equal(getPoints(), 0, 'setPoints must clamp negatives to zero');
+setPoints(1000);
 
-// 页面脚本可加载
-let definition;
-globalThis.Page = page => {
-  definition = page;
-};
-assert.doesNotThrow(() => {
-  delete require.cache[require.resolve(path.join(root, 'pages/points-exchange/points-exchange.js'))];
-  require(path.join(root, 'pages/points-exchange/points-exchange.js'));
-}, '兑换详情页脚本必须能正常加载');
-assert.ok(definition && definition.data, '兑换详情页必须注册 Page');
+// 核销：走后端 POST /api/v1/app/gift-cards/verify（按订单号）
+const apiSource = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');
+assert.ok(
+  apiSource.includes("'/api/v1/app/gift-cards/verify'"),
+  'api.js must expose the gift-card verify endpoint'
+);
+assert.ok(
+  apiSource.includes('verifyGiftCardOrder'),
+  'api.js must export verifyGiftCardOrder'
+);
+const pointsSource = fs.readFileSync(path.join(root, 'utils/points.js'), 'utf8');
+assert.ok(
+  !pointsSource.includes('milkTea:exchange:pool'),
+  'verify must not use the local exchange pool anymore'
+);
+assert.ok(
+  pointsSource.includes('verifyGiftCardOrder'),
+  'verifyExchange must delegate to the backend verify endpoint'
+);
 
-const js = fs.readFileSync(path.join(root, 'pages/points-exchange/points-exchange.js'), 'utf8');
-assert.ok(js.includes('wx.showModal'), '兑换必须弹二次确认');
-assert.ok(js.includes('确认兑换'), '二次确认必须包含确认文案');
-// 兑换改为服务端写操作（阶段 C）：页面必须调用后端接口，禁止本地伪造扣减
-assert.ok(js.includes('exchangePointsProduct'), '兑换必须调用后端 exchangePointsProduct');
-assert.ok(js.includes('getPoints'), '兑换必须用 getPoints 读取余额');
-assert.ok(!js.includes('exchangeProduct('), '兑换不得再走本地 exchangeProduct 状态机');
+// 空码直接短路，不发起请求
+const emptyResult = await verifyExchange('');
+assert.equal(emptyResult.ok, false, 'empty code must not verify');
+assert.equal(emptyResult.reason, 'empty', 'empty code reason must be "empty"');
 
-// 商城余额改用 getPoints
-const pointsMallJs = fs.readFileSync(path.join(root, 'pages/points-mall/points-mall.js'), 'utf8');
-assert.ok(pointsMallJs.includes('getPoints()'), '商城余额必须用 getPoints 同步');
+// 核销结果映射：后端业务错误 -> 可展示原因
+const originalVerify = require(path.join(root, 'utils/api.js')).verifyGiftCardOrder;
+function stubVerify(impl) {
+  require(path.join(root, 'utils/api.js')).verifyGiftCardOrder = impl;
+}
+stubVerify(() => Promise.resolve({ orderNo: 'EX123' }));
+const okResult = await verifyExchange('EX123');
+assert.equal(okResult.ok, true, 'successful verify must resolve ok');
+assert.equal(okResult.order.orderNo, 'EX123', 'verify must return the backend order');
 
-// app.js 初始化 exchangeRecords
-const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-// 兑换记录由后端按用户返回，app.js 只保留空数组作为会话镜像
-assert.ok(appJs.includes('exchangeRecords: []'), 'app.js 必须以空数组初始化 exchangeRecords');
-assert.ok(!/exchangeRecords:\s*exchangeRecords/.test(appJs), 'app.js 不得再用本地假数据初始化兑换记录');
+stubVerify(() => Promise.reject(new Error('订单已核销')));
+const dupResult = await verifyExchange('EX123');
+assert.equal(dupResult.ok, false, 'duplicate verify must fail');
+assert.equal(dupResult.reason, 'already_verified', 'duplicate reason must be already_verified');
 
-// 兑换核销池与 verifyExchange
-const { verifyExchange } = require(path.join(root, 'utils/points.js'));
-const code = result.pickupCode;
-const verifyOk = verifyExchange(code);
-assert.equal(verifyOk.ok, true, '兑换自提码必须可核销');
-assert.equal(verifyOk.entry.verified, true, '核销后必须标记已核销');
-const verifyDup = verifyExchange(code);
-assert.equal(verifyDup.ok, false, '重复核销必须失败');
-assert.equal(verifyDup.reason, 'already_verified', '重复核销原因必须为已核销');
-assert.equal(verifyExchange('NOTEXIST').ok, false, '不存在的码必须核销失败');
+stubVerify(() => Promise.reject(new Error('礼品卡订单不存在')));
+const missingResult = await verifyExchange('NOPE');
+assert.equal(missingResult.ok, false, 'unknown code must fail');
+assert.equal(missingResult.reason, 'not_found', 'unknown code reason must be not_found');
+
+stubVerify(() => Promise.reject(new Error('订单未支付，无法核销')));
+const unpaidResult = await verifyExchange('EX999');
+assert.equal(unpaidResult.ok, false, 'unpaid order verify must fail');
+assert.equal(unpaidResult.reason, 'failed', 'unpaid reason must fall back to failed');
+stubVerify(originalVerify);
 
 // 兑换记录页含待核销页签
 const mockSource = fs.readFileSync(path.join(root, 'data/mock.js'), 'utf8');

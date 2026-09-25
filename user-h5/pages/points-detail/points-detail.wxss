@@ -55,10 +55,8 @@
   font-size: var(--font-base);
 }
 
-.points-record__amount {
-  color: var(--brand-green);
-  font-size: var(--font-xl);
-  font-weight: 600;
+.points-record__amount.is-negative {
+  color: var(--text-main);
 }
 
 .points-record__source {

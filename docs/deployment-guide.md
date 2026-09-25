@@ -75,6 +75,55 @@ nginx -t
 cd /opt/wuling/deploy && docker compose ps
 ```
 
+## 四·A、前端一键部署脚本
+
+前端（运营后台）的「构建 → 打包 → 上传 → 部署」已封装为一键脚本，
+避免手工 `pnpm build` + 手动 `scp` 时漏掉「重新上传产物」导致线上仍跑旧构建。
+
+脚本位置：`scripts/deploy-web.ps1`（在本地 Windows 开发机执行，不放服务器）。
+
+### 用法
+
+```powershell
+# 当前：IP + HTTP 模式（接口走 http://<服务器IP>:8089）
+.\scripts\deploy-web.ps1
+
+# 后续：备案/证书就绪后切换 HTTPS 域名
+.\scripts\deploy-web.ps1 -Mode https
+
+# 只本地构建+打包，不上传（自检产物用）
+.\scripts\deploy-web.ps1 -SkipUpload
+```
+
+### 脚本做的事
+
+1. 构建：`-Mode ip` 跑 `pnpm build:prod-ip`，`-Mode https` 跑 `pnpm build:prod`
+2. **基址校验**：IP 模式下若产物仍残留 `api.wulingshiguang.top` 会直接报错中止，
+   防止把 HTTPS 产物误部署上线
+3. 打包：dist 打成带时间戳的 `web-ip-YYYYMMDD-HHmmss.tar.gz`
+4. 上传：scp 到服务器 `/tmp/`
+5. 服务器端部署：备份旧产物到 `/opt/wuling/backup/web-pre-<时间戳>.tar.gz`，
+   旧目录移到 `web.old-<时间戳>`，解压新产物到 `/opt/wuling/web`，`systemctl reload nginx`
+
+### 可覆盖参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `-Mode` | `ip` | `ip` 或 `https` |
+| `-Server` | `<服务器IP>` | 服务器地址 |
+| `-SshUser` | `root` | SSH 用户（需免密登录） |
+| `-DeployDir` | `/opt/wuling/web` | 前端部署目录 |
+| `-SkipUpload` | — | 开关，仅本地构建打包 |
+
+### 回滚
+
+部署失败或需要回退时，在服务器执行：
+
+```bash
+mv /opt/wuling/web.old-<时间戳> /opt/wuling/web
+systemctl reload nginx
+```
+
 ## 五、验证记录（10/10 通过）
 
 ```

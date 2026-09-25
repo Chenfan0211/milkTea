@@ -418,19 +418,6 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
-        name: 'product_spec',
-        path: '/product/spec',
-        component: 'view.product_spec',
-        meta: {
-          title: '规格管理',
-          icon: 'mdi:ruler',
-          order: 2,
-          roles: ['R_SUPER', 'R_OPERATION'],
-          keepAlive: true,
-          i18nKey: null
-        }
-      },
-      {
         name: 'product_split',
         path: '/product/split',
         component: 'view.product_split',
@@ -598,6 +585,19 @@ export const generatedRoutes: GeneratedRoute[] = [
           roles: ['R_SUPER', 'R_OPERATION'],
           keepAlive: true,
           i18nKey: null
+        }
+      },
+      {
+        name: 'system_config',
+        path: '/system/config',
+        component: 'view.system_config',
+        meta: {
+          title: '运营配置',
+          icon: 'mdi:cog',
+          order: 5,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: 'route.system_config'
         }
       },
       {

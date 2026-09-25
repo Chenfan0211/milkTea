@@ -30,9 +30,9 @@ function openGiftEditor(row: any) {
   giftVisible.value = true;
 }
 
-function saveGift() {
+async function saveGift() {
   if (!giftRow.value) return;
-  store.update('storedValuePackages', giftRow.value.id, { coupons: giftModel.value }, '营销中心', 'amount');
+  await store.update('storedValuePackages', giftRow.value.id, { coupons: giftModel.value }, '营销中心', 'amount');
   giftVisible.value = false;
   window.$message?.success('赠送券已保存');
   listRef.value?.reload();
@@ -44,13 +44,13 @@ function openUsageEditor(row: any) {
   usageVisible.value = true;
 }
 
-function saveUsage() {
+async function saveUsage() {
   if (!usageRow.value) return;
   const paragraphs = usageText.value
     .split('\n')
     .map((s: string) => s.trim())
     .filter((s: string) => s.length > 0);
-  store.update('storedValuePackages', usageRow.value.id, { usageParagraphs: paragraphs }, '营销中心', 'amount');
+  await store.update('storedValuePackages', usageRow.value.id, { usageParagraphs: paragraphs }, '营销中心', 'amount');
   usageVisible.value = false;
   window.$message?.success('使用说明已保存');
   listRef.value?.reload();
@@ -79,7 +79,7 @@ const rowActions: RowAction[] = [
     label: '删除',
     type: 'error',
     reasonPrompt: '确认删除该套餐？（请填写备注）',
-    handler: (row, reason) => store.remove('storedValuePackages', row.id, '营销中心', 'amount', reason)
+    handler: async (row, reason) => await store.remove('storedValuePackages', row.id, '营销中心', 'amount', reason)
   }
 ];
 
@@ -90,13 +90,13 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.storedValuePackages, search, page, pageSize),
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('storedValuePackages', search, page, pageSize),
   form: {
     title: '储值套餐',
     fields: formFields,
-    onSubmit: (data, editing) => {
-      if (editing) store.update('storedValuePackages', editing.id, data, '营销中心', 'amount');
-      else store.add('storedValuePackages', { ...data, coupons: [], usageParagraphs: [] }, '营销中心', 'amount');
+    onSubmit: async (data, editing) => {
+      if (editing) await store.update('storedValuePackages', editing.id, data, '营销中心', 'amount');
+      else await store.add('storedValuePackages', { ...data, coupons: [], usageParagraphs: [] }, '营销中心', 'amount');
     }
   }
 };

@@ -27,7 +27,7 @@ public class UserSecurityConfig implements WebMvcConfigurer {
         registry.addInterceptor(miniAppAuthInterceptor)
                 .addPathPatterns(
                         "/api/v1/app/auth/me",
-                        "/api/v1/app/auth/sms/**",
+                        "/api/v1/app/auth/sms/bind",
                         "/api/v1/app/auth/avatar",
                         "/api/v1/app/auth/nickname",
                         "/api/v1/app/auth/phone",

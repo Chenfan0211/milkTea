@@ -40,7 +40,7 @@
             <view class="timeline-item__body">
               <view class="timeline-item__head">
                 <text class="timeline-item__title">{{item.title}}</text>
-                <text class="timeline-item__time">{{item.time || '待处理'}}</text>
+                <text class="timeline-item__time">{{item.timeText || '待处理'}}</text>
               </view>
               <text class="timeline-item__desc">{{item.description}}</text>
             </view>
@@ -91,7 +91,7 @@
         </view>
         <view class="detail-row">
           <text class="detail-row__label">申请时间</text>
-          <text class="detail-row__value">{{record.time}}</text>
+          <text class="detail-row__value">{{record.timeText}}</text>
         </view>
       </view>
 

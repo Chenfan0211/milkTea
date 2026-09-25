@@ -1,5 +1,5 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getIncomeData, getIncomeRule } = require('../../utils/roles');
+const { getCurrentBusinessRole, getIncomeRule, syncRoleConfigFromRemote } = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 
@@ -18,11 +18,12 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      if (!getIncomeData(role.id)) {
-        wx.showToast({ title: '当前角色暂无收益数据', icon: 'none' });
-        this.leaveToRoleCenter();
-        return;
-      }
+      // 结算说明来自 app_config.settlement_notes（运营可改）；
+      // 拉取失败时用内置兜底文案，不影响规则页可读性
+      syncRoleConfigFromRemote().then(() => this.render());
+      this.render();
+    },
+    render() {
       const rule = getIncomeRule();
       this.setData({ ready: true, ruleItems: rule.items, ruleFootnotes: rule.footnotes });
     },

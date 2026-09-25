@@ -10,6 +10,53 @@ function changeStoredValueQuantity(current, delta) {
   return normalizeQuantity(current + Number(delta || 0));
 }
 
+/**
+ * 把后端套餐 DTO 规整为页面渲染结构。
+ *
+ * 后端金额单位是「分」，页面展示为「元」，换算只在这一处做，
+ * 避免金额在页面与工具函数间反复换算导致口径不一致。
+ *
+ * @param {object} raw 后端返回的套餐 DTO
+ */
+function normalizePackage(raw) {
+  const pkg = raw || {};
+  const amountFen = Number(pkg.amount) || 0;
+  const coupons = (Array.isArray(pkg.coupons) ? pkg.coupons : []).map((coupon, index) => ({
+    id: coupon.couponId != null ? `coupon-${coupon.couponId}` : `coupon-${index}`,
+    amount: (Number(coupon.amount) || 0) / 100,
+    quantity: Number(coupon.quantity) || 0,
+    description: coupon.description || ''
+  }));
+  // 卡片副标题：把赠券摘要提前到卡面，用户无需滚动即可比较各档权益
+  const giftSummary = coupons
+    .filter(coupon => coupon.quantity > 0)
+    .map(coupon => `${coupon.amount}元代金券×${coupon.quantity}`)
+    .join('、');
+  return {
+    id: pkg.id,
+    code: pkg.code || '',
+    name: pkg.name || '',
+    amount: amountFen / 100,
+    benefitText: giftSummary ? `赠${giftSummary}` : '无赠券',
+    coupons,
+    usageParagraphs: Array.isArray(pkg.usageParagraphs) ? pkg.usageParagraphs : []
+  };
+}
+
+/**
+ * 选择默认选中的套餐下标。
+ *
+ * 采用「中位」而非第一个：后台通常按金额升序返回，
+ * 选第一个会让用户一进页面就看到最低档，与实际主推档位不符；
+ * 选中间档在无「推荐」标记时是更稳妥的默认。单张卡时返回 0。
+ *
+ * @param {Array} packages 规整后的套餐数组
+ * @returns {number} 默认选中下标；空数组返回 -1
+ */
+function pickDefaultPackageIndex(packages) {
+  if (!Array.isArray(packages) || !packages.length) return -1;
+  return Math.floor((packages.length - 1) / 2);
+}
 function buildStoredValueSummary(storedValuePackage, quantity) {
   const packageData = storedValuePackage || {};
   const currentQuantity = normalizeQuantity(quantity);
@@ -44,5 +91,7 @@ function buildStoredValueSummary(storedValuePackage, quantity) {
 module.exports = {
   MAX_STORED_VALUE_QUANTITY,
   buildStoredValueSummary,
-  changeStoredValueQuantity
+  changeStoredValueQuantity,
+  normalizePackage,
+  pickDefaultPackageIndex
 };

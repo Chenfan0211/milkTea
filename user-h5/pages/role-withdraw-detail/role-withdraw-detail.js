@@ -1,5 +1,6 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getWithdrawRecordDetail } = require('../../utils/roles');
+const { formatDateTime } = require('../../utils/date-format');
+const { getCurrentBusinessRole, getWithdrawRecordDetail, syncWithdrawalsFromRemote } = require('../../utils/roles');
 
 const RECORDS_URL = '/pages/role-withdraw-records/role-withdraw-records';
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
@@ -13,7 +14,8 @@ Page(
     },
     onLoad(options) {
       this.recordId = (options && options.id) || '';
-      this.syncRecord();
+      // 先同步后端记录再取单条，避免直接进详情页时缓存为空
+      syncWithdrawalsFromRemote().then(() => this.syncRecord());
     },
     syncRecord() {
       const role = getCurrentBusinessRole();
@@ -29,7 +31,7 @@ Page(
         wx.showToast({ title: '提现记录不存在', icon: 'none' });
         return;
       }
-      this.setData({ ready: true, record });
+      this.setData({ ready: true, record: Object.assign({}, record, { timeText: formatDateTime(record.time), timeline: (record.timeline || []).map(step => Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })) }) });
     },
     copyOrderNo() {
       const orderNo = this.data.record && this.data.record.orderNo;

@@ -129,6 +129,12 @@ public class SubjectBindingController {
                 userId, roleCode, subjectId);
         jdbcTemplate.update("update app_user set business_role = ?, bound_subject_id = ? where id = ? and deleted = 0",
                 roleCode, subjectId, userId);
+        // 反向维护主体侧绑定关系。
+        // app_user.bound_subject_id 与 biz_subject.bound_user_id 是同一关系的两个方向，
+        // 原先只写前者，导致主体列表读 bound_user_id 恒为 null：
+        // 前端会误判为「未绑定」，而后台「代发起提现」「绑定/解绑用户」等功能均无法正常工作。
+        jdbcTemplate.update("update biz_subject set bound_user_id = ? where id = ? and deleted = 0",
+                userId, subjectId);
         return Result.ok();
     }
 
@@ -142,6 +148,9 @@ public class SubjectBindingController {
                 userId, roleCode, subjectId);
         jdbcTemplate.update("update app_user set business_role = null, bound_subject_id = null "
                 + "where id = ? and deleted = 0", userId);
+        // 同步清空主体侧绑定，保持双向一致（与 bindUserRole 对应）
+        jdbcTemplate.update("update biz_subject set bound_user_id = null "
+                + "where bound_user_id = ? and id = ? and deleted = 0", userId, subjectId);
         return Result.ok();
     }
 

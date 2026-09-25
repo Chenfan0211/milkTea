@@ -47,21 +47,52 @@ public class SplitCalculator {
     }
 
     /**
-     * 带明细分摊的分账计算。
+     * 带明细分摊的分账计算（不启用「投资人达标后比例」）。
      * 供应商份额 = Σ(每条明细金额 × supplierRatio / 10000)，逐条向下取整，尾差同样归平台。
      */
     public SplitAmount calc(long paidAmount, int itemCount, boolean hasChannel,
                             SplitRule rule, long platformCommission, List<LineItem> items) {
+        return calc(paidAmount, itemCount, hasChannel, rule, platformCommission, items, null);
+    }
+
+    /**
+     * 带明细分摊的分账计算（支持投资人「当月累计达标后比例」）。
+     *
+     * <p>供应商份额 = Σ(每条明细金额 × supplierRatio / 10000)，逐条向下取整，尾差同样归平台。
+     *
+     * <p><b>投资人达标规则</b>：当 {@code accumulatedInvestorAmount}（投资人当月累计已分账额）
+     * 达到规则上的 investorThresholdAmount 时，本单投资人比例改用 investorRatioAfter，
+     * 其增量由平台让出，以保证五方合计仍为 10000。
+     *
+     * @param accumulatedInvestorAmount 投资人当月累计已分账金额（分）；null 表示不启用阈值判定
+     */
+    public SplitAmount calc(long paidAmount, int itemCount, boolean hasChannel,
+                            SplitRule rule, long platformCommission, List<LineItem> items,
+                            Long accumulatedInvestorAmount) {
         if (rule == null) {
             return new SplitAmount(paidAmount, 0L, 0L, 0L, 0L, platformCommission, paidAmount - platformCommission);
         }
-        int total = rule.totalRatio();
-        if (total != 10000) {
-            throw new IllegalStateException("分账比例合计必须为 10000（万分比），当前为 " + total);
+        // 解析本单生效的投资人比例；未启用阈值时即原比例
+        int effectiveInvestorRatio = rule.resolveInvestorRatio(accumulatedInvestorAmount);
+        int effectivePlatformRatio = rule.resolvePlatformRatio(accumulatedInvestorAmount);
+        // 校验「生效后」的合计，防止达标比例配错导致多分/少分钱
+        int effectiveTotal = effectivePlatformRatio + rule.getStoreRatio()
+                + rule.getChannelRatio() + effectiveInvestorRatio + rule.getSupplierRatio();
+        if (effectiveTotal != 10000) {
+            throw new IllegalStateException("分账比例合计必须为 10000（万分比），当前为 " + effectiveTotal);
+        }
+        // 平台是让出份额的一方，若「达标后比例 - 原投资人比例」大于原平台比例，
+        // 平台会变成负数（等于平台倒贴钱）。此时即便合计仍为 10000 也必须拒绝，
+        // 否则会算出负的平台收入并写进快照与台账。
+        if (effectivePlatformRatio < 0) {
+            throw new IllegalStateException("可达标后投资人比例过大，导致平台比例为负："
+                    + effectivePlatformRatio + "（原平台 " + rule.getPlatformRatio()
+                    + "，原投资人 " + rule.getInvestorRatio()
+                    + "，达标后投资人 " + effectiveInvestorRatio + "）");
         }
         long store = ratio(paidAmount, rule.getStoreRatio());
         long channel = hasChannel ? ratio(paidAmount, rule.getChannelRatio()) : 0L;
-        long investor = ratio(paidAmount, rule.getInvestorRatio());
+        long investor = ratio(paidAmount, effectiveInvestorRatio);
 
         // 供应商：按明细分摊，避免多商品订单归属失真
         long supplier = 0L;

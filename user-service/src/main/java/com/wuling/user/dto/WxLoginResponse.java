@@ -12,4 +12,8 @@ public class WxLoginResponse {
     private String nickName;
     private String avatar;
     private String phone;
+
+    private Boolean registered;
+
+    private String registerToken;
 }

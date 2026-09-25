@@ -103,7 +103,7 @@ globalThis.Page = definition => {
 require(`${pageRoot}.js`);
 function createBoundaryContext(quantity) {
   return {
-    data: { quantity, storedValuePackage: storedValuePackages[0] },
+    data: { quantity, selectedPackage: storedValuePackages[0] },
     updateCount: 0,
     updateSummary() {
       this.updateCount += 1;
@@ -116,6 +116,63 @@ assert.equal(minusBoundary.updateCount, 0, '数量为 1 时不得重复更新摘
 const plusBoundary = createBoundaryContext(MAX_STORED_VALUE_QUANTITY);
 pageDefinition.changeQuantity.call(plusBoundary, { currentTarget: { dataset: { delta: 1 } } });
 assert.equal(plusBoundary.updateCount, 0, '数量达到上限时不得重复更新摘要');
+
+// ---------- 多张储值卡选择（第 15 期）----------
+// 需求：后台可配置多张储值卡，小程序需全部展示供用户选择。
+// 这里覆盖「归一化 → 默认选中 → 选中态驱动摘要」三段链路，
+// 并断言 WXML 用 wx:for 渲染全部套餐（而非只渲染单张）。
+const { normalizePackage, pickDefaultPackageIndex } = require(
+  path.join(root, 'utils/stored-value.js')
+);
+
+// 金额换算：后端「分」-> 页面「元」
+const normalized = normalizePackage({
+  id: 7,
+  code: 'stored-value-300',
+  name: '充300送优惠券',
+  amount: 30000,
+  coupons: [{ couponId: 2, amount: 500, quantity: 3, description: '储值赠送-5元代金券' }],
+  usageParagraphs: ['说明一', '说明二']
+});
+assert.equal(normalized.amount, 300, '套餐金额必须由分换算为元');
+assert.equal(normalized.coupons[0].amount, 5, '赠券面额必须由分换算为元');
+assert.equal(normalized.coupons[0].quantity, 3, '赠券张数必须透传后台配置');
+assert.ok(normalized.benefitText.includes('5元代金券×3'), '卡面副标题必须展示赠券摘要');
+assert.deepEqual(normalized.usageParagraphs, ['说明一', '说明二'], '使用说明必须透传后台配置');
+
+// 后台未配赠券时不得展示空白副标题
+assert.equal(normalizePackage({ id: 8, amount: 10000, coupons: [] }).benefitText, '无赠券',
+  '无赠券时必须展示明确文案');
+
+// 默认选中：取中位档，避免一进页面就选最低档
+assert.equal(pickDefaultPackageIndex([]), -1, '无套餐时返回 -1，页面据此展示空态');
+assert.equal(pickDefaultPackageIndex([{}]), 0, '单张卡时选中第 0 张');
+assert.equal(pickDefaultPackageIndex([{}, {}, {}]), 1, '三张卡时默认选中中间档');
+
+// 选中切换必须驱动摘要重算（赠券与金额随选中卡变化）
+const selectionCtx = {
+  data: { packages: [], selectedPackage: {}, selectedIndex: -1, quantity: 2 },
+  summaryCalls: [],
+  setData(updates) { Object.assign(this.data, updates); },
+  updateSummary(quantity) { this.summaryCalls.push(quantity); }
+};
+const threePackages = [
+  normalizePackage({ id: 1, amount: 10000, coupons: [] }),
+  normalizePackage({ id: 2, amount: 20000, coupons: [] }),
+  normalizePackage({ id: 3, amount: 50000, coupons: [] })
+];
+pageDefinition.applySelection.call(selectionCtx, threePackages, 1, 2);
+assert.equal(selectionCtx.data.selectedIndex, 1, '选中的下标必须写入 data');
+assert.equal(selectionCtx.data.selectedPackage.amount, 200, '选中套餐必须同步到 selectedPackage');
+assert.deepEqual(selectionCtx.summaryCalls, [2], '切换套餐必须重算摘要且保留当前份数');
+
+// 点击同一张卡不重复重算（避免无谓渲染）
+pageDefinition.selectPackage.call(selectionCtx, { currentTarget: { dataset: { index: 1 } } });
+assert.deepEqual(selectionCtx.summaryCalls, [2], '点击已选中卡片不得重复触发摘要更新');
+
+// 非法下标必须被忽略，避免越界读到 undefined
+pageDefinition.selectPackage.call(selectionCtx, { currentTarget: { dataset: { index: 99 } } });
+assert.equal(selectionCtx.data.selectedIndex, 1, '越界下标不得改变选中态');
 
 const pageWxml = fs.readFileSync(`${pageRoot}.wxml`, 'utf8');
 const pageWxss = fs.readFileSync(`${pageRoot}.wxss`, 'utf8');
@@ -215,7 +272,7 @@ const fontSizeLiterals = [...pageWxss.matchAll(/font-size:\s*(\d+rpx)/g)].map(ma
 assert.deepEqual(fontSizeLiterals, [], '储值页字号必须引用设计 token');
 
 const iconScript = fs.readFileSync(path.join(root, 'scripts/sync-lucide-icons.mjs'), 'utf8');
-for (const icon of ['gift-brand', 'receipt-brand', 'settings-brand', 'file-search-brand', 'plus-brand', 'refresh-cw']) {
+for (const icon of ['gift-brand', 'receipt-brand', 'settings-brand', 'file-search-brand', 'plus-brand', 'refresh-cw', 'check-brand']) {
   assert.ok(iconScript.includes(`output: '${icon}'`), `Lucide 映射必须包含 ${icon}`);
   assert.ok(fs.existsSync(path.join(root, `assets/icons/lucide/${icon}.svg`)), `缺少 Lucide 运行图标: ${icon}.svg`);
 }

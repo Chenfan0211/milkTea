@@ -62,4 +62,18 @@
   <view class="tabbar-safe-space"></view>
 </view>
 </scroll-view>
+  <!--
+    登录弹层（图 1）：点击「点击登录」唤起，不再跳独立授权页。
+    注意：必须由页面侧 wx:if 控制「组件本身是否渲染」。
+    Skyline 渲染器下自定义组件的宿主节点即使子节点 wx:if 为 false 也会占位，
+    内部 fixed 全屏层会把整页点击吃掉（表现为所有图标点了没反应）。
+  -->
+  <login-sheet
+    wx:if="{{loginSheetVisible}}"
+    brand-name="五零时光"
+    bind:close="closeLoginSheet"
+    bind:skip="handleLoginSkip"
+    bind:success="handleLoginSuccess"
+    bind:fail="handleLoginFail"
+  />
 

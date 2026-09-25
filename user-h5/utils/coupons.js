@@ -96,7 +96,7 @@ function buildExpiryText(now) {
   const end = new Date(now.getTime());
   end.setDate(end.getDate() + 7);
   const pad = formatDatePart;
-  return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())} 23:59 到期`;
+  return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())} 23:59:00 到期`;
 }
 
 function buildValidityPeriod(now) {

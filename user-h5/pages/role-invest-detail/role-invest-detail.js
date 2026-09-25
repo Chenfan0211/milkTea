@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole } = require('../../utils/roles');
 const { getApplicationDetail } = require('../../utils/invest');
 
@@ -27,7 +28,7 @@ Page(
         wx.showToast({ title: '申请记录不存在', icon: 'none' });
         return;
       }
-      this.setData({ ready: true, record });
+      this.setData({ ready: true, record: Object.assign({}, record, { timeText: formatDateTime(record.time), timeline: (record.timeline || []).map(step => Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })) }) });
     },
     copyOrderNo() {
       const orderNo = this.data.record && this.data.record.orderNo;

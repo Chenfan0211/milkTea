@@ -1,44 +1,14 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getVerifyData } = require('../../utils/roles');
+const {
+  getCurrentBusinessRole,
+  getVerifyData,
+  syncVerifyFromRemote,
+  verifyStoreOrderByCode
+} = require('../../utils/roles');
 const { verifyExchange } = require('../../utils/points');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
-const VERIFY_RECORDS_KEY = 'milkTea:verify:records';
-const ORDER_PRODUCT_IMAGE = '/assets/images/3x/menu-product.jpg';
-
-function formatDateTime(now) {
-  const pad = value => String(value).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-}
-
-function normalizeVerifyRecord(record, pool) {
-  if (!record || record.type !== 'order') return record;
-  const poolRecord = pool.find(item => item.pickupCode === record.pickupCode) || {};
-  return Object.assign({}, record, {
-    title: record.title || poolRecord.product,
-    meta: record.meta || '取餐号 ' + poolRecord.pickupCode,
-    orderNo: record.orderNo || poolRecord.orderNo || '',
-    time: record.time === '刚刚' ? formatDateTime(new Date()) : record.time,
-    image: record.image || poolRecord.image || ORDER_PRODUCT_IMAGE
-  });
-}
-
-function readVerifyRecords() {
-  try {
-    const cached = typeof wx !== 'undefined' && wx.getStorageSync ? wx.getStorageSync(VERIFY_RECORDS_KEY) : null;
-    return Array.isArray(cached) ? cached : [];
-  } catch (error) {
-    return [];
-  }
-}
-
-function writeVerifyRecords(records) {
-  try {
-    if (typeof wx !== 'undefined' && wx.setStorageSync) wx.setStorageSync(VERIFY_RECORDS_KEY, records);
-  } catch (error) {
-    // ignore storage errors
-  }
-}
+const { formatDateTime } = require('../../utils/date-format');
 
 Page(
   withShare({
@@ -70,11 +40,13 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      const localRecords = readVerifyRecords()
-        .filter(r => r.type === 'order')
-        .map(record => normalizeVerifyRecord(record, data.pool));
-      const merged = data.records.concat(localRecords);
-      this.setData({ ready: true, role, title: `${role.label}核销订单`, pool: data.pool, records: merged });
+      this.setData({ ready: true, role, title: `${role.label}核销订单`, pool: data.pool, records: data.records });
+      // 核销记录与待核销池均以后端为准；拉到后覆盖渲染（失败保留现状）
+      syncVerifyFromRemote(role.id).then(() => {
+        const next = getVerifyData(role.id);
+        if (!next) return;
+        this.setData({ pool: next.pool, records: next.records });
+      });
     },
     leaveToRoleCenter() {
       const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
@@ -128,28 +100,34 @@ Page(
         wx.showToast({ title: '未找到匹配订单', icon: 'none' });
         return;
       }
-      const verifiedCodes = readVerifyRecords().map(item => item.pickupCode);
-      if (
-        this.data.records.some(item => item.pickupCode === record.pickupCode) ||
-        verifiedCodes.indexOf(record.pickupCode) >= 0
-      ) {
+      if (this.data.records.some(item => item.orderNo === record.orderNo)) {
         wx.showToast({ title: '该订单已核销', icon: 'none' });
         return;
       }
-      const entry = {
-        id: 'vr-' + Date.now(),
-        title: record.product,
-        meta: '取餐号 ' + record.pickupCode,
-        orderNo: record.orderNo || '',
-        time: formatDateTime(new Date()),
-        image: record.image || ORDER_PRODUCT_IMAGE,
-        pickupCode: record.pickupCode,
-        type: 'order'
-      };
-      const nextRecords = this.data.records.concat(entry);
-      this.setData({ records: nextRecords });
-      writeVerifyRecords(readVerifyRecords().concat(entry));
-      wx.showToast({ title: '核销成功', icon: 'success' });
+      // 核销为服务端写操作（订单置核销 + 触发五方分账）：
+      // 门店归属由后端校验，重复核销 / 非已支付订单会被拒绝。
+      if (this.verifying) return;
+      this.verifying = true;
+      wx.showLoading({ title: '核销中', mask: true });
+      verifyStoreOrderByCode(value)
+        .then(outcome => {
+          wx.hideLoading();
+          this.verifying = false;
+          wx.showToast({
+            title: outcome.message,
+            icon: outcome.ok ? 'success' : 'none'
+          });
+          if (!outcome.ok) return;
+          // 核销成功后刷新记录与待核销池
+          const role = getCurrentBusinessRole();
+          const next = role ? getVerifyData(role.id) : null;
+          if (next) this.setData({ pool: next.pool, records: next.records, keyword: '' });
+        })
+        .catch(() => {
+          wx.hideLoading();
+          this.verifying = false;
+          wx.showToast({ title: '核销失败，请稍后重试', icon: 'none' });
+        });
     },
     verifyExchangeByCode(keyword) {
       const value = String(keyword || '').trim();
@@ -157,29 +135,33 @@ Page(
         wx.showToast({ title: '请输入兑换自提码', icon: 'none' });
         return;
       }
-      const result = verifyExchange(value);
-      if (!result.ok) {
-        if (result.reason === 'already_verified') {
-          wx.showToast({ title: '该自提码已核销', icon: 'none' });
-        } else {
-          wx.showToast({ title: '未找到匹配的兑换自提码', icon: 'none' });
+      // 兑换核销为服务端写操作：结果以后端为准，随后刷新核销记录
+      verifyExchange(value).then(result => {
+        if (!result || !result.ok) {
+          const reason =
+            result && result.reason === 'already_verified'
+              ? '该自提码已核销'
+              : result && result.reason === 'not_found'
+                ? '未找到匹配的兑换自提码'
+                : (result && result.message) || '核销失败，请稍后重试';
+          wx.showToast({ title: reason, icon: 'none' });
+          return;
         }
-        return;
-      }
-      const entry = result.entry;
-      this.setData({
-        records: this.data.records.concat({
-          id: 'ex-' + Date.now(),
-          title: entry.product,
-          meta: '自提码 ' + entry.pickupCode,
-          orderNo: entry.orderNo || entry.pickupCode,
-          time: formatDateTime(new Date()),
-          image: entry.image || '',
-          pickupCode: entry.pickupCode,
-          type: 'exchange'
-        })
+        const order = result.order || {};
+        this.setData({
+          records: this.data.records.concat({
+            id: 'ex-' + Date.now(),
+            title: order.orderNo || '兑换核销',
+            meta: '自提码 ' + value,
+            orderNo: order.orderNo || value,
+            time: formatDateTime(new Date()),
+            image: '',
+            pickupCode: order.pickupCode || value,
+            type: 'exchange'
+          })
+        });
+        wx.showToast({ title: '兑换核销成功', icon: 'success' });
       });
-      wx.showToast({ title: '兑换核销成功', icon: 'success' });
     },
     showUnavailable() {
       wx.showToast({ title: '该功能待接入真实接口', icon: 'none' });

@@ -1,0 +1,47 @@
+---
+name: Field Write Consistency
+
+# 为什么单独一个工作流：
+# 后台配置页走「通用 CRUD」，前端字段名一旦与数据库列名漂移，字段会被后端
+# 白名单静默丢弃（接口仍返回 200），表现为「填了数据页面没反应」。
+# 2026-09 曾一次性发现 12 个页面中招，这类问题靠人工排查成本极高。
+#
+# 本工作流在 PR 阶段跑 FieldWriteConsistencyTest，把字段漂移变成
+# 明确的 CI 失败，从源头拦住。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'src/views/**'
+      - 'server/src/main/java/com/wuling/system/crud/**'
+      - 'server/src/main/resources/db/migration/**'
+      - 'server/src/test/java/com/wuling/common/FieldWriteConsistencyTest.java'
+      - '.github/workflows/field-write-consistency.yml'
+
+jobs:
+  check:
+    name: 字段写库一致性
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: 运行字段一致性检查
+        # 说明：-pl server -am 会把依赖模块（wuling-common 等）一并纳入 reactor，
+        # 那些模块没有本测试类，需用 surefire.failIfNoSpecifiedTests=false 忽略；
+        # 同时用 -DfailIfNoTests=false 兜底，避免因「无匹配测试」误判失败。
+        run: |
+          mvn -B -pl server -am test -Dtest=FieldWriteConsistencyTest \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -DfailIfNoTests=false

@@ -10,7 +10,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const router = useRouter();
@@ -29,6 +29,18 @@ const columns: DataTableColumns<any> = [
   { title: '门店', key: 'store', width: 130 },
   { title: '用户', key: 'user', width: 110 },
   { title: '商品摘要', key: 'summary', minWidth: 160 },
+  {
+    title: '支付状态',
+    key: 'payStatus',
+    width: 100,
+    render: renderTag('payStatus', statusMap({ UNPAID: ['未支付', 'info'], PAID: ['已支付', 'primary'], REFUNDED: ['已退款', 'default'] }))
+  },
+  {
+    title: '用餐方式',
+    key: 'mealType',
+    width: 90,
+    render: (row: any) => ({ dinein: '堂食', DINEIN: '堂食', DINE_IN: '堂食', pickup: '自取', PICKUP: '自取', takeout: '自取', TAKEOUT: '自取' } as Record<string, string>)[row.mealType] ?? row.mealType ?? '—'
+  },
   { title: '实付金额(元)', key: 'paidAmount', width: 120, align: 'right', render: renderMoney('paidAmount') },
   {
     title: '订单状态',
@@ -39,14 +51,12 @@ const columns: DataTableColumns<any> = [
       statusMap({
         CREATED: ['待支付', 'info'],
         PAID: ['已支付', 'primary'],
-        VERIFIED: ['已核销', 'success'],
-        COMPLETED: ['已完成', 'success'],
-        REFUNDED: ['已退款', 'default']
+        VERIFIED: ['已核销', 'success'], COMPLETED: ['已完成', 'success'], REFUNDED: ['已退款', 'default'], CANCELED: ['已取消', 'default']
       })
     )
   },
   { title: '取餐码', key: 'pickupCode', width: 100 },
-  { title: '创建时间', key: 'createTime', width: 150 }
+  { title: '创建时间', key: 'createTime', width: 170, render: renderDateTime('createTime') }
 ];
 
 const searchFields: SearchField[] = [
@@ -68,7 +78,7 @@ const searchFields: SearchField[] = [
 const toolbar: RowAction[] = [];
 const rowActions: RowAction[] = [
   { label: '分账明细', type: 'info', handler: (row: any) => openSplit(row) },
-  { label: '详情', type: 'info', handler: row => router.push({ path: '/trade/order-detail', query: { id: row.id } }) },
+  { label: '详情', type: 'info', handler: row => router.push({ path: '/trade/order-detail', query: { orderNo: row.orderNo } }) },
   {
     label: '取消订单',
     type: 'warning',
@@ -84,7 +94,8 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.listFiltered(store.orders, search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) =>
+    store.loadAdminOrders({ current: page, size: pageSize, search: search?.orderNo, status: search?.status })
 };
 </script>
 

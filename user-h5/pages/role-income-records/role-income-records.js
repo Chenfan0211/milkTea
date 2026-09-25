@@ -1,7 +1,9 @@
 const { withShare } = require('../../utils/share');
+const { formatDateTime } = require('../../utils/date-format');
 const {
   getCurrentBusinessRole,
   getIncomeData,
+  syncIncomeFromRemote,
   INCOME_STATUS_TEXT
 } = require('../../utils/roles');
 
@@ -86,7 +88,9 @@ Page(
       this.syncRole();
     },
     onShow() {
-      if (this.data.ready) this.syncRecords();
+      if (!this.data.ready) return;
+      // 收益台账来自后端；拉到后重渲染，失败时保留现有列表
+      syncIncomeFromRemote().then(() => this.syncRole());
     },
     syncRole() {
       const role = getCurrentBusinessRole();
@@ -114,7 +118,8 @@ Page(
       return (records || []).map(item =>
         Object.assign({}, item, {
           statusLabel: INCOME_STATUS_TEXT[item.status] || item.status || '',
-          direction: directionOf(item)
+          direction: directionOf(item),
+          timeText: formatDateTime(item.time)
         })
       );
     },

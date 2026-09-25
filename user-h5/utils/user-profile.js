@@ -11,13 +11,16 @@ const api = require('./api');
 
 const PROFILE_STORAGE_KEY = 'milkTea:user-profile';
 
+/** 默认头像：用户未授权微信头像或地址失效时的兜底，避免头像区空白。 */
+const DEFAULT_AVATAR = '/assets/images/3x/profile-avatar.jpg';
+
 const EMPTY_PROFILE = {
   nickname: '',
   phone: '',
   gender: '',
   birthday: '',
   region: [],
-  avatar: '',
+  avatar: DEFAULT_AVATAR,
   vipLevel: '',
   nextLevel: '',
   totalSpend: 0,
@@ -37,7 +40,8 @@ function normalizeRemoteProfile(user) {
     gender: user.gender || '',
     birthday: user.birthday || '',
     region: [],
-    avatar: user.avatar || '',
+    // 未授权头像（后端为 null/空串）时使用默认头像，避免前端空白
+    avatar: user.avatar || DEFAULT_AVATAR,
     vipLevel: user.vipLevel || '',
     nextLevel: '',
     totalSpend: 0,
@@ -53,6 +57,8 @@ function normalizeRemoteProfile(user) {
 function cloneProfile(profile) {
   const source = profile && typeof profile === 'object' ? profile : {};
   return Object.assign({}, EMPTY_PROFILE, source, {
+    // 兼容历史缓存中的空头像：统一回落到默认头像
+    avatar: source.avatar || DEFAULT_AVATAR,
     region: Array.isArray(source.region) ? source.region.filter(Boolean).slice(0, 3) : [],
     giftCards: Array.isArray(source.giftCards) ? source.giftCards.map(item => Object.assign({}, item)) : []
   });
@@ -126,6 +132,7 @@ function getDaysInMonth(year, month) {
 }
 
 module.exports = {
+  DEFAULT_AVATAR,
   PROFILE_STORAGE_KEY,
   EMPTY_PROFILE,
   formatBirthday,

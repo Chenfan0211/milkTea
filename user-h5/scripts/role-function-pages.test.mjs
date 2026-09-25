@@ -137,58 +137,42 @@ const authWxml = fs.readFileSync(path.join(authDir, 'auth-login.wxml'), 'utf8');
 const authWxss = fs.readFileSync(path.join(authDir, 'auth-login.wxss'), 'utf8');
 const authJs = fs.readFileSync(path.join(authDir, 'auth-login.js'), 'utf8');
 
-// 品牌区：文字品牌名 + 副标题
+// 品牌区：绿色圆形 logo + 「温馨提示」标题
 assert.ok(
-  authWxml.includes('五零时光') && authWxml.includes('新中式养生茶饮'),
-  'auth page must show the brand name and slogan'
+  authWxml.includes('auth-brand__mark') && authWxml.includes('温馨提示'),
+  'auth page must show the brand logo and the notice title'
 );
 
-// 主操作：微信手机号快捷登录（唯一主按钮）
+// 主操作：底部「同意」按钮直接承载 getPhoneNumber 授权（一次点击完成同意+登录）
 assert.ok(
-  authWxml.includes('getPhoneNumber') && authWxml.includes('微信手机号快捷登录'),
-  'auth page must offer WeChat phone login'
+  authWxml.includes('open-type="getPhoneNumber"') &&
+    authWxml.includes('bindgetphonenumber="handleAgree"') &&
+    authWxml.includes('同意'),
+  'auth page must bind the agree button to WeChat phone authorization'
 );
 
-// 降级路径默认折叠
+// 未勾选协议时「同意」必须被拦截（aria-disabled + JS 双重保护）
 assert.ok(
-  authWxml.includes('fallbackVisible') && authJs.includes('toggleFallback'),
-  'auth page must collapse the SMS fallback by default'
+  authWxml.includes("agreementChecked ? '' : 'is-disabled'") &&
+    authJs.includes('请先阅读并勾选同意协议'),
+  'auth page must block authorization until the agreement is checked'
 );
+// 用户取消系统授权时必须留在本页，不得误跳首页
 assert.ok(
-  /fallbackVisible:\s*false/.test(authJs),
-  'the SMS fallback must start collapsed'
-);
-assert.ok(
-  authWxml.includes('wx:if="{{fallbackVisible}}"'),
-  'the SMS fallback must be rendered conditionally'
+  authJs.includes('已取消授权'),
+  'auth page must stay put when the user cancels the phone authorization'
 );
 
-// 手机号 / 验证码校验
+// 协议确认：勾选框 + 隐私政策/用户协议链接 + 底部「拒绝仅浏览 / 同意」双按钮
 assert.ok(
-  /function isValidPhone\(value\)/.test(authJs) && authJs.includes('/^1[3-9]\\d{9}$/'),
-  'auth page must validate the phone number'
-);
-assert.ok(
-  /function isValidCode\(value\)/.test(authJs) && authJs.includes('/^\\d{6}$/'),
-  'auth page must validate the SMS code'
-);
-assert.ok(
-  authJs.includes('canSubmit') && authWxml.includes('auth-submit {{canSubmit'),
-  'auth page must reflect the submit state'
-);
-
-// 协议提示
-assert.ok(
-  authWxml.includes('登录即代表同意') &&
+  authWxml.includes('agreementChecked') &&
+    authWxml.includes('《隐私政策》') &&
     authWxml.includes('《用户协议》') &&
-    authWxml.includes('《隐私政策》'),
-  'auth page must show the agreement notice'
-);
-
-// 暂不登录
-assert.ok(
-  authWxml.includes('handleSkip') && authWxml.includes('暂不登录'),
-  'auth page must offer a skip action'
+    authWxml.includes('handleReject') &&
+    authWxml.includes('拒绝仅浏览') &&
+    authWxml.includes('handleAgree') &&
+    authWxml.includes('同意'),
+  'auth page must show the agreement checkbox and the reject/agree actions'
 );
 
 // 样式合规
@@ -201,11 +185,11 @@ assert.ok(
   !/#[0-9A-Fa-f]{3,8}\b/.test(authWxss),
   'auth page WXSS must use design tokens only'
 );
-// 主按钮与降级提交不得同为实心绿底（避免出现两个同级主操作）
-const primaryRule = (authWxss.match(/\.auth-primary\s*\{([^}]*)\}/) || [])[1] || '';
+// 「同意」按钮必须是唯一主操作（实心绿 + 胶囊圆角）
+const primaryRule = (authWxss.match(/\.auth-actions__primary\s*\{([^}]*)\}/) || [])[1] || '';
 assert.ok(
-  primaryRule.indexOf('var(--brand-green)') >= 0,
-  'the WeChat login button must be the single primary action'
+  primaryRule.indexOf('var(--brand-green)') >= 0 && primaryRule.indexOf('var(--radius-pill)') >= 0,
+  'the agree button must be the single primary action'
 );
 
 // ===== 授权跳转机制 =====
@@ -265,24 +249,23 @@ assert.ok(
   'auth page must detect entry mode'
 );
 assert.ok(
-  authJs.includes('wx.reLaunch') && authJs.includes('entryTarget'),
-  'entry mode must reLaunch to the resolved target instead of navigateBack'
+  authJs.includes('entryTarget') && authJs.includes("require('../../utils/navigate')"),
+  'entry mode must navigate to the resolved target (tabBar-safe)'
 );
 assert.ok(
-  authWxml.includes('entryTip'),
-  'entry mode must show the lighter entry prompt copy'
+  authWxml.includes('agreementChecked'),
+  'entry mode must show the agreement confirmation'
 );
 assert.ok(
   fs.existsSync(path.join(root, 'pages/launch/launch.js')) &&
     fs.existsSync(path.join(root, 'pages/launch/launch.wxml')),
   'launch page must exist as the single cold-start entry'
 );
-// 冷启动直进首页：entryPagePath 暂指向 home，启动页文件保留为 dormant，
-// 备案通过后把 entryPagePath 改回 pages/launch/launch 即可恢复入口层。
+// 强拦截：冷启动收口到启动页，未注册 / 登录失败一律进授权页。
 assert.equal(
   appJson.entryPagePath,
-  'pages/home/home',
-  'app.json must open the home page directly while the launch page is dormant'
+  'pages/launch/launch',
+  'app.json must open the launch page as the cold-start entry for forced login gating'
 );
 assert.ok(
   appJson.pages.includes('pages/launch/launch'),
@@ -308,24 +291,21 @@ assert.ok(
     launchJs.includes('withShare(') && launchJs.includes('entry.HOME_PATH'),
     'launch page must use withShare and fall back to home on failure'
   );
-  // 登录失败 / 超时时必须跳过引导直接放行：
-  // 连 token 都没有时跳授权页，用户绑完手机号后端仍判未登录，是无效引导。
+  // 跳转必须走 navigate（tabBar 页要用 switchTab，否则会静默失败停在启动页）
   assert.ok(
-    /loggedIn[^;]*result[^;]*ok[^;]*state\.hasToken/.test(launchJs) &&
-      /needPrompt[^;]*loggedIn/.test(launchJs),
-    'launch page must skip the entry prompt when the silent login failed'
+    launchJs.includes("require('../../utils/navigate')") && launchJs.includes('navigate.go'),
+    'launch page must navigate via utils/navigate (tabBar-safe)'
   );
 }
 
-// 授权页不得离线在构建：7 个原弹层使用页必须已完成迁移
+// 登录弹层（图 1）只允许挂在首页与我的页：其它业务页不得私自注册 login-sheet
 for (const page of [
   'order-confirm',
   'stored-value',
   'points-exchange',
   'gift-card-purchase',
   'role-apply',
-  'role-withdraw',
-  'profile'
+  'role-withdraw'
 ]) {
   const js = fs.readFileSync(path.join(root, `pages/${page}/${page}.js`), 'utf8');
   const wxml = fs.readFileSync(path.join(root, `pages/${page}/${page}.wxml`), 'utf8');
@@ -334,10 +314,11 @@ for (const page of [
   assert.ok(!/login-sheet/.test(wxml), `${page} must not render login-sheet`);
   assert.ok(!/login-sheet/.test(json), `${page} must not register login-sheet`);
 }
-// 组件目录必须已移除
+// 组件目录必须存在（首页 / 我的页共用登录弹层）
 assert.ok(
-  !fs.existsSync(path.join(root, 'components/login-sheet')),
-  'the legacy login-sheet component must be removed'
+  fs.existsSync(path.join(root, 'components/login-sheet/login-sheet.js')) &&
+    fs.existsSync(path.join(root, 'components/login-sheet/login-sheet.wxml')),
+  'the login-sheet component must exist for the login entry'
 );
 // 授权页列入私密名单，不参与分享
 const shareSource = fs.readFileSync(path.join(root, 'utils/share.js'), 'utf8');
@@ -1155,7 +1136,7 @@ assert.ok(
   'products action must use the dark shopping-bag icon, not the white one'
 );
 assert.ok(
-  !/white\.svg$/.test(productsAction.icon),
+  !productsAction.icon.endsWith('white.svg'),
   'products action icon must stay visible on a white card'
 );
 const shoppingBagIcon = fs.readFileSync(

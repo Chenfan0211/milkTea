@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import AdminDetailPage from '@/views/_shared/AdminDetailPage.vue';
 import type { DetailGroup } from '@/views/_shared/AdminDetailPage.vue';
 import { useAdminStore } from '@/store/modules/admin';
+import { renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const route = useRoute();
@@ -23,7 +24,7 @@ const groups: DetailGroup[] = [
       { label: '手机号', key: 'phone' },
       { label: '申请角色', render: (r: any) => roleLabel(r.roleType) },
       { label: '状态', render: (r: any) => statusLabel(r.status) },
-      { label: '申请时间', key: 'applyTime' },
+      { label: '申请时间', key: 'applyTime', render: renderDateTime('applyTime') },
       { label: '审核人', render: (r: any) => r.reviewer || '—' }
     ]
   },

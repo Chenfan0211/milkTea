@@ -22,4 +22,7 @@ public interface TradeOrderQueryPort {
 
     /** 按门店集合查询订单（渠道视角） */
     List<Map<String, Object>> ordersByStores(List<Long> storeSubjectIds);
+
+    /** 门店排队件数：已核销未取餐的订单商品总件数 */
+    long countStoreQueueItems(Long storeSubjectId);
 }

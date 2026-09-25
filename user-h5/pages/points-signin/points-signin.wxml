@@ -57,10 +57,6 @@
         {{signedToday ? '已签到' : '立即签到'}}
       </view>
 
-      <view class="signin-prizes" bindtap="handleRewards" aria-role="button" aria-label="我的奖品">
-        <text>我的奖品</text>
-        <image class="signin-prizes__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
-      </view>
     </view>
 
     <view class="signin-rewards-card">

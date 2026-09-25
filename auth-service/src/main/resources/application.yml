@@ -35,6 +35,11 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 app:
+  # 请求日志开关（生产默认脱敏；排查时可临时置 true 输出全量参数，排查完务必关闭）
+  log:
+    request:
+      full: ${LOG_REQUEST_FULL:false}
+      max-body: ${LOG_REQUEST_MAX_BODY:2000}
   jwt:
     # 与 server / gateway 共用同一密钥；缺失即拒绝启动
     secret: ${JWT_SECRET:}
@@ -61,3 +66,8 @@ logging:
   level:
     root: INFO
     com.wuling: INFO
+    # 请求日志：每次调用的方法/路径/参数(脱敏)/耗时/状态码
+    REQUEST: INFO
+  # 日志输出格式：带 traceId 便于串联同一次调用的多行日志
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

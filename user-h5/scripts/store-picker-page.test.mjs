@@ -12,8 +12,23 @@ const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'))
 if (!appJs.includes('onHide()') || !appJs.includes('handleAppHide')) {
   throw new Error('点单页必须由 App.onHide 记录退出时间');
 }
-if (!menuWxml.includes('<map') || !menuWxml.includes('store-picker') || !menuWxml.includes('pickerStores')) {
-  throw new Error('点单页必须包含地图门店选择层');
+// 点单页在 Skyline 下不内嵌 <map>（会白屏），也不保留「假地图」静态占位图：
+// 门店导航统一交给 wx.openLocation 拉起真实腾讯地图（见 store-list-card 导航按钮）。
+if (menuWxml.includes('store-picker__map--entry')) {
+  throw new Error('点单页不得保留假地图占位入口，应改为门店列表直出');
+}
+if (!menuWxml.includes('pickerStores') || !menuWxml.includes('bind:navigate=')) {
+  throw new Error('点单页必须包含门店选择层与门店导航入口');
+}
+{
+  const mapJsonPath = path.join(root, 'pages/store-map/store-map.json');
+  if (!fs.existsSync(mapJsonPath)) throw new Error('缺少独立门店地图页');
+  const mapJson = JSON.parse(fs.readFileSync(mapJsonPath, 'utf8'));
+  if (mapJson.renderer !== 'webview') throw new Error('独立地图页必须使用 webview 渲染器，否则地图不显示');
+  const mapWxml = fs.readFileSync(path.join(root, 'pages/store-map/store-map.wxml'), 'utf8');
+  if (!mapWxml.includes('<map') || !mapWxml.includes('markers="{{markers}}"')) {
+    throw new Error('独立地图页必须渲染地图与 marker');
+  }
 }
 if (
   !menuJs.includes('resolveStoreCatalog') ||
@@ -177,7 +192,20 @@ cachedMenuPage.selectStore();
 if (!cachedMenuPage.data.storePickerVisible) {
   throw new Error('主动点击门店行时必须重新打开选择层');
 }
-const initialCartItem = cachedMenuPage.data.cartItems[0];
+// 购物车初始为空（商品来自菜单接口），这里注入一条用于验证规格编辑流程
+const initialCartItem = {
+  id: 'classic-005-medium-standard-ice',
+  productId: 'classic-005',
+  selectedOptionIds: ['medium', 'standard-ice'],
+  name: '红苹果乌龙冰奶',
+  spec: '中杯,标准冰',
+  price: 14.9,
+  originalPrice: 16,
+  quantity: 1,
+  selected: true,
+  listed: true
+};
+cachedMenuPage.setData({ cartItems: [initialCartItem] });
 cachedMenuPage.setData({ specMode: 'edit', editingCartItemId: initialCartItem.id });
 cachedMenuPage.getTabBar().setData({ hidden: true });
 cachedMenuPage.closeSpec();

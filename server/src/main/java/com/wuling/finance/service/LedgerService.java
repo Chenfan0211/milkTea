@@ -120,9 +120,14 @@ public class LedgerService {
             throw new IllegalStateException("未配置分账规则，无法分账: " + orderNo);
         }
         boolean hasChannel = channelSubjectId != null;
+        // 投资人「当月达标后比例」：需先算出该投资人当月已累计分账额，
+        // 再交给 SplitCalculator 决定本单用原比例还是达标后比例。
+        // 未绑定投资人（investorOf 为 null）时不启用阈值判定。
+        Long investorSubjectId = investorOf(storeSubjectId);
+        Long accumulatedInvestorAmount = accumulatedThisMonth(investorSubjectId);
         SplitCalculator.SplitAmount amount = splitCalculator.calc(
                 paidAmount, itemCount, hasChannel, rule, platformCommission,
-                items == null ? List.of() : items);
+                items == null ? List.of() : items, accumulatedInvestorAmount);
 
         SplitSnapshot snapshot = new SplitSnapshot();
         snapshot.setSnapshotNo(nextNo("SN"));
@@ -161,7 +166,7 @@ public class LedgerService {
         putIfPositive(credits, platformSubjectId, amount.platform());
         putIfPositive(credits, storeSubjectId, amount.store());
         putIfPositive(credits, channelSubjectId, amount.channel());
-        putIfPositive(credits, investorOf(storeSubjectId), amount.investor());
+        putIfPositive(credits, investorSubjectId, amount.investor());
 
         // 供应商按明细分别归集到各自主体
         if (items != null) {
@@ -333,6 +338,26 @@ public class LedgerService {
             return null;
         }
         return subjectQueryPort.findInvestorOfStore(storeSubjectId);
+    }
+
+    /**
+     * 投资人当月累计已分账金额（分）。
+     *
+     * <p>取当月自然月区间 [本月1日 00:00, 下月1日 00:00)，跨月自动归零。
+     * 未绑定投资人时返回 0，表示不启用阈值判定（SplitCalculator 会退回原比例）。
+     *
+     * @param investorSubjectId 投资人主体 id，可为 null
+     * @return 当月累计分账额（分），无投资人时为 0
+     */
+    private Long accumulatedThisMonth(Long investorSubjectId) {
+        if (investorSubjectId == null) {
+            return 0L;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDateTime monthStart = today.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime monthEnd = monthStart.plusMonths(1);
+        Long sum = settlementRecordMapper.selectSumCurrentMonth(investorSubjectId, monthStart, monthEnd);
+        return sum == null ? 0L : sum;
     }
 
 

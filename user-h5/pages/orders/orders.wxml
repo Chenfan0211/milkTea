@@ -46,7 +46,7 @@
         aria-label="{{item.title}}订单"
       >
         <view wx:if="{{item.category === 'store' || item.category === 'purchase'}}" class="order-card__store-head">
-          <text class="order-card__type">{{item.type}}</text>
+          <text wx:if="{{item.type}}" class="order-card__type">{{item.type}}</text>
           <text class="order-card__store ellipsis">{{item.storeName}}</text>
           <view class="order-card__status-wrap {{item.isCanceled ? 'is-canceled' : ''}}">
             <text class="order-card__status">{{item.statusText}}</text>
@@ -91,7 +91,7 @@
 
         <view class="order-card__meta-list">
           <text class="order-card__meta">订单号 {{item.orderInfo.orderNo}}</text>
-          <text wx:if="{{item.payTime}}" class="order-card__meta">支付时间 {{item.payTime}}</text>
+          <text wx:if="{{item.payTimeText}}" class="order-card__meta">支付时间 {{item.payTimeText}}</text>
         </view>
 
         <view wx:if="{{item.isPendingPayment}}" class="order-card__actions">
@@ -103,9 +103,15 @@
         </view>
       </view>
 
-      <view wx:if="{{!filteredOrders.length}}" class="orders-empty">
+      <view wx:if="{{needLogin}}" class="orders-empty">
+        <empty-state icon="/assets/icons/lucide/orders-active.svg" title="请先登录" description="登录后可查看你的订单记录" />
+        <view class="orders-empty__action" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+      <view wx:elif="{{!filteredOrders.length}}" class="orders-empty">
         <empty-state icon="/assets/icons/lucide/orders-active.svg" title="暂无订单" description="该分类下还没有订单记录" />
       </view>
+      <view wx:elif="{{loadingMoreOrders}}" class="orders-end">正在加载更多…</view>
+      <view wx:elif="{{hasMoreOrders}}" class="orders-end">上拉加载更多</view>
       <view wx:else class="orders-end">到底了，仅展示近一年订单</view>
 
       <view class="tabbar-safe-space"></view>
