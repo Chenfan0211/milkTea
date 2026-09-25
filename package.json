@@ -41,6 +41,7 @@
     "preview": "vite preview",
     "release": "sa release",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
+    "check:vue-root": "node scripts/vue-single-root.test.mjs",
     "update-pkg": "sa update-pkg",
     "build:prod-ip": "vite build --mode prod-ip"
   },
@@ -99,7 +100,7 @@
   },
   "simple-git-hooks": {
     "commit-msg": "pnpm sa git-commit-verify",
-    "pre-commit": "pnpm typecheck && pnpm lint && pnpm fmt && git diff --exit-code"
+    "pre-commit": "pnpm typecheck && pnpm check:vue-root && pnpm lint && pnpm fmt && git diff --exit-code"
   },
   "engines": {
     "node": ">=20.19.0",

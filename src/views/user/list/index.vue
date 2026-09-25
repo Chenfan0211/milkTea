@@ -123,6 +123,9 @@ const rowActions: RowAction[] = [
 const config: AdminListConfig = {
   title: '用户列表',
   remoteKey: 'users',
+  // 「绑定主体」列需把 app_user.bound_subject_id（数字）解析成主体名，
+  // 必须先把 subjects 镜像加载好，否则该列恒为 —（详见 store.normalizeRemoteRow）
+  remoteDeps: ['subjects'],
   columns,
   searchFields,
   toolbar: [],

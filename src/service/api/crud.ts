@@ -168,7 +168,6 @@ export async function fetchSubjectsByType(type: string): Promise<any[]> {
   return unwrap<any[]>(res);
 }
 
-
 // ---------------- 营销配置特殊动作 ----------------
 
 /** 启用/停用分账规则（后端会校验万分比合计 = 10000） */
@@ -369,7 +368,6 @@ export async function fetchAuditLogs(params?: Record<string, any>): Promise<Crud
   const res = await request<CrudPage>({ url: '/api/v1/admin/auth/audit', method: 'get', params });
   return unwrap<CrudPage>(res);
 }
-
 
 // ---------------- 平台主体配置（AppID / AppSecret / 商户号） ----------------
 

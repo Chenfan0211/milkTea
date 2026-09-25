@@ -64,6 +64,13 @@ public class AdminFinanceQueryController {
 
     // ---------- 分账快照 ----------
 
+    /**
+     * 分账快照列表。
+     *
+     * <p>返回体额外聚合 order_item 得到 summary（商品信息），
+     * 因为 split_snapshot 表本身不存商品明细，而列表页需要展示该列。
+     * 若改走通用 CRUD 单表查询，该列恒为空。
+     */
     @GetMapping("/snapshots")
     public Result<PageResult<Map<String, Object>>> snapshots(@RequestParam(defaultValue = "1") long current,
                                                              @RequestParam(defaultValue = "10") long size,
@@ -74,7 +81,32 @@ public class AdminFinanceQueryController {
             where.append(" and order_no like ?");
             args.add("%" + orderNo + "%");
         }
-        return Result.ok(pageOf("split_snapshot", where.toString(), args, "id desc", current, size));
+        PageResult<Map<String, Object>> page = pageOf("split_snapshot", where.toString(), args, "id desc", current, size);
+        for (Map<String, Object> row : page.getRecords()) {
+            row.put("summary", summarizeOrderItems(row.get("orderId")));
+        }
+        return Result.ok(page);
+    }
+
+    /** 聚合订单商品明细为一行摘要，如「金桂轻乳茶 x1」 */
+    private String summarizeOrderItems(Object orderId) {
+        if (orderId == null) {
+            return "";
+        }
+        List<Map<String, Object>> items = jdbcTemplate.queryForList(
+                "select product_name, quantity from order_item where order_id = ? and deleted = 0 order by id",
+                ((Number) orderId).longValue());
+        if (items.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (Map<String, Object> it : items) {
+            if (sb.length() > 0) {
+                sb.append("、");
+            }
+            sb.append(it.get("product_name")).append(" x").append(it.get("quantity"));
+        }
+        return sb.toString();
     }
 
     // ---------- 对账异常 ----------
@@ -170,3 +202,4 @@ public class AdminFinanceQueryController {
         return result;
     }
 }
+

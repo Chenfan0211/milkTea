@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +72,16 @@ public class SubjectBindingController {
         if (exists != null && exists > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该渠道已绑定此门店");
         }
-        jdbcTemplate.update("insert into channel_store (channel_subject_id, store_subject_id) values (?, ?)",
+        // 唯一键 uk_channel_store(channel_subject_id, store_subject_id) 不含 deleted，
+        // 解绑为逻辑删除（deleted=1），历史行仍在表中。直接 insert 会撞唯一键报 500
+        // （现象：解绑后再次绑定同一门店必失败）。故先尝试复活历史行，无历史行才插入。
+        int revived = jdbcTemplate.update("update channel_store set deleted = 0, create_time = now() "
+                        + "where channel_subject_id = ? and store_subject_id = ? and deleted = 1",
                 channelSubjectId, storeSubjectId);
+        if (revived == 0) {
+            jdbcTemplate.update("insert into channel_store (channel_subject_id, store_subject_id) values (?, ?)",
+                    channelSubjectId, storeSubjectId);
+        }
         return Result.ok();
     }
 
@@ -83,6 +92,62 @@ public class SubjectBindingController {
                         + "where channel_subject_id = ? and store_subject_id = ? and deleted = 0",
                 channelSubjectId, storeSubjectId);
         return Result.ok();
+    }
+
+    /**
+     * 查询某渠道(资源方)已绑定的门店列表。
+     *
+     * <p>供「绑定门店数」查看弹窗、解绑门店表格使用。
+     * 直接查库返回门店明细，不依赖前端 subjects 镜像，避免镜像未加载时分页数据缺失。
+     */
+    @GetMapping("/channel/{channelSubjectId}/stores")
+    public Result<List<Map<String, Object>>> channelStores(@PathVariable Long channelSubjectId) {
+        requireSubject(channelSubjectId, "CHANNEL");
+        // 显式映射为驼峰，避免 queryForList 直出下划线列名（create_time）导致前端取不到值
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select s.id, s.code, s.name, sp.city, sp.address, sp.business_status, cs.create_time "
+                        + "from channel_store cs "
+                        + "join biz_subject s on s.id = cs.store_subject_id and s.deleted = 0 "
+                        + "left join store_profile sp on sp.subject_id = s.id and sp.deleted = 0 "
+                        + "where cs.channel_subject_id = ? and cs.deleted = 0 "
+                        + "order by cs.id desc", channelSubjectId);
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", r.get("id"));
+            m.put("code", r.get("code"));
+            m.put("name", r.get("name"));
+            m.put("city", r.get("city"));
+            m.put("address", r.get("address"));
+            m.put("businessStatus", r.get("business_status"));
+            Object ct = r.get("create_time");
+            m.put("createTime", ct == null ? null : toDateTimeText(ct));
+            result.add(m);
+        }
+        return Result.ok(result);
+    }
+
+    /**
+     * 批量解绑门店。
+     *
+     * <p>单次事务内完成，避免前端循环调用单个删除接口导致的 N 次请求与半成功状态。
+     */
+    @DeleteMapping("/channel/{channelSubjectId}/stores")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Integer> unbindChannelStores(@PathVariable Long channelSubjectId,
+                                               @RequestBody Map<String, List<Long>> payload) {
+        requireSubject(channelSubjectId, "CHANNEL");
+        List<Long> storeIds = payload == null ? null : payload.get("storeIds");
+        if (storeIds == null || storeIds.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请选择要解绑的门店");
+        }
+        int total = 0;
+        for (Long storeId : storeIds) {
+            total += jdbcTemplate.update("update channel_store set deleted = 1 "
+                            + "where channel_subject_id = ? and store_subject_id = ? and deleted = 0",
+                    channelSubjectId, storeId);
+        }
+        return Result.ok(total);
     }
 
     // ---------- 主体 ↔ 用户 ----------
@@ -230,6 +295,17 @@ public class SubjectBindingController {
         return value == null ? 0L : value;
     }
 
+    /** 时间字段统一输出 yyyy-MM-dd HH:mm:ss（与全局 Jackson 配置一致） */
+    private String toDateTimeText(Object value) {
+        if (value instanceof java.time.LocalDateTime ldt) {
+            return ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+        if (value instanceof java.sql.Timestamp ts) {
+            return ts.toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+        return String.valueOf(value);
+    }
+
     private BizSubject requireSubject(Long id, String expectedType) {
         BizSubject subject = bizSubjectMapper.selectById(id);
         if (subject == null) {
@@ -251,3 +327,10 @@ public class SubjectBindingController {
         return profile;
     }
 }
+
+
+
+
+
+
+

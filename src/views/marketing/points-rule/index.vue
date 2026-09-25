@@ -12,9 +12,10 @@ onMounted(async () => {
     const rule: any = await fetchSigninRule();
     if (rule) {
       dailyReward.value = rule.daily ?? dailyReward.value;
-      rewards.value = Array.isArray(rule.rewards) && rule.rewards.length
-        ? rule.rewards
-        : [{ days: rule.streakDays ?? 7, amount: rule.streakReward ?? 20 }];
+      rewards.value =
+        Array.isArray(rule.rewards) && rule.rewards.length
+          ? rule.rewards
+          : [{ days: rule.streakDays ?? 7, amount: rule.streakReward ?? 20 }];
     }
   } catch (error: any) {
     // 不回退到本地默认值：避免界面显示与数据库不一致的规则却不易察觉
@@ -131,10 +132,16 @@ const ruleColumns = [
         :data="store.pointsEarningRules"
         :bordered="false"
         :row-key="(row: any) => row.id"
+        :scroll-x="780"
       />
     </NCard>
 
-    <NModal v-model:show="ruleModalVisible" preset="card" :title="ruleMode === 'edit' ? '编辑规则' : '新增规则'" class="w-480px">
+    <NModal
+      v-model:show="ruleModalVisible"
+      preset="card"
+      :title="ruleMode === 'edit' ? '编辑规则' : '新增规则'"
+      class="w-480px"
+    >
       <NForm label-placement="left" :label-width="80">
         <NFormItem label="行为"><NInput v-model:value="ruleForm.action" /></NFormItem>
         <NFormItem label="奖励"><NInput v-model:value="ruleForm.reward" /></NFormItem>
@@ -182,4 +189,3 @@ const ruleColumns = [
   color: #e65a5a;
 }
 </style>
-

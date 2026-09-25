@@ -8,4 +8,3 @@ export * from './finance';
 export * from './system';
 export * from './app';
 export * from './crud';
-

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'auth_grant'
 });
@@ -12,12 +11,22 @@ import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
+/** 角色码 -> 中文（后端 role_code 为大写，如 STORE） */
+const roleLabel = (v: any) =>
+  (
+    ({ store: '门店', investor: '投资人', resource: '资源方', channel: '资源方', supplier: '供应商' }) as Record<
+      string,
+      string
+    >
+  )[String(v ?? '').toLowerCase()] ?? (v == null || v === '' ? '—' : String(v));
+
 const columns: DataTableColumns<any> = [
-  { title: '用户', key: 'userId', width: 120 },
-  { title: '角色', key: 'roleCode', width: 100 },
-  { title: '主体', key: 'subjectId', minWidth: 160 },
-  { title: '数据范围', key: 'dataScope', width: 110 },
-  { title: '授权人', key: 'grantBy', width: 110 },
+  // 展示名称而非 id：原实现直接渲染 userId/subjectId，与后端返回的 userName/subjectName 不一致
+  { title: '用户', key: 'userName', width: 120, render: (row: any) => row.userName || row.user || '—' },
+  { title: '角色', key: 'roleCode', width: 100, render: (row: any) => roleLabel(row.roleCode) },
+  { title: '主体', key: 'subjectName', minWidth: 160, render: (row: any) => row.subjectName || row.subject || '—' },
+  { title: '数据范围', key: 'dataScope', width: 110, render: (row: any) => row.dataScope || '全部' },
+  { title: '授权人', key: 'grantBy', width: 110, render: (row: any) => row.grantBy || '—' },
   { title: '授权时间', key: 'grantTime', render: renderDateTime('grantTime'), width: 150 },
   {
     title: '状态',
@@ -63,7 +72,8 @@ const rowActions: RowAction[] = [
     label: '撤销',
     type: 'error',
     reasonPrompt: '确认撤销该授权？（请填写备注）',
-    handler: async (row, reason) => await store.patch('grants', row.id, { status: 'revoked' }, '授权中心', '撤销授权', 'subject', reason)
+    handler: async (row, reason) =>
+      await store.patch('grants', row.id, { status: 'revoked' }, '授权中心', '撤销授权', 'subject', reason)
   }
 ];
 const config: AdminListConfig = {
@@ -103,4 +113,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

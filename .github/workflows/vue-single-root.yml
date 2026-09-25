@@ -1,0 +1,52 @@
+---
+name: Vue Single Root
+
+# 为什么需要这个工作流：
+# 页面切换动画 <Transition> 要求模板只渲染「一个元素根节点」。
+# 模板出现多个并列根元素、或模板内有顶层注释时，根会变成 Fragment，
+# 运行时报错（全屏遮罩 + 控制台 warning）：
+#   [vite-plugin-vue-transition-root-validator] 检测到 Vue Transition 多根节点错误
+#
+# 2026-09-25「资源方管理」页即因此报错（列表与弹窗是兄弟节点，未用容器包裹）。
+# 本工作流用真实 Vue 编译器判定每个页面的根节点，在 PR 阶段拦住。
+#
+# 注：之所以用编译器而非「数标签」——
+#   1) 顶层注释也算根节点，会同样触发报错；
+#   2) v-for 会让编译器 import Fragment，全文匹配会大面积误报。
+#   只有看 render 首个 return 才准确（脚本内已注明）。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'src/views/**'
+      - 'scripts/vue-single-root.test.mjs'
+      - '.github/workflows/vue-single-root.yml'
+
+jobs:
+  check:
+    name: Vue 单根节点检查
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 运行单根节点检查
+        run: node scripts/vue-single-root.test.mjs

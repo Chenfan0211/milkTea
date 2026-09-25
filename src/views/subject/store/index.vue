@@ -1,10 +1,8 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'subject_store'
 });
 
-import { useRouter } from 'vue-router';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -13,12 +11,16 @@ import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 import { geocodeAddress } from '@/utils/tencent-map';
 
 const store = useAdminStore();
-const router = useRouter();
 
 const load = async (p: any) => {
   const keyword = String(p.search?.name || '').trim();
   const status = String(p.search?.status || '').trim();
-  const result = await store.fetchAdminStores({ current: p.page, size: p.pageSize, search: keyword || undefined, status: status || undefined });
+  const result = await store.fetchAdminStores({
+    current: p.page,
+    size: p.pageSize,
+    search: keyword || undefined,
+    status: status || undefined
+  });
   await store.loadRemote('subjects');
   return result;
 };
@@ -26,7 +28,16 @@ const load = async (p: any) => {
 const columns: DataTableColumns<any> = [
   { title: '名称', key: 'name', minWidth: 150 },
   { title: '绑定用户', key: 'boundUserName', width: 120, render: (row: any) => row.boundUserName || '未绑定' },
-    { title: '可提现余额(元)', key: 'balance', width: 140, align: 'right', render: (row: any) => { const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id); return (acc ? acc.availableBalance ?? 0 : 0).toFixed(2); } },
+  {
+    title: '可提现余额(元)',
+    key: 'balance',
+    width: 140,
+    align: 'right',
+    render: (row: any) => {
+      const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id);
+      return (acc ? (acc.availableBalance ?? 0) : 0).toFixed(2);
+    }
+  },
   { title: '门店类型', key: 'storeType', width: 110 },
   { title: '城市', key: 'city', width: 100 },
   {
@@ -61,7 +72,10 @@ const rowActions: RowAction[] = [
     type: 'info',
     picker: {
       title: '选择用户',
-      options: () => store.users.filter((u: any) => !u.boundSubjectId && !u.deleted).map((u: any) => ({ label: u.nickName, value: String(u.id) }))
+      options: () =>
+        store.users
+          .filter((u: any) => !u.boundSubjectId && !u.deleted)
+          .map((u: any) => ({ label: u.nickName, value: String(u.id) }))
     },
     handler: async (row, picked) => {
       if (picked) await store.bindSubjectUser(row.id, Number(picked));
@@ -75,20 +89,37 @@ const rowActions: RowAction[] = [
     handler: (row, reason) => store.unbindSubjectUser(row.id, reason),
     visible: row => Boolean(row.boundUserId) && row.businessStatus === 'closed'
   },
-    { label: '余额明细', type: 'info', handler: (row: any) => router.push({ path: '/finance/flow', query: { subjectId: row.id } }) },
   { label: '编辑', type: 'primary', modal: 'edit' },
   {
     label: '停用',
     type: 'warning',
     reasonPrompt: '确认停业该门店？（请填写备注）',
-    handler: async (row, _reason) => await store.updateAdminStore(row.id, { name: row.name, city: row.city, manager: row.manager, location: row.location, phone: row.phone, storeType: row.storeType, businessStatus: 'closed' }), 
+    handler: async (row, _reason) =>
+      await store.updateAdminStore(row.id, {
+        name: row.name,
+        city: row.city,
+        manager: row.manager,
+        location: row.location,
+        phone: row.phone,
+        storeType: row.storeType,
+        businessStatus: 'closed'
+      }),
     visible: row => row.businessStatus === 'open'
   },
   {
     label: '启用',
     type: 'success',
     reasonPrompt: '确认营业该门店？（请填写备注）',
-    handler: async (row, _reason) => await store.updateAdminStore(row.id, { name: row.name, city: row.city, manager: row.manager, location: row.location, phone: row.phone, storeType: row.storeType, businessStatus: 'open' }), 
+    handler: async (row, _reason) =>
+      await store.updateAdminStore(row.id, {
+        name: row.name,
+        city: row.city,
+        manager: row.manager,
+        location: row.location,
+        phone: row.phone,
+        storeType: row.storeType,
+        businessStatus: 'open'
+      }),
     visible: row => row.businessStatus === 'closed'
   },
   {
@@ -96,7 +127,8 @@ const rowActions: RowAction[] = [
     type: 'info',
     picker: {
       title: '选择投资人',
-      options: () => store.subjects.filter(s => s.type === 'investor').map(s => ({ label: s.name, value: String(s.id) }))
+      options: () =>
+        store.subjects.filter(s => s.type === 'investor').map(s => ({ label: s.name, value: String(s.id) }))
     },
     handler: async (row, picked) => {
       if (picked) await store.bindStoreInvestor(row.id, Number(picked));
@@ -107,7 +139,7 @@ const rowActions: RowAction[] = [
     label: '解绑投资人',
     type: 'warning',
     reasonPrompt: '确认解绑该门店的投资人？（请填写备注）',
-    handler: async (row) => await store.unbindStoreInvestor(row.id),
+    handler: async row => await store.unbindStoreInvestor(row.id),
     visible: row => Boolean(row.investorSubjectId)
   },
   {
@@ -126,10 +158,17 @@ const formFields: FormField[] = [
     key: 'storeType',
     label: '门店类型',
     type: 'select',
-    options: () => store.storeTypes.filter((t: any) => t.enabled !== false).map((t: any) => ({ label: t.name, value: t.name })),
+    options: () =>
+      store.storeTypes.filter((t: any) => t.enabled !== false).map((t: any) => ({ label: t.name, value: t.name })),
     rules: [requiredRule]
   },
-  { key: 'city', label: '城市', type: 'select', options: () => store.cities.map((c: any) => ({ label: c.name, value: c.name })), rules: [requiredRule] },
+  {
+    key: 'city',
+    label: '城市',
+    type: 'select',
+    options: () => store.cities.map((c: any) => ({ label: c.name, value: c.name })),
+    rules: [requiredRule]
+  },
   { key: 'manager', label: '负责人', rules: [requiredRule] },
   { key: 'address', label: '详细地址', type: 'textarea', rules: [requiredRule] },
   { key: 'phone', label: '联系人电话', rules: [requiredRule] },
@@ -145,6 +184,9 @@ const formFields: FormField[] = [
 
 const config: AdminListConfig = {
   remoteKey: 'subjects',
+  // 「可提现余额」列按 subjectId 从 subjectAccounts 取数，需预加载该资源，否则恒显示 0.00
+  // subjectAccounts：供「可提现余额」列取数；storeTypes：供「门店类型」下拉选项
+  remoteDeps: ['subjectAccounts', 'storeTypes'],
   title: '门店管理',
   columns,
   searchFields,
@@ -157,7 +199,20 @@ const config: AdminListConfig = {
     toFormData: (row: any) => ({ ...row, address: row.location }),
     onSubmit: async (data, editing) => {
       for (const key of ['name', 'storeType', 'city', 'manager', 'address', 'phone']) {
-        if (!String(data[key] ?? '').trim()) throw new Error('请填写必填项：' + ({ name: '名称', storeType: '门店类型', city: '城市', manager: '负责人', address: '详细地址', phone: '联系人电话' } as Record<string, string>)[key]);
+        if (!String(data[key] ?? '').trim())
+          throw new Error(
+            '请填写必填项：' +
+              (
+                {
+                  name: '名称',
+                  storeType: '门店类型',
+                  city: '城市',
+                  manager: '负责人',
+                  address: '详细地址',
+                  phone: '联系人电话'
+                } as Record<string, string>
+              )[key]
+          );
       }
       if (data.latitude == null || data.longitude == null || data.latitude === '' || data.longitude === '') {
         throw new Error('请先填写详细地址并点击「按地址解析经纬度」');
@@ -187,26 +242,45 @@ const config: AdminListConfig = {
       { key: 'phone', label: '电话', required: true }
     ],
     template: () => '名称,门店类型,城市,负责人,地址,电话\n新门店,奶茶/饮品,长沙,店长5,某详细地址,0731-0000\n',
-    parse: (rows) => {
+    parse: rows => {
       const errors: string[] = [];
       const ok: Record<string, any>[] = [];
       rows.forEach((r, i) => {
-        const missing = ['name', 'storeType', 'city', 'manager', 'address', 'phone'].filter(key => !String(r[key] || '').trim());
-        if (missing.length) { errors.push('第 ' + (i + 2) + ' 行：' + missing.join('/') + ' 必填'); return; }
-        ok.push({ name: r.name, storeType: r.storeType, city: r.city, manager: r.manager, address: r.address, phone: r.phone });
+        const missing = ['name', 'storeType', 'city', 'manager', 'address', 'phone'].filter(
+          key => !String(r[key] || '').trim()
+        );
+        if (missing.length) {
+          errors.push('第 ' + (i + 2) + ' 行：' + missing.join('/') + ' 必填');
+          return;
+        }
+        ok.push({
+          name: r.name,
+          storeType: r.storeType,
+          city: r.city,
+          manager: r.manager,
+          address: r.address,
+          phone: r.phone
+        });
       });
       return { ok, errors };
     },
-    commit: async (rows) => {
-      let added = 0, skipped = 0;
+    commit: async rows => {
+      let added = 0,
+        skipped = 0;
       for (const r of rows) {
         const exists = store.subjects.some(s => s.type === 'store' && s.name === r.name);
-        if (exists) { skipped++; continue; }
+        if (exists) {
+          skipped++;
+          continue;
+        }
         let latitude: number | null = null;
         let longitude: number | null = null;
         try {
           const geo = await geocodeAddress(r.address);
-          if (geo) { latitude = geo.latitude; longitude = geo.longitude; }
+          if (geo) {
+            latitude = geo.latitude;
+            longitude = geo.longitude;
+          }
         } catch {
           // 地址解析失败不阻断导入，仅缺少坐标，后续可在编辑页补解析
         }
@@ -224,7 +298,7 @@ const config: AdminListConfig = {
       }
       return { added, skipped };
     }
-  },
+  }
 };
 </script>
 
@@ -233,4 +307,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

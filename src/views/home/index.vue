@@ -15,7 +15,7 @@ const adminStore = useAdminStore();
 
 // 仪表盘数据来自后端接口，挂载时拉取订单/退款/提现
 onMounted(() => {
-  adminStore.loadRemoteAll(['orders', 'refunds', 'withdrawals']);
+  // reconciles 也用于首页「待处理异常」表，原先漏加载会导致该区块读本地假数据\n  adminStore.loadRemoteAll(['orders', 'refunds', 'withdrawals', 'reconciles']);
 });
 
 const gap = computed(() => (appStore.isMobile ? 0 : 16));
@@ -98,7 +98,9 @@ const statusLabel: Record<string, string> = {
   PAID: '待核销',
   VERIFIED: '已核销',
   COMPLETED: '已完成',
-  REFUNDED: '已退款', CANCELED: '已取消' };
+  REFUNDED: '已退款',
+  CANCELED: '已取消'
+};
 
 const pieOptions = computed(() => {
   const map: Record<string, number> = {};

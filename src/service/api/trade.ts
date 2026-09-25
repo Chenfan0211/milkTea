@@ -37,3 +37,14 @@ export function fetchAdminVerifyRecords(params?: any) {
     params
   });
 }
+
+/**
+ * 核销记录详情（单条，按 id）。
+ *
+ * 走 server 的 /admin/detail/verify/{id}：直接查库并 join 出门店名，
+ * 避免详情页只依赖前端 store 内存（刷新/直接打开 URL 时会读到本地假数据）。
+ */
+export async function fetchAdminVerifyDetail(id: number) {
+  const res = await request<any>({ url: `/api/v1/admin/detail/verify/${id}` });
+  return unwrap<any>(res);
+}

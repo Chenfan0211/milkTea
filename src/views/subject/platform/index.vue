@@ -1,10 +1,8 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'subject_platform'
 });
 
-import { useRouter } from 'vue-router';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -14,7 +12,6 @@ import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 import { fetchPlatformProfile, savePlatformProfile } from '@/service/api/crud';
 
 const store = useAdminStore();
-const router = useRouter();
 
 // 平台配置（AppID/商户号来自专用接口，AppSecret 不回显）
 const platformProfile = ref<{ appId?: string | null; mchId?: string | null; secretConfigured?: boolean }>({});
@@ -32,9 +29,23 @@ const load = async (p: any) =>
 
 const columns: DataTableColumns<any> = [
   { title: '编码', key: 'code', width: 120 },
-  { title: '小程序AppID', key: 'appId', width: 170, render: (row: any) => row.appid || platformProfile.value?.appId || '—' },
+  {
+    title: '小程序AppID',
+    key: 'appId',
+    width: 170,
+    render: (row: any) => row.appid || platformProfile.value?.appId || '—'
+  },
   { title: '名称', key: 'name', width: 140, ellipsis: { tooltip: true } },
-  { title: '可提现余额(元)', key: 'balance', width: 130, align: 'right', render: (row: any) => { const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id); return (acc ? acc.availableBalance ?? 0 : 0).toFixed(2); } },
+  {
+    title: '可提现余额(元)',
+    key: 'balance',
+    width: 130,
+    align: 'right',
+    render: (row: any) => {
+      const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id);
+      return (acc ? (acc.availableBalance ?? 0) : 0).toFixed(2);
+    }
+  },
   {
     title: '账号状态',
     key: 'status',
@@ -47,7 +58,6 @@ const columns: DataTableColumns<any> = [
 const searchFields: SearchField[] = [{ key: 'name', label: '名称', placeholder: '名称' }];
 const toolbar: RowAction[] = [{ label: '新增平台主体', type: 'primary', modal: 'add' }];
 const rowActions: RowAction[] = [
-    { label: '余额明细', type: 'info', handler: (row: any) => router.push({ path: '/finance/flow', query: { subjectId: row.id } }) },
   { label: '编辑', type: 'primary', modal: 'edit' },
   {
     label: '删除',
@@ -95,6 +105,8 @@ const formFields: FormField[] = [
 const config: AdminListConfig = {
   title: '平台主体',
   remoteKey: 'subjects',
+  // 「可提现余额」列按 subjectId 从 subjectAccounts 取数，需预加载该资源，否则恒显示 0.00
+  remoteDeps: ['subjectAccounts'],
   columns,
   searchFields,
   loadData: load,
@@ -108,9 +120,8 @@ const config: AdminListConfig = {
       appid: row.appid || platformProfile.value?.appId || '',
       mchId: platformProfile.value?.mchId || '',
       // 阈值：分 -> 元（表单按元编辑）
-      withdrawFreeAuditThreshold: row.withdrawFreeAuditThreshold == null
-        ? 0
-        : Number(row.withdrawFreeAuditThreshold) / 100
+      withdrawFreeAuditThreshold:
+        row.withdrawFreeAuditThreshold == null ? 0 : Number(row.withdrawFreeAuditThreshold) / 100
     }),
     fields: formFields,
     onSubmit: async (data, editing) => {
@@ -146,4 +157,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

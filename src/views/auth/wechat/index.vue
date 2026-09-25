@@ -61,6 +61,9 @@ const formFields: FormField[] = [
 const config: AdminListConfig = {
   title: '微信账号绑定',
   remoteKey: 'users',
+  // 「经营角色」列依赖 store.normalizeRemoteRow('users') 把大写 STORE 归一为小写；
+  // 该归一化需 subjects 镜像就绪（解析 bound_subject_id -> 主体名）
+  remoteDeps: ['subjects'],
   columns,
   searchFields,
   toolbar,

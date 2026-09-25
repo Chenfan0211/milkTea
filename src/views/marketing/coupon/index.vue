@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'marketing_coupon'
 });
@@ -33,7 +32,7 @@ const store = useAdminStore();
 /** 金额：分 -> 元 */
 function fenToYuan(fen: any): string {
   const n = Number(fen);
-  if (!Number.isFinite(n) || n === 0) return "—";
+  if (!Number.isFinite(n) || n === 0) return '—';
   return (n / 100).toFixed(2);
 }
 
@@ -56,8 +55,9 @@ function validityText(row: any): string {
   if (row.validityType === 'days') {
     return row.validityDays ? `领券后 ${row.validityDays} 天` : '—';
   }
-  const s = row.validityStart, e = row.validityEnd;
-  if (!s && !e) return "—";
+  const s = row.validityStart,
+    e = row.validityEnd;
+  if (!s && !e) return '—';
   return `${String(s).slice(0, 10)} ~ ${String(e).slice(0, 10)}`;
 }
 
@@ -76,10 +76,16 @@ const columns: DataTableColumns<any> = [
     title: '类型',
     key: 'type',
     width: 90,
-    render: (row: any) => (row.type === 'voucher' ? '代金券' : row.type === 'discount' ? '折扣券' : (row.type || '—'))
+    render: (row: any) => (row.type === 'voucher' ? '代金券' : row.type === 'discount' ? '折扣券' : row.type || '—')
   },
   { title: '面额(元)', key: 'amount', width: 90, align: 'right', render: (row: any) => fenToYuan(row.amount) },
-  { title: '使用门槛(元)', key: 'threshold', width: 110, align: 'right', render: (row: any) => fenToYuan(row.threshold) },
+  {
+    title: '使用门槛(元)',
+    key: 'threshold',
+    width: 110,
+    align: 'right',
+    render: (row: any) => fenToYuan(row.threshold)
+  },
   { title: '品牌', key: 'brand', width: 100, render: (row: any) => row.brand || '—' },
   { title: '使用场景', key: 'scenes', minWidth: 140, render: (row: any) => row.scenes || '—' },
   { title: '有效期', key: 'validityStart', width: 190, render: (row: any) => validityText(row) },
@@ -144,7 +150,8 @@ const formFields: FormField[] = [
     label: '适用门店',
     type: 'multiple',
     multiple: true,
-    options: () => store.subjects.filter((s: any) => s.type === 'store').map((s: any) => ({ label: s.name, value: s.code }))
+    options: () =>
+      store.subjects.filter((s: any) => s.type === 'store').map((s: any) => ({ label: s.name, value: s.code }))
   },
   {
     key: 'applicableProductIds',
@@ -164,14 +171,16 @@ const rowActions: RowAction[] = [
     label: '停用',
     type: 'warning',
     reasonPrompt: '确认停用该优惠券？（请填写备注）',
-    handler: async (row, reason) => await store.patch('coupons', row.id, { status: 'disabled' }, '营销中心', '停用', 'name', reason),
+    handler: async (row, reason) =>
+      await store.patch('coupons', row.id, { status: 'disabled' }, '营销中心', '停用', 'name', reason),
     visible: row => row.status === 'enabled'
   },
   {
     label: '启用',
     type: 'success',
     reasonPrompt: '确认启用该优惠券？（请填写备注）',
-    handler: async (row, reason) => await store.patch('coupons', row.id, { status: 'enabled' }, '营销中心', '启用', 'name', reason),
+    handler: async (row, reason) =>
+      await store.patch('coupons', row.id, { status: 'enabled' }, '营销中心', '启用', 'name', reason),
     visible: row => row.status === 'disabled'
   },
   {
@@ -185,6 +194,8 @@ const rowActions: RowAction[] = [
 const config: AdminListConfig = {
   title: '优惠券管理',
   remoteKey: 'coupons',
+  // 「适用门店」下拉按 subjects 过滤，需预加载该资源
+  remoteDeps: ['subjects'],
   columns,
   searchFields,
   toolbar,
@@ -219,11 +230,15 @@ const config: AdminListConfig = {
         // 保证「选到某天」时该天整日都有效，符合运营直觉。
         validityStart: isRange ? toDayStart(data.validityStart) : null,
         validityEnd: isRange ? toDayEnd(data.validityEnd) : null,
-        validityDays: isRange ? 0 : (Number(data.validityDays) || 0)
+        validityDays: isRange ? 0 : Number(data.validityDays) || 0
       };
       // 日期区间模式下的基础校验
-      if (isRange && payload.validityStart && payload.validityEnd
-          && String(payload.validityStart) > String(payload.validityEnd)) {
+      if (
+        isRange &&
+        payload.validityStart &&
+        payload.validityEnd &&
+        String(payload.validityStart) > String(payload.validityEnd)
+      ) {
         throw new Error('生效日期不能晚于失效日期');
       }
       if (editing) await store.update('coupons', editing.id, payload, '营销中心', 'name');

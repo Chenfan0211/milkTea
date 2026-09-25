@@ -25,7 +25,13 @@ import {
   saveSigninRule as saveSigninRuleApi,
   unfreezeAccount as unfreezeAccountApi
 } from '@/service/api/crud';
-import { bindStoreInvestor as bindStoreInvestorApi, createSubjectStore, fetchSubjectStores, unbindStoreInvestor as unbindStoreInvestorApi, updateSubjectStore } from '@/service/api/subject';
+import {
+  bindStoreInvestor as bindStoreInvestorApi,
+  createSubjectStore,
+  fetchSubjectStores,
+  unbindStoreInvestor as unbindStoreInvestorApi,
+  updateSubjectStore
+} from '@/service/api/subject';
 import {
   createProduct,
   deleteProduct,
@@ -37,6 +43,8 @@ import {
   updateProductOnSale
 } from '@/service/api/admin-product';
 import { fetchAdminOrders, fetchAdminOrderDetail } from '@/service/api/trade';
+import { fetchAdminRoleGrants } from '@/service/api/auth_admin';
+import { fetchAdminSnapshots } from '@/service/api/finance';
 
 /**
  * 远端资源映射：key = store 内部数据键，value = 后端 CrudRegistry 资源名。
@@ -152,1253 +160,64 @@ function now() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-/** 返回 n 天前的日期时间字符串，格式 YYYY-MM-DD HH:mm:ss，用于订单 seed 的 createTime 相对化 */
-function daysAgo(days: number, hhmm = '00:00') {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${hhmm}:00`;
-}
-
+/**
+ * 本地种子数据（已停用）。
+ *
+ * <p><b>为什么返回空结构而不是假数据</b>：
+ * 运营后台所有列表/详情页均已接入后端接口（loadRemote / queryRemote / 专用 API）。
+ * 保留 seed 假数据会造成两类问题：
+ * <ol>
+ *   <li>页面忘记加载接口时，界面会安静地展示假数据，问题难以察觉；</li>
+ *   <li>详情页刷新/直接打开 URL 时读到的是 localStorage 缓存的假数据，与数据库不符。</li>
+ * </ol>
+ * 因此这里统一返回空数组：任一页面若漏接接口，会直接显示「暂无数据」而暴露问题。
+ *
+ * <p>历史实现（含各资源的演示数据）已由 git 保存，如需临时对照可查看
+ * 本文件在移除前的版本。
+ *
+ * <p>仅保留少量「非列表型」默认值（签到/邀请/推荐配置），
+ * 它们会在页面挂载时被对应接口覆盖，作为接口不可用时的兜底展示结构。
+ */
 function seed(): AdminData {
-  const storeNames = ['五一广场店', '岳麓店', '平和堂店', '梅溪湖店'];
-  const resourceNames = ['资源方甲', '资源方乙', '资源方丙'];
-  const investorNames = ['投资人甲', '投资人乙', '投资人丙'];
-  const supplierNames = ['供应商一', '供应商二', '供应商三'];
-
-  const subjects: any[] = [
-    {
-      id: 40,
-      code: 'PT-1000',
-      name: '五零时光运营平台',
-      type: 'platform',
-      appid: 'wx1234567890abcdef',
-      appSecret: '9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c',
-      status: 'active',
-      createTime: now(),
-      deleted: false,
-      boundUserId: null,
-      boundUserName: null
-    },
-    ...storeNames.map((name, i) => {
-      const addressList = [
-        '湖南省长沙市芙蓉区五一大道100号五一广场',
-        '湖南省长沙市岳麓区岳麓大道88号',
-        '湖南省长沙市芙蓉区平和堂商厦1层',
-        '湖南省长沙市岳麓区梅溪湖路188号'
-      ];
-      const coords = [
-        { latitude: 28.1941, longitude: 112.9779 },
-        { latitude: 28.2153, longitude: 112.9426 },
-        { latitude: 28.1945, longitude: 112.9812 },
-        { latitude: 28.1847, longitude: 112.8836 }
-      ];
-      return {
-        id: i + 1,
-        code: `ST-${1000 + i}`,
-        name,
-        type: 'store',
-        storeType: ['奶茶/饮品', '便利店', '餐饮', '健身房'][i % 4],
-        status: 'open',
-        createTime: now(),
-        city: '长沙',
-        manager: `店长${i + 1}`,
-        location: '长沙市',
-        address: addressList[i],
-        phone: `0731-8888000${i + 1}`,
-        latitude: coords[i].latitude,
-        longitude: coords[i].longitude,
-        investorId: i % 2 === 0 ? `IV-${1000 + i}` : null,
-        investorName: i % 2 === 0 ? `投资人${i + 1}` : '未绑定',
-        boundUserId: null,
-        boundUserName: null
-      };
-    }),
-    ...resourceNames.map((name, i) => ({
-      id: 10 + i,
-      code: `RS-${1000 + i}`,
-      name,
-      type: 'resource',
-      status: 'active',
-      createTime: now(),
-      location: ['长沙市', '武汉市', '广州市'][i % 3],
-      storeType: ['奶茶/饮品', '便利店', '餐饮'][i % 3],
-      boundStoreIds: i % 2 === 0 ? ['ST-1000'] : [],
-      boundStoreCount: i % 2 === 0 ? 1 : 0,
-      boundUserId: null,
-      boundUserName: null
-    })),
-    ...investorNames.map((name, i) => ({
-      id: 20 + i,
-      code: `IV-${1000 + i}`,
-      name,
-      type: 'investor',
-      status: 'signed',
-      createTime: now(),
-      investableStoreCount: 3 + i,
-      relatedStore: i % 2 === 0 ? '五一广场店' : '未绑定',
-      relatedStoreIds: i % 2 === 0 ? ['ST-1000'] : [],
-      signStatus: 'signed',
-      boundUserId: null,
-      boundUserName: null
-    })),
-    ...supplierNames.map((name, i) => ({
-      id: 30 + i,
-      code: `SU-${1000 + i}`,
-      name,
-      type: 'supplier',
-      status: 'active',
-      createTime: now(),
-      productCount: 5 + i * 2,
-      boundUserId: null,
-      boundUserName: null
-    }))
-  ];
-
-  const genders: Array<'male' | 'female' | 'unknown'> = ['male', 'female', 'unknown', 'male', 'female', 'unknown', 'male', 'female'];
-  const users: any[] = Array.from({ length: 8 }, (_, i) => ({
-    id: i + 1,
-    userId: `U${1000 + i}`,
-    nickName: `微信用户${i + 1}`,
-    openId: `openid_${1000 + i}`,
-    avatar: '/assets/images/3x/profile-avatar.jpg',
-    birthday: `19${90 + (i % 10)}-0${(i % 9) + 1}-1${i % 9}`,
-    gender: genders[i],
-    vipLevel: ['时光卡', '星享卡', '挚友卡'][i % 3],
-    points: 500 + i * 100,
-    balance: 100 + i * 50,
-    businessRole: null,
-    boundSubjectId: null,
-    boundSubjectName: null,
-    deleted: false
-  }));
-
-  const roleApplications: any[] = [
-    {
-      id: 1,
-      userId: 'U1000',
-      nickName: '微信用户1',
-      name: '张三',
-      phone: '13800000001',
-      roleType: 'store',
-      status: 'pending',
-      applyTime: now(),
-      reviewTime: null,
-      reviewer: null,
-      subjectId: 'ST-1001',
-      subjectName: '岳麓店',
-      storeName: '岳麓店',
-      storeAddress: '长沙市岳麓区'
-    },
-    {
-      id: 2,
-      userId: 'U1001',
-      nickName: '微信用户2',
-      name: '李四',
-      phone: '13800000002',
-      roleType: 'investor',
-      status: 'pending',
-      applyTime: now(),
-      reviewTime: null,
-      reviewer: null,
-      subjectId: 'IV-1001',
-      subjectName: '投资人乙',
-      investLocation: '五一广场',
-      investBudget: '500000'
-    },
-    {
-      id: 3,
-      userId: 'U1002',
-      nickName: '微信用户3',
-      name: '王五',
-      phone: '13800000003',
-      roleType: 'resource',
-      status: 'pending',
-      applyTime: now(),
-      reviewTime: null,
-      reviewer: null,
-      subjectId: 'RS-1001',
-      subjectName: '资源方乙',
-      resourceLocation: '长沙市',
-      storeType: '便利店'
-    }
-  ];
-
-  // 订单与小程序 user-h5/data/mock.js 对齐：orderNo/门店/金额(分)/状态枚举（见 docs/data-schema.md）
-  const orders: any[] = [
-    {
-      id: 1,
-      orderNo: 'WX202609160001',
-      store: '星沙乐运魔方店',
-      user: 'U1000',
-      summary: '金桂轻乳茶 x1,五窨茉莉抹茶 x1',
-      paidAmount: 2100,
-      status: 'COMPLETED',
-      payStatus: 'PAID',
-      pickupCode: 'A026',
-      createTime: daysAgo(2, '13:02'),
-      split: {
-        costTotal: 14,
-        itemCount: 2,
-        storeShare: 4,
-        channelShare: 2,
-        investorShare: 0.1,
-        platformShare: 0.9,
-        base: 1.00
-      },
-    },
-    {
-      id: 2,
-      orderNo: 'WX202609150012',
-      store: '松雅湖吾悦广场店',
-      user: 'U1001',
-      summary: '陈皮普洱轻乳茶 x1',
-      paidAmount: 990,
-      status: 'COMPLETED',
-      payStatus: 'PAID',
-      pickupCode: 'B012',
-      createTime: daysAgo(3, '18:22'),
-      split: {
-        costTotal: 7,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 0,
-        investorShare: 0,
-        platformShare: 0.9,
-        base: 0.90
-      },
-    },
-    {
-      id: 3,
-      orderNo: 'WX202609150008',
-      store: '星沙乐运魔方店',
-      user: 'U1002',
-      summary: '五窨茉莉抹茶 x1,金桂轻乳茶 x1,青提茉莉冰茶 x1,陈皮普洱轻乳茶 x1',
-      paidAmount: 4950,
-      status: 'COMPLETED',
-      payStatus: 'PAID',
-      pickupCode: 'A015',
-      createTime: daysAgo(3, '11:40'),
-      split: {
-        costTotal: 28,
-        itemCount: 4,
-        storeShare: 8,
-        channelShare: 4,
-        investorShare: 0.95,
-        platformShare: 8.55,
-        base: 9.50
-      },
-    },
-    {
-      id: 4,
-      orderNo: 'WX202609140001',
-      store: '长沙高铁南站店',
-      user: 'U1003',
-      summary: '白桃乌龙 x1',
-      paidAmount: 1800,
-      status: 'COMPLETED',
-      payStatus: 'PAID',
-      pickupCode: 'C008',
-      createTime: daysAgo(4, '19:15'),
-      split: {
-        costTotal: 8,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 1,
-        investorShare: 0.7,
-        platformShare: 6.3,
-        base: 7.00
-      },
-    },
-    {
-      id: 5,
-      orderNo: 'WX202609180010',
-      store: '长沙金茂览秀城店',
-      user: 'U1004',
-      summary: '抹茶脑袋必喝套餐 x1,红苹果乌龙冰奶 x1',
-      paidAmount: 3480,
-      status: 'PAID',
-      payStatus: 'PAID',
-      pickupCode: '0404',
-      createTime: daysAgo(0, '09:12'),
-      split: {
-        costTotal: 14,
-        itemCount: 2,
-        storeShare: 4,
-        channelShare: 2,
-        investorShare: 1.48,
-        platformShare: 13.32,
-        base: 14.80
-      },
-    },
-    {
-      id: 6,
-      orderNo: 'WX202609180011',
-      store: '长沙金茂览秀城店',
-      user: 'U1005',
-      summary: '抹茶脑袋必喝套餐 x1',
-      paidAmount: 1990,
-      status: 'PAID',
-      payStatus: 'PAID',
-      pickupCode: '0405',
-      createTime: daysAgo(0, '09:10'),
-      split: {
-        costTotal: 7,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 1,
-        investorShare: 0.99,
-        platformShare: 8.91,
-        base: 9.90
-      },
-    },
-    {
-      id: 7,
-      orderNo: 'WX202609180001',
-      store: '长沙金茂览秀城店',
-      user: 'U1006',
-      summary: '抹茶芝士芭乐 x1',
-      paidAmount: 1890,
-      status: 'VERIFIED',
-      payStatus: 'PAID',
-      pickupCode: '0402',
-      createTime: daysAgo(1, '20:31'),
-      split: {
-        costTotal: 7,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 1,
-        investorShare: 0.89,
-        platformShare: 8.01,
-        base: 8.90
-      },
-    },
-    {
-      id: 8,
-      orderNo: 'WX202609180002',
-      store: '长沙金茂览秀城店',
-      user: 'U1007',
-      summary: '红苹果乌龙冰奶 x1',
-      paidAmount: 1490,
-      status: 'VERIFIED',
-      payStatus: 'PAID',
-      pickupCode: '0403',
-      createTime: daysAgo(1, '19:16'),
-      split: {
-        costTotal: 7.5,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 0,
-        investorShare: 0,
-        platformShare: 5.4,
-        base: 5.40
-      },
-    },
-    {
-      id: 9,
-      orderNo: 'WX202609180003',
-      store: '长沙金茂览秀城店',
-      user: 'U1008',
-      summary: '五窨茉莉抹茶 x1',
-      paidAmount: 1390,
-      status: 'CREATED',
-      payStatus: 'UNPAID',
-      pickupCode: '',
-      createTime: daysAgo(0, '09:14'),
-      split: {
-        costTotal: 7,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 1,
-        investorShare: 0.39,
-        platformShare: 3.51,
-        base: 3.90
-      },
-    },
-    {
-      id: 10,
-      orderNo: 'WX202609180004',
-      store: '长沙金茂览秀城店',
-      user: 'U1009',
-      summary: '青提茉莉冰茶 x1',
-      paidAmount: 1590,
-      status: 'CREATED',
-      payStatus: 'UNPAID',
-      pickupCode: '',
-      createTime: daysAgo(0, '09:05'),
-      split: {
-        costTotal: 8,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 1,
-        investorShare: 0.49,
-        platformShare: 4.41,
-        base: 4.90
-      },
-    },
-    {
-      id: 11,
-      orderNo: 'WX202609170001',
-      store: '五一广场店',
-      user: 'U1010',
-      summary: '陈皮普洱轻乳茶 x1',
-      paidAmount: 1490,
-      status: 'REFUNDED',
-      payStatus: 'PAID',
-      pickupCode: '',
-      createTime: daysAgo(1, '15:20'),
-      split: {
-        costTotal: 7,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 0,
-        investorShare: 0,
-        platformShare: 5.9,
-        base: 5.90
-      },
-    },
-    {
-      id: 12,
-      orderNo: 'WX202609170002',
-      store: '五一广场店',
-      user: 'U1011',
-      summary: '金桂轻乳茶 x1',
-      paidAmount: 1390,
-      status: 'REFUNDED',
-      payStatus: 'PAID',
-      pickupCode: '',
-      createTime: daysAgo(1, '14:05'),
-      split: {
-        costTotal: 7,
-        itemCount: 1,
-        storeShare: 2,
-        channelShare: 0,
-        investorShare: 0,
-        platformShare: 4.9,
-        base: 4.90
-      }
-    }
-  ];
-
-  const refundSeedTpl = [
-    { title: '抹茶芝士芭乐 x1', product: '抹茶芝士芭乐', user: 'U1000' },
-    { title: '红苹果乌龙冰奶 x2', product: '红苹果乌龙冰奶', user: 'U1001' },
-    { title: '五窨茉莉抹茶 x1', product: '五窨茉莉抹茶', user: 'U1002' },
-    { title: '金桂轻乳茶 x1', product: '金桂轻乳茶', user: 'U1003' },
-    { title: '青提茉莉冰茶 x1', product: '青提茉莉冰茶', user: 'U1004' },
-    { title: '陈皮普洱轻乳茶 x1', product: '陈皮普洱轻乳茶', user: 'U1005' }
-  ];
-  const refunds: any[] = Array.from({ length: 6 }, (_, i) => ({
-    id: i + 1,
-    refundNo: `R${100000 + i}`,
-    orderNo: `WX2026091800${String(10 + i).padStart(2, '0')}`,
-    user: refundSeedTpl[i].user,
-    title: refundSeedTpl[i].title,
-    product: refundSeedTpl[i].product,
-    amount: 1890 + i * 100,
-    status: ['SUCCESS', 'SUCCESS', 'SUCCESS', 'SUCCESS', 'REJECTED', 'SUCCESS'][i],
-    applyTime: daysAgo(i % 3, `1${i}:${String(20 + i).padStart(2, '0')}`)
-  }));
-
   return {
-    subjects,
-    users,
-    roleApplications,
-    roles: [
-      { id: 1, code: 'R_SUPER', name: '超级管理员', dataScope: '平台级', createTime: now() },
-      { id: 2, code: 'R_OPERATION', name: '运营', dataScope: '平台级', createTime: now() },
-      { id: 3, code: 'R_FINANCE', name: '财务', dataScope: '平台级', createTime: now() },
-      { id: 4, code: 'R_AUDIT', name: '审计', dataScope: '平台级', createTime: now() }
-    ],
-    grants: [
-      {
-        id: 1,
-        userId: 'U1000',
-        role: '门店',
-        subject: '五一广场店',
-        dataScope: '本主体',
-        grantBy: 'admin',
-        grantTime: now(),
-        status: 'active'
-    },
-      {
-        id: 2,
-        userId: 'U1001',
-        role: '投资人',
-        subject: '投资人甲',
-        dataScope: '本主体',
-        grantBy: 'admin',
-        grantTime: now(),
-        status: 'active'
-      }
-    ],
-    // 商品 ID 保持后台自增；productId 与小程序 user-h5/data/mock.js 对齐（见 docs/data-schema.md）
-    products: [
-      {
-        id: 1,
-        productId: 'classic-001',
-        code: 'P-1000',
-        name: '五窨茉莉抹茶',
-        category: '鲜奶茶',
-        specCount: 3,
-        price: 13.9,
-        originalPrice: 16,
-        costPrice: 7,
-        platformCommission: 0.7,
-        description: '草本清香与醇厚茶韵交融，入口清甜顺滑，回甘自然。',
-        store: '五一广场店',
-        stores: ['五一广场店', '岳麓店'],
-        onSale: 'on',
-        splitReady: 'ready',
-        image: '/assets/images/3x/menu-product.jpg',
-        specGroups: [{"id":"size","label":"杯型","options":[{"id":"m","label":"中杯","priceDelta":0},{"id":"l","label":"大杯","priceDelta":3}]},{"id":"temp","label":"温度","options":[{"id":"std","label":"标准冰","priceDelta":0},{"id":"less","label":"少冰","priceDelta":0},{"id":"no","label":"去冰","priceDelta":0}]},{"id":"topping","label":"加料","options":[{"id":"none","label":"不加马蹄粉圆","priceDelta":0},{"id":"horse","label":"加马蹄粉圆","priceDelta":2}]}],
-        tags: ['年度热销', '五窨茉莉花茶'],
-        storedValuePrice: 12.9,
-        badgeIcon: '/assets/icons/lucide/member-gold.svg',
-        ingredients: '一级千目抹茶+芒果鲜果+牛乳芝士+HPP冷冻芒果汁',
-        allergens: '饮品内含有乳制品、芒果、无花果碎，过敏者请谨慎选择',
-        cupCapacity: '杯型容量中杯500ml，标注容量及图片仅供参考',
-        promotionText: '周三会员日招牌饮品85折',
-        discountRate: 0.85,
-        galleryImage: '/assets/images/3x/menu-product.jpg',
-        imageDisclaimer: '图片与杯型仅供参考，具体请以实物为准',
-        tips: ['抹茶含有天然咖啡因，敏感人群建议酌情选择。','建议2小时内饮用。']
-      },
-      {
-        id: 2,
-        productId: 'classic-005',
-        code: 'P-1001',
-        name: '红苹果乌龙冰奶',
-        category: '鲜奶茶',
-        specCount: 3,
-        price: 14.9,
-        originalPrice: 16,
-        costPrice: 7.5,
-        platformCommission: 0.75,
-        description: '浓郁苹果果香糅合岩香乌龙，果香茶香奶香三重交织。',
-        store: '五一广场店',
-        stores: ['五一广场店', '岳麓店'],
-        onSale: 'on',
-        splitReady: 'ready',
-        image: '/assets/images/3x/menu-product.jpg',
-        specGroups: [{"id":"size","label":"份量","options":[{"id":"m","label":"中杯","priceDelta":0}]},{"id":"temp","label":"温度","options":[{"id":"std","label":"标准冰","priceDelta":0},{"id":"less","label":"少冰","priceDelta":0},{"id":"no","label":"去冰","priceDelta":0}]}],
-        tags: ['年度热销', '红苹果乌龙'],
-        storedValuePrice: 13.9,
-        badgeIcon: '',
-        ingredients: '冷冻苹果杏沙棘汁+马头岩乌龙茶+牛乳芝士+冰博客牛奶',
-        allergens: '饮品内含有乳制品，过敏者请谨慎选择',
-        cupCapacity: '杯型容量中杯500ml，标注容量及图片仅供参考',
-        promotionText: '',
-        discountRate: 1,
-        galleryImage: '/assets/images/3x/menu-product.jpg',
-        imageDisclaimer: '图片与杯型仅供参考，具体请以实物为准',
-        tips: ['果酸遇乳类蛋白会产生轻微絮状分层，属正常现象。','建议2小时内饮用。']
-      },
-      {
-        id: 3,
-        productId: 'classic-002',
-        code: 'P-1002',
-        name: '金桂轻乳茶',
-        category: '鲜奶茶',
-        specCount: 3,
-        price: 13.9,
-        originalPrice: 16,
-        costPrice: 7,
-        platformCommission: 0.7,
-        description: '金桂清香与轻乳交融，温润不腻。',
-        store: '五一广场店',
-        stores: ['五一广场店', '岳麓店'],
-        onSale: 'off',
-        splitReady: 'ready',
-        image: '/assets/images/3x/menu-product.jpg',
-        specGroups: [{"id":"size","label":"杯型","options":[{"id":"m","label":"中杯","priceDelta":0},{"id":"l","label":"大杯","priceDelta":3}]},{"id":"sweet","label":"甜度","options":[{"id":"less","label":"少糖","priceDelta":0},{"id":"half","label":"半糖","priceDelta":0},{"id":"full","label":"全糖","priceDelta":0}]}],
-        tags: ['金桂', '轻乳茶'],
-        storedValuePrice: 12.9,
-        badgeIcon: '',
-        ingredients: '金桂花蜜+鲜牛乳+轻乳',
-        allergens: '饮品内含有乳制品',
-        cupCapacity: '杯型容量中杯500ml',
-        promotionText: '',
-        discountRate: 1,
-        galleryImage: '/assets/images/3x/menu-product.jpg',
-        imageDisclaimer: '图片与杯型仅供参考',
-        tips: ['建议2小时内饮用。']
-      },
-      {
-        id: 4,
-        productId: 'classic-003',
-        code: 'P-1003',
-        name: '青提茉莉冰茶',
-        category: '鲜奶茶',
-        specCount: 3,
-        price: 15.9,
-        originalPrice: 18,
-        costPrice: 8,
-        platformCommission: 0.8,
-        description: '青提果香与茉莉茶韵交织，清新爽口。',
-        store: '五一广场店',
-        stores: ['五一广场店', '岳麓店'],
-        onSale: 'on',
-        splitReady: 'incomplete',
-        image: '/assets/images/3x/menu-product.jpg',
-        specGroups: [{"id":"size","label":"杯型","options":[{"id":"m","label":"中杯","priceDelta":0},{"id":"l","label":"大杯","priceDelta":3}]},{"id":"temp","label":"冰量","options":[{"id":"less","label":"少冰","priceDelta":0},{"id":"no","label":"去冰","priceDelta":0}]}],
-        tags: ['青提', '茉莉'],
-        storedValuePrice: 14.9,
-        badgeIcon: '',
-        ingredients: '青提果肉+茉莉花茶+鲜牛乳',
-        allergens: '饮品内含有乳制品',
-        cupCapacity: '杯型容量中杯500ml',
-        promotionText: '',
-        discountRate: 1,
-        galleryImage: '/assets/images/3x/menu-product.jpg',
-        imageDisclaimer: '图片与杯型仅供参考',
-        tips: ['建议2小时内饮用。']
-      },
-      {
-        id: 5,
-        productId: 'classic-004',
-        code: 'P-1004',
-        name: '陈皮普洱轻乳茶',
-        category: '鲜奶茶',
-        specCount: 3,
-        price: 13.9,
-        originalPrice: 16,
-        costPrice: 7,
-        platformCommission: 0.7,
-        description: '陈皮醇香与普洱茶韵融合，回甘悠长。',
-        store: '五一广场店',
-        stores: ['五一广场店', '岳麓店'],
-        onSale: 'on',
-        splitReady: 'ready',
-        image: '/assets/images/3x/menu-product.jpg',
-        specGroups: [{"id":"size","label":"杯型","options":[{"id":"m","label":"中杯","priceDelta":0},{"id":"l","label":"大杯","priceDelta":3}]},{"id":"temp","label":"温度","options":[{"id":"hot","label":"热饮","priceDelta":0},{"id":"std","label":"标准冰","priceDelta":0}]}],
-        tags: ['陈皮', '普洱'],
-        storedValuePrice: 12.9,
-        badgeIcon: '',
-        ingredients: '陈皮+普洱茶+鲜牛乳',
-        allergens: '饮品内含有乳制品',
-        cupCapacity: '杯型容量中杯500ml',
-        promotionText: '',
-        discountRate: 1,
-        galleryImage: '/assets/images/3x/menu-product.jpg',
-        imageDisclaimer: '图片与杯型仅供参考',
-        tips: ['建议2小时内饮用。']
-      },
-      {
-        id: 6,
-        productId: 'featured-001',
-        code: 'P-1005',
-        name: '五窨茉莉抹茶',
-        category: '鲜奶茶',
-        specCount: 3,
-        price: 13.9,
-        originalPrice: 16,
-        costPrice: 7,
-        platformCommission: 0.7,
-        description: '招牌主打，五窨茉莉花茶与抹茶交融。',
-        store: '五一广场店',
-        stores: ['五一广场店', '岳麓店'],
-        onSale: 'on',
-        splitReady: 'ready',
-        image: '/assets/images/3x/menu-product.jpg',
-        specGroups: [{"id":"size","label":"杯型","options":[{"id":"m","label":"中杯","priceDelta":0},{"id":"l","label":"大杯","priceDelta":4}]},{"id":"temp","label":"温度","options":[{"id":"std","label":"标准冰","priceDelta":0},{"id":"less","label":"少冰","priceDelta":0},{"id":"no","label":"去冰","priceDelta":0}]},{"id":"topping","label":"加料","options":[{"id":"none","label":"不加粉圆","priceDelta":0},{"id":"horse","label":"加马蹄粉圆","priceDelta":2}]}],
-        tags: ['招牌主打', '五窨茉莉花茶'],
-        storedValuePrice: 12.9,
-        badgeIcon: '/assets/icons/lucide/member-gold.svg',
-        ingredients: '五窨茉莉花茶+抹茶+鲜牛乳',
-        allergens: '饮品内含有乳制品',
-        cupCapacity: '杯型容量中杯500ml',
-        promotionText: '招牌主打',
-        discountRate: 0.85,
-        galleryImage: '/assets/images/3x/menu-product.jpg',
-        imageDisclaimer: '图片与杯型仅供参考',
-        tips: ['建议2小时内饮用。']
-      },
-    ],
-    specs: [
-      { id: 1, group: '杯型', name: '中杯/大杯', options: ['中杯', '大杯'], order: 1 },
-      { id: 2, group: '甜度', name: '少糖/半糖/全糖', options: ['少糖', '半糖', '全糖'], order: 2 },
-      { id: 3, group: '冰量', name: '少冰/去冰', options: ['少冰', '去冰'], order: 3 }
-    ],
-    splitRules: Array.from({ length: 3 }, (_, i) => ({
-      id: i + 1,
-      code: `SR-${1000 + i}`,
-      name: i === 0 ? '全局默认分账' : `商品分账-${i + 1}`,
-      scope: i === 0 ? '全局' : '商品',
-      platformRatio: 1000,
-      storeRatio: 5000,
-      channelRatio: 1500,
-      investorRatio: 1500,
-      supplierRatio: 1000,
-      status: 'enabled'
-    })),
-    orders,
-    payments: Array.from({ length: 8 }, (_, i) => ({
-      id: i + 1,
-      merchantOrderNo: `O${202609180000 + i}`,
-      paymentNo: `PAY${100000 + i}`,
-      amount: 1890 + i * 100,
-      channel: ['WXPAY', 'MOCK'][i % 2],
-      thirdStatus: i % 4 === 0 ? 'PENDING' : 'SUCCESS',
-      standardStatus: i % 4 === 0 ? 'PAYING' : 'PAID',
-      callbackTime: now()
-    })),
-    refunds,
-    verifies: Array.from({ length: 6 }, (_, i) => ({
-      id: i + 1,
-      verifyCode: `V${10000 + i}`,
-      orderNo: `O${202609180000 + i}`,
-      store: '五一广场店',
-      operator: `店员${i + 1}`,
-      device: `POS-${100 + i}`,
-      type: i % 3 === 2 ? '兑换' : '订单',
-      result: i % 4 === 0 ? 'rejected' : 'success',
-      time: now()
-    })),
-    snapshots: Array.from({ length: 6 }, (_, i) => ({
-      id: i + 1,
-      snapshotNo: `SN${100000 + i}`,
-      orderNo: `O${202609180000 + i}`,
-      summary: ['五窨茉莉抹茶 x1', '红苹果乌龙冰奶 x1', '金桂轻乳茶 x1', '青提茉莉冰茶 x1', '陈皮普洱轻乳茶 x1', '五窨茉莉抹茶 x1'][i],
-      itemCount: 1,
-      supplierAmount: 7,
-      storeAmount: 2,
-      channelAmount: 1,
-      investorAmount: 0.89,
-      platformCommission: 0.7,
-      platformBonus: 6.31,
-      platformAmount: 7.01,
-      totalCheck: '一致',
-      status: i % 3 === 0 ? 'invalid' : 'valid',
-      createTime: now()
-    })),
-    fundPool: [
-      {
-        id: 1,
-        poolName: '平台资金池',
-        totalBalance: 0,
-        updateTime: now()
-      }
-    ],
-    subjectAccounts: [
-      { id: 1, subjectId: 40, subjectName: '五零时光运营平台', roleType: 'platform', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 2, subjectId: 1, subjectName: '五一广场店', roleType: 'store', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 3, subjectId: 2, subjectName: '岳麓店', roleType: 'store', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 4, subjectId: 3, subjectName: '平和堂店', roleType: 'store', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 5, subjectId: 4, subjectName: '梅溪湖店', roleType: 'store', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 6, subjectId: 10, subjectName: '资源方 A', roleType: 'resource', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 7, subjectId: 11, subjectName: '资源方 B', roleType: 'resource', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 8, subjectId: 12, subjectName: '资源方 C', roleType: 'resource', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 9, subjectId: 20, subjectName: '投资人甲', roleType: 'investor', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 10, subjectId: 21, subjectName: '投资人乙', roleType: 'investor', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 11, subjectId: 22, subjectName: '投资人丙', roleType: 'investor', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 12, subjectId: 30, subjectName: '供应商一', roleType: 'supplier', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 13, subjectId: 31, subjectName: '供应商二', roleType: 'supplier', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() },
-      { id: 14, subjectId: 32, subjectName: '供应商三', roleType: 'supplier', availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() }
-    ],
-    fundFlows: [
-      { id: 1, flowNo: 'FF100001', type: 'INCOME', direction: 'in', amount: 13.9, subjectId: 40, subjectName: '五零时光运营平台', roleType: 'platform', orderNo: 'O202609180000', poolBalanceAfter: 13.9, remark: '订单入账（演示）', createTime: now() }
-    ],
-    reconciles: Array.from({ length: 4 }, (_, i) => ({
-      id: i + 1,
-      issueType: ['金额差异', '状态不一致', '缺失流水'][i % 3],
-      orderNo: `O${202609180000 + i}`,
-      systemValue: '¥18.90',
-      thirdValue: i % 3 === 0 ? '¥18.00' : '¥18.90',
-      diffAmount: i % 3 === 0 ? 90 : 0,
-      foundTime: now(),
-      status: i % 2 === 0 ? 'open' : 'resolved'
-    })),
-    features: [
-      {
-        id: 1,
-        code: 'ENABLE_COUPON',
-        name: '优惠券',
-        defaultStatus: '开启',
-        currentStatus: '开启',
-        openCondition: '优惠券活动、锁券、核销和优惠承担逻辑完成'
-      },
-      {
-        id: 2,
-        code: 'ENABLE_STORED_VALUE',
-        name: '储值充值',
-        defaultStatus: '开启',
-        currentStatus: '开启',
-        openCondition: '充值支付、余额账户、消费核销和预收台账完成'
-      },
-      {
-        id: 3,
-        code: 'ENABLE_WITHDRAWAL',
-        name: '提现',
-        defaultStatus: '关闭',
-        currentStatus: '关闭',
-        openCondition: '提现申请、审核、出款回调和失败解冻完成'
-      },
-      {
-        id: 4,
-        code: 'ENABLE_REVIEW',
-        name: '评论',
-        defaultStatus: '开启',
-        currentStatus: '开启',
-        openCondition: '评论提交、审核和订单评价状态完成'
-      }
-    ],
-    withdrawals: [
-      {
-        id: 1,
-        userId: 'U1000',
-        nickName: '微信用户1',
-        roleType: 'store',
-        amount: 80,
-        status: 'pending',
-        applyTime: now(),
-        reviewTime: null,
-        reviewer: null
-      },
-      {
-        id: 2,
-        userId: 'U1001',
-        nickName: '微信用户2',
-        roleType: 'investor',
-        amount: 1806,
-        status: 'pending',
-        applyTime: now(),
-        reviewTime: null,
-        reviewer: null
-      },
-      {
-        id: 3,
-        userId: 'U1002',
-        nickName: '微信用户3',
-        roleType: 'resource',
-        amount: 3420,
-        status: 'pending',
-        applyTime: now(),
-        reviewTime: null,
-        reviewer: null
-      }
-    ],
-    verifyPool: [
-      {
-        id: 1,
-        type: 'order',
-        pickupCode: '0404',
-        orderNo: 'WX202609180010',
-        product: '抹茶脑袋必喝套餐 x1,红苹果乌龙冰奶 x1',
-        spec: '标准冰',
-        amount: 3480,
-        status: 'pending'
-      },
-      {
-        id: 2,
-        type: 'order',
-        pickupCode: '0405',
-        orderNo: 'WX202609180011',
-        product: '抹茶脑袋必喝套餐 x1',
-        spec: '标准冰',
-        amount: 1990,
-        status: 'pending'
-      },
-      {
-        id: 4,
-        type: 'exchange',
-        code: 'CZ20260920001234',
-        pickupCode: 'CZ20260920001234',
-        orderNo: 'CZ20260920001234',
-        product: '五零时光公仔挂件',
-        spec: '兑换商品',
-        amount: 0,
-        points: 500,
-        status: 'pending'
-      },
-      {
-        id: 5,
-        type: 'exchange',
-        code: 'CZ20260920005678',
-        pickupCode: 'CZ20260920005678',
-        orderNo: 'CZ20260920005678',
-        product: '超浓抹茶系列买一送一券',
-        spec: '兑换商品',
-        amount: 0,
-        points: 300,
-        status: 'pending'
-      }
-    ],
-    coupons: [
-      {
-        id: 1,
-        title: '【VIP1】五零时光3元代金券（满20）',
-        type: 'voucher',
-        amount: 3,
-        condition: '满20可用',
-        expiryText: '2026-09-29 23:59 到期',
-        channel: '不限制',
-        brand: '五零时光',
-        scenes: '买单、堂食(门店就餐)、堂食(打包外带)',
-        validityPeriod: '2026-09-15 00:00:00~2026-09-29 23:59:59',
-        usageTime: '00:00:00~23:59:59',
-        source: '开卡权益',
-        image: '/assets/images/3x/menu-product.jpg',
-        description: '五零时光送您一张任意饮品3元券（满20可用），可在五零时光全门店使用，有效期15天。',
-        applicableStoreIds: ['ST-1000', 'ST-1001'],
-        applicableProductIds: ['classic-001', 'classic-002', 'classic-003'],
-        quantity: 100,
-        paymentRestriction: '',
-        status: 'enabled'
-      },
-      {
-        id: 2,
-        title: '新客立减5元',
-        type: 'voucher',
-        amount: 5,
-        condition: '满30可用',
-        expiryText: '2026-09-30 23:59 到期',
-        channel: '小程序',
-        brand: '五零时光',
-        scenes: '买单、堂食(门店就餐)',
-        validityPeriod: '2026-09-01 00:00:00~2026-09-30 23:59:59',
-        usageTime: '00:00:00~23:59:59',
-        source: '新客礼',
-        image: '/assets/images/3x/menu-product.jpg',
-        description: '新客专享，满30减5元。',
-        applicableStoreIds: ['ST-1000', 'ST-1001', 'ST-1002'],
-        applicableProductIds: ['classic-001', 'classic-002'],
-        quantity: 200,
-        paymentRestriction: '',
-        status: 'enabled'
-      },
-      {
-        id: 3,
-        title: '老客回馈8折券',
-        type: 'discount',
-        amount: 0,
-        condition: '满40可用',
-        expiryText: '2026-10-15 23:59 到期',
-        channel: '小程序',
-        brand: '五零时光',
-        scenes: '堂食(门店就餐)',
-        validityPeriod: '2026-09-01 00:00:00~2026-10-15 23:59:59',
-        usageTime: '00:00:00~23:59:59',
-        source: '老客回馈',
-        image: '/assets/images/3x/menu-product.jpg',
-        description: '老客回馈，满40享8折。',
-        applicableStoreIds: ['ST-1000'],
-        applicableProductIds: [],
-        quantity: 100,
-        paymentRestriction: '',
-        status: 'disabled'
-      },
-      {
-        id: 4,
-        title: '储值赠送2元代金券',
-        type: 'voucher',
-        amount: 2,
-        condition: '满9.9可用',
-        expiryText: '自充值日起365天有效',
-        channel: '储值赠送',
-        brand: '五零时光',
-        scenes: '买单、堂食(门店就餐)',
-        validityPeriod: '充值当天起365天',
-        usageTime: '00:00:00~23:59:59',
-        source: '储值赠送',
-        image: '/assets/images/3x/menu-product.jpg',
-        description: '储值赠送2元代金券，满9.9可用，单笔订单限用一张。',
-        applicableStoreIds: ['ST-1000', 'ST-1001'],
-        applicableProductIds: [],
-        quantity: 1000,
-        paymentRestriction: '',
-        status: 'enabled'
-      },
-      {
-        id: 5,
-        title: '储值赠送10元代金券',
-        type: 'voucher',
-        amount: 10,
-        condition: '满50可用',
-        expiryText: '自充值日起365天有效',
-        channel: '储值赠送',
-        brand: '五零时光',
-        scenes: '买单、堂食(门店就餐)',
-        validityPeriod: '充值当天起365天',
-        usageTime: '00:00:00~23:59:59',
-        source: '储值赠送',
-        image: '/assets/images/3x/menu-product.jpg',
-        description: '储值赠送10元代金券，满50可用，单笔订单限用一张。',
-        applicableStoreIds: ['ST-1000', 'ST-1001'],
-        applicableProductIds: [],
-        quantity: 1000,
-        paymentRestriction: '',
-        status: 'enabled'
-      },
-      {
-        id: 6,
-        title: '储值赠送20元代金券',
-        type: 'voucher',
-        amount: 20,
-        condition: '满100可用',
-        expiryText: '自充值日起365天有效',
-        channel: '储值赠送',
-        brand: '五零时光',
-        scenes: '买单、堂食(门店就餐)',
-        validityPeriod: '充值当天起365天',
-        usageTime: '00:00:00~23:59:59',
-        source: '储值赠送',
-        image: '/assets/images/3x/menu-product.jpg',
-        description: '储值赠送20元代金券，满100可用，单笔订单限用一张。',
-        applicableStoreIds: ['ST-1000', 'ST-1001'],
-        applicableProductIds: [],
-        quantity: 1000,
-        paymentRestriction: '',
-        status: 'enabled'
-      }
-    ],
-    storedValuePackages: [
-      { id: 1, amount: 50, coupons: [{ couponId: 4, amount: 2, quantity: 1, description: '储值赠送-2元代金券' }], usageParagraphs: ['1、本储值套餐包含储值金额与赠送优惠券，具体以套餐配置为准。', '2、储值赠送的券自充值当天起365天有效，单笔订单仅限使用一张优惠券。', '3、退款规则：成功充值后如需退款，可通过小程序"我的-联系客服"咨询；已使用赠送券的，退款时扣除对应券面额后返还剩余金额。', '最终解释权归五零时光所有。'] },
-      {
-        id: 2,
-        amount: 100,
-        coupons: [
-          { couponId: 4, amount: 2, quantity: 2, description: '储值赠送-2元代金券' },
-          { couponId: 2, amount: 5, quantity: 2, description: '储值赠送-5元代金券' }
-        ],
-        usageParagraphs: ['1、本储值套餐包含储值金额与赠送优惠券，具体以套餐配置为准。', '2、储值赠送的券自充值当天起365天有效，单笔订单仅限使用一张优惠券。', '3、退款规则：成功充值后如需退款，可通过小程序"我的-联系客服"咨询；已使用赠送券的，退款时扣除对应券面额后返还剩余金额。', '最终解释权归五零时光所有。']
-      },
-      {
-        id: 3,
-        amount: 200,
-        coupons: [
-          { couponId: 2, amount: 5, quantity: 2, description: '储值赠送-5元代金券' },
-          { couponId: 5, amount: 10, quantity: 2, description: '储值赠送-10元代金券' }
-        ],
-        usageParagraphs: ['1、本储值套餐包含储值金额与赠送优惠券，具体以套餐配置为准。', '2、储值赠送的券自充值当天起365天有效，单笔订单仅限使用一张优惠券。', '3、退款规则：成功充值后如需退款，可通过小程序"我的-联系客服"咨询；已使用赠送券的，退款时扣除对应券面额后返还剩余金额。', '最终解释权归五零时光所有。']
-      },
-      {
-        id: 4,
-        amount: 500,
-        coupons: [
-          { couponId: 5, amount: 10, quantity: 3, description: '储值赠送-10元代金券' },
-          { couponId: 6, amount: 20, quantity: 2, description: '储值赠送-20元代金券' }
-        ],
-        usageParagraphs: ['1、本储值套餐包含储值金额与赠送优惠券，具体以套餐配置为准。', '2、储值赠送的券自充值当天起365天有效，单笔订单仅限使用一张优惠券。', '3、退款规则：成功充值后如需退款，可通过小程序"我的-联系客服"咨询；已使用赠送券的，退款时扣除对应券面额后返还剩余金额。', '最终解释权归五零时光所有。']
-      }
-    ],
-    giftCards: [
-      { id: 1, name: '超浓抹茶', image: '/assets/images/3x/gift-card-matcha.jpg', faceValues: [100, 200, 500] },
-      { id: 2, name: '相遇很美好', image: '/assets/images/3x/gift-card-jasmine.jpg', faceValues: [100, 200, 500] },
-      { id: 3, name: '五零时光限定', image: '/assets/images/3x/gift-card-limited.jpg', faceValues: [200, 500] }
-    ],
-    giftCardDenominations: [
-      { id: 1, faceValue: 100, salePrice: 100 },
-      { id: 2, faceValue: 200, salePrice: 200 },
-      { id: 3, faceValue: 500, salePrice: 500 }
-    ],
-    giftCardOrders: [
-      { id: 1, orderNo: 'GC202609180001', cardName: '超浓抹茶', faceValue: 100, quantity: 1, amount: 100, status: 'COMPLETED', buyer: '微信用户1', createTime: now() },
-      { id: 2, orderNo: 'GC202609180002', cardName: '相遇很美好', faceValue: 200, quantity: 2, amount: 400, status: 'PAID', buyer: '微信用户2', createTime: now() },
-      { id: 3, orderNo: 'GC202609180003', cardName: '五零时光限定', faceValue: 500, quantity: 1, amount: 500, status: 'CREATED', buyer: '微信用户3', createTime: now() }
-    ],
-    dictEntries: [
-      { id: 1, group: 'order_status', groupName: '订单状态', code: 'CREATED', name: '待支付', sort: 1, enabled: true },
-      { id: 2, group: 'order_status', groupName: '订单状态', code: 'PAID', name: '已支付', sort: 2, enabled: true },
-      { id: 3, group: 'order_status', groupName: '订单状态', code: 'VERIFIED', name: '已核销', sort: 3, enabled: true },
-      { id: 4, group: 'order_status', groupName: '订单状态', code: 'COMPLETED', name: '已完成', sort: 4, enabled: true },
-      { id: 5, group: 'order_status', groupName: '订单状态', code: 'REFUNDED', name: '已退款', sort: 5, enabled: true },
-
-      { id: 6, group: 'store_status', groupName: '门店状态', code: 'open', name: '营业中', sort: 1, enabled: true },
-      { id: 7, group: 'store_status', groupName: '门店状态', code: 'closed', name: '停业', sort: 2, enabled: true },
-
-      { id: 8, group: 'product_sale_status', groupName: '商品上下架', code: 'on', name: '已上架', sort: 1, enabled: true },
-      { id: 9, group: 'product_sale_status', groupName: '商品上下架', code: 'off', name: '已下架', sort: 2, enabled: true },
-
-      { id: 10, group: 'store_type', groupName: '门店类型', code: 'convenience', name: '便利店', sort: 1, enabled: true },
-      { id: 11, group: 'store_type', groupName: '门店类型', code: 'restaurant', name: '餐饮', sort: 2, enabled: true },
-      { id: 12, group: 'store_type', groupName: '门店类型', code: 'gym', name: '健身房', sort: 3, enabled: true },
-      { id: 13, group: 'store_type', groupName: '门店类型', code: 'milk-tea', name: '奶茶/饮品', sort: 4, enabled: true },
-
-      { id: 14, group: 'review_status', groupName: '审核状态', code: 'pending', name: '待审核', sort: 1, enabled: true },
-      { id: 15, group: 'review_status', groupName: '审核状态', code: 'approved', name: '已通过', sort: 2, enabled: true },
-      { id: 16, group: 'review_status', groupName: '审核状态', code: 'rejected', name: '已驳回', sort: 3, enabled: true },
-
-      { id: 17, group: 'refund_status', groupName: '退款状态', code: 'PENDING', name: '待审核', sort: 1, enabled: true },
-      { id: 18, group: 'refund_status', groupName: '退款状态', code: 'APPROVED', name: '已通过', sort: 2, enabled: true },
-      { id: 19, group: 'refund_status', groupName: '退款状态', code: 'SUCCESS', name: '退款成功', sort: 3, enabled: true },
-      { id: 20, group: 'refund_status', groupName: '退款状态', code: 'REJECTED', name: '已驳回', sort: 4, enabled: true },
-
-      { id: 21, group: 'payment_status', groupName: '支付状态', code: 'PAID', name: '已支付', sort: 1, enabled: true },
-      { id: 22, group: 'payment_status', groupName: '支付状态', code: 'PAYING', name: '支付中', sort: 2, enabled: true },
-      { id: 23, group: 'payment_status', groupName: '支付状态', code: 'SUCCESS', name: '成功', sort: 3, enabled: true },
-      { id: 24, group: 'payment_status', groupName: '支付状态', code: 'PENDING', name: '处理中', sort: 4, enabled: true },
-
-      { id: 25, group: 'execute_status', groupName: '分账执行状态', code: 'PENDING', name: '待执行', sort: 1, enabled: true },
-      { id: 26, group: 'execute_status', groupName: '分账执行状态', code: 'RUNNING', name: '执行中', sort: 2, enabled: true },
-      { id: 27, group: 'execute_status', groupName: '分账执行状态', code: 'SUCCESS', name: '成功', sort: 3, enabled: true },
-      { id: 28, group: 'execute_status', groupName: '分账执行状态', code: 'FAILED', name: '失败', sort: 4, enabled: true },
-
-      { id: 29, group: 'ledger_status', groupName: '资金台账状态', code: 'PENDING', name: '待结算', sort: 1, enabled: true },
-      { id: 30, group: 'ledger_status', groupName: '资金台账状态', code: 'SETTLEABLE', name: '可结算', sort: 2, enabled: true },
-      { id: 31, group: 'ledger_status', groupName: '资金台账状态', code: 'FROZEN', name: '冻结', sort: 3, enabled: true },
-      { id: 32, group: 'ledger_status', groupName: '资金台账状态', code: 'SETTLED', name: '已结算', sort: 4, enabled: true },
-
-      { id: 33, group: 'reconcile_status', groupName: '对账状态', code: 'open', name: '待处理', sort: 1, enabled: true },
-      { id: 34, group: 'reconcile_status', groupName: '对账状态', code: 'resolved', name: '已处理', sort: 2, enabled: true },
-
-      { id: 35, group: 'snapshot_status', groupName: '快照状态', code: 'valid', name: '有效', sort: 1, enabled: true },
-      { id: 36, group: 'snapshot_status', groupName: '快照状态', code: 'invalid', name: '已作废', sort: 2, enabled: true },
-
-      { id: 37, group: 'withdraw_status', groupName: '提现状态', code: 'pending', name: '待审核', sort: 1, enabled: true },
-      { id: 38, group: 'withdraw_status', groupName: '提现状态', code: 'approved', name: '已通过', sort: 2, enabled: true },
-      { id: 39, group: 'withdraw_status', groupName: '提现状态', code: 'rejected', name: '已驳回', sort: 3, enabled: true },
-
-      { id: 40, group: 'verify_type', groupName: '核销类型', code: 'order', name: '订单', sort: 1, enabled: true },
-      { id: 41, group: 'verify_type', groupName: '核销类型', code: 'exchange', name: '兑换', sort: 2, enabled: true },
-
-      { id: 42, group: 'verify_result', groupName: '核销结果', code: 'success', name: '核销成功', sort: 1, enabled: true },
-      { id: 43, group: 'verify_result', groupName: '核销结果', code: 'rejected', name: '重复拦截', sort: 2, enabled: true },
-
-      { id: 44, group: 'coupon_type', groupName: '优惠券类型', code: 'voucher', name: '代金券', sort: 1, enabled: true },
-      { id: 45, group: 'coupon_type', groupName: '优惠券类型', code: 'discount', name: '折扣券', sort: 2, enabled: true },
-
-      { id: 46, group: 'enabled_status', groupName: '启用状态', code: 'true', name: '启用', sort: 1, enabled: true },
-      { id: 47, group: 'enabled_status', groupName: '启用状态', code: 'false', name: '停用', sort: 2, enabled: true },
-
-      { id: 48, group: 'gender', groupName: '性别', code: 'male', name: '男', sort: 1, enabled: true },
-      { id: 49, group: 'gender', groupName: '性别', code: 'female', name: '女', sort: 2, enabled: true },
-      { id: 50, group: 'gender', groupName: '性别', code: 'unknown', name: '未知', sort: 3, enabled: true },
-
-      { id: 51, group: 'data_scope', groupName: '数据范围', code: 'platform', name: '平台级', sort: 1, enabled: true },
-      { id: 52, group: 'data_scope', groupName: '数据范围', code: 'store', name: '门店级', sort: 2, enabled: true },
-
-      { id: 53, group: 'exchange_status', groupName: '兑换记录状态', code: 'pending_payment', name: '待支付', sort: 1, enabled: true },
-      { id: 54, group: 'exchange_status', groupName: '兑换记录状态', code: 'pending_delivery', name: '待发货', sort: 2, enabled: true },
-      { id: 55, group: 'exchange_status', groupName: '兑换记录状态', code: 'pending_receipt', name: '待收货', sort: 3, enabled: true },
-      { id: 56, group: 'exchange_status', groupName: '兑换记录状态', code: 'pending_verify', name: '待核销', sort: 4, enabled: true },
-      { id: 57, group: 'exchange_status', groupName: '兑换记录状态', code: 'verified', name: '已核销', sort: 5, enabled: true },
-      { id: 58, group: 'exchange_status', groupName: '兑换记录状态', code: 'completed', name: '已完成', sort: 6, enabled: true },
-
-      { id: 59, group: 'split_ready', groupName: '分账完整度', code: 'ready', name: '完整', sort: 1, enabled: true },
-      { id: 60, group: 'split_ready', groupName: '分账完整度', code: 'incomplete', name: '未完整', sort: 2, enabled: true },
-
-      { id: 61, group: 'split_scope', groupName: '分账范围', code: 'global', name: '全局', sort: 1, enabled: true },
-      { id: 62, group: 'split_scope', groupName: '分账范围', code: 'product', name: '商品', sort: 2, enabled: true },
-
-      { id: 63, group: 'fund_flow_type', groupName: '资金流水类型', code: 'INCOME', name: '订单入账', sort: 1, enabled: true },
-      { id: 64, group: 'fund_flow_type', groupName: '资金流水类型', code: 'WITHDRAW', name: '提现出款', sort: 2, enabled: true },
-      { id: 65, group: 'fund_flow_type', groupName: '资金流水类型', code: 'REFUND', name: '退款', sort: 3, enabled: true },
-      { id: 66, group: 'fund_flow_type', groupName: '资金流水类型', code: 'FREEZE', name: '冻结', sort: 4, enabled: true },
-      { id: 67, group: 'fund_flow_type', groupName: '资金流水类型', code: 'UNFREEZE', name: '解冻', sort: 5, enabled: true },
-      { id: 68, group: 'fund_flow_type', groupName: '资金流水类型', code: 'ADJUST', name: '调整', sort: 6, enabled: true },
-
-      { id: 69, group: 'order_type', groupName: '订单类型', code: 'store', name: '门店订单', sort: 1, enabled: true },
-      { id: 70, group: 'order_type', groupName: '订单类型', code: 'stored-value', name: '储值订单', sort: 2, enabled: true },
-      { id: 71, group: 'order_type', groupName: '订单类型', code: 'gift-card', name: '礼品卡订单', sort: 3, enabled: true },
-
-      { id: 72, group: 'member_level', groupName: '会员等级', code: 'Lv1', name: '时光卡', sort: 1, enabled: true },
-      { id: 73, group: 'member_level', groupName: '会员等级', code: 'Lv2', name: '星享卡', sort: 2, enabled: true },
-      { id: 74, group: 'member_level', groupName: '会员等级', code: 'Lv3', name: '挚友卡', sort: 3, enabled: true }
-    ],
-    productCategories: [
-      { id: 1, code: 'milk-tea', name: '鲜奶茶', tag: '热销', sort: 1, enabled: true },
-      { id: 2, code: 'fruit-tea', name: '水果茶', tag: '新品', sort: 2, enabled: true },
-      { id: 3, code: 'leaf-tea', name: '原叶茶', tag: '', sort: 3, enabled: true },
-      { id: 4, code: 'seasonal', name: '季节限定', tag: '限定', sort: 4, enabled: true }
-    ],
-    provinces: [
-      { id: 1, code: 'hunan', name: '湖南省', sort: 1, enabled: true },
-      { id: 2, code: 'guangdong', name: '广东省', sort: 2, enabled: true }
-    ],
-    cities: [
-      { id: 1, provinceCode: 'hunan', code: 'changsha', name: '长沙市', latitude: 28.2282, longitude: 112.9388, sort: 1, enabled: true },
-      { id: 2, provinceCode: 'guangdong', code: 'guangzhou', name: '广州市', latitude: 23.1291, longitude: 113.2644, sort: 2, enabled: true },
-      { id: 3, provinceCode: 'guangdong', code: 'shenzhen', name: '深圳市', latitude: 22.5431, longitude: 114.0579, sort: 3, enabled: true }
-    ],
-    storeTypes: [
-      { id: 1, code: 'convenience', name: '便利店', sort: 1, enabled: true },
-      { id: 2, code: 'restaurant', name: '餐饮', sort: 2, enabled: true },
-      { id: 3, code: 'gym', name: '健身房', sort: 3, enabled: true },
-      { id: 4, code: 'milk-tea', name: '奶茶/饮品', sort: 4, enabled: true }
-    ],
-    pointsProducts: [
-      { id: 1, name: '五零时光公益宠粮', category: 'pet', image: '/assets/images/3x/points-product-pet.jpg', points: 20, stock: 5879, badge: '限时抢兑', badgeInImage: false, limitText: '', description: '五零时光公益宠粮，每月善款用于购买大米捐赠并持续追踪后续。' },
-      { id: 2, name: '五零时光公仔挂件', category: 'pet', image: '/assets/images/3x/points-product-pet.jpg', points: 500, stock: 100, badge: '', badgeInImage: false, limitText: '', description: '五零时光公仔挂件，限量兑换。' },
-      { id: 3, name: '超浓抹茶系列买一送一券', category: 'coupon', image: '/assets/images/3x/points-product-matcha.jpg', points: 300, stock: 51, badge: '限时抢兑', badgeInImage: false, limitText: '*每人仅可兑换一次', description: '超浓抹茶系列买一送一券，兑换后7天内有效。' },
-      { id: 4, name: '超浓抹茶系列单杯3元券', category: 'coupon', image: '/assets/images/3x/points-product-single.jpg', points: 300, stock: 51, badge: '限时抢兑', badgeInImage: true, limitText: '*每人仅可兑换一次', description: '超浓抹茶系列单杯3元优惠券。' },
-      { id: 5, name: '超浓抹茶系列第2杯半价券', category: 'coupon', image: '/assets/images/3x/points-product-half.jpg', points: 300, stock: 51, badge: '限时抢兑', badgeInImage: true, limitText: '*每人仅可兑换一次', description: '超浓抹茶系列第2杯半价券。' }
-    ],
-    pointsEarningRules: [
-      { id: 1, action: '每消费1元', reward: '+1币', note: '基础获取通道' },
-      { id: 2, action: '每日签到', reward: '+1币', note: '连续签到7天额外+20币' },
-      { id: 3, action: '邀请好友注册', reward: '+3币/人', note: '好友完成首单后到账' }
-    ],
+    subjects: [],
+    users: [],
+    roleApplications: [],
+    roles: [],
+    grants: [],
+    products: [],
+    specs: [],
+    splitRules: [],
+    orders: [],
+    payments: [],
+    refunds: [],
+    verifies: [],
+    snapshots: [],
+    fundPool: [],
+    subjectAccounts: [],
+    fundFlows: [],
+    reconciles: [],
+    features: [],
+    withdrawals: [],
+    verifyPool: [],
+    coupons: [],
+    storedValuePackages: [],
+    giftCards: [],
+    giftCardDenominations: [],
+    giftCardOrders: [],
+    dictEntries: [],
+    productCategories: [],
+    provinces: [],
+    cities: [],
+    storeTypes: [],
+    pointsProducts: [],
+    pointsEarningRules: [],
     signInDaily: 1 as any,
     signInRewards: [{ days: 7, amount: 20 }] as any,
-    referralConfig: {
-      id: 1,
-      inviteCodePrefix: 'WLG',
-      firstOrderPoints: 3,
-      firstOrderCouponAmount: 3,
-      socialStarThreshold: 5,
-      socialStarProduct: '',
-      recommenderThreshold: 10,
-      recommenderRebateRate: 5
-    } as any,
-    exchangeRecords: [
-      { id: 1, recordNo: 'EX202609180001', user: '微信用户1', product: '五零时光公仔挂件', points: 500, status: 'pending_verify', applyTime: now() },
-      { id: 2, recordNo: 'EX202609180002', user: '微信用户2', product: '超浓抹茶系列买一送一券', points: 300, status: 'completed', applyTime: now() },
-      { id: 3, recordNo: 'EX202609180003', user: '微信用户3', product: '超浓抹茶系列单杯3元券', points: 300, status: 'pending_payment', applyTime: now() }
-    ],
-    memberLevels: [
-      {
-        id: 1,
-        level: 'Lv1',
-        name: '时光卡',
-        amountTarget: 0,
-        condition: '注册即得',
-        discount: '8折',
-        benefits: ['基础折扣', '生日月双倍时光币', '专属会员价']
-      },
-      {
-        id: 2,
-        level: 'Lv2',
-        name: '星享卡',
-        amountTarget: 300,
-        condition: '累计消费满300元',
-        discount: '7折',
-        benefits: ['基础折扣', '专属优惠券', '新品优先体验']
-      },
-      {
-        id: 3,
-        level: 'Lv3',
-        name: '挚友卡',
-        amountTarget: 2000,
-        condition: '累计消费满2000元',
-        discount: '6折',
-        benefits: ['专属优惠券', '时光币1.5倍', '生日免费饮品']
-      }
-    ],
-    comments: [
-      {
-        id: 1,
-        userId: 'U1000',
-        nickName: '微信用户1',
-        orderNo: 'O202609180021',
-        product: '抹茶芝士芭乐',
-        rating: 5,
-        content: '很好喝，抹茶味很浓',
-        status: 'pending',
-        time: now()
-      },
-      {
-        id: 2,
-        userId: 'U1001',
-        nickName: '微信用户2',
-        orderNo: 'O202609180019',
-        product: '红苹果乌龙冰奶',
-        rating: 4,
-        content: '口感不错',
-        status: 'pending',
-        time: now()
-      }
-    ],
+    referralConfig: {} as any,
+    exchangeRecords: [],
+    memberLevels: [],
+    comments: [],
     auditLogs: []
   };
 }
@@ -1550,11 +369,13 @@ function migrate(data: AdminData): AdminData {
     }
     // 价格分转元（老数据 price > 100 视为分）
     if (typeof product.price === 'number' && product.price > 100) product.price = product.price / 100;
-    if (typeof product.originalPrice === 'number' && product.originalPrice > 100) product.originalPrice = product.originalPrice / 100;
+    if (typeof product.originalPrice === 'number' && product.originalPrice > 100)
+      product.originalPrice = product.originalPrice / 100;
     if (product.costPrice == null) product.costPrice = Math.round((product.price || 0) * 0.5 * 10) / 10;
     if (!Array.isArray(product.tags)) product.tags = [];
     if (product.storedValuePrice == null) product.storedValuePrice = product.price;
-    if (product.platformCommission == null) product.platformCommission = Math.round((product.costPrice || 0) * 0.1 * 10) / 10;
+    if (product.platformCommission == null)
+      product.platformCommission = Math.round((product.costPrice || 0) * 0.1 * 10) / 10;
     if (!product.badgeIcon) product.badgeIcon = '';
     if (!product.ingredients) product.ingredients = '';
     if (!product.allergens) product.allergens = '';
@@ -1694,7 +515,14 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     let beforeSummary = summarize(before);
     let afterSummary = summarize(after);
 
-    if (before && after && typeof before === 'object' && typeof after === 'object' && !Array.isArray(before) && !Array.isArray(after)) {
+    if (
+      before &&
+      after &&
+      typeof before === 'object' &&
+      typeof after === 'object' &&
+      !Array.isArray(before) &&
+      !Array.isArray(after)
+    ) {
       const changedKeys = Object.keys(after).filter(key => JSON.stringify(before[key]) !== JSON.stringify(after[key]));
       const beforeDiff = Object.fromEntries(changedKeys.map(key => [key, before[key]]));
       const afterDiff = Object.fromEntries(changedKeys.map(key => [key, after[key]]));
@@ -1725,20 +553,207 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    * 若不转换，写库会因字段名不匹配被 CrudRegistry 白名单丢弃，
    * 或因值大小写不符导致数据不一致。
    */
+  /** 后端大写角色枚举 -> 前端小写 RoleType（资源方 = 渠道 CHANNEL）。 */
+  /** 审计日志模块码 -> 中文（与页面 moduleLabels 保持一致，集中在此便于复用） */
+  const AUDIT_MODULE_LABELS: Record<string, string> = {
+    AUTH: '鉴权',
+    PAY: '支付',
+    WITHDRAW: '提现',
+    SUBJECTS: '主体管理',
+    USERS: '用户管理',
+    USER: '用户管理',
+    PRODUCT: '商品中心',
+    PRODUCTS: '商品中心',
+    TRADE: '交易中心',
+    ORDER: '订单管理',
+    MARKETING: '营销中心',
+    FINANCE: '财务中心',
+    SYSTEM: '系统配置',
+    AUDIT: '审计日志'
+  };
+
+  /** 审计日志动作码 -> 中文 */
+  const AUDIT_ACTION_LABELS: Record<string, string> = {
+    LOGIN: '登录',
+    LOGIN_FAIL: '登录失败',
+    LOGIN_FAIL_LOCKED: '登录失败并锁定',
+    LOGIN_BLOCKED: '登录拦截',
+    CALLBACK: '支付回调',
+    CALLBACK_REJECT: '回调拒绝',
+    ADMIN_APPLY: '后台代发起提现',
+    APPROVE: '审核通过',
+    REJECT: '审核驳回',
+    MARK_FAILED: '标记出款失败',
+    ADD: '新增',
+    CREATE: '新增',
+    EDIT: '编辑',
+    UPDATE: '编辑',
+    DELETE: '删除',
+    REMOVE: '删除',
+    BIND: '绑定',
+    UNBIND: '解绑',
+    ENABLE: '启用',
+    DISABLE: '停用',
+    FREEZE: '冻结',
+    UNFREEZE: '解冻',
+    VERIFY: '核销',
+    REFUND: '退款'
+  };
+
+  const ROLE_CODE_TO_TYPE: Record<string, string> = {
+    STORE: 'store',
+    INVESTOR: 'investor',
+    CHANNEL: 'resource',
+    RESOURCE: 'resource'
+  };
+
   /**
    * 读操作后的字段归一化（按资源类型）。
    *
    * <p>subjects：后端返回 `subjectType`（大写值，如 STORE），
    * 而页面历史代码按 `type`（小写）过滤与展示。若不归一化，
    * 列表与内嵌下拉都会恒为空。这里做双写，保持对既有页面的兼容。
+   *
+   * <p>users：`app_user` 只存 `bound_subject_id`（数字）与 `business_role`（大写），
+   * 而页面按 `boundSubjectName` / 小写 `businessRole` 展示。后端不会返回 boundSubjectName，
+   * 若不在此补齐，会同时出现两个现象：
+   * 「绑定主体」列恒为 —（数据已落库，只是没解析成主体名）；
+   * 「经营角色」列原样显示英文 STORE（大写不命中页面小写映射）。
+   *
+   * <p><b>调用前提</b>：`subjects` 镜像需已加载（boundSubjectId -> 主体名依赖它），
+   * 故用户列表页须先 `loadRemote('subjects')` 再查询 users。
    */
   function normalizeRemoteRow(key: string, rows: any[]) {
-    if (!Array.isArray(rows) || key !== 'subjects') return rows;
-    return rows.map(r => ({
-      ...r,
-      subjectType: r.subjectType,
-      type: String(r.subjectType || '').toLowerCase()
-    }));
+    if (!Array.isArray(rows)) return rows;
+
+    /** 按主体 id 取名称（依赖 subjects 镜像；未加载时返回 null） */
+    const subjectNameById = (id: any) => {
+      if (id == null) return null;
+      const hit = ensure('subjects').find((s: any) => Number(s.id) === Number(id));
+      return hit ? hit.name : null;
+    };
+    /** 角色码统一转小写，命中页面中文映射（STORE -> store -> 门店） */
+    const lowerRole = (v: any) => (v ? String(v).toLowerCase() : null);
+
+    if (key === 'subjects') {
+      return rows.map(r => ({
+        ...r,
+        subjectType: r.subjectType,
+        type: String(r.subjectType || '').toLowerCase(),
+        // boundUserId 存数字用户 id（app_user 主键即 id），统一为 number 便于严格比较
+        boundUserId: r.boundUserId == null ? null : Number(r.boundUserId)
+      }));
+    }
+
+    if (key === 'users') {
+      return rows.map(r => {
+        const boundId = r.boundSubjectId == null ? null : Number(r.boundSubjectId);
+        const rawRole = r.businessRole == null ? '' : String(r.businessRole);
+        return {
+          ...r,
+          boundSubjectId: boundId,
+          // 主体名由前端按 id 解析（app_user 无 bound_subject_name 列）
+          boundSubjectName: subjectNameById(boundId),
+          // 大写 STORE -> 小写 store，命中页面 roleOptions 后显示「门店」
+          businessRole: rawRole ? (ROLE_CODE_TO_TYPE[rawRole.toUpperCase()] ?? rawRole.toLowerCase()) : null
+        };
+      });
+    }
+
+    // ---------- 财务 / 交易：补齐 subjectName、roleType 小写 ----------
+
+    if (key === 'fundFlows') {
+      return rows.map(r => ({
+        ...r,
+        // 表只存 subject_id，页面「经营方」列需要名称
+        subjectName: r.subjectName ?? subjectNameById(r.subjectId) ?? '—',
+        roleType: lowerRole(r.roleType),
+        // 页面读 poolBalanceAfter，表列名为 balance_after
+        poolBalanceAfter: r.poolBalanceAfter ?? r.balanceAfter
+      }));
+    }
+
+    if (key === 'subjectAccounts' || key === 'fundPool') {
+      return rows.map(r => ({
+        ...r,
+        subjectName: r.subjectName ?? subjectNameById(r.subjectId) ?? '—',
+        roleType: lowerRole(r.roleType)
+      }));
+    }
+
+    if (key === 'withdrawals') {
+      return rows.map(r => ({
+        ...r,
+        // 页面「申请人」列读 nickName，表里只有 user_id / subject_id
+        nickName: r.nickName ?? subjectNameById(r.subjectId) ?? '—',
+        roleType: lowerRole(r.roleType)
+      }));
+    }
+
+    // ---------- 核销：字段名对齐 + 结果码统一 + 门店名 ----------
+
+    if (key === 'verifies' || key === 'verifyRecords' || key === 'verifyPool') {
+      return rows.map(r => {
+        const raw = r.result == null ? '' : String(r.result).toUpperCase();
+        return {
+          ...r,
+          // 页面读 store / time，接口给的是 storeSubjectId / createTime
+          store: r.store ?? r.storeName ?? subjectNameById(r.storeSubjectId) ?? '—',
+          time: r.time ?? r.createTime,
+          // 后端 SUCCESS/FAIL -> 页面映射用的 success/failed；rejected 保留（重复拦截）
+          result: raw === 'SUCCESS' ? 'success' : raw === 'FAIL' ? 'failed' : r.result
+        };
+      });
+    }
+
+    // ---------- 角色申请：申请人字段对齐 + extra_form 平铺 ----------
+
+    if (key === 'roleApplications') {
+      return rows.map(r => {
+        let extra: Record<string, any> = {};
+        try {
+          extra = r.extraForm ? (typeof r.extraForm === 'string' ? JSON.parse(r.extraForm) : r.extraForm) : {};
+        } catch {
+          extra = {};
+        }
+        return {
+          ...r,
+          // 页面读 nickName / name / phone，接口给的是 applicantName / applicantPhone
+          nickName: r.nickName ?? r.applicantName ?? null,
+          name: r.name ?? r.applicantName ?? null,
+          phone: r.phone ?? r.applicantPhone ?? null,
+          roleType: lowerRole(r.roleType),
+          ...extra
+        };
+      });
+    }
+
+    // ---------- 用户角色授权：显示名对齐 ----------
+
+    if (key === 'grants') {
+      return rows.map(r => ({
+        ...r,
+        // 页面「用户」「角色」「主体」列分别读 userId/roleCode/subjectId，
+        // 但应展示名称/中文，这里补写同名展示字段
+        user: r.userName ?? r.user ?? String(r.userId ?? '—'),
+        role: lowerRole(r.roleCode),
+        roleCode: lowerRole(r.roleCode),
+        subject: r.subjectName ?? r.subject ?? String(r.subjectId ?? '—'),
+        subjectName: r.subjectName ?? subjectNameById(r.subjectId) ?? '—'
+      }));
+    }
+
+    // ---------- 审计日志：模块/动作中文化 ----------
+
+    if (key === 'auditLogs') {
+      return rows.map(r => ({
+        ...r,
+        module: AUDIT_MODULE_LABELS[String(r.module || '').toUpperCase()] ?? r.module,
+        action: AUDIT_ACTION_LABELS[String(r.action || '').toUpperCase()] ?? r.action
+      }));
+    }
+
+    return rows;
   }
 
   function normalizeWritePayload(key: string, payload: Record<string, any>) {
@@ -2008,6 +1023,41 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   }
 
   /**
+   * 归一化时需要 subjects 镜像做 id -> 名称解析的资源。
+   *
+   * <p>若不自动预加载，用户直接进入这些列表页（而非先经过主体管理）时，
+   * boundSubjectName / subjectName / store 等字段会全部为空 —— 表现为
+   * 「绑定主体」「经营方」「门店」列显示 —，而数据其实已在库中。
+   */
+  const NEEDS_SUBJECTS = new Set([
+    'users',
+    'fundFlows',
+    'subjectAccounts',
+    'fundPool',
+    'withdrawals',
+    'verifies',
+    'verifyRecords',
+    'verifyPool',
+    'grants'
+  ]);
+
+  /** 确保 subjects 镜像已加载（仅首次真正请求，之后走内存） */
+  async function ensureSubjectsLoaded() {
+    if (remoteLoaded.value.subjects) return;
+    const remote = REMOTE_RESOURCES.subjects;
+    if (!remote) return;
+    try {
+      const page = await crudPage(remote, { current: 1, size: 200 });
+      const list = ensure('subjects');
+      list.splice(0, list.length, ...normalizeRemoteRow('subjects', page?.records || []));
+      remoteLoaded.value.subjects = true;
+      persist();
+    } catch {
+      // 静默失败：主体镜像仅为展示增强，不应阻断主列表加载
+    }
+  }
+
+  /**
    * 从后端加载配置类资源到本地镜像（远端模式）。
    * 页面 onMounted 调用即可，未登记的资源会跳过。
    */
@@ -2015,6 +1065,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     const remote = REMOTE_RESOURCES[key];
     if (!remote) return null;
     try {
+      if (NEEDS_SUBJECTS.has(key)) await ensureSubjectsLoaded();
       const page = await crudPage(remote, { current: 1, size: 200, ...params });
       const list = ensure(key);
       // 同样应用字段归一化：页面内嵌下拉（如 subjects 按 type 过滤）依赖它
@@ -2046,8 +1097,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    * 目的是避免「界面显示的数据其实是旧假数据」这种误导性状态；
    * 页面应捕获并展示错误，而不是静默使用本地数据。
    */
-  async function queryRemote
-  (
+  async function queryRemote(
     key: string,
     search: Record<string, any>,
     page: number,
@@ -2060,12 +1110,33 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       return { data: (res as any)?.records || [], total: (res as any)?.total || 0 };
     }
 
+    // 分账快照走 /admin/finance/snapshots：该接口额外聚合 order_item 得到
+    // summary（商品信息）。若走通用 CRUD 单表查询，列表「商品信息」列恒为空。
+    if (key === 'snapshots') {
+      const res: any = await fetchAdminSnapshots({ current: page, size: pageSize });
+      const records = res?.records ?? res?.data?.records ?? [];
+      const total = res?.total ?? res?.data?.total ?? 0;
+      return { data: normalizeRemoteRow('snapshots', records), total };
+    }
+
+    // 角色授权走 /admin/auth/grants：该接口 join 了 app_user / biz_subject，
+    // 能直接给出 userName / subjectName。若走通用 CRUD，只会返回 user_role_grant
+    // 单表的 userId / subjectId，「用户」「主体」两列将退化为数字 id。
+    if (key === 'grants') {
+      const res: any = await fetchAdminRoleGrants({ current: page, size: pageSize });
+      const records = res?.records ?? res?.data?.records ?? [];
+      const total = res?.total ?? res?.data?.total ?? 0;
+      return { data: normalizeRemoteRow('grants', records), total };
+    }
+
     const normalize = (rows: any[]) => normalizeRemoteRow(key, rows);
 
     const remote = REMOTE_RESOURCES[key];
     if (!remote) {
       throw new Error(`资源未接入后端：${key}`);
     }
+    // 归一化需要 subjects 做 id -> 名称解析时，先确保镜像已加载
+    if (NEEDS_SUBJECTS.has(key)) await ensureSubjectsLoaded();
     // 去除空搜索项，避免后端拼接无意义的 like 条件。
     //
     // 等值过滤约定：搜索项 key 以 eq_ 开头的，后端会按「等值过滤」处理
@@ -2219,11 +1290,11 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   async function bindUserRole(userId: number, roleType: RoleType, subjectCode: string, subjectName: string) {
     const users = ensure('users');
     const subjects = ensure('subjects');
-    const user = users.find((u: any) => u.id === userId);
+    const user = users.find((u: any) => Number(u.id) === Number(userId));
     if (!user) return;
 
-    // 一个用户只能绑定一个主体
-    if (user.boundSubjectId) {
+    // 一个用户只能绑定一个主体（boundSubjectId 为数字 id，判空即可）
+    if (user.boundSubjectId != null && user.boundSubjectId !== '') {
       window.$message?.warning('该用户已绑定主体，请先解绑');
       return;
     }
@@ -2256,14 +1327,23 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   /**
    * 解绑用户与主体（走后端接口）。
    *
-   * 后端按 (userId, roleCode, subjectId) 定位绑定记录，三者都需提供。
+   * <p>后端按 (userId, roleCode, subjectId) 定位绑定记录，三者都需提供。
+   *
+   * <p><b>历史 Bug（本方法修复）</b>：原写法用
+   * `subjects.find(s => s.code === user.boundSubjectId)` 定位主体，
+   * 但 `boundSubjectId` 是后端 `app_user.bound_subject_id` 的**数字 id**，
+   * 而 `code` 是形如 `ST-1001` 的**字符串编码**，两者恒不相等 ——
+   * subject 恒为 undefined，方法在警告后直接 return，
+   * **DELETE 请求从未发出，数据库绑定关系丝毫未动**。
+   * 表现为「点了解绑、页面提示未绑定，刷新后数据仍在」。
+   * <p>现改为：优先按数字 id 匹配，并兼容早期可能存入 code 的脏数据。
    */
   async function unbindUserRole(userId: number, reason = '') {
     const users = ensure('users');
-    const subjects = ensure('subjects');
     const user = users.find((u: any) => u.id === userId);
     if (!user) return;
-    const subject = subjects.find((s: any) => s.code === user.boundSubjectId);
+
+    const subject = resolveUserSubject(user);
     if (!subject) {
       window.$message?.warning('该用户未绑定主体');
       return;
@@ -2272,25 +1352,48 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     await unbindUserRoleApi(userId, roleCode, Number(subject.id));
     await loadRemote('users');
     await loadRemote('subjects');
-    audit('用户管理', '解绑', user.nickName || String(userId), {
-      businessRole: roleCode,
-      boundSubjectId: subject.id,
-      boundSubjectName: subject.name
-    }, null, reason);
+    audit(
+      '用户管理',
+      '解绑',
+      user.nickName || String(userId),
+      {
+        businessRole: roleCode,
+        boundSubjectId: subject.id,
+        boundSubjectName: subject.name
+      },
+      null,
+      reason
+    );
+  }
+
+  /**
+   * 由用户记录反查其绑定主体。
+   *
+   * <p>`boundSubjectId` 是数字 id，但历史脏数据里可能存过主体 code，
+   * 故先按 id 匹配、再按 code 兜底，避免任一种形态导致「查不到主体」
+   * 而让解绑/校验逻辑静默失效。
+   */
+  function resolveUserSubject(user: any) {
+    const subjects = ensure('subjects');
+    const raw = user?.boundSubjectId;
+    if (raw == null || raw === '') return null;
+    const byId = subjects.find((s: any) => Number(s.id) === Number(raw));
+    if (byId) return byId;
+    return subjects.find((s: any) => s.code === raw) ?? null;
   }
   /** 主体列表：绑定用户（任意活跃状态可绑定；已绑定需先解绑） */
   /** 主体列表：绑定用户（任意活跃状态可绑定；已绑定需先解绑） */
   async function bindSubjectUser(subjectId: number, userId: number) {
     const subjects = ensure('subjects');
-    const subject = subjects.find((s: any) => s.id === subjectId);
+    const subject = subjects.find((s: any) => Number(s.id) === Number(subjectId));
     if (!subject) return;
     if (subject.boundUserId) {
       window.$message?.warning('该经营者已绑定用户，请先解绑');
       return;
     }
-    const user = ensure('users').find((u: any) => u.id === userId);
+    const user = ensure('users').find((u: any) => Number(u.id) === Number(userId));
     if (!user) return;
-    if (user.boundSubjectId) {
+    if (user.boundSubjectId != null && user.boundSubjectId !== '') {
       window.$message?.warning('该用户已绑定主体，请先解绑');
       return;
     }
@@ -2302,7 +1405,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   /** 主体列表：解绑用户（仅停用态可解绑） */
   async function unbindSubjectUser(subjectId: number, reason = '') {
     const subjects = ensure('subjects');
-    const subject = subjects.find((s: any) => s.id === subjectId);
+    const subject = subjects.find((s: any) => Number(s.id) === Number(subjectId));
     if (!subject) return;
     if (!subject.boundUserId) {
       window.$message?.warning('该经营者未绑定用户');
@@ -2476,7 +1579,14 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    * 投资人 = max(0, 基础) × X%
    * 平台 = 实付 - 成本 - 门店 - 资源方 - 投资人（可能为负，平台承担）
    */
-  function calcOrderSplit(paid: number, itemCount: number, costTotal: number, rule: any, hasChannel: boolean, platformCommission = 0) {
+  function calcOrderSplit(
+    paid: number,
+    itemCount: number,
+    costTotal: number,
+    rule: any,
+    hasChannel: boolean,
+    platformCommission = 0
+  ) {
     const storeShare = (rule?.storePerItem ?? 0) * itemCount;
     const channelShare = hasChannel ? (rule?.channelPerItem ?? 0) * itemCount : 0;
     const base = paid - costTotal - storeShare - channelShare;
@@ -2506,7 +1616,17 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     const accounts = ensure('subjectAccounts');
     let acc = accounts.find((a: any) => a.subjectId === subjectId);
     if (!acc) {
-      acc = { id: nextId(accounts), subjectId, subjectName, roleType, availableBalance: 0, frozenBalance: 0, totalIncome: 0, totalWithdrawn: 0, updateTime: now() };
+      acc = {
+        id: nextId(accounts),
+        subjectId,
+        subjectName,
+        roleType,
+        availableBalance: 0,
+        frozenBalance: 0,
+        totalIncome: 0,
+        totalWithdrawn: 0,
+        updateTime: now()
+      };
       accounts.unshift(acc);
     }
     return acc;
@@ -2743,15 +1863,3 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     reviewComment
   };
 });
-
-
-
-
-
-
-
-
-
-
-
-

@@ -29,6 +29,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p><b>覆盖范围</b>：
  * 只检查「真正调用 store.add/update/patch('资源名', ...)」的页面。
  * 走专用接口的页面（如门店、渠道、商品）不参与校验，避免误报。
+ *
+ * <p><b>专用接口路径见 {@link DedicatedEndpointConsistencyTest}</b>：
+ * 2026-09-25 的线上 Bug（经营角色显示英文 STORE / 绑定主体列为空 / 解绑无效）
+ * 恰好落在本测试的盲区内 —— 它走的是 SubjectBindingController 专用接口，
+ * 既不在 CrudRegistry 白名单，也不被本测试扫描。该路径已由 DedicatedEndpointConsistencyTest 覆盖。
  */
 class FieldWriteConsistencyTest {
 

@@ -487,7 +487,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         path: '/subject/channel',
         component: 'view.subject_channel',
         meta: {
-          title: '渠道管理',
+          title: '资源方管理',
           icon: 'mdi:share-variant',
           order: 3,
           roles: ['R_SUPER', 'R_OPERATION'],

@@ -50,6 +50,12 @@ spring:
           uri: http://127.0.0.1:8084
           predicates:
             - Path=/api/v1/admin/trade/**
+        # 商品服务（本地直连，第 13 期）—— 管理端商品/分类/规格，需排在 server 通配之前
+        - id: product-admin
+          uri: http://127.0.0.1:8091
+          predicates:
+            - Path=/api/v1/admin/product/**,/api/v1/n/**
+
         # 单体后端（本地直连）
         - id: legacy-server
           uri: http://127.0.0.1:8090
@@ -60,3 +66,4 @@ app:
   jwt:
     # 与 server / auth-service 的 dev 默认值保持一致，便于本地联调
     secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}
+

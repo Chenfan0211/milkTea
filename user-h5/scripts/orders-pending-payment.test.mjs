@@ -39,7 +39,7 @@ globalThis.wx = {
       if (options.success) options.success({ statusCode: 200, data: body });
     };
     // 取消订单接口：记录到远端已取消集合，供随后的列表刷新读取
-    if (/\/cancel$/.test(url)) {
+    if (url.endsWith('/cancel')) {
       const orderNo = decodeURIComponent(url.split('/orders/')[1].replace('/cancel', ''));
       remoteCanceled.add(orderNo);
       succeed({ code: 200, data: { orderNo, status: 'CANCELED' } });
@@ -252,7 +252,7 @@ const cancelTargetOrderNo = (orderStore.getOrderById(giftPendingId) || {}).order
 ordersDefinition.cancelOrder.call(ordersPage, { currentTarget: { dataset: { id: giftPendingId } } });
 await new Promise(resolve => setTimeout(resolve, 50));
 assert.ok(
-  calls.some(call => call.type === 'request' && call.method === 'POST' && /\/cancel$/.test(call.url)),
+  calls.some(call => call.type === 'request' && call.method === 'POST' && call.url.endsWith('/cancel')),
   '取消订单必须调用后端取消接口，不得只改本地状态'
 );
 assert.ok(remoteCanceled.has(cancelTargetOrderNo), '取消接口必须携带正确的订单号');

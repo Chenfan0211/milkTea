@@ -6,8 +6,16 @@ name: Field Write Consistency
 # 白名单静默丢弃（接口仍返回 200），表现为「填了数据页面没反应」。
 # 2026-09 曾一次性发现 12 个页面中招，这类问题靠人工排查成本极高。
 #
-# 本工作流在 PR 阶段跑 FieldWriteConsistencyTest，把字段漂移变成
-# 明确的 CI 失败，从源头拦住。
+# 本工作流在 PR 阶段跑两个检查，把字段漂移变成明确的 CI 失败，从源头拦住：
+#   1) FieldWriteConsistencyTest —— 走「通用 CRUD」的页面 vs CrudRegistry 白名单；
+#   2) DedicatedEndpointConsistencyTest —— 走「专用接口」的页面（渠道/投资人/供应商/
+#      平台主体/渠道门店弹窗/积分规则）vs 后端实现返回与写入的字段；
+#   3) AsyncActionAwaitTest —— 行操作的异步 handler 必须 await 后再刷新列表
+#      （2026-09-25「绑定后列表不刷新」即漏了 await 所致）。
+#
+# 为什么要补第 2 项：2026-09-25 线上出现「用户列表显示英文 STORE、绑定主体列为空、
+# 解绑点了没反应」——根因是前端拿数字 bound_subject_id 与字符串 code 比较，
+# 属「专用接口路径」的字段语义不一致。原检查只覆盖通用 CRUD，该路径是盲区。
 
 on:
   pull_request:
@@ -19,11 +27,18 @@ on:
       - 'server/src/main/java/com/wuling/system/crud/**'
       - 'server/src/main/resources/db/migration/**'
       - 'server/src/test/java/com/wuling/common/FieldWriteConsistencyTest.java'
+      - 'server/src/test/java/com/wuling/common/DedicatedEndpointConsistencyTest.java'
+      - 'server/src/main/java/com/wuling/subject/controller/AdminSubjectProfileController.java'
+      - 'server/src/main/java/com/wuling/subject/controller/SubjectBindingController.java'
+      - 'server/src/main/java/com/wuling/system/controller/PlatformProfileController.java'
+      - 'marketing-service/src/main/java/com/wuling/marketing/controller/AdminMarketingConfigController.java'
+      - 'server/src/test/java/com/wuling/common/AsyncActionAwaitTest.java'
+      - 'src/views/_shared/AdminListPage.vue'
       - '.github/workflows/field-write-consistency.yml'
 
 jobs:
   check:
-    name: 字段写库一致性
+    name: 字段写库一致性（通用 CRUD + 专用接口）
     runs-on: ubuntu-latest
 
     steps:
@@ -41,7 +56,12 @@ jobs:
         # 说明：-pl server -am 会把依赖模块（wuling-common 等）一并纳入 reactor，
         # 那些模块没有本测试类，需用 surefire.failIfNoSpecifiedTests=false 忽略；
         # 同时用 -DfailIfNoTests=false 兜底，避免因「无匹配测试」误判失败。
+        #
+        # 说明：DedicatedEndpointConsistencyTest 会读取 marketing-service 下的后端实现
+        # 文件。它按【仓库相对路径】直接读文件（不依赖 Maven 模块），故 -pl server 即可，
+        # 无需把 marketing-service 纳入 reactor。
         run: |
-          mvn -B -pl server -am test -Dtest=FieldWriteConsistencyTest \
+          mvn -B -pl server -am test \
+            -Dtest='FieldWriteConsistencyTest,DedicatedEndpointConsistencyTest,AsyncActionAwaitTest' \
             -Dsurefire.failIfNoSpecifiedTests=false \
             -DfailIfNoTests=false

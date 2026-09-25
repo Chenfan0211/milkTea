@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'finance_flow'
 });
@@ -15,7 +14,12 @@ const store = useAdminStore();
 const route = useRoute();
 
 const roleLabel = (v: string) =>
-  (({ platform: '平台', store: '门店', resource: '资源方', investor: '投资人', supplier: '供应商' }) as Record<string, string>)[v] ?? v;
+  (
+    ({ platform: '平台', store: '门店', resource: '资源方', investor: '投资人', supplier: '供应商' }) as Record<
+      string,
+      string
+    >
+  )[v] ?? v;
 
 const typeMap = statusMap({
   INCOME: ['订单入账', 'success'],
@@ -38,7 +42,13 @@ const columns: DataTableColumns<any> = [
   { title: '金额(元)', key: 'amount', width: 88, align: 'right', render: renderMoney('amount') },
   { title: '经营方', key: 'subjectName', width: 120, render: (row: any) => row.subjectName || '—' },
   { title: '关联订单', key: 'orderNo', width: 125, render: (row: any) => row.orderNo || '—' },
-  { title: '变动后池子余额(元)', key: 'poolBalanceAfter', width: 120, align: 'right', render: renderMoney('poolBalanceAfter') },
+  {
+    title: '变动后池子余额(元)',
+    key: 'poolBalanceAfter',
+    width: 120,
+    align: 'right',
+    render: renderMoney('poolBalanceAfter')
+  },
   { title: '备注', key: 'remark', minWidth: 160, render: (row: any) => row.remark || '—' },
   { title: '时间', key: 'createTime', width: 170, render: renderDateTime('createTime') }
 ];
@@ -48,7 +58,11 @@ const searchFields: SearchField[] = [
     key: 'subjectId',
     label: '经营方',
     type: 'select',
-    options: () => store.subjectAccounts.map((a: any) => ({ label: `${a.subjectName}（${roleLabel(a.roleType)}）`, value: String(a.subjectId) }))
+    options: () =>
+      store.subjectAccounts.map((a: any) => ({
+        label: `${a.subjectName}（${roleLabel(a.roleType)}）`,
+        value: String(a.subjectId)
+      }))
   },
   { key: 'orderNo', label: '订单号', placeholder: '订单号' },
   {
@@ -68,6 +82,8 @@ const searchFields: SearchField[] = [
 const config: AdminListConfig = {
   title: '资金流水',
   remoteKey: 'fundFlows',
+  // 「经营方」筛选下拉与列表列都按 subjectId 解析名称，需预加载 subjects / subjectAccounts
+  remoteDeps: ['subjects', 'subjectAccounts'],
   initialSearch: route.query.subjectId ? { subjectId: String(route.query.subjectId) } : {},
   columns,
   searchFields,
@@ -88,4 +104,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

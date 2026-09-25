@@ -198,16 +198,21 @@ function openGroupPicker(action: RowAction, row: any) {
   groupSelectVisible.value = true;
 }
 
-function confirmGroupPicker() {
+async function confirmGroupPicker() {
   if (groupPickedValue.value == null) {
     window.$message?.warning('请先选择');
     return;
   }
   const picked = groupPickedValue.value;
   const [groupKey, value] = picked.split(':');
-  pendingGroupAction.value?.handler?.(pendingGroupRow.value, picked, groupKey, value);
+  try {
+    await pendingGroupAction.value?.handler?.(pendingGroupRow.value, picked, groupKey, value);
+  } catch (e: any) {
+    window.$message?.error(e?.message || '操作失败');
+    return;
+  }
   groupSelectVisible.value = false;
-  loadData();
+  await loadData();
 }
 
 function openCascadePicker(action: RowAction, row: any) {
@@ -229,19 +234,33 @@ function onCascadeFirstChange(value: string) {
   cascadeSecondOptions.value = toSelectOptions(steps?.[1]?.options?.(value) ?? []);
 }
 
-function confirmCascadePicker() {
+/**
+ * 确认级联选择（如用户列表「绑定」→ 经营者类型 → 具体主体）。
+ *
+ * <p><b>为什么必须 await（历史 Bug）</b>：原实现未 await 级联 handler 就直接 loadData()，
+ * 而绑定类 handler 是异步的（要等接口写库返回）。于是 loadData() 在写库完成前就发出，
+ * 读到的是<b>绑定前的旧数据</b> —— 表现为「点了绑定，列表没变化，手动刷新才出来」。
+ *
+ * <p>对照：confirmPicker / confirmReason 一直都有 await，所以「解绑」正常、「绑定」失效。
+ */
+async function confirmCascadePicker() {
   if (!cascadeFirstValue.value || !cascadeSecondValue.value) {
     window.$message?.warning('请先选择');
     return;
   }
-  pendingCascadeAction.value?.cascadePicker?.handler?.(pendingCascadeRow.value, {
-    first: cascadeFirstValue.value,
-    second: cascadeSecondValue.value
-  });
+  try {
+    await pendingCascadeAction.value?.cascadePicker?.handler?.(pendingCascadeRow.value, {
+      first: cascadeFirstValue.value,
+      second: cascadeSecondValue.value
+    });
+  } catch (e: any) {
+    // 失败时保留弹窗，让用户能改选后重试；错误提示由 handler 内部负责
+    window.$message?.error(e?.message || '操作失败');
+    return;
+  }
   cascadeVisible.value = false;
-  loadData();
+  await loadData();
 }
-
 
 function openImport() {
   importVisible.value = true;
@@ -305,14 +324,16 @@ async function confirmImport() {
   try {
     const result = await cfg.commit(importPreview.value);
     importVisible.value = false;
-    window.$message?.success('导入完成：新增 ' + result.added + ' 条' + (result.skipped ? '，跳过 ' + result.skipped + ' 条' : ''));
+    window.$message?.success(
+      '导入完成：新增 ' + result.added + ' 条' + (result.skipped ? '，跳过 ' + result.skipped + ' 条' : '')
+    );
     loadData();
   } catch (e: any) {
     window.$message?.error(e?.message || '导入失败');
   }
 }
 
-function handleAction(action: RowAction, row: any) {
+async function handleAction(action: RowAction, row: any) {
   if (action.modal) {
     openModal(action.modal, row);
     return;
@@ -333,13 +354,19 @@ function handleAction(action: RowAction, row: any) {
     openCascadePicker(action, row);
     return;
   }
-  action.handler?.(row);
-  loadData();
+  // 裸 handler 同样要 await：handler 可能是异步写库，
+  // 不 await 会让下面的 loadData() 早于写库完成，读到旧数据（与级联选择同一类问题）
+  await action.handler?.(row);
+  await loadData();
 }
 
 function renderAction(action: RowAction, row: any) {
   const btn = () =>
-    h(NButton, { size: 'small', type: action.type ?? 'default', onClick: () => handleAction(action, row) }, { default: () => action.label });
+    h(
+      NButton,
+      { size: 'small', type: action.type ?? 'default', onClick: () => handleAction(action, row) },
+      { default: () => action.label }
+    );
   if (action.confirm) {
     return h(
       NPopconfirm,
@@ -378,10 +405,15 @@ const columns = computed(() => {
       title: '操作',
       key: '__actions__',
       width: rowActionsWidth.value,
+      fixed: 'right',
 
       render(row: any) {
         if (row.deleted) return h('span', { style: 'color:#9B9B96' }, '已删除');
-        return h(NSpace, { size: 8, wrap: true }, { default: () => visibleActions(row).map(action => renderAction(action, row)) });
+        return h(
+          NSpace,
+          { size: 8, wrap: true, style: 'white-space: normal; max-width: 100%;' },
+          { default: () => visibleActions(row).map(action => renderAction(action, row)) }
+        );
       }
     });
   }
@@ -475,51 +507,47 @@ function renderField(field: FormField) {
   }
   if (field.type === 'image') {
     const current = formModel[field.key];
-    return h(
-      'div',
-      { class: 'image-field' },
-      [
-        h(
-          NUpload,
-          {
-            accept: 'image/*',
-            multiple: false,
-            max: 1,
-            showFileList: false,
-            defaultUpload: false,
-            'onUpdate:fileList': (files: UploadFileInfo[]) => {
-              const file = files[0]?.file;
-              if (!file) return;
-              const reader = new FileReader();
-              reader.addEventListener('load', () => {
-                formModel[field.key] = reader.result;
-              });
-              reader.readAsDataURL(file);
-            }
-          },
-          {
-            default: () =>
-              current
-                ? h(NImage, { src: current, width: 120, height: 120, objectFit: 'cover', style: 'border-radius:6px' })
-                : h('div', { class: 'image-upload-trigger' }, '点击上传图片')
+    return h('div', { class: 'image-field' }, [
+      h(
+        NUpload,
+        {
+          accept: 'image/*',
+          multiple: false,
+          max: 1,
+          showFileList: false,
+          defaultUpload: false,
+          'onUpdate:fileList': (files: UploadFileInfo[]) => {
+            const file = files[0]?.file;
+            if (!file) return;
+            const reader = new FileReader();
+            reader.addEventListener('load', () => {
+              formModel[field.key] = reader.result;
+            });
+            reader.readAsDataURL(file);
           }
-        ),
-        current
-          ? h(
-              NButton,
-              {
-                size: 'tiny',
-                quaternary: true,
-                style: 'margin-top:8px',
-                onClick: () => {
-                  formModel[field.key] = '';
-                }
-              },
-              { default: () => '移除图片' }
-            )
-          : null
-      ]
-    );
+        },
+        {
+          default: () =>
+            current
+              ? h(NImage, { src: current, width: 120, height: 120, objectFit: 'cover', style: 'border-radius:6px' })
+              : h('div', { class: 'image-upload-trigger' }, '点击上传图片')
+        }
+      ),
+      current
+        ? h(
+            NButton,
+            {
+              size: 'tiny',
+              quaternary: true,
+              style: 'margin-top:8px',
+              onClick: () => {
+                formModel[field.key] = '';
+              }
+            },
+            { default: () => '移除图片' }
+          )
+        : null
+    ]);
   }
   if (field.type === 'date') {
     const raw = formModel[field.key];
@@ -575,12 +603,13 @@ function renderField(field: FormField) {
       },
       { default: () => '按地址解析经纬度' }
     );
-    const hint = lat != null && lng != null
-      ? h('span', { style: 'margin-left:12px;color:#9B9B96;font-size:12px' }, `${lat}, ${lng}`)
-      : null;
+    const hint =
+      lat != null && lng != null
+        ? h('span', { style: 'margin-left:12px;color:#9B9B96;font-size:12px' }, `${lat}, ${lng}`)
+        : null;
     return h('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:8px' }, [btn, hint]);
   }
-    if (field.type === 'number') {
+  if (field.type === 'number') {
     return h(NInputNumber, {
       value: formModel[field.key] ?? null,
       placeholder: field.placeholder,
@@ -622,47 +651,43 @@ defineExpose({ reload: loadData });
           >
             {{ action.label }}
           </NButton>
-          <NButton
-            v-if="config.importConfig"
-            size="small"
-            @click="openImport"
-          >
-            导入
-          </NButton>
+          <NButton v-if="config.importConfig" size="small" @click="openImport">导入</NButton>
 
           <NPopover v-model:show="columnSettingsVisible" trigger="click" placement="bottom-end" :width="220">
-          <template #trigger>
-            <NButton size="small" quaternary>列设置</NButton>
-          </template>
-          <div class="column-settings">
-            <div class="column-settings__head">
-              <NCheckbox
-                :checked="hiddenColumns.length === 0"
-                :indeterminate="hiddenColumns.length > 0 && hiddenColumns.length < columnOptions.length"
-                @update:checked="toggleAllColumns"
-              >
-                全选
-              </NCheckbox>
-            </div>
-            <div class="column-settings__list">
+            <template #trigger>
+              <NButton size="small" quaternary>列设置</NButton>
+            </template>
+            <div class="column-settings">
+              <div class="column-settings__head">
+                <NCheckbox
+                  :checked="hiddenColumns.length === 0"
+                  :indeterminate="hiddenColumns.length > 0 && hiddenColumns.length < columnOptions.length"
+                  @update:checked="toggleAllColumns"
+                >
+                  全选
+                </NCheckbox>
+              </div>
+              <div class="column-settings__list">
                 <NCheckbox
                   v-for="opt in columnOptions"
                   :key="opt.value"
                   :checked="!hiddenColumns.includes(opt.value)"
-                  @update:checked="(checked: boolean) => {
-                    if (checked) {
-                      hiddenColumns = hiddenColumns.filter(k => k !== opt.value);
-                    } else {
-                      hiddenColumns = [...hiddenColumns, opt.value];
+                  @update:checked="
+                    (checked: boolean) => {
+                      if (checked) {
+                        hiddenColumns = hiddenColumns.filter(k => k !== opt.value);
+                      } else {
+                        hiddenColumns = [...hiddenColumns, opt.value];
+                      }
                     }
-                  }"
+                  "
                 >
                   {{ opt.label }}
                 </NCheckbox>
               </div>
-          </div>
-        </NPopover>
-      </NSpace>
+            </div>
+          </NPopover>
+        </NSpace>
       </template>
 
       <NForm v-if="config.searchFields?.length" class="mb-12px">
@@ -762,7 +787,6 @@ defineExpose({ reload: loadData });
       </div>
     </NModal>
 
-
     <NModal v-model:show="importVisible" preset="card" :title="config.importConfig?.title ?? '导入'" class="w-720px">
       <NSpace vertical>
         <NSpace align="center" wrap>
@@ -770,14 +794,14 @@ defineExpose({ reload: loadData });
           <NUpload :show-file-list="false" accept=".xlsx,.xls,.csv" @change="handleImportFile">
             <NButton size="small" type="primary">选择文件上传</NButton>
           </NUpload>
-          <span v-if="importFileName" style="font-size: 13px; color: #666;">{{ importFileName }}</span>
+          <span v-if="importFileName" style="font-size: 13px; color: #666">{{ importFileName }}</span>
         </NSpace>
-        <div v-if="importErrors.length" style="max-height: 160px; overflow: auto;">
-          <div v-for="(e, i) in importErrors" :key="i" style="color: #e65a5a; font-size: 13px; line-height: 1.6;">{{ e }}</div>
+        <div v-if="importErrors.length" style="max-height: 160px; overflow: auto">
+          <div v-for="(e, i) in importErrors" :key="i" style="color: #e65a5a; font-size: 13px; line-height: 1.6">
+            {{ e }}
+          </div>
         </div>
-        <div v-if="importPreview.length" style="font-size: 13px; color: #333;">
-          可导入 {{ importPreview.length }} 条
-        </div>
+        <div v-if="importPreview.length" style="font-size: 13px; color: #333">可导入 {{ importPreview.length }} 条</div>
         <div class="flex flex-wrap justify-end gap-12px">
           <NButton @click="importVisible = false">取消</NButton>
           <NButton type="primary" :disabled="!importPreview.length" @click="confirmImport">确认导入</NButton>
@@ -854,4 +878,3 @@ defineExpose({ reload: loadData });
   overflow-y: auto;
 }
 </style>
-

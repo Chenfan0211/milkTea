@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'finance_withdraw'
 });
@@ -17,7 +16,12 @@ const withdrawVisible = ref(false);
 const withdrawSubjectId = ref<number | null>(null);
 const withdrawAmount = ref<number | null>(null);
 const roleLabel = (v: string) =>
-  (({ store: '门店', investor: '投资人', resource: '资源方' }) as Record<string, string>)[v] ?? v;
+  (
+    ({ store: '门店', investor: '投资人', resource: '资源方', channel: '资源方', supplier: '供应商' }) as Record<
+      string,
+      string
+    >
+  )[v] ?? (v ? String(v) : '—');
 const columns: DataTableColumns<any> = [
   { title: '申请人', key: 'nickName', width: 140 },
   { title: '角色', key: 'roleType', width: 100, render: (row: any) => roleLabel(row.roleType) },
@@ -28,7 +32,14 @@ const columns: DataTableColumns<any> = [
     width: 110,
     render: renderTag(
       'status',
-      statusMap({ APPLIED: ['待审核', 'warning'], AUDITING: ['审核中', 'info'], APPROVED: ['已通过', 'success'], PAID: ['已出款', 'success'], REJECTED: ['已驳回', 'error'], FAILED: ['出款失败', 'error'] })
+      statusMap({
+        APPLIED: ['待审核', 'warning'],
+        AUDITING: ['审核中', 'info'],
+        APPROVED: ['已通过', 'success'],
+        PAID: ['已出款', 'success'],
+        REJECTED: ['已驳回', 'error'],
+        FAILED: ['出款失败', 'error']
+      })
     )
   },
   { title: '申请时间', key: 'applyTime', width: 170, render: renderDateTime('applyTime') },
@@ -47,7 +58,15 @@ const searchFields: SearchField[] = [
     ]
   }
 ];
-const toolbar: RowAction[] = [{ label: '发起提现', type: 'primary', handler: () => { withdrawVisible.value = true; } }];
+const toolbar: RowAction[] = [
+  {
+    label: '发起提现',
+    type: 'primary',
+    handler: () => {
+      withdrawVisible.value = true;
+    }
+  }
+];
 const rowActions: RowAction[] = [
   {
     label: '通过',
@@ -67,6 +86,8 @@ const rowActions: RowAction[] = [
 const config: AdminListConfig = {
   title: '提现管理',
   remoteKey: 'withdrawals',
+  // 「申请人」列与「发起提现」下拉依赖 subjects / subjectAccounts，需预加载
+  remoteDeps: ['subjects', 'subjectAccounts'],
   columns,
   searchFields,
   toolbar,
@@ -97,7 +118,14 @@ async function submitWithdraw() {
     <NModal v-model:show="withdrawVisible" preset="card" title="发起提现" class="w-480px">
       <NSelect
         v-model:value="withdrawSubjectId"
-        :options="store.subjectAccounts.filter(a => a.roleType !== 'platform').map(a => ({ label: a.subjectName + '（可提现 ¥' + (a.availableBalance ?? 0).toFixed(2) + '）', value: a.subjectId }))"
+        :options="
+          store.subjectAccounts
+            .filter(a => a.roleType !== 'platform')
+            .map(a => ({
+              label: a.subjectName + '（可提现 ¥' + (a.availableBalance ?? 0).toFixed(2) + '）',
+              value: a.subjectId
+            }))
+        "
         clearable
         filterable
         placeholder="选择经营方"
@@ -112,4 +140,3 @@ async function submitWithdraw() {
 </template>
 
 <style scoped></style>
-

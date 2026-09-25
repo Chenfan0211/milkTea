@@ -198,6 +198,12 @@ public class AdminSubjectProfileController {
         } else if ("SUPPLIER".equals(type)) {
             Map<String, Object> p = profileOne("supplier_profile", id);
             row.put("productCount", p == null ? 0 : p.get("product_count"));
+            // 联系方式组（V37 新增列）：供列表与编辑表单回显
+            row.put("contactName", p == null ? null : p.get("contact_name"));
+            row.put("phone", p == null ? null : p.get("phone"));
+            row.put("address", p == null ? null : p.get("address"));
+            row.put("email", p == null ? null : p.get("email"));
+            row.put("remark", p == null ? null : p.get("remark"));
         } else if ("INVESTOR".equals(type)) {
             Map<String, Object> p = profileOne("investor_profile", id);
             row.put("investableStoreCount", p == null ? 0 : p.get("investable_store_count"));
@@ -245,9 +251,27 @@ public class AdminSubjectProfileController {
         upsertProfile("channel_profile", subjectId, Map.of("location", location, "store_type", storeType));
     }
 
+    /**
+     * 写入供应商档案（含 V37 新增的联系方式组）。
+     *
+     * <p><b>为什么用 LinkedHashMap 而不是 Map.of</b>：
+     * {@code Map.of} 不允许 null 值，而地址/邮箱/备注都是选填 ——
+     * 运营留空时传进来就是 null，用 Map.of 会直接抛 NullPointerException。
+     * LinkedHashMap 允许 null，且 {@link #upsertProfile} 会用占位符把 null 写成 NULL。
+     *
+     * <p>必填校验：联系电话（业务要求）。不在这里抛异常，而是交给前端与
+     * {@link #required} 统一提示，保证错误信息一致。
+     */
     private void upsertSupplierProfile(long subjectId, Map<String, Object> payload) {
-        int productCount = asInt(payload.get("productCount"), 0);
-        upsertProfile("supplier_profile", subjectId, Map.of("product_count", String.valueOf(productCount)));
+        String phone = required(payload.get("phone"), "联系电话");
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("product_count", String.valueOf(asInt(payload.get("productCount"), 0)));
+        values.put("contact_name", asStr(payload.get("contactName"), null));
+        values.put("phone", phone);
+        values.put("address", asStr(payload.get("address"), null));
+        values.put("email", asStr(payload.get("email"), null));
+        values.put("remark", asStr(payload.get("remark"), null));
+        upsertProfile("supplier_profile", subjectId, values);
     }
 
     private void upsertInvestorProfile(long subjectId, Map<String, Object> payload) {

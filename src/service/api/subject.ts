@@ -16,7 +16,10 @@ export function fetchSubjectPlatforms(params?: any) {
 }
 
 export async function fetchSubjectStores(params?: any) {
-  const res = await request<Api.Common.PaginatingQueryRecord<Api.Admin.Store>>({ url: '/api/v1/admin/subject/stores', params });
+  const res = await request<Api.Common.PaginatingQueryRecord<Api.Admin.Store>>({
+    url: '/api/v1/admin/subject/stores',
+    params
+  });
   return unwrap<Api.Common.PaginatingQueryRecord<Api.Admin.Store>>(res);
 }
 
@@ -26,7 +29,11 @@ export async function createSubjectStore(payload: Record<string, any>) {
 }
 
 export async function updateSubjectStore(id: number, payload: Record<string, any>) {
-  const res = await request<Api.Admin.Store>({ url: `/api/v1/admin/subject/stores/${id}`, method: 'put', data: payload });
+  const res = await request<Api.Admin.Store>({
+    url: `/api/v1/admin/subject/stores/${id}`,
+    method: 'put',
+    data: payload
+  });
   return unwrap<Api.Admin.Store>(res);
 }
 
@@ -52,13 +59,35 @@ export function fetchSubjectSuppliers(params?: any) {
 }
 
 export async function bindStoreInvestor(storeSubjectId: number, investorSubjectId: number): Promise<void> {
-  const res = await request<void>({ url: `/api/v1/admin/subject/binding/store/${storeSubjectId}/investor/${investorSubjectId}`, method: 'post' });
+  const res = await request<void>({
+    url: `/api/v1/admin/subject/binding/store/${storeSubjectId}/investor/${investorSubjectId}`,
+    method: 'post'
+  });
   return unwrap<void>(res);
 }
 
 export async function unbindStoreInvestor(storeSubjectId: number): Promise<void> {
-  const res = await request<void>({ url: `/api/v1/admin/subject/binding/store/${storeSubjectId}/investor`, method: 'delete' });
+  const res = await request<void>({
+    url: `/api/v1/admin/subject/binding/store/${storeSubjectId}/investor`,
+    method: 'delete'
+  });
   return unwrap<void>(res);
+}
+
+/** 查询某资源方(渠道)已绑定的门店明细列表 */
+export async function fetchChannelStores(channelSubjectId: number): Promise<any[]> {
+  const res = await request<any[]>({ url: `/api/v1/admin/subject/binding/channel/${channelSubjectId}/stores` });
+  return (res as any)?.data ?? res;
+}
+
+/** 批量解绑资源方(渠道)下的门店，单事务完成 */
+export async function unbindChannelStores(channelSubjectId: number, storeIds: number[]): Promise<number> {
+  const res = await request<number>({
+    url: `/api/v1/admin/subject/binding/channel/${channelSubjectId}/stores`,
+    method: 'delete',
+    data: { storeIds }
+  });
+  return (res as any)?.data ?? res;
 }
 
 // ---------------- 主体档案聚合接口（渠道/供应商/投资人） ----------------

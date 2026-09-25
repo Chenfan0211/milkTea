@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'review_role'
 });
@@ -14,7 +13,13 @@ import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 const store = useAdminStore();
 const router = useRouter();
 
-const roleLabel = (v: string) => ({ store: '门店', investor: '投资人', resource: '资源方' })[v] ?? v;
+const roleLabel = (v: string) =>
+  (
+    ({ store: '门店', investor: '投资人', resource: '资源方', channel: '资源方', supplier: '供应商' }) as Record<
+      string,
+      string
+    >
+  )[v] ?? (v ? String(v) : '—');
 
 const columns: DataTableColumns<any> = [
   { title: '申请人', key: 'nickName', width: 140 },
@@ -85,4 +90,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-
