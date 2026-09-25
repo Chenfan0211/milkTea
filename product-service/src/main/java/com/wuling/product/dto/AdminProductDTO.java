@@ -12,6 +12,10 @@ public class AdminProductDTO {
     private String code;
     private String name;
     private String category;
+    /** 分类 id（编辑回显用；与 category 同源，避免前端按名称反查） */
+    private Long categoryId;
+    /** 商品标签（JSON 数组解析后的字符串列表，与小程序菜单口径一致） */
+    private List<String> tags;
     private Integer specCount;
     private Long price;
     private Long originalPrice;

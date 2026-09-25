@@ -5,9 +5,11 @@ import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.product.dto.AdminProductDTO;
 import com.wuling.product.entity.Product;
+import com.wuling.product.entity.ProductCategory;
 import com.wuling.product.dto.SpecGroupsDTO;
 import com.wuling.product.entity.ProductSpec;
 import com.wuling.product.entity.ProductStore;
+import com.wuling.product.mapper.ProductCategoryMapper;
 import com.wuling.product.mapper.ProductMapper;
 import com.wuling.product.mapper.ProductSpecMapper;
 import com.wuling.product.mapper.ProductStoreMapper;
@@ -36,15 +38,18 @@ public class AdminProductWriteService {
     private final ProductMapper productMapper;
     private final ProductSpecMapper productSpecMapper;
     private final ProductStoreMapper productStoreMapper;
+    private final ProductCategoryMapper productCategoryMapper;
     private final ProductQueryService productQueryService;
 
     public AdminProductWriteService(ProductMapper productMapper,
                                    ProductSpecMapper productSpecMapper,
                                    ProductStoreMapper productStoreMapper,
+                                   ProductCategoryMapper productCategoryMapper,
                                    ProductQueryService productQueryService) {
         this.productMapper = productMapper;
         this.productSpecMapper = productSpecMapper;
         this.productStoreMapper = productStoreMapper;
+        this.productCategoryMapper = productCategoryMapper;
         this.productQueryService = productQueryService;
     }
 
@@ -65,6 +70,7 @@ public class AdminProductWriteService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "商品编码已存在: " + product.getProductId());
         }
         applyEditable(product, payload);
+        requireCategoryId(product.getCategoryId());
         product.setOnSale(parseOnSale(payload.get("onSale")));
         if (!StringUtils.hasText(product.getName())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "缺少商品名称");
@@ -83,6 +89,7 @@ public class AdminProductWriteService {
     public AdminProductDTO update(Long id, Map<String, Object> payload) {
         Product product = requireProduct(id);
         applyEditable(product, payload);
+        requireCategoryId(product.getCategoryId());
         if (payload.containsKey("onSale")) {
             product.setOnSale(parseOnSale(payload.get("onSale")));
         }
@@ -240,6 +247,17 @@ public class AdminProductWriteService {
 
     // ---------- 内部工具 ----------
 
+    /** 校验分类必填且为有效 CATEGORY 节点 */
+    private void requireCategoryId(Long categoryId) {
+        if (categoryId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请选择商品分类");
+        }
+        ProductCategory category = productCategoryMapper.selectById(categoryId);
+        if (category == null || !"CATEGORY".equals(category.getType())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "商品分类无效");
+        }
+    }
+
     private Product requireProduct(Long id) {
         Product product = productMapper.selectById(id);
         if (product == null) {
@@ -353,3 +371,4 @@ public class AdminProductWriteService {
         return String.valueOf(value);
     }
 }
+

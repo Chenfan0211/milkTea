@@ -19,9 +19,14 @@ public class ProductCategory {
     private String name;
     private String type;
     private Integer sort;
+    /** 分类标签（小程序端分类左上角角标） */
+    private String tag;
+    /** 状态 1启用 0停用 */
+    private Integer enabled;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
     @TableLogic
     private Integer deleted;
 }
+

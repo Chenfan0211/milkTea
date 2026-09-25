@@ -11,4 +11,7 @@ public class CategoryDTO {
     private String name;
     private String type;
     private Integer sort;
+    private String tag;
+    private Integer enabled;
 }
+

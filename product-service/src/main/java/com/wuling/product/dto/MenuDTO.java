@@ -24,6 +24,8 @@ public class MenuDTO {
     public static class MenuCategory {
         private String id;
         private String label;
+        /** 分类左上角标签 */
+        private String tag;
         private List<MenuProduct> products;
     }
 
@@ -75,3 +77,4 @@ public class MenuDTO {
         private String icon;
     }
 }
+
