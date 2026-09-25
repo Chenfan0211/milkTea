@@ -15,9 +15,9 @@ const store = useAdminStore();
 /**
  * 分类管理。
  *
- * 字段口径对齐 product_category 表（V30 迁移后）：
- * - 编码 code / 名称 name / 分类标签 tag / 排序 sort / 状态 enabled
- * - type 为 NOT NULL 列（TAB/GROUP/CATEGORY），表单必须提供，否则新增会被数据库拒绝
+ * 字段口径对齐 product_category 表：
+ * - 编码 code / 名称 name / 左上角标签 tag / 排序 sort / 状态 enabled
+ * - 分类层级已拍平为单层，type 固定为 CATEGORY（由前端写死，不提供层级选择）
  *
  * 「状态」用 enabled（数据库为 tinyint，1 启用 / 0 停用）而非布尔：
  * CrudService 写库时会把 Boolean 转成 1/0，但读回来是数字。
@@ -29,13 +29,6 @@ const store = useAdminStore();
 const ENABLED_OPTIONS = [
   { label: '启用', value: '1' },
   { label: '停用', value: '0' }
-];
-
-/** 层级类型：与数据库 type 列取值一致 */
-const TYPE_OPTIONS = [
-  { label: '菜单页签（TAB）', value: 'TAB' },
-  { label: '分组（GROUP）', value: 'GROUP' },
-  { label: '分类（CATEGORY）', value: 'CATEGORY' }
 ];
 
 const columns: DataTableColumns<any> = [
@@ -65,16 +58,14 @@ const searchFields: SearchField[] = [
 
 const formFields: FormField[] = [
   { key: 'code', label: '编码', rules: [{ required: true, message: '请输入编码', trigger: ['input', 'blur'] }] },
-  { key: 'name', label: '名称', rules: [{ required: true, message: '请输入名称', trigger: ['input', 'blur'] }] },
-  { key: 'tag', label: '分类标签', placeholder: '如：热销 / 新品（可留空）' },
   {
-    key: 'type',
-    label: '层级类型',
-    type: 'select',
-    options: TYPE_OPTIONS,
-    placeholder: '请选择层级类型',
-    rules: [{ required: true, message: '请选择层级类型', trigger: ['change', 'blur'] }]
+    key: 'name',
+    label: '名称',
+    // 分组标签在点单页左侧栏单行显示（最多 5 字），此处从录入侧限制，避免小程序端截断或换行
+    maxlength: 5,
+    rules: [{ required: true, message: '请输入名称（最多 5 个字）', trigger: ['input', 'blur'] }]
   },
+  { key: 'tag', label: '左上角标签', placeholder: '小程序端分类左上角展示（可留空）' },
   { key: 'sort', label: '排序', type: 'number', placeholder: '数字越小越靠前' },
   {
     key: 'enabled',
@@ -133,6 +124,7 @@ const config: AdminListConfig = {
       // 写库前归一化：tag 去空格，enabled 统一 1/0，sort 缺省 0
       const payload = {
         ...data,
+        type: 'CATEGORY',
         tag: data.tag ? String(data.tag).trim() : '',
         enabled: Number(data.enabled) === 0 ? 0 : 1,
         sort: Number(data.sort) || 0
@@ -149,3 +141,4 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
+

@@ -54,6 +54,20 @@ async function saveSpec() {
   listRef.value?.reload();
 }
 
+/**
+ * 分类下拉选项。
+ *
+ * 1. type 做 trim + 大写归一：数据库里若存在大小写/空格差异（如 'category'、'CATEGORY '），
+ *    原先的严格 === 'CATEGORY' 会把所有选项过滤成空数组，表现为「编辑弹窗分类下拉没有数据」。
+ * 2. value 统一 Number：后端 category_id 为 BIGINT，序列化后是数字；
+ *    若 value 是字符串而表单值是数字，naive-ui 因类型不匹配不回显。
+ */
+function categoryOptions(): { label: string; value: any }[] {
+  return store.productCategories
+    .filter((c: any) => String(c?.type ?? '').trim().toUpperCase() === 'CATEGORY')
+    .map((c: any) => ({ label: c.name, value: Number(c.id) }));
+}
+
 const columns: DataTableColumns<any> = [
   {
     title: '图片',
@@ -67,7 +81,7 @@ const columns: DataTableColumns<any> = [
   { title: '商品编码', key: 'code', width: 110 },
   { title: '名称', key: 'name', minWidth: 110 },
   { title: '分类', key: 'category', width: 90 },
-  { title: '标签', key: 'tags', width: 125, render: (row: any) => (row.tags || []).join('、') || '—' },
+  { title: '标签', key: 'tags', width: 125, render: (row: any) => (Array.isArray(row.tags) ? row.tags.join('、') : '') || '—' },
   {
     title: '规格数',
     key: 'specCount',
@@ -129,17 +143,15 @@ const formFields: FormField[] = [
     label: '分类',
     type: 'select',
     // 后端按 category_id 落库；仅列出 CATEGORY 层（商品实际挂载层）
-    options: () =>
-      store.productCategories
-        .filter((c: any) => c.type === 'CATEGORY')
-        .map((c: any) => ({ label: c.name, value: c.id })),
-    rules: [requiredRule]
+    // type 做 trim + 大写归一：库中存在大小写/空格差异时，严格 === 'CATEGORY' 会把选项全过滤掉
+    options: () => categoryOptions(),
+    rules: [{ required: true, message: '请选择商品分类', trigger: ['change', 'blur'] }]
   },
   { key: 'originalPrice', label: '原价(元)', type: 'number', rules: [requiredRule] },
   { key: 'costPrice', label: '成本价(元)', type: 'number' },
   { key: 'platformCommission', label: '平台分佣(元)', type: 'number' },
   { key: 'storedValuePrice', label: '储值立减(元)', type: 'number', placeholder: '用储值支付每件少多少元，0 表示不优惠', rules: [requiredRule] },
-  { key: 'tags', label: '标签(逗号分隔)' },
+  { key: 'tagsText', label: '标签(逗号分隔)', placeholder: '多个标签用逗号分隔，如：年度热销，五窨茉莉花茶' },
   {
     key: 'stores',
     label: '门店',
@@ -209,6 +221,7 @@ const rowActions: RowAction[] = [
 const config: AdminListConfig = {
   title: '商品管理',
   remoteKey: 'productCategories',
+  remoteDeps: ['subjects'],
   columns,
   searchFields,
   toolbar,
@@ -229,6 +242,11 @@ const config: AdminListConfig = {
      */
     toFormData: (row: any) => ({
       ...row,
+      // 分类：后端 Long 序列化为数字；老数据若缺 categoryId，按分类名反查兜底
+      categoryId:
+        row.categoryId != null
+          ? Number(row.categoryId)
+          : (categoryOptions().find((o: any) => o.label === row.category)?.value ?? null),
       // 后端返回的是门店名称数组，表单需要 id 列表
       stores: (row.stores || [])
         .map((name: string) => store.subjects.find((s: any) => s.type === 'store' && s.name === name)?.id)
@@ -244,10 +262,12 @@ const config: AdminListConfig = {
       ingredients: row.ingredients || '',
       allergens: row.allergens || '',
       cupCapacity: row.cupCapacity || '',
-      tipsText: (row.tips || []).join('\n')
+      // 标签：后端下发字符串数组，表单用逗号文本编辑（直接绑定数组会导致输入即被覆写）
+      tagsText: Array.isArray(row.tags) ? row.tags.join('，') : '',
+      tipsText: (row.tips || []).join('\n'),
     }),
     onSubmit: async (data, editing) => {
-      const tags = String(data.tags || '')
+      const tags = String(data.tagsText || '')
         .split(/[,，、]/)
         .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
@@ -256,7 +276,7 @@ const config: AdminListConfig = {
         .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
       // stores 是门店关联，不属于 product 表字段，单独通过 /stores 接口落库
-      const { tags: _ignored, stores: storeIds, tipsText: _tipsIgnored, ...rest } = data;
+      const { tagsText: _tagsIgnored, stores: storeIds, tipsText: _tipsIgnored, ...rest } = data;
       const payload = { ...rest, tags, tips };
       try {
         let productId = editing?.id;
@@ -312,4 +332,5 @@ const config: AdminListConfig = {
   margin-bottom: 16px;
 }
 </style>
+
 
