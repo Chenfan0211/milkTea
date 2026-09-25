@@ -106,6 +106,15 @@ const REMOTE_RESOURCES: Record<string, string> = {
 /** 是否使用远端接口读取配置类数据（由页面通过 loadRemote 触发） */
 const remoteLoaded = ref<Record<string, boolean>>({});
 
+/**
+ * 远端资源的总条数（分页用）。
+ *
+ * 为什么需要它：loadRemote 只把「第 1 页（size=200）」灌进本地镜像，
+ * 若丢掉接口返回的 total，页面就只能拿镜像长度当总数 —— 数据超过 200 条时，
+ * 分页器会永远认为自己只有 200 条，从而翻不到后面的页。
+ */
+const remoteTotals = ref<Record<string, number>>({});
+
 export type RoleType = 'store' | 'investor' | 'resource';
 
 export interface UserRow {
@@ -728,19 +737,14 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       });
     }
 
-    // ---------- 用户角色授权：显示名对齐 ----------
+    // ---------- 角色授权记录（后台账号 ↔ 角色）----------
 
     if (key === 'grants') {
-      return rows.map(r => ({
-        ...r,
-        // 页面「用户」「角色」「主体」列分别读 userId/roleCode/subjectId，
-        // 但应展示名称/中文，这里补写同名展示字段
-        user: r.userName ?? r.user ?? String(r.userId ?? '—'),
-        role: lowerRole(r.roleCode),
-        roleCode: lowerRole(r.roleCode),
-        subject: r.subjectName ?? r.subject ?? String(r.subjectId ?? '—'),
-        subjectName: r.subjectName ?? subjectNameById(r.subjectId) ?? '—'
-      }));
+      // 口径已变更（2026-09-25）：/admin/auth/grants 现在返回 sys_user_role
+      // （后台账号 ↔ 后台角色），不再是 user_role_grant（小程序用户的经营角色）。
+      // 因此这里不再补 userName/subjectName 之类的展示名 —— 后端已直接返回
+      // username / nickName / roleName / roleCode，原样展示即可。
+      return rows;
     }
 
     // ---------- 审计日志：模块/动作中文化 ----------
@@ -1037,8 +1041,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     'withdrawals',
     'verifies',
     'verifyRecords',
-    'verifyPool',
-    'grants'
+    'verifyPool'
   ]);
 
   /** 确保 subjects 镜像已加载（仅首次真正请求，之后走内存） */
@@ -1070,6 +1073,8 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       const list = ensure(key);
       // 同样应用字段归一化：页面内嵌下拉（如 subjects 按 type 过滤）依赖它
       list.splice(0, list.length, ...normalizeRemoteRow(key, page?.records || []));
+      // 保留后端真实总数，供分页使用（镜像只装了第 1 页）
+      remoteTotals.value[key] = Number(page?.total ?? (page?.records || []).length);
       remoteLoaded.value[key] = true;
       persist();
       return page;
@@ -1119,14 +1124,14 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       return { data: normalizeRemoteRow('snapshots', records), total };
     }
 
-    // 角色授权走 /admin/auth/grants：该接口 join 了 app_user / biz_subject，
-    // 能直接给出 userName / subjectName。若走通用 CRUD，只会返回 user_role_grant
-    // 单表的 userId / subjectId，「用户」「主体」两列将退化为数字 id。
+    // 角色授权记录走 /admin/auth/grants：该接口 join 了 sys_user / sys_role，
+    // 直接给出 username / nickName / roleName / roleCode，前端无需二次解析。
+    // （原实现读的是 user_role_grant，2026-09-25 已切换为后台账号口径。）
     if (key === 'grants') {
       const res: any = await fetchAdminRoleGrants({ current: page, size: pageSize });
       const records = res?.records ?? res?.data?.records ?? [];
       const total = res?.total ?? res?.data?.total ?? 0;
-      return { data: normalizeRemoteRow('grants', records), total };
+      return { data: records, total };
     }
 
     const normalize = (rows: any[]) => normalizeRemoteRow(key, rows);
@@ -1258,11 +1263,19 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   function isRemote(key: string) {
     return Boolean(REMOTE_RESOURCES[key]);
   }
+  /**
+   * 本地镜像分页（按 search 过滤后切片）。
+   *
+   * totalKey 用于取后端真实总数：镜像最多只装 200 条，若无脑用 rows.length，
+   * 数据量超过 200 条时会被截断，分页器永远翻不到后面的页。
+   * 未登记 totalKey（纯本地数据）时才退回用过滤后的行数。
+   */
   function listFiltered<T extends Record<string, any>>(
     list: T[],
     search: Record<string, any>,
     page: number,
-    pageSize: number
+    pageSize: number,
+    totalKey?: string
   ) {
     let rows = list.filter(row => !row.deleted);
     for (const key of Object.keys(search)) {
@@ -1274,7 +1287,13 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
         return String(target ?? '').includes(value);
       });
     }
-    const total = rows.length;
+    // 有后端 total 时优先用它：镜像最多只装 200 条，直接取 rows.length 会在
+    // 数据量超过 200 条时把总数截断，导致分页器翻不到后面的页。
+    // 仅在「无过滤条件」时采用后端 total —— 一旦本地做了 search 过滤，
+    // 后端 total 对应的是未过滤全集，继续沿用会与实际行数不符。
+    const hasSearch = Object.keys(search || {}).some(key => String((search as any)[key] ?? '').trim());
+    const remoteTotal = totalKey && !hasSearch ? remoteTotals.value[totalKey] : undefined;
+    const total = remoteTotal != null && remoteTotal > rows.length ? remoteTotal : rows.length;
     const start = (page - 1) * pageSize;
     return { data: rows.slice(start, start + pageSize), total };
   }
@@ -1833,6 +1852,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     saveProductSpecGroups,
     saveProductStoreIds,
     isRemote,
+    remoteTotals,
     remoteLoaded,
     bindUserRole,
     unbindUserRole,
@@ -1863,3 +1883,5 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     reviewComment
   };
 });
+
+

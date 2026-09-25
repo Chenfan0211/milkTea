@@ -106,7 +106,7 @@ public final class CrudRegistry {
                             "applicable_store_ids", "applicable_product_ids", "stock", "status"),
                     List.of("code", "name"), "id asc", List.of("status"))),
             Map.entry("storedValuePackages", new Resource("storedValuePackages", "stored_value_package",
-                    List.of("code", "name", "amount", "status"),
+                    List.of("code", "name", "amount", "status", "usage_paragraphs"),
                     List.of("code", "name"), "id asc")),
             // category：积分商品分区（pet=宠物公益专区 / coupon=优惠券区）
             Map.entry("pointsProducts", new Resource("pointsProducts", "points_product",
@@ -225,6 +225,7 @@ public final class CrudRegistry {
         return RESOURCES.keySet();
     }
 }
+
 
 
 

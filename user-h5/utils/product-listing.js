@@ -241,6 +241,26 @@ function getListedMenuTabs(storeId) {
   return tabs.length ? tabs : menuCatalog;
 }
 
+/**
+ * 合并全部一级页签为单一菜单（点单页不展示顶部页签）。
+ *
+ * 产品口径：原「招牌主打」等其余 TAB 的分组，与第一个 TAB 的分组同级展示。
+ * 安全性：group / category 的 id 均取自数据库全局唯一的 code，合并后不会冲突
+ * （已用真实分类树 8 条数据校验：recommend/leaf/featured-signature 与
+ *  herbal/traditional/featured-season 均无重复）。
+ *
+ * 注意：合并只做「分组扁平化」，不改变分组内商品与分类的从属关系，
+ * 因此左侧栏仍按「分组标签 + 其下分类」渲染，选中态逻辑无需调整。
+ */
+function getMergedMenuTab(storeId) {
+  const tabs = getListedMenuTabs(storeId);
+  if (!tabs.length) return null;
+  const first = tabs[0];
+  return Object.assign({}, first, {
+    groups: tabs.reduce((acc, tab) => acc.concat(tab.groups || []), [])
+  });
+}
+
 // 商品最终是否可售 = 运营后台已上架 且 门店已上架。
 function isProductListed(storeId, productId) {
   if (!isPlatformListed(productId)) return false;
@@ -256,6 +276,7 @@ module.exports = {
   applyListing,
   getAllProducts,
   getListedMenuTabs,
+  getMergedMenuTab,
   getListingStats,
   getProductDetail,
   getProductsForStore,

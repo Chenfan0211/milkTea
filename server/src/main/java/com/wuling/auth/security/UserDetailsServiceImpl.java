@@ -28,6 +28,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         }
         List<String> roles = sysUserMapper.selectRoleCodes(user.getId());
         boolean enabled = user.getStatus() != null && user.getStatus() == 1;
-        return new AdminUserDetails(user.getId(), user.getUsername(), user.getPassword(), roles, enabled);
+        boolean superAccount = user.getIsSuper() != null && user.getIsSuper() == 1;
+        return new AdminUserDetails(user.getId(), user.getUsername(), user.getPassword(), roles,
+                enabled, superAccount);
     }
 }

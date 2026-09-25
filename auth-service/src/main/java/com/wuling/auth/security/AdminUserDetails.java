@@ -14,13 +14,21 @@ public class AdminUserDetails implements UserDetails {
     private final String password;
     private final List<String> roles;
     private final boolean enabled;
+    private final boolean superAccount;
 
-    public AdminUserDetails(Long userId, String username, String password, List<String> roles, boolean enabled) {
+    /**
+     * @param superAccount 是否为超级管理员账号（sys_user.is_super = 1）。
+     *                     由 sys_user 列直接判定，而不是「是否绑定了 R_SUPER」——
+     *                     前者是持久化的权威标记，后者在迁移期间可能短暂不一致。
+     */
+    public AdminUserDetails(Long userId, String username, String password, List<String> roles,
+                            boolean enabled, boolean superAccount) {
         this.userId = userId;
         this.username = username;
         this.password = password;
         this.roles = roles == null ? List.of() : roles;
         this.enabled = enabled;
+        this.superAccount = superAccount;
     }
 
     public Long getUserId() {
@@ -29,6 +37,10 @@ public class AdminUserDetails implements UserDetails {
 
     public List<String> getRoles() {
         return roles;
+    }
+
+    public boolean isSuperAccount() {
+        return superAccount;
     }
 
     @Override
@@ -66,3 +78,4 @@ public class AdminUserDetails implements UserDetails {
         return enabled;
     }
 }
+

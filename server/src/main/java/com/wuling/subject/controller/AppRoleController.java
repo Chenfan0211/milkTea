@@ -138,6 +138,12 @@ public class AppRoleController {
      * <p>表单明细落库：applicant_name / applicant_phone 提为独立列（便于按手机号检索），
      * 其余各角色差异化字段（门店名称/地址/类型、投资点位/预算等）序列化为 JSON 存入
      * extra_form 列，运营审核时可看到完整申请信息。
+     *
+     * <p><b>subjectId（2026-09-25 新增支持）</b>：投资人「点位投资申请」等场景，
+     * 申请目标是一个具体的门店主体。此时前端传 subjectId（目标门店 id），
+     * 后端写入 role_application.subject_id，审核时据此建立绑定关系。
+     * 判重规则也相应升级：指定了 subjectId 的申请按 (role_type, subject_id) 判重，
+     * 未指定 subjectId 的普通角色开通申请仍按 role_type 判重，保证两类场景互不干扰。
      */
     @PostMapping("/apply")
     @Transactional(rollbackFor = Exception.class)
@@ -149,10 +155,21 @@ public class AppRoleController {
             throw new BusinessException(ResultCode.BAD_REQUEST, "不支持的角色类型: " + roleType);
         }
 
-        Long exists = jdbcTemplate.queryForObject(
-                "select count(*) from role_application where user_id = ? and role_type = ? "
-                        + "and status in ('PENDING','APPROVED') and deleted = 0",
-                Long.class, userId, roleType);
+        // 目标主体（投资申请=目标门店）；普通角色开通申请可不传
+        Long subjectId = payload == null ? null : asLong(payload.get("subjectId"));
+
+        Long exists;
+        if (subjectId != null) {
+            exists = jdbcTemplate.queryForObject(
+                    "select count(*) from role_application where user_id = ? and role_type = ? "
+                            + "and subject_id = ? and status in ('PENDING','APPROVED') and deleted = 0",
+                    Long.class, userId, roleType, subjectId);
+        } else {
+            exists = jdbcTemplate.queryForObject(
+                    "select count(*) from role_application where user_id = ? and role_type = ? "
+                            + "and subject_id is null and status in ('PENDING','APPROVED') and deleted = 0",
+                    Long.class, userId, roleType);
+        }
         if (exists != null && exists > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该角色已申请，请勿重复提交");
         }
@@ -162,15 +179,26 @@ public class AppRoleController {
         String applicantPhone = strOf(payload.get("phone"));
         String extraForm = toJson(payload);
 
-        jdbcTemplate.update(
-                "insert into role_application "
-                        + "(user_id, role_type, applicant_name, applicant_phone, extra_form, status, apply_time) "
-                        + "values (?, ?, ?, ?, ?, 'PENDING', now())",
-                userId, roleType, applicantName, applicantPhone, extraForm);
+        if (subjectId != null) {
+            jdbcTemplate.update(
+                    "insert into role_application "
+                            + "(user_id, role_type, subject_id, applicant_name, applicant_phone, extra_form, status, apply_time) "
+                            + "values (?, ?, ?, ?, ?, ?, 'PENDING', now())",
+                    userId, roleType, subjectId, applicantName, applicantPhone, extraForm);
+        } else {
+            jdbcTemplate.update(
+                    "insert into role_application "
+                            + "(user_id, role_type, applicant_name, applicant_phone, extra_form, status, apply_time) "
+                            + "values (?, ?, ?, ?, ?, 'PENDING', now())",
+                    userId, roleType, applicantName, applicantPhone, extraForm);
+        }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("roleType", roleType);
         result.put("status", "pending");
+        if (subjectId != null) {
+            result.put("subjectId", subjectId);
+        }
         return Result.ok(result);
     }
 
@@ -188,6 +216,25 @@ public class AppRoleController {
     /** 取字符串字段值；null 安全。 */
     private String strOf(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    /** 取长整型字段值；null / 空串 / 非法值返回 null。 */
+    private Long asLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number n) {
+            return n.longValue();
+        }
+        String s = value.toString().trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /** 表单明细序列化为 JSON 字符串；失败时返回 null（不阻断申请提交）。 */

@@ -183,36 +183,6 @@
   background: var(--page-bg-neutral);
 }
 
-.category-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.category-group.is-active {
-  background: #FFFFFF;
-}
-
-/* 分组绿色标签：最多 5 字单行完整显示（5×18rpx=90rpx + 左右 padding 18rpx = 108rpx，
-   仍小于 182rpx 侧栏宽度）。按产品要求不换行、不用省略号，故不设 max-width / ellipsis；
-   超长名称由后台录入侧限制（分类管理 maxlength=5），不在小程序端硬截断。 */
-.category-group__label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: auto;
-  min-width: 90rpx;
-  height: 30rpx;
-  margin: 14rpx 0 15rpx;
-  padding: 0 9rpx;
-  color: #ffffff;
-  font-size: 18rpx;
-  line-height: 30rpx;
-  white-space: nowrap;
-  background: var(--brand-green);
-  border-radius: 0 8rpx 8rpx 0;
-}
-
 .category-item {
   position: relative;
   display: flex;
@@ -224,7 +194,6 @@
   font-size: 24rpx;
   line-height: 34rpx;
 }
-
 
 /* 分类左上角标签：绿色角标，单行显示（可留空，空则不渲染） */
 .category-item__tag {
@@ -249,11 +218,6 @@
 
 .category-item.is-active .category-item__label {
   font-weight: 600;
-}
-
-
-.category-group:not(:last-child) .category-item:last-child {
-  margin-bottom: 24rpx;
 }
 
 .product-scroll {

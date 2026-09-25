@@ -18,6 +18,8 @@ export interface AdminProductRow {
   name?: string;
   category?: string;
   categoryId?: number;
+  /** 标签（后端由 JSON 文本解析为字符串数组） */
+  tags?: string[];
   specCount?: number;
   price?: number;
   originalPrice?: number;

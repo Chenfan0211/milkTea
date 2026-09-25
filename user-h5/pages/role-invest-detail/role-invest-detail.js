@@ -1,10 +1,9 @@
 const { withShare } = require('../../utils/share');
 const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole } = require('../../utils/roles');
-const { getApplicationDetail } = require('../../utils/invest');
+const { getApplicationDetail, refreshInvestApplications } = require('../../utils/invest');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
-const INVESTOR_ID = 'INV-1001';
 
 Page(
   withShare({
@@ -20,15 +19,17 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      this.investorId = INVESTOR_ID;
       this.recordId = (options && options.id) || '';
-      const record = getApplicationDetail(this.investorId, this.recordId);
-      if (!record) {
-        this.setData({ ready: false });
-        wx.showToast({ title: '申请记录不存在', icon: 'none' });
-        return;
-      }
-      this.setData({ ready: true, record: Object.assign({}, record, { timeText: formatDateTime(record.time), timeline: (record.timeline || []).map(step => Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })) }) });
+      // 先拉取申请镜像再取详情（getApplicationDetail 依赖镜像）
+      refreshInvestApplications().then(() => {
+        const record = getApplicationDetail(this.recordId);
+        if (!record) {
+          this.setData({ ready: false });
+          wx.showToast({ title: '申请记录不存在', icon: 'none' });
+          return;
+        }
+        this.setData({ ready: true, record: Object.assign({}, record, { timeText: formatDateTime(record.time), timeline: (record.timeline || []).map(step => Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })) }) });
+      });
     },
     copyOrderNo() {
       const orderNo = this.data.record && this.data.record.orderNo;

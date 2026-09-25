@@ -238,7 +238,7 @@ const local: App.I18n.Schema = {
     subject_supplier: 'Supplier',
     auth: 'Authorization',
     auth_role: 'Role & Permission',
-    auth_wechat: 'Wechat Binding',
+    auth_account: 'Account',
     auth_grant: 'Role Grants',
     product: 'Product',
     product_category: 'Categories',
@@ -388,3 +388,4 @@ const local: App.I18n.Schema = {
 };
 
 export default local;
+

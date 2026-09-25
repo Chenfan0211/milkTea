@@ -184,7 +184,9 @@ if (menuPage.data.currentStore.isFavorite) {
 }
 const cachedMenuPage = createPage(capturedPage);
 cachedMenuPage.onLoad();
+// onShow 现在会先重新拉取「菜单 + 门店」再渲染，必须等异步完成后再断言
 cachedMenuPage.onShow();
+await new Promise(resolve => setTimeout(resolve, 30));
 if (cachedMenuPage.data.storePickerVisible || cachedMenuPage.data.currentStore.id !== 'store-002') {
   throw new Error('存在有效门店缓存时必须直接进入菜单');
 }

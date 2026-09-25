@@ -1,10 +1,9 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole } = require('../../utils/roles');
-const { getSpotById, submitApplication } = require('../../utils/invest');
+const { getCurrentBusinessRole, getCurrentSubjectId } = require('../../utils/roles');
+const { getSpotById, submitApplication, refreshInvestCatalog, refreshInvestApplications } = require('../../utils/invest');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 const RECORDS_URL = '/pages/role-invest-records/role-invest-records';
-const INVESTOR_ID = 'INV-1001';
 
 const FIELDS = [
   { id: 'contact', label: '联系人', placeholder: '请输入联系人姓名', type: 'text' },
@@ -67,17 +66,18 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      this.investorId = INVESTOR_ID;
       const storeId = (options && options.storeId) || '';
-      const spot = getSpotById(storeId);
+      Promise.all([refreshInvestCatalog(), refreshInvestApplications()]).then(() => {
+        const spot = getSpotById(storeId, getCurrentSubjectId());
       // 只有「可申请」状态的点位能进入表单，避免绕过列表直接提交。
       if (!spot || spot.spotStatus !== 'available') {
         this.setData({ ready: false });
         wx.showToast({ title: '该点位当前不可申请', icon: 'none' });
         return;
       }
-      this.storeId = spot.id;
-      this.setData({ ready: true, title: `${spot.name} · 投资申请`, spot });
+        this.storeId = spot.id;
+        this.setData({ ready: true, title: `${spot.name} · 投资申请`, spot });
+      });
     },
     handleInput(event) {
       const { field } = event.currentTarget.dataset;
@@ -103,22 +103,23 @@ Page(
         wx.showToast({ title: '请填写投资预算', icon: 'none' });
         return;
       }
-      const result = submitApplication({
-        investorId: this.investorId,
+      // 提交走后端接口，返回 Promise；成功后跳转到申请记录
+      submitApplication({
         storeId: this.storeId,
         contact: String(form.contact).trim(),
         phone: String(form.phone).trim(),
         budget: String(form.budget).trim(),
         remark: String(form.remark).trim()
+      }).then(result => {
+        if (!result.ok) {
+          wx.showToast({ title: result.message, icon: 'none' });
+          return;
+        }
+        wx.showToast({ title: '已提交，等待运营审核', icon: 'none' });
+        setTimeout(() => {
+          wx.redirectTo({ url: `${RECORDS_URL}?id=${result.record.id}` });
+        }, 800);
       });
-      if (!result.ok) {
-        wx.showToast({ title: result.message, icon: 'none' });
-        return;
-      }
-      wx.showToast({ title: '已提交，等待运营审核', icon: 'none' });
-      setTimeout(() => {
-        wx.redirectTo({ url: `${RECORDS_URL}?id=${result.record.id}` });
-      }, 800);
     },
     leaveToRoleCenter() {
       const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];

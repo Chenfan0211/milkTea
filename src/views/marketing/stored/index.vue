@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'marketing_stored'
 });
@@ -9,6 +8,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
+import { fetchStoredValuePackages, saveStoredValueCoupons, saveStoredValueUsage } from '@/service/api/crud';
 import GiftCouponsEditor from './GiftCouponsEditor.vue';
 
 const store = useAdminStore();
@@ -32,7 +32,9 @@ function openGiftEditor(row: any) {
 
 async function saveGift() {
   if (!giftRow.value) return;
-  await store.update('storedValuePackages', giftRow.value.id, { coupons: giftModel.value }, '营销中心', 'amount');
+  // 赠券存关联表 stored_value_package_coupon，走 marketing-service 专用接口，
+  // 通用 CRUD 单表写不了关联表（原实现写 coupons 字段被白名单静默丢弃）
+  await saveStoredValueCoupons(giftRow.value.id, giftModel.value);
   giftVisible.value = false;
   window.$message?.success('赠送券已保存');
   listRef.value?.reload();
@@ -50,20 +52,27 @@ async function saveUsage() {
     .split('\n')
     .map((s: string) => s.trim())
     .filter((s: string) => s.length > 0);
-  await store.update('storedValuePackages', usageRow.value.id, { usageParagraphs: paragraphs }, '营销中心', 'amount');
+  // 使用说明存 usage_paragraphs JSON 列，走专用接口（通用 CRUD 用 setObject(List) 会类型不匹配）
+  await saveStoredValueUsage(usageRow.value.id, paragraphs);
   usageVisible.value = false;
   window.$message?.success('使用说明已保存');
   listRef.value?.reload();
 }
 
 const columns: DataTableColumns<any> = [
-  { title: '套餐金额(元)', key: 'amount', width: 140, align: 'right' },
+  {
+    title: '套餐金额(元)',
+    key: 'amount',
+    width: 140,
+    align: 'right',
+    render: (row: any) => (Number(row.amount) / 100).toFixed(2)
+  },
   {
     title: '赠送券',
     key: 'coupons',
     minWidth: 320,
     render: (row: any) =>
-      (row.coupons || []).map((c: any) => `${c.amount}元x${c.quantity}张`).join('、') || '—'
+      (row.coupons || []).map((c: any) => `${(Number(c.amount) / 100).toFixed(0)}元x${c.quantity}张`).join('、') || '—'
   }
 ];
 
@@ -90,13 +99,34 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.queryRemote('storedValuePackages', search, page, pageSize),
+  loadData: async ({ page, pageSize }) => {
+    // 走 marketing-service 聚合接口，才能拿到赠券明细与使用说明；
+    // 通用 CRUD 单表查询这两列恒为空。
+    // 该接口已改为服务端分页（返回 PageResult），total 来自后端 count(*)，
+    // 不再用「本地数组长度」当总数（后者会让分页器永远停在当前页）。
+    const res = await fetchStoredValuePackages({ current: page, size: pageSize });
+    return { data: res?.records ?? [], total: res?.total ?? 0 };
+  },
   form: {
     title: '储值套餐',
     fields: formFields,
+    // 编辑回填：amount 存的是「分」，表单里按「元」展示与输入
+    toFormData: (row: any) => ({ ...row, amount: row.amount == null ? 0 : Number(row.amount) / 100 }),
     onSubmit: async (data, editing) => {
-      if (editing) await store.update('storedValuePackages', editing.id, data, '营销中心', 'amount');
-      else await store.add('storedValuePackages', { ...data, coupons: [], usageParagraphs: [] }, '营销中心', 'amount');
+      // 元 -> 分（储值金额统一以分落库）
+      const yuan = Number(data.amount) || 0;
+      const payload = { ...data, amount: Math.round(yuan * 100) };
+      if (editing) {
+        await store.update('storedValuePackages', editing.id, payload, '营销中心', 'amount');
+      } else {
+        // stored_value_package.name 为 NOT NULL 且表单未收集，按业务语义自动生成（充{元}送优惠券）
+        await store.add(
+          'storedValuePackages',
+          { ...payload, name: `充${yuan}送优惠券`, coupons: [], usageParagraphs: [] },
+          '营销中心',
+          'amount'
+        );
+      }
     }
   }
 };
@@ -104,36 +134,30 @@ const config: AdminListConfig = {
 
 <template>
   <div class="page-root">
+    <AdminListPage ref="listRef" :config="config" />
 
-  <AdminListPage ref="listRef" :config="config" />
-
-  <NModal v-model:show="giftVisible" preset="card" title="赠送券配置" class="w-680px">
-    <div v-if="giftRow" class="modal-body">
-      <div class="modal-name">套餐金额：¥{{ giftRow.amount }}</div>
-      <GiftCouponsEditor v-model="giftModel" />
-      <div class="flex flex-wrap justify-end gap-12px mt-20px">
-        <NButton @click="giftVisible = false">取消</NButton>
-        <NButton type="primary" @click="saveGift">保存</NButton>
+    <NModal v-model:show="giftVisible" preset="card" title="赠送券配置" class="w-680px">
+      <div v-if="giftRow" class="modal-body">
+        <div class="modal-name">套餐金额：¥{{ (Number(giftRow.amount) / 100).toFixed(2) }}</div>
+        <GiftCouponsEditor v-model="giftModel" />
+        <div class="flex flex-wrap justify-end gap-12px mt-20px">
+          <NButton @click="giftVisible = false">取消</NButton>
+          <NButton type="primary" @click="saveGift">保存</NButton>
+        </div>
       </div>
-    </div>
-  </NModal>
+    </NModal>
 
-  <NModal v-model:show="usageVisible" preset="card" title="使用说明配置" class="w-680px">
-    <div v-if="usageRow" class="modal-body">
-      <div class="modal-name">套餐金额：¥{{ usageRow.amount }}</div>
-      <NInput
-        v-model:value="usageText"
-        type="textarea"
-        :rows="8"
-        placeholder="每行一条使用说明"
-      />
-      <div class="mt-8px text-12px color-#9B9B96">每行一条，保存时自动按换行拆分</div>
-      <div class="flex flex-wrap justify-end gap-12px mt-20px">
-        <NButton @click="usageVisible = false">取消</NButton>
-        <NButton type="primary" @click="saveUsage">保存</NButton>
+    <NModal v-model:show="usageVisible" preset="card" title="使用说明配置" class="w-680px">
+      <div v-if="usageRow" class="modal-body">
+        <div class="modal-name">套餐金额：¥{{ (Number(usageRow.amount) / 100).toFixed(2) }}</div>
+        <NInput v-model:value="usageText" type="textarea" :rows="8" placeholder="每行一条使用说明" />
+        <div class="mt-8px text-12px color-#9B9B96">每行一条，保存时自动按换行拆分</div>
+        <div class="flex flex-wrap justify-end gap-12px mt-20px">
+          <NButton @click="usageVisible = false">取消</NButton>
+          <NButton type="primary" @click="saveUsage">保存</NButton>
+        </div>
       </div>
-    </div>
-  </NModal>
+    </NModal>
   </div>
 </template>
 
@@ -149,4 +173,3 @@ const config: AdminListConfig = {
   margin-bottom: 16px;
 }
 </style>
-

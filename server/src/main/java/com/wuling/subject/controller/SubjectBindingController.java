@@ -221,6 +221,18 @@ public class SubjectBindingController {
 
     // ---------- 角色申请审核 ----------
 
+    /**
+     * 审核角色开通申请。
+     *
+     * <p>普通角色（门店/渠道/供应商）：subjectId 为「用户要绑定的主体」，审核通过后
+     * 写 user_role_grant + app_user.bound_subject_id（用户绑定到该主体）。
+     *
+     * <p><b>投资人投资门店（2026-09-25 新增语义）</b>：role_type=investor 的申请，
+     * subject_id 存的是「目标门店 id」。审核通过后不应把用户绑定到门店（用户已是投资人，
+     * 已绑定投资人主体），而应建立「门店 ↔ 投资人主体」的绑定：
+     *   store_profile.investor_subject_id = 申请人的投资人主体 id。
+     * 投资人主体 id 从 user_role_grant 里 role_code=investor 的 subject_id 取。
+     */
     @PostMapping("/application/{id}/review")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> reviewApplication(@PathVariable Long id,
@@ -228,7 +240,7 @@ public class SubjectBindingController {
                                           @RequestParam(required = false) String reason,
                                           @RequestParam(required = false) Long subjectId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select id, user_id, role_type, status from role_application where id = ? and deleted = 0", id);
+                "select id, user_id, role_type, status, subject_id from role_application where id = ? and deleted = 0", id);
         if (rows.isEmpty()) {
             throw new BusinessException(ResultCode.NOT_FOUND, "申请不存在");
         }
@@ -237,13 +249,30 @@ public class SubjectBindingController {
         if (!"PENDING".equalsIgnoreCase(status)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该申请已处理，不能重复审核");
         }
+        Long userId = ((Number) row.get("user_id")).longValue();
+        String roleType = String.valueOf(row.get("role_type")).toLowerCase();
+        // 申请时前端已写入的目标主体 id（投资场景=目标门店；普通场景=待绑定的主体）
+        Long appliedSubjectId = row.get("subject_id") == null ? null : ((Number) row.get("subject_id")).longValue();
+
         jdbcTemplate.update("update role_application set status = ?, review_time = now(), reviewer = ? "
                         + "where id = ?",
                 approve ? "APPROVED" : "REJECTED", reason, id);
 
-        if (approve && subjectId != null) {
-            Long userId = ((Number) row.get("user_id")).longValue();
-            String roleType = String.valueOf(row.get("role_type")).toLowerCase();
+        if (!approve) {
+            return Result.ok();
+        }
+
+        if ("investor".equals(roleType)) {
+            // 投资人投资门店：目标门店 id 来自申请记录（subject_id），审核时可能覆盖
+            Long storeSubjectId = subjectId != null ? subjectId : appliedSubjectId;
+            if (storeSubjectId == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "投资申请缺少目标门店");
+            }
+            bindInvestorToStore(userId, storeSubjectId);
+            return Result.ok();
+        }
+
+        if (subjectId != null) {
             jdbcTemplate.update("update role_application set subject_id = ? where id = ?", subjectId, id);
             jdbcTemplate.update("insert into user_role_grant (user_id, role_code, subject_id, status, grant_time) "
                             + "values (?, ?, ?, 'active', now())",
@@ -252,6 +281,42 @@ public class SubjectBindingController {
                     roleType, subjectId, userId);
         }
         return Result.ok();
+    }
+
+    /**
+     * 投资人投资门店：审核通过后建立「门店 ↔ 投资人主体」绑定。
+     *
+     * <p>投资人主体 id 从该用户已获授的 investor 角色授权（user_role_grant）取，
+     * 若查不到则回退到 app_user.bound_subject_id（business_role=investor）。
+     * 写 store_profile.investor_subject_id = 投资人主体 id。
+     */
+    private void bindInvestorToStore(Long userId, Long storeSubjectId) {
+        Long investorSubjectId = jdbcTemplate.queryForList(
+                        "select subject_id from user_role_grant "
+                                + "where user_id = ? and role_code = 'investor' and status = 'active' and deleted = 0 order by id limit 1",
+                        userId)
+                .stream()
+                .map(m -> m.get("subject_id") == null ? null : ((Number) m.get("subject_id")).longValue())
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        if (investorSubjectId == null) {
+            investorSubjectId = jdbcTemplate.queryForList(
+                            "select bound_subject_id from app_user "
+                                    + "where id = ? and business_role = 'investor' and deleted = 0",
+                            userId)
+                    .stream()
+                    .map(m -> m.get("bound_subject_id") == null ? null : ((Number) m.get("bound_subject_id")).longValue())
+                    .filter(java.util.Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (investorSubjectId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "申请人尚未绑定投资人主体，无法建立门店投资绑定");
+        }
+        jdbcTemplate.update("update store_profile set investor_subject_id = ? "
+                        + "where subject_id = ? and deleted = 0",
+                investorSubjectId, storeSubjectId);
     }
 
     @GetMapping("/applications")

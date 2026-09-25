@@ -25,6 +25,8 @@ export interface FormField {
   options?: SelectOption[] | (() => SelectOption[]);
   placeholder?: string;
   multiple?: boolean;
+  /** 文本输入最大长度（如左侧分组标签限 5 字，保证小程序单行完整显示） */
+  maxlength?: number;
   /** geocode 类型：从 sourceKey 地址解析，回填到 latKey / lngKey */
   geocodeSourceKey?: string;
   geocodeLatKey?: string;

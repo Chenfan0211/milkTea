@@ -1,6 +1,6 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { getListedMenuTabs, isProductListed, refreshMenuFromRemote, getMenuCatalog } = require('../../utils/product-listing');
+const { getListedMenuTabs, getMergedMenuTab, isProductListed, refreshMenuFromRemote, getMenuCatalog } = require('../../utils/product-listing');
 const { buildCartId, mergeEditedCartItem } = require('../../utils/cart');
 const { buildStoreMarkers } = require('../../utils/store-markers');
 const { normalizeSpecProduct } = require('../../utils/spec-sheet');
@@ -88,8 +88,6 @@ Page(
     data: {
       currentStore: {},
       orderMode: 'pickup',
-      menuTabs: [],
-      activeMenuIndex: 0,
       activeMenu: {},
       selectedCategoryId: '',
       selectedGroupId: '',
@@ -123,8 +121,18 @@ Page(
     setTabBarHidden(hidden) {
       if (this.getTabBar) this.getTabBar().setData({ hidden });
     },
+    /**
+     * 点单页专用的轻量刷新：只拉「菜单 + 门店」。
+     *
+     * 按产品要求「进入哪个页面就刷新哪个接口」：点单页每次 onShow 只重新请求
+     * 菜单与门店（变更最频繁），城市与会员等级仅在首屏 onLoad 拉取一次。
+     * 这样既保证每次进入都能看到后台最新数据，又避免每次返回都发 4 个请求。
+     */
+    refreshMenuPage() {
+      return Promise.all([refreshStoreCatalogFromRemote(), refreshMenuFromRemote()]).then(() => this.renderMenu());
+    },
     onLoad() {
-      // 菜单 / 活动 / 门店均来自后端接口。
+      // 首屏需要四类数据：城市（选店依赖）、门店、菜单、会员等级（规格弹层会员价依赖）。
       // 顺序敏感：必须等门店与菜单都就绪后再渲染，否则会先渲染出空门店列表。
       Promise.all([
         refreshCitiesFromRemote(),
@@ -134,7 +142,6 @@ Page(
           }
         }),
         refreshMenuFromRemote(),
-        // 规格弹层的会员价依赖会员等级折扣，必须先就绪，否则会员价会等于原价
         refreshMemberLevelsFromRemote()
       ]).then(() => this.renderMenu());
       api
@@ -148,19 +155,16 @@ Page(
     renderMenu() {
       const app = getApp();
       const catalog = resolveStoreCatalog();
-      const menus = getListedMenuTabs(catalog.currentStore && catalog.currentStore.id);
-      if (!menus.length) {
-        this.setData({ menuTabs: [], activeMenu: {}, selectedCategoryId: '', selectedGroupId: '' });
+      // 点单页不展示顶部页签：其余 TAB 的分组已并入首个 TAB，同级展示
+      const activeMenu = getMergedMenuTab(catalog.currentStore && catalog.currentStore.id);
+      if (!activeMenu || !activeMenu.groups.length) {
+        this.setData({ activeMenu: {}, selectedCategoryId: '', selectedGroupId: '' });
         return;
       }
-      const activeMenuIndex = Math.max(0, menus.findIndex(item => item.id === app.globalData.menuTabId));
-      const activeMenu = menus[activeMenuIndex];
       this.setData(
         Object.assign(
           {
             orderMode: app.globalData.orderMode,
-            menuTabs: menus,
-            activeMenuIndex,
             activeMenu,
             selectedCategoryId: getFirstCategoryId(activeMenu),
             selectedGroupId: activeMenu.groups[0].id,
@@ -172,6 +176,15 @@ Page(
         )
       );
     },
+    /**
+     * onShow 统一入口：先向后端重新拉取「菜单 + 门店」，成功后再基于新数据同步渲染。
+     *
+     * 必须是「先 await 接口、再 syncCurrentStore」：
+     * 若先同步渲染再拉取，会先用旧镜像渲染一帧，用户会看到数据闪回旧值。
+     */
+    refreshThenSync() {
+      return this.refreshMenuPage().then(() => this.syncCurrentStore());
+    },
     onShow() {
       if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
       this.setTabBarHidden(false);
@@ -181,7 +194,7 @@ Page(
         const selected = Boolean(app.globalData.favoriteStoreSelected);
         app.globalData.favoriteStoreSelected = false;
         if (selected) {
-          this.syncCurrentStore();
+          this.refreshThenSync();
           return;
         }
         this.setData({ storePickerVisible: true });
@@ -193,7 +206,7 @@ Page(
         this.returningFrom = '';
         const cityCatalog = resolveStoreCatalog();
         if (cityCatalog.currentStore) {
-          this.syncCurrentStore();
+          this.refreshThenSync();
           return;
         }
         this.openStorePicker(false);
@@ -201,12 +214,12 @@ Page(
       }
       if (this.returningFrom === 'order') {
         this.returningFrom = '';
-        this.syncCurrentStore();
+        this.refreshThenSync();
         return;
       }
       const catalog = resolveStoreCatalog();
       if (catalog.currentStore) {
-        this.syncCurrentStore();
+        this.refreshThenSync();
         if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
         this.setTabBarHidden(false);
         return;
@@ -217,7 +230,7 @@ Page(
       this.returningFrom = '';
       const catalog = resolveStoreCatalog();
       if (catalog.currentStore) {
-        this.syncCurrentStore();
+        this.refreshThenSync();
         if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
         this.setTabBarHidden(false);
         return;
@@ -428,17 +441,10 @@ Page(
     // 按当前门店过滤菜单：下架商品不出现在点单页，空分类 / 空分组 / 空 Tab 自动隐藏。
     buildListingUpdates(store) {
       const storeId = store && store.id;
-      const menus = getListedMenuTabs(storeId);
-      const activeMenuIndex = Math.max(
-        0,
-        menus.findIndex(item => item.id === (menus[this.data.activeMenuIndex] || {}).id)
-      );
-      const activeMenu = menus[Math.min(activeMenuIndex, menus.length - 1)] || menus[0];
+      const activeMenu = getMergedMenuTab(storeId) || { groups: [] };
       const catalogMenus = this.buildCartUpdates(storeId);
       return Object.assign(
         {
-          menuTabs: menus,
-          activeMenuIndex,
           activeMenu,
           selectedCategoryId: getFirstCategoryId(activeMenu),
           selectedGroupId: activeMenu.groups[0].id
@@ -583,7 +589,7 @@ Page(
         wx.showToast({ title: '商品规格暂不可编辑', icon: 'none' });
         return;
       }
-      const product = normalizeSpecProduct(findProductById(this.data.menuTabs, cartItem.productId));
+      const product = normalizeSpecProduct(findProductById([this.data.activeMenu], cartItem.productId));
       if (!product || !product.id) {
         wx.showToast({ title: '商品规格暂不可编辑', icon: 'none' });
         return;
@@ -644,20 +650,6 @@ Page(
       }
       getApp().globalData.orderMode = mode;
       this.setData({ orderMode: mode });
-    },
-    selectMenuTab(event) {
-      const activeMenuIndex = Number(event.currentTarget.dataset.index);
-      const activeMenu = this.data.menuTabs[activeMenuIndex];
-      const selectedCategoryId = getFirstCategoryId(activeMenu);
-      getApp().globalData.menuTabId = activeMenu.id;
-      this.setData({
-        activeMenuIndex,
-        activeMenu,
-        selectedCategoryId,
-        selectedGroupId: activeMenu.groups[0].id,
-        scrollIntoView: 'product-top',
-        productRows: buildProductRows(activeMenu)
-      });
     },
     selectCategory(event) {
       const { id } = event.currentTarget.dataset;

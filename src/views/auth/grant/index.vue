@@ -3,107 +3,75 @@ defineOptions({
   name: 'auth_grant'
 });
 
-import AdminListPage from '@/views/_shared/AdminListPage.vue';
-import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
+import { h } from 'vue';
+import { NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
-import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
+import AdminListPage from '@/views/_shared/AdminListPage.vue';
+import type { AdminListConfig, SearchField } from '@/views/_shared/types';
+import { renderDateTime } from '@/views/_shared/render';
+import { fetchAdminRoleGrants } from '@/service/api/auth_admin';
 
-const store = useAdminStore();
-
-/** 角色码 -> 中文（后端 role_code 为大写，如 STORE） */
-const roleLabel = (v: any) =>
-  (
-    ({ store: '门店', investor: '投资人', resource: '资源方', channel: '资源方', supplier: '供应商' }) as Record<
-      string,
-      string
-    >
-  )[String(v ?? '').toLowerCase()] ?? (v == null || v === '' ? '—' : String(v));
+/**
+ * 角色授权记录（运营后台「授权中心 / 角色授权记录」）。
+ *
+ * 需求口径（2026-09-25）：角色绑定的是**后台登录账号**，
+ * 因此本页展示「哪个后台账号被授予了哪个后台角色」，只读。
+ *
+ * 历史口径：本页原先读 user_role_grant —— 那是**小程序用户**的经营角色授权
+ * （门店/投资人/资源方），与「可登录运营后台的账号」是两套体系，
+ * 混在同名菜单下造成语义错位。后端 /admin/auth/grants 已同步切换为 sys_user_role。
+ *
+ * 为什么是只读：授权的增删改入口在「账号管理」（分配角色）与
+ * 「角色与权限」（分配菜单）两处，本页只做留痕查阅，
+ * 避免同一份关系有多个写入口导致互相覆盖。
+ */
 
 const columns: DataTableColumns<any> = [
-  // 展示名称而非 id：原实现直接渲染 userId/subjectId，与后端返回的 userName/subjectName 不一致
-  { title: '用户', key: 'userName', width: 120, render: (row: any) => row.userName || row.user || '—' },
-  { title: '角色', key: 'roleCode', width: 100, render: (row: any) => roleLabel(row.roleCode) },
-  { title: '主体', key: 'subjectName', minWidth: 160, render: (row: any) => row.subjectName || row.subject || '—' },
-  { title: '数据范围', key: 'dataScope', width: 110, render: (row: any) => row.dataScope || '全部' },
-  { title: '授权人', key: 'grantBy', width: 110, render: (row: any) => row.grantBy || '—' },
-  { title: '授权时间', key: 'grantTime', render: renderDateTime('grantTime'), width: 150 },
+  { title: '账号', key: 'username', width: 140 },
+  { title: '昵称', key: 'nickName', width: 140, render: (row: any) => row.nickName || '—' },
   {
-    title: '状态',
+    title: '角色',
+    key: 'roleName',
+    minWidth: 160,
+    render: (row: any) =>
+      h(
+        'div',
+        { style: 'display:flex;align-items:center;gap:6px' },
+        [
+          h('span', null, row.roleName || row.roleCode || '—'),
+          row.isBuiltin
+            ? h(NTag, { size: 'small', type: 'warning' }, { default: () => '内置' })
+            : null
+        ].filter(Boolean) as any
+      )
+  },
+  { title: '角色编码', key: 'roleCode', width: 130, render: (row: any) => row.roleCode || '—' },
+  {
+    title: '账号状态',
     key: 'status',
     width: 100,
-    render: renderTag('status', statusMap({ active: ['有效', 'success'], revoked: ['已撤销', 'default'] }))
-  }
-];
-const searchFields: SearchField[] = [
-  { key: 'subjectId', label: '主体', placeholder: '主体ID' },
-  {
-    key: 'status',
-    label: '状态',
-    type: 'select',
-    options: [
-      { label: '有效', value: 'active' },
-      { label: '已撤销', value: 'revoked' }
-    ]
-  }
-];
-const formFields: FormField[] = [
-  { key: 'userId', label: '用户ID' },
-  {
-    // 取值必须是库中 role_code 的真实值（大写英文），
-    // 原实现用中文（门店/资源方...），与库中 STORE/CHANNEL... 不符，
-    // 会造成「按角色筛选查不到、写入后展示不一致」。
-    key: 'roleCode',
-    label: '角色',
-    type: 'select',
-    options: [
-      { label: '门店', value: 'STORE' },
-      { label: '资源方', value: 'CHANNEL' },
-      { label: '投资人', value: 'INVESTOR' },
-      { label: '供应商', value: 'SUPPLIER' }
-    ]
+    render: (row: any) =>
+      row.status === 0
+        ? h(NTag, { size: 'small', type: 'error' }, { default: () => '已停用' })
+        : h(NTag, { size: 'small', type: 'success' }, { default: () => '正常' })
   },
-  { key: 'subjectId', label: '主体ID' },
-  { key: 'dataScope', label: '数据范围' }
+  { title: '授权时间', key: 'createTime', render: renderDateTime('createTime'), width: 160 }
 ];
-const toolbar: RowAction[] = [{ label: '新增授权', type: 'primary', modal: 'add' }];
-const rowActions: RowAction[] = [
-  {
-    label: '撤销',
-    type: 'error',
-    reasonPrompt: '确认撤销该授权？（请填写备注）',
-    handler: async (row, reason) =>
-      await store.patch('grants', row.id, { status: 'revoked' }, '授权中心', '撤销授权', 'subject', reason)
-  }
+
+const searchFields: SearchField[] = [
+  { key: 'username', label: '账号', placeholder: '登录用户名' },
+  { key: 'roleCode', label: '角色编码', placeholder: '如 R_OPERATION' }
 ];
+
 const config: AdminListConfig = {
   title: '角色授权记录',
-  remoteKey: 'grants',
   columns,
   searchFields,
-  toolbar,
-  rowActions,
-  loadData: async ({ page, pageSize, search }) => store.queryRemote('grants', search, page, pageSize),
-  form: {
-    title: '授权',
-    fields: formFields,
-    onSubmit: async (data, editing) => {
-      if (editing)
-        await store.update(
-          'grants',
-          editing.id,
-          { ...data, status: 'active', grantBy: 'admin', grantTime: new Date().toISOString().slice(0, 16) },
-          '授权中心',
-          'subject'
-        );
-      else
-        await store.add(
-          'grants',
-          { ...data, status: 'active', grantBy: 'admin', grantTime: new Date().toISOString().slice(0, 16) },
-          '授权中心',
-          'subject'
-        );
-    }
+  loadData: async ({ page, pageSize, search }) => {
+    const res: any = await fetchAdminRoleGrants({ current: page, size: pageSize, ...search });
+    const records = res?.records ?? res?.data?.records ?? [];
+    const total = res?.total ?? res?.data?.total ?? 0;
+    return { data: records, total };
   }
 };
 </script>

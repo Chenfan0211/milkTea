@@ -26,8 +26,18 @@ JOIN product_category g
    SET c.tag = COALESCE(NULLIF(c.tag, ''), g.tag);
 
 -- 2) 清理测试验证遗留的垃圾分类数据（code 以 '__' 前缀、enabled=0）
+--
+-- 【为什么不用 LIKE + ESCAPE】
+--   原写法 `code LIKE '\_\_%' ESCAPE '\'` 是无法执行的：ESCAPE 的参数 '\' 以反斜杠收尾，
+--   MySQL 解析器会认定「反斜杠转义了结束引号」，于是字符串未闭合 -> 直接语法错误。
+--   更麻烦的是它还会带偏 Flyway 的分号切分器：解析器以为字符串没结束，就把后续的
+--   第 3/4/5 条语句全吞成一条，最终报错停在 `near 'TAB', 'GROUP')` ——
+--   症状指向第 3 条，病根却在第 2 条，排查方向极易被误导。
+--
+--   因此改用字符串函数 LEFT()：语义直白、彻底绕开转义符坑；
+--   且 product_category 基数极小（十几行），不依赖索引，无性能顾虑。
 DELETE FROM product_category
- WHERE code LIKE '\_\_%' ESCAPE '\' AND enabled = 0;
+ WHERE LEFT(code, 2) = '__' AND enabled = 0;
 
 -- 3) 物理删除旧层级节点（TAB / GROUP）
 DELETE FROM product_category WHERE type IN ('TAB', 'GROUP');

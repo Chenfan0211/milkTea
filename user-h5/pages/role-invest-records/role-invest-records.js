@@ -1,11 +1,10 @@
 const { withShare } = require('../../utils/share');
 const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole } = require('../../utils/roles');
-const { listApplications, INVEST_STATUS_TEXT } = require('../../utils/invest');
+const { listApplications, INVEST_STATUS_TEXT, refreshInvestApplications } = require('../../utils/invest');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 const DETAIL_URL = '/pages/role-invest-detail/role-invest-detail';
-const INVESTOR_ID = 'INV-1001';
 const CATEGORIES = [
   { id: 'all', label: '全部' },
   { id: 'pending', label: '审核中' },
@@ -94,11 +93,13 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      this.investorId = INVESTOR_ID;
-      this.setData({ ready: true }, () => this.syncRecords());
+      // 先拉取申请镜像再渲染
+      refreshInvestApplications().then(() => {
+        this.setData({ ready: true }, () => this.syncRecords());
+      });
     },
     syncRecords() {
-      const records = listApplications(this.investorId).map(item =>
+      const records = listApplications().map(item =>
         Object.assign({}, item, {
           statusLabel: INVEST_STATUS_TEXT[item.status] || item.status,
           timeText: formatDateTime(item.time)

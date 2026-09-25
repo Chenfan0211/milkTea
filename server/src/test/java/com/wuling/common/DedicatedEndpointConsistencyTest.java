@@ -88,7 +88,11 @@ class DedicatedEndpointConsistencyTest {
             // 签到规则（注意：实现在 marketing-service，不在 server 模块）
             "marketing-service/src/main/java/com/wuling/marketing/controller/AdminMarketingConfigController.java",
             // 详情查询（快照详情 / 角色申请详情 / 核销详情）
-            "server/src/main/java/com/wuling/system/controller/AdminDetailQueryController.java"
+            "server/src/main/java/com/wuling/system/controller/AdminDetailQueryController.java",
+            // 授权中心（2026-09-25 RBAC 重构）：账号 / 角色菜单 / 角色与授权查询
+            "server/src/main/java/com/wuling/auth/controller/AdminAccountController.java",
+            "server/src/main/java/com/wuling/auth/controller/AdminRoleMenuController.java",
+            "server/src/main/java/com/wuling/auth/controller/AdminAuthQueryController.java"
     );
 
     /** 已接入专用接口校验的页面（相对仓库根）。未登记的页面会让测试失败，提醒补登记。 */
@@ -102,11 +106,22 @@ class DedicatedEndpointConsistencyTest {
             // 积分规则页：读 fetchSigninRule（marketing-service）；
             // 其表格 ruleColumns 数据来自通用 CRUD，不在本测试的直读列校验范围
             "src/views/marketing/points-rule/index.vue",
+            // 礼品卡页 / 储值页：读 AdminMarketingConfigController 的配置接口
+            // （gift-card-faces / stored-value-packages），走专用接口，仅登记覆盖
+            "src/views/marketing/gift/index.vue",
+            "src/views/marketing/stored/index.vue",
             // 以下 3 个为详情页：用描述列表（descriptions）而非 DataTable columns 展示，
             // 故不参与「直读列」校验，仅登记以满足覆盖范围可见性要求
             "src/views/finance/snapshot-detail/index.vue",
             "src/views/review/role-detail/index.vue",
-            "src/views/trade/verify-detail/index.vue"
+            "src/views/trade/verify-detail/index.vue",
+            // 授权中心三个页（2026-09-25 RBAC 重构）：走专用接口 AdminAccountController /
+            // AdminRoleMenuController / AdminAuthQueryController，不是通用 CRUD。
+            // 它们的表格列多数带自定义 render 或读本地派生字段，不参与「直读列」校验，
+            // 此处登记以满足覆盖范围可见性要求（新增专用接口页面时不得遗漏）。
+            "src/views/auth/account/index.vue",
+            "src/views/auth/role/index.vue",
+            "src/views/auth/grant/index.vue"
     );
 
     /** 后端行字段名 -> 是否可用（含 SQL select 出来的列，做 camel/snake 双向匹配）。 */
@@ -345,3 +360,5 @@ class DedicatedEndpointConsistencyTest {
                         + "说明解析逻辑失效（如 columns 定义写法变更），测试将无法发现真实问题。");
     }
 }
+
+

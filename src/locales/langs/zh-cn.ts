@@ -234,7 +234,7 @@ const local: App.I18n.Schema = {
     subject_supplier: '供应商管理',
     auth: '授权中心',
     auth_role: '角色与权限',
-    auth_wechat: '微信账号绑定',
+    auth_account: '账号管理',
     auth_grant: '角色授权记录',
     product: '商品中心',
     product_category: '分类管理',
@@ -383,3 +383,4 @@ const local: App.I18n.Schema = {
 };
 
 export default local;
+

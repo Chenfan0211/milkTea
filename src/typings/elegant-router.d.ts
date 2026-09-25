@@ -21,9 +21,9 @@ declare module "@elegant-router/types" {
     "404": "/404";
     "500": "/500";
     "auth": "/auth";
+    "auth_account": "/auth/account";
     "auth_grant": "/auth/grant";
     "auth_role": "/auth/role";
-    "auth_wechat": "/auth/wechat";
     "finance": "/finance";
     "finance_account": "/finance/account";
     "finance_flow": "/finance/flow";
@@ -142,9 +142,9 @@ declare module "@elegant-router/types" {
     | "500"
     | "iframe-page"
     | "login"
+    | "auth_account"
     | "auth_grant"
     | "auth_role"
-    | "auth_wechat"
     | "finance_account"
     | "finance_flow"
     | "finance_pool"

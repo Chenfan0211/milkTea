@@ -1753,12 +1753,19 @@ assert.ok(
 );
 
 const invest = require(path.join(root, 'utils/invest.js'));
-// 投资点位依赖门店目录：注入 seed 门店（等价于 /api/v1/app/stores 返回）
-invest.setInvestCatalog({ stores: investStores, cities: readAppConfig('app_cities') || [] });
-const INV = 'INV-1001';
+// 接口化后（2026-09-25）：投资点位依赖门店目录 + 申请镜像，数据来自后端。
+// 测试用注入函数喂 seed 数据（等价于 /api/v1/app/stores 与 /roles/applications 返回）。
+invest.setInvestCatalogForTest(investStores, readAppConfig('app_cities') || []);
+invest.setInvestApplicationsForTest([]);
+
+// 未注入申请前：申请列表为空（接口化后不再内置本地假数据）
+assert.equal(invest.listApplications().length, 0, 'applications must be empty before remote sync');
+
+// 当前投资人主体 id（seed：INV-1001 -> biz_subject.id=202）
+const CURRENT_INVESTOR_SUBJECT_ID = 202;
 
 // 点位列表：展示所有门店，按状态标记
-const spots = invest.getSpots(INV);
+const spots = invest.getSpots(CURRENT_INVESTOR_SUBJECT_ID);
 assert.equal(spots.length, investStores.length, 'spot list must cover every store');
 assert.ok(
   spots.every(spot => spot.cityName && spot.address && spot.spotStatus && spot.statusLabel === undefined),
@@ -1788,7 +1795,7 @@ assert.ok(
 );
 
 // 统计口径
-const statsBefore = invest.getInvestStats(INV);
+const statsBefore = invest.getInvestStats(CURRENT_INVESTOR_SUBJECT_ID);
 assert.equal(statsBefore.total, spots.length, 'stats total must match the spot list');
 assert.equal(
   statsBefore.available,
@@ -1801,80 +1808,61 @@ assert.equal(
   'stats signed must match the spot list'
 );
 
-// 提交申请：成功 + 单号格式 + 时间线
+// 提交申请（接口化后返回 Promise；前置校验分支同步 resolve { ok:false }）
 const availableSpot = spots.find(spot => spot.spotStatus === 'available');
-const submission = invest.submitApplication({
-  investorId: INV,
-  storeId: availableSpot.id,
-  budget: '200000',
-  contact: '张三',
-  phone: '13800008888'
-});
-assert.ok(submission.ok, 'submitting an available spot must succeed');
-assert.ok(/^INV\d+$/.test(submission.record.orderNo), 'application order no must follow INV + digits');
-assert.ok(
-  submission.record.timeline.length >= 3 &&
-    submission.record.timeline.every(step => step.id && step.title && step.description && step.state),
-  'application timeline must be complete'
-);
-assert.ok(
-  submission.record.timeline.every(step => !step.time || step.time.indexOf('NaN') < 0),
-  'application timeline must never render a NaN timestamp'
-);
-assert.equal(
-  submission.record.timeline.filter(step => step.state === 'active').length,
-  1,
-  'application timeline must have exactly one active step'
-);
-
-// 提交后状态与统计同步
-assert.equal(
-  invest.getSpotById(availableSpot.id).spotStatus,
-  'pending',
-  'a submitted spot must move to pending'
-);
-assert.equal(
-  invest.getInvestStats(INV).pending,
-  statsBefore.pending + 1,
-  'pending count must increase after submitting'
-);
-
-// 拦截：重复 / 已绑定 / 停用 / 不存在
-assert.equal(invest.submitApplication({ investorId: INV, storeId: availableSpot.id }).ok, false, 'duplicate pending must be rejected');
 const signedSpot = spots.find(spot => spot.spotStatus === 'signed');
-assert.equal(
-  invest.submitApplication({ investorId: INV, storeId: signedSpot.id }).ok,
-  false,
-  'already signed spots must be rejected'
-);
 const occupiedSpot = spots.find(spot => spot.spotStatus === 'occupied');
-assert.equal(
-  invest.submitApplication({ investorId: INV, storeId: occupiedSpot.id }).ok,
-  false,
-  'spots bound to another investor must be rejected'
-);
-// 数据库初始门店均为 enabled，无 disabled 点位可测；用「不存在门店」覆盖拒绝分支
-assert.equal(
-  invest.submitApplication({ investorId: INV, storeId: 'store-not-exist' }).ok,
-  false,
-  'unknown spots must be rejected'
-);
-assert.equal(invest.submitApplication({ investorId: INV, storeId: 'nope' }).ok, false, 'unknown spots must be rejected');
-assert.equal(invest.submitApplication({ investorId: INV }).ok, false, 'missing store id must be rejected');
 
-// 详情：权限 + 状态文案 + 脱敏手机号
-assert.equal(invest.getApplicationDetail('INV-9999', submission.record.id), null, 'detail must respect the investor scope');
-assert.equal(invest.getApplicationDetail(INV, 'nope'), null, 'detail must reject unknown ids');
-const applicationDetail = invest.getApplicationDetail(INV, submission.record.id);
+// 前置校验：已签约 / 已绑定 / 不存在 / 缺 storeId 必须被拒绝（返回 {ok:false} 的 Promise）
+invest.submitApplication({ storeId: signedSpot.id }).then(r =>
+  assert.equal(r.ok, false, 'already signed spots must be rejected')
+);
+invest.submitApplication({ storeId: occupiedSpot.id }).then(r =>
+  assert.equal(r.ok, false, 'spots bound to another investor must be rejected')
+);
+invest.submitApplication({ storeId: 'store-not-exist' }).then(r =>
+  assert.equal(r.ok, false, 'unknown spots must be rejected')
+);
+invest.submitApplication({}).then(r =>
+  assert.equal(r.ok, false, 'missing store id must be rejected')
+);
+
+// 提交必须走后端角色申请接口（role_type=investor + 目标门店 subjectId），
+// 复用 role_application 链路（用户确认的决策），不再写 localStorage
+const investSource = fs.readFileSync(path.join(root, 'utils/invest.js'), 'utf8');
+assert.ok(
+  investSource.includes("applyBusinessRole('investor'") &&
+    investSource.includes('subjectId: spot.subjectId'),
+  'submission must call applyBusinessRole with role_type=investor and the target store as subjectId'
+);
+assert.ok(
+  !investSource.includes('INVEST_STORAGE_KEY') && !investSource.includes('setStorageSync'),
+  'invest module must not persist to localStorage anymore'
+);
+
+// 详情：注入一条申请后校验状态文案 + 脱敏手机号 + 时间线
+invest.setInvestApplicationsForTest([{
+  id: 1,
+  role_type: 'investor',
+  subject_id: availableSpot.id,
+  applicant_name: '张三',
+  applicant_phone: '13800008888',
+  extra_form: JSON.stringify({ budget: '200000', storeName: availableSpot.name }),
+  status: 'PENDING',
+  apply_time: '2026-09-25 12:00:00'
+}]);
+assert.equal(invest.listApplications().length, 1, 'applications must reflect the injected record');
+const applicationDetail = invest.getApplicationDetail('1');
 assert.ok(
   applicationDetail && applicationDetail.statusLabel && applicationDetail.statusNote && applicationDetail.timeline.length,
   'detail must expose label, note and timeline'
 );
-assert.equal(applicationDetail.statusLabel, '审核中', 'detail label must map from the status');
+assert.equal(applicationDetail.statusLabel, '审核中', 'detail label must map from PENDING');
 assert.ok(
   /^\d{3}\*{4}\d{2}$/.test(applicationDetail.phoneText),
   'detail must mask the contact phone'
 );
+
 
 // 主页面：搜索 / 城市筛选 / 入口
 const investWxml = fs.readFileSync(path.join(investDir, 'role-invest.wxml'), 'utf8');

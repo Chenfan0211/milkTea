@@ -10,6 +10,7 @@ import { createStaticRoutes, getAuthVueRoutes } from '@/router/routes';
 import { ROOT_ROUTE } from '@/router/routes/builtin';
 import { getRouteName, getRoutePath } from '@/router/elegant/transform';
 import { useAuthStore } from '../auth';
+import { useAdminStore } from '../admin';
 import { useTabStore } from '../tab';
 import {
   filterAuthRoutesByRoles,
@@ -188,6 +189,14 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     if (!authStore.userInfo.userId) {
       await authStore.initUserInfo();
     }
+
+    // 功能开关（feature flag）是菜单过滤与路由守卫的前置依赖。
+    // 此前没有任何地方加载它：seed 清空后 features 恒为空，导致所有带
+    // featureFlag 的营销路由（储值套餐/礼品卡/会员等级/积分商城/优惠券等）
+    // 在路由守卫处被误判为「功能未开启」而跳 403。
+    // 这里在初始化路由前先加载 features，保证菜单与守卫都能正确判定。
+    const adminStore = useAdminStore();
+    await adminStore.loadRemote('features');
 
     if (authRouteMode.value === 'static') {
       initStaticAuthRoute();

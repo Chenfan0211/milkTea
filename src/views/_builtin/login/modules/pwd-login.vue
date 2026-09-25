@@ -19,9 +19,11 @@ interface FormModel {
   password: string;
 }
 
+// 表单默认留空：原先预填 admin/123456 是为了演示方便，
+// 但弱口令写在前端源码里会随产物直接暴露，正式环境必须清掉。
 const model: FormModel = reactive({
-  userName: 'admin',
-  password: '123456'
+  userName: '',
+  password: ''
 });
 
 const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
@@ -59,45 +61,6 @@ async function handleSubmit() {
   await authStore.login(model.userName, model.password);
 }
 
-type AccountKey = 'super' | 'operation' | 'finance' | 'audit';
-
-interface Account {
-  key: AccountKey;
-  label: string;
-  userName: string;
-  password: string;
-}
-
-const accounts = computed<Account[]>(() => [
-  {
-    key: 'super',
-    label: '超级管理员',
-    userName: 'Super',
-    password: '123456'
-  },
-  {
-    key: 'operation',
-    label: '运营',
-    userName: 'operator',
-    password: '123456'
-  },
-  {
-    key: 'finance',
-    label: '财务',
-    userName: 'Finance',
-    password: '123456'
-  },
-  {
-    key: 'audit',
-    label: '审计',
-    userName: 'Audit',
-    password: '123456'
-  }
-]);
-
-async function handleAccountLogin(account: Account) {
-  await authStore.login(account.userName, account.password);
-}
 </script>
 
 <template>
@@ -131,14 +94,10 @@ async function handleAccountLogin(account: Account) {
           {{ $t(loginModuleRecord.register) }}
         </NButton>
       </div>
-      <NDivider class="text-14px text-#666 !m-0">{{ $t('page.login.pwdLogin.otherAccountLogin') }}</NDivider>
-      <div class="flex-center gap-12px">
-        <NButton v-for="item in accounts" :key="item.key" type="primary" @click="handleAccountLogin(item)">
-          {{ item.label }}
-        </NButton>
-      </div>
     </NSpace>
   </NForm>
 </template>
 
 <style scoped></style>
+
+

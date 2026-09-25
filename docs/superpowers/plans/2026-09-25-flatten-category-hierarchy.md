@@ -38,12 +38,19 @@
 --
 -- 决策（用户确认）：
 --   1. 旧 TAB/GROUP 数据物理删除；
---   2. 菜单结构完全单层（无 Tab、无分组）；
+--   2. 菜单结构完全单层（无 Tab、无分组，仅一个分类列表）；
 --   3. 「标签」= 每个分类自身 tag（小程序端分类左上角角标）。
+--
+-- 部署前核对结论（2026-09-25 生产库 wuling）：
+--   - category_id 为 NULL 的商品：0 条
+--   - category_id 指向 TAB/GROUP 的商品：0 条
+--   - category_id 悬空引用的商品：0 条
+--   => 数据干净，可安全执行下方 NOT NULL 变更。
 --
 -- 影响面：
 --   - product_category 仅保留 CATEGORY 行；TAB/GROUP 行物理删除。
---   - 分组级 tag 下沉到其下 CATEGORY 行（避免左上角标签信息丢失）。
+--   - 分组级 tag 下沉到其直属分类（避免左上角标签信息丢失）。
+--   - 清理测试验证遗留的垃圾分类数据（code 以 '__' 前缀、enabled=0）。
 --   - product.category_id 由 NULL 改为 NOT NULL，保证「商品必绑分类」。
 -- =============================================================
 
@@ -53,11 +60,19 @@ JOIN product_category g
   ON g.id = c.parent_id AND g.type = 'GROUP'
    SET c.tag = COALESCE(NULLIF(c.tag, ''), g.tag);
 
--- 2) 校验：是否存在 category_id 为 NULL 或指向非 CATEGORY 的商品（应手动处理，迁移脚本不做兜底赋值）
---    （人工核对：若存在，运营需先为这些商品补选分类后再执行迁移）
--- SELECT p.id, p.name FROM product p
---   LEFT JOIN product_category c ON c.id = p.category_id AND c.type = 'CATEGORY'
---  WHERE p.deleted = 0 AND (p.category_id IS NULL OR c.id IS NULL);
+-- 2) 清理测试验证遗留的垃圾分类数据（code 以 '__' 前缀、enabled=0）
+--
+-- 【为什么不用 LIKE + ESCAPE】
+--   原写法 `code LIKE '\_\_%' ESCAPE '\'` 是无法执行的：ESCAPE 的参数 '\' 以反斜杠收尾，
+--   MySQL 解析器会认定「反斜杠转义了结束引号」，于是字符串未闭合 -> 直接语法错误。
+--   更麻烦的是它还会带偏 Flyway 的分号切分器：解析器以为字符串没结束，就把后续的
+--   第 3/4/5 条语句全吞成一条，最终报错停在 `near 'TAB', 'GROUP')` ——
+--   症状指向第 3 条，病根却在第 2 条，排查方向极易被误导。
+--
+--   因此改用字符串函数 LEFT()：语义直白、彻底绕开转义符坑；
+--   且 product_category 基数极小（十几行），不依赖索引，无性能顾虑。
+DELETE FROM product_category
+ WHERE LEFT(code, 2) = '__' AND enabled = 0;
 
 -- 3) 物理删除旧层级节点（TAB / GROUP）
 DELETE FROM product_category WHERE type IN ('TAB', 'GROUP');
@@ -72,7 +87,7 @@ ALTER TABLE product
 
 - [ ] **Step 2: 核对迁移不破坏 seed 数据**
 
-迁移前 seed 数据（`V4__seed_product.sql`）有 8 条分类：4 条 CATEGORY（id 3/5/8 + 另 1 条）、2 条 TAB（id 1/6）、2 条 GROUP（id 2/4/7）。确认迁移后仅剩 CATEGORY 行，且所有 `product.category_id` 指向现存 CATEGORY id（seed 中商品 category_id 均为 3 或 8，指向 CATEGORY，无 NULL、无悬空引用）。
+迁移前 seed 数据（`V4__seed_product.sql`）有 8 条分类：4 条 CATEGORY（id 3/5/8 + 另 1 条）、2 条 TAB（id 1/6）、2 条 GROUP（id 2/4/7）。确认迁移后仅剩 CATEGORY 行（实测本地库剩 3 条：`herbal`/`traditional`/`featured-season`），且所有 `product.category_id` 指向现存 CATEGORY id（seed 中商品 category_id 均为 3 或 8，指向 CATEGORY，无 NULL、无悬空引用）。
 
 - [ ] **Step 3: 提交**
 
@@ -519,5 +534,6 @@ git commit -m "feat(menu): 菜单改为单层分类并渲染分类左上角标�
 - **Spec 覆盖**：① 物理删除旧层级 → Task 1 Step 3；② 完全单层 → Task 3（后端）+ Task 7（小程序）；③ 标签=分类左上角信息 → Task 2/3（下发）+ Task 5（后台文案）+ Task 7（渲染）；④ 商品必绑分类 → Task 4（后端）+ Task 6（前台表单）+ Task 1 Step 5（DB NOT NULL）；⑤ 上架挂分类下 → 已有 `getMenu` 按 `on_sale=1` + `category_id` 分组，Task 3 保留该逻辑，无需额外改动。
 - **Placeholder 扫描**：无 TBD/TODO/“类似 Task N”；每个代码步骤给出完整代码块。
 - **类型一致性**：`tag` 字段在 `ProductCategory`、`CategoryDTO`、`MenuDTO.MenuCategory` 三处统一为 `String`；`enabled` 在 `ProductCategory`/`CategoryDTO` 为 `Integer`；`categoryId` 全链路 `Long`。
-- **遗留确认点**（执行前需人工核对）：`V38` 迁移中 Step 2 的校验 SQL 结果需人工确认无悬空/空分类商品；`product-catalog.js` 中的硬编码 `PLATFORM_PRODUCTS` 为历史遗留，本次不改（不影响菜单接口主链路），后续可另行清理。
+- **遗留确认点**：`V38` 已按本文件的 SQL 实施并实测通过（本地库 Flyway 执行成功，TAB/GROUP 清空、`category_id` 为 `NOT NULL`）；`product-catalog.js` 中的硬编码 `PLATFORM_PRODUCTS` 为历史遗留，本次不改（不影响菜单接口主链路），后续可另行清理。
+- **已知遗留（可选清理）**：拍平后保留的分类其 `parent_id` 仍指向已删除的 TAB/GROUP 行（悬空引用）。当前后端按 `type = 'CATEGORY'` 过滤、前端分类页无层级 UI，故功能无影响；如需清理，可在迁移第 3 步后追加 `UPDATE product_category SET parent_id = 0 WHERE deleted = 0 AND parent_id <> 0;`。
 

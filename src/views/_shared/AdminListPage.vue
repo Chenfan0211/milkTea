@@ -627,6 +627,7 @@ function renderField(field: FormField) {
   }
   return h(NInput, {
     value: formModel[field.key] ?? '',
+    maxlength: field.maxlength,
     placeholder: field.placeholder,
     'onUpdate:value': (v: string) => (formModel[field.key] = v)
   });

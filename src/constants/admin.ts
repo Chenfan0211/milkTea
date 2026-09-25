@@ -34,10 +34,12 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   subject_investor: { title: '投资人管理', order: 4, roles: op, keepAlive: true },
   subject_supplier: { title: '供应商管理', order: 5, roles: op, keepAlive: true },
 
-  auth: { title: '授权中心', icon: 'mdi:shield-account', order: 20, roles: op },
-  auth_role: { title: '角色与权限', order: 1, roles: op, keepAlive: true },
-  auth_wechat: { title: '微信账号绑定', order: 2, roles: op, keepAlive: true },
-  auth_grant: { title: '角色授权记录', order: 3, roles: op, keepAlive: true },
+  auth: { title: '授权中心', icon: 'mdi:shield-account', order: 20, roles: [ADMIN_ROLE.SUPER] },
+  // 授权中心：按需求「只有超级管理员才有这个菜单的权限，其他角色都没有菜单的权限」，
+  // 三个子菜单的 roles 一律收紧为仅 R_SUPER。
+  auth_role: { title: '角色与权限', order: 1, roles: [ADMIN_ROLE.SUPER], keepAlive: true },
+  auth_account: { title: '账号管理', order: 2, roles: [ADMIN_ROLE.SUPER], keepAlive: true },
+  auth_grant: { title: '角色授权记录', order: 3, roles: [ADMIN_ROLE.SUPER], keepAlive: true },
 
   product: { title: '商品中心', icon: 'mdi:cup-outline', order: 30, roles: op },
   product_category: { title: '分类管理', order: 1, roles: op, keepAlive: true },

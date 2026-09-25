@@ -263,6 +263,48 @@ export async function reviewComment(id: number, approve: boolean, reason?: strin
   return unwrap<void>(res);
 }
 
+// ---------------- 储值套餐 / 礼品卡（marketing-service 专用接口） ----------------
+
+/** 储值套餐列表（含赠送券明细 + 使用说明） */
+export async function fetchStoredValuePackages(params?: Record<string, any>): Promise<CrudPage> {
+  const res = await request<CrudPage>({
+    url: '/api/v1/admin/marketing/config/stored-value-packages',
+    method: 'get',
+    params
+  });
+  return unwrap<CrudPage>(res);
+}
+
+/** 保存某储值套餐的赠送券（全量替换关联表） */
+export async function saveStoredValueCoupons(packageId: number, coupons: any[]): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/marketing/config/stored-value/${packageId}/coupons`,
+    method: 'put',
+    data: coupons
+  });
+  return unwrap<void>(res);
+}
+
+/** 保存某储值套餐的使用说明（JSON 列，需专用接口序列化） */
+export async function saveStoredValueUsage(packageId: number, paragraphs: string[]): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/marketing/config/stored-value/${packageId}/usage`,
+    method: 'put',
+    data: paragraphs
+  });
+  return unwrap<void>(res);
+}
+
+/** 礼品卡「卡面」聚合列表（同 card_name 的多个面额聚为 faceValues） */
+export async function fetchGiftCardFaces(params?: Record<string, any>): Promise<CrudPage> {
+  const res = await request<CrudPage>({
+    url: '/api/v1/admin/marketing/config/gift-card-faces',
+    method: 'get',
+    params
+  });
+  return unwrap<CrudPage>(res);
+}
+
 // ---------------- 财务查询 ----------------
 
 export async function fetchFinancePool(): Promise<any[]> {

@@ -1,11 +1,10 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole } = require('../../utils/roles');
-const { getInvestStats, getSpots, listApplications } = require('../../utils/invest');
+const { getCurrentBusinessRole, getCurrentSubjectId } = require('../../utils/roles');
+const { getInvestStats, getSpots, listApplications, refreshInvestCatalog, refreshInvestApplications } = require('../../utils/invest');
 
 const ROLE_CENTER_URL = '/pages/role-center/role-center';
 const APPLY_URL = '/pages/role-invest-apply/role-invest-apply';
 const RECORDS_URL = '/pages/role-invest-records/role-invest-records';
-const INVESTOR_ID = 'INV-1001';
 
 const SPOT_STATUS_TEXT = {
   available: '可申请',
@@ -59,20 +58,22 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      this.investorId = INVESTOR_ID;
-      this.setData({ ready: true }, () => this.syncSpots());
+      // 门店目录 + 申请记录均来自后端，先拉取镜像再渲染
+      Promise.all([refreshInvestCatalog(), refreshInvestApplications()]).then(() => {
+        this.setData({ ready: true }, () => this.syncSpots());
+      });
     },
     // 展示所有启用门店；可申请 / 审核中 / 已签约 / 已绑定 / 已停用分别标记。
     syncSpots() {
-      const spots = getSpots(this.investorId).map(spot =>
+      const spots = getSpots(getCurrentSubjectId()).map(spot =>
         Object.assign({}, spot, { statusLabel: SPOT_STATUS_TEXT[spot.spotStatus] || spot.spotStatus })
       );
-      const applications = listApplications(this.investorId);
+      const applications = listApplications();
       const pendingCount = applications.filter(item => item.status === 'pending').length;
       this.setData(
         {
           spots,
-          stats: getInvestStats(this.investorId),
+          stats: getInvestStats(getCurrentSubjectId()),
           recordsSummary: applications.length
             ? `共 ${applications.length} 条${pendingCount ? `，${pendingCount} 条审核中` : ''}`
             : '暂无申请记录'

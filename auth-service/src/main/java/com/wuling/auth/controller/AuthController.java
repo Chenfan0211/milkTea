@@ -97,7 +97,8 @@ public class AuthController {
     @GetMapping("/auth/getUserInfo")
     public Result<UserInfoResponse> getUserInfo(@AuthenticationPrincipal AdminUserDetails user) {
         UserInfoResponse data = new UserInfoResponse(
-                String.valueOf(user.getUserId()), user.getUsername(), user.getRoles(), List.of());
+                String.valueOf(user.getUserId()), user.getUsername(), user.getRoles(), List.of(),
+                user.isSuperAccount());
         return Result.ok(data);
     }
 
