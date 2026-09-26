@@ -1,6 +1,8 @@
 package com.wuling.marketing;
 
 import com.wuling.common.exception.BusinessException;
+import com.wuling.marketing.entity.StoredValueTxn;
+import com.wuling.marketing.mapper.StoredValueTxnMapper;
 import com.wuling.marketing.service.StoredValueService;
 import com.wuling.user.mapper.AppUserMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -47,37 +49,36 @@ class StoredValueBalanceTest {
                 });
     }
 
-    /** 用反射构造 Service：它依赖多个 Mapper，本用例只关心 AppUserMapper 的行为 */
-    private StoredValueService serviceWithMapper(AppUserMapper mapper) throws Exception {
-        Constructor<?> ctor = Arrays.stream(StoredValueService.class.getConstructors())
-                .max((a, b) -> Integer.compare(a.getParameterCount(), b.getParameterCount()))
-                .orElseThrow();
-        Object[] args = new Object[ctor.getParameterCount()];
-        Class<?>[] types = ctor.getParameterTypes();
-        for (int i = 0; i < types.length; i++) {
-            args[i] = types[i].isAssignableFrom(AppUserMapper.class) ? mapper : nullProxy(types[i]);
-        }
-        return (StoredValueService) ctor.newInstance(args);
+    /** 构造 Service：本用例只关心 AppUserMapper，资金幂等 Mapper 用最小桩。 */
+    private StoredValueService serviceWithMapper(AppUserMapper mapper) {
+        return new StoredValueService(null, null, null, null, mapper, txnMapper());
     }
 
-    private Object nullProxy(Class<?> type) {
-        if (!type.isInterface()) {
-            return null;
-        }
-        return Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (InvocationHandler) (proxy, method, args) -> null);
+    private StoredValueTxnMapper txnMapper() {
+        return (StoredValueTxnMapper) Proxy.newProxyInstance(
+                StoredValueTxnMapper.class.getClassLoader(),
+                new Class<?>[]{StoredValueTxnMapper.class},
+                (InvocationHandler) (proxy, method, args) -> switch (method.getName()) {
+                    case "insert" -> {
+                        ((StoredValueTxn) args[0]).setId(1L);
+                        yield 1;
+                    }
+                    case "markSuccess", "markFailed", "retryFailed" -> 1;
+                    case "selectByBizNoForUpdate" -> null;
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
     }
 
     @Test
     @DisplayName("Deduct: 扣款成功（受影响行数 1）不得抛异常")
-    void deductSucceedsWhenRowAffected() throws Exception {
+    void deductSucceedsWhenRowAffected() {
         StoredValueService service = serviceWithMapper(mapperReturning(1));
         service.payWithBalance(9L, 1390L, "WX-1");
     }
 
     @Test
     @DisplayName("Deduct: 余额不足（受影响行数 0）必须抛业务异常，不得静默放过")
-    void deductFailsWhenNoRowAffected() throws Exception {
+    void deductFailsWhenNoRowAffected() {
         StoredValueService service = serviceWithMapper(mapperReturning(0));
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.payWithBalance(9L, 1390L, "WX-1"));
@@ -86,7 +87,7 @@ class StoredValueBalanceTest {
 
     @Test
     @DisplayName("Deduct: 金额 <= 0 必须拒绝（防零元/负数刷单）")
-    void deductRejectsNonPositiveAmount() throws Exception {
+    void deductRejectsNonPositiveAmount() {
         StoredValueService service = serviceWithMapper(mapperReturning(1));
         assertThrows(BusinessException.class, () -> service.payWithBalance(9L, 0L, "WX-1"));
         assertThrows(BusinessException.class, () -> service.payWithBalance(9L, -100L, "WX-1"));
@@ -94,28 +95,28 @@ class StoredValueBalanceTest {
 
     @Test
     @DisplayName("Deduct: 用户为空必须拒绝")
-    void deductRejectsNullUser() throws Exception {
+    void deductRejectsNullUser() {
         StoredValueService service = serviceWithMapper(mapperReturning(1));
         assertThrows(BusinessException.class, () -> service.payWithBalance(null, 100L, "WX-1"));
     }
 
     @Test
     @DisplayName("Refund: 退回为「加款」，用户不存在（0 行）必须抛错，不能假装成功")
-    void refundFailsWhenUserMissing() throws Exception {
+    void refundFailsWhenUserMissing() {
         StoredValueService service = serviceWithMapper(mapperReturning(0));
         assertThrows(BusinessException.class, () -> service.refundToBalance(9L, 1390L, "WX-1"));
     }
 
     @Test
     @DisplayName("Refund: 金额 <= 0 必须拒绝")
-    void refundRejectsNonPositiveAmount() throws Exception {
+    void refundRejectsNonPositiveAmount() {
         StoredValueService service = serviceWithMapper(mapperReturning(1));
         assertThrows(BusinessException.class, () -> service.refundToBalance(9L, 0L, "WX-1"));
     }
 
     @Test
     @DisplayName("扣款与退回的符号必须相反（扣减为负、退回为正）")
-    void deductAndRefundUseOppositeSigns() throws Exception {
+    void deductAndRefundUseOppositeSigns() {
         AtomicLong capturedDelta = new AtomicLong(Long.MIN_VALUE);
         AppUserMapper mapper = (AppUserMapper) Proxy.newProxyInstance(
                 AppUserMapper.class.getClassLoader(),

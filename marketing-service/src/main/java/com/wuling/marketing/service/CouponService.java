@@ -1,18 +1,25 @@
 package com.wuling.marketing.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.marketing.dto.UserCouponView;
+import com.wuling.marketing.entity.AuditLog;
 import com.wuling.marketing.entity.Coupon;
 import com.wuling.marketing.entity.UserCoupon;
+import com.wuling.marketing.mapper.AuditLogMapper;
 import com.wuling.marketing.mapper.CouponMapper;
 import com.wuling.marketing.mapper.UserCouponMapper;
+import com.wuling.marketing.util.OrderNoCodec;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,12 +40,22 @@ public class CouponService {
 
     private final CouponMapper couponMapper;
     private final UserCouponMapper userCouponMapper;
+    private final AuditLogMapper auditLogMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** 兼容既有单测与旧调用。 */
     public CouponService(CouponMapper couponMapper, UserCouponMapper userCouponMapper) {
-        this.couponMapper = couponMapper;
-        this.userCouponMapper = userCouponMapper;
+        this(couponMapper, userCouponMapper, null);
     }
 
+    @Autowired
+    public CouponService(CouponMapper couponMapper,
+                         UserCouponMapper userCouponMapper,
+                         AuditLogMapper auditLogMapper) {
+        this.couponMapper = couponMapper;
+        this.userCouponMapper = userCouponMapper;
+        this.auditLogMapper = auditLogMapper;
+    }
     public List<Coupon> listEnabled() {
         return couponMapper.selectList(new LambdaQueryWrapper<Coupon>()
                 .eq(Coupon::getStatus, "enabled")
@@ -274,57 +291,331 @@ public class CouponService {
         return uc;
     }
 
-    /** 锁券（下单占用），返回可抵扣金额（分） */
+    /** 锁券（下单占用），返回可抵扣金额（分）。 */
     @Transactional(rollbackFor = Exception.class)
     public long lock(Long userId, Long userCouponId, Long orderId, long orderAmount) {
-        UserCoupon uc = userCouponMapper.selectById(userCouponId);
-        if (uc == null || !uc.getUserId().equals(userId)) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "优惠券不存在");
+        return lock(userId, userCouponId, String.valueOf(orderId), null, List.of(), null, orderAmount);
+    }
+
+    /** 内部 HTTP 契约锁券入口。 */
+    @Transactional(rollbackFor = Exception.class)
+    public CouponLockResult lockByOrderNo(Long userId,
+                                          Long userCouponId,
+                                          String orderNo,
+                                          Long storeSubjectId,
+                                          List<Long> productIds,
+                                          String scene,
+                                          Long orderAmount) {
+        long amount = orderAmount == null ? -1L : orderAmount;
+        long discount = lock(userId, userCouponId, orderNo, storeSubjectId, productIds, scene, amount);
+        UserCoupon uc = userCouponMapper.selectByIdForUpdate(userCouponId);
+        return new CouponLockResult(userCouponId, uc == null ? null : uc.getCouponId(), discount);
+    }
+
+    /** 锁券核心：行锁 + 条件更新，重复同订单调用幂等，其他订单锁定拒绝。 */
+    @Transactional(rollbackFor = Exception.class)
+    public long lock(Long userId,
+                     Long userCouponId,
+                     String orderNo,
+                     Long storeSubjectId,
+                     List<Long> productIds,
+                     String scene,
+                     long orderAmount) {
+        if (userId == null || userCouponId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "缺少 userId 或 userCouponId");
         }
-        if (!UNUSED.equals(uc.getStatus())) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券已使用或已锁定");
+        if (orderAmount < 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "订单金额不能为负数");
+        }
+        long orderId = OrderNoCodec.toLockOrderId(orderNo);
+        UserCoupon uc = userCouponMapper.selectByIdForUpdate(userCouponId);
+        if (uc == null || !userId.equals(uc.getUserId())) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "优惠券不存在");
         }
         Coupon coupon = couponMapper.selectById(uc.getCouponId());
         if (coupon == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "优惠券模板不存在");
         }
-        CouponValidity validity = resolveValidity(uc, coupon, LocalDateTime.now());
+
+        long discount = calculateDiscount(coupon, uc, orderAmount, storeSubjectId, productIds, scene);
+        if (LOCKED.equals(uc.getStatus())) {
+            if (orderId == (uc.getLockOrderId() == null ? Long.MIN_VALUE : uc.getLockOrderId())) {
+                return discount;
+            }
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券已锁定");
+        }
+        if (USED.equals(uc.getStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券已使用");
+        }
+        if (!UNUSED.equals(uc.getStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不可用");
+        }
+
+        if (userCouponMapper.lockUnused(userCouponId, orderId) != 1) {
+            // 行锁下正常不会走到；保留条件更新作为数据库级兜底。
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券已被使用或锁定");
+        }
+        return discount;
+    }
+
+    private long calculateDiscount(Coupon coupon,
+                                   UserCoupon holder,
+                                   long orderAmount,
+                                   Long storeSubjectId,
+                                   List<Long> productIds,
+                                   String scene) {
+        LocalDateTime now = LocalDateTime.now();
+        CouponValidity validity = resolveValidity(holder, coupon, now);
         if (!validity.usable()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券已过期或不可用");
-        }        long threshold = coupon.getThreshold() == null ? 0L : coupon.getThreshold();
+        }
+        if (!storeMatches(coupon.getApplicableStoreIds(), storeSubjectId)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不适用于当前门店");
+        }
+        if (!productMatches(coupon.getApplicableProductIds(), productIds)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不适用于当前商品");
+        }
+        if (!sceneMatches(coupon.getScenes(), scene)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不适用于当前场景");
+        }
+        if (!usageTimeMatches(coupon.getUsageTime(), now)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券当前不在使用时段");
+        }
+        long threshold = coupon.getThreshold() == null ? 0L : coupon.getThreshold();
         if (orderAmount < threshold) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单金额未达到优惠券使用门槛");
         }
-        uc.setStatus(LOCKED);
-        uc.setLockOrderId(orderId);
-        userCouponMapper.updateById(uc);
         long amount = coupon.getAmount() == null ? 0L : coupon.getAmount();
         return Math.min(amount, orderAmount);
     }
 
-    /** 核销（支付成功后） */
+    /** 返回用户券状态；重复核销按已核销处理，不重复写。 */
     @Transactional(rollbackFor = Exception.class)
-    public void consume(Long userCouponId) {
-        UserCoupon uc = userCouponMapper.selectById(userCouponId);
-        if (uc == null || !LOCKED.equals(uc.getStatus())) {
-            return;
+    public Boolean consume(Long userId, Long userCouponId, String orderNo) {
+        long orderId = OrderNoCodec.toLockOrderId(orderNo);
+        UserCoupon uc = userCouponMapper.selectByIdForUpdate(userCouponId);
+        if (uc == null || (userId != null && !userId.equals(uc.getUserId()))) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "优惠券不存在");
         }
-        uc.setStatus(USED);
-        uc.setUseTime(LocalDateTime.now());
-        userCouponMapper.updateById(uc);
+        if (USED.equals(uc.getStatus())) {
+            if (orderId == (uc.getLockOrderId() == null ? Long.MIN_VALUE : uc.getLockOrderId())) {
+                return Boolean.TRUE;
+            }
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不属于当前订单");
+        }
+        if (!LOCKED.equals(uc.getStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券尚未锁定");
+        }
+        if (userCouponMapper.consumeLocked(userCouponId, orderId) != 1) {
+            UserCoupon latest = userCouponMapper.selectByIdForUpdate(userCouponId);
+            boolean alreadyConsumed = latest != null
+                    && USED.equals(latest.getStatus())
+                    && orderId == (latest.getLockOrderId() == null ? Long.MIN_VALUE : latest.getLockOrderId())
+                    && (userId == null || userId.equals(latest.getUserId()));
+            if (alreadyConsumed) {
+                return Boolean.TRUE;
+            }
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不属于当前订单");
+        }
+        return Boolean.TRUE;
     }
 
-    /** 回退（订单取消/超时） */
     @Transactional(rollbackFor = Exception.class)
-    public void releaseByOrder(Long orderId) {
+    public Boolean release(String orderNo, String reason) {
+        long orderId = OrderNoCodec.toLockOrderId(orderNo);
         List<UserCoupon> list = userCouponMapper.selectList(new LambdaQueryWrapper<UserCoupon>()
                 .eq(UserCoupon::getLockOrderId, orderId)
                 .eq(UserCoupon::getStatus, LOCKED));
-        for (UserCoupon uc : list) {
-            uc.setStatus(UNUSED);
-            uc.setLockOrderId(null);
-            userCouponMapper.updateById(uc);
+        if (list != null) {
+            for (UserCoupon uc : list) {
+                userCouponMapper.releaseLocked(uc.getId(), orderId);
+            }
+        }
+        return Boolean.TRUE;
+    }
+
+    /** 支付后退款恢复，返回最终状态。 */
+    @Transactional(rollbackFor = Exception.class)
+    public String restoreAfterRefund(Long userId, Long userCouponId, String orderNo) {
+        long orderId = OrderNoCodec.toLockOrderId(orderNo);
+        UserCoupon uc = userCouponMapper.selectByIdForUpdate(userCouponId);
+        if (uc == null || (userId != null && !userId.equals(uc.getUserId()))) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "优惠券不存在");
+        }
+        if (!USED.equals(uc.getStatus()) && !LOCKED.equals(uc.getStatus())) {
+            return uc.getStatus();
+        }
+        if (uc.getLockOrderId() == null || uc.getLockOrderId() != orderId) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不属于当前订单");
+        }
+        Coupon coupon = couponMapper.selectById(uc.getCouponId());
+        LocalDateTime now = LocalDateTime.now();
+        CouponValidity validity = resolveValidity(uc, coupon, now);
+        String target = validity.usable() ? UNUSED : EXPIRED;
+        if (UNUSED.equals(target) && hasActiveDuplicate(uc)) {
+            target = EXPIRED;
+            auditConflict(uc, now);
+        }
+        int affected = userCouponMapper.restoreAfterRefund(userCouponId, target);
+        if (affected == 0) {
+            UserCoupon latest = userCouponMapper.selectByIdForUpdate(userCouponId);
+            return latest == null ? uc.getStatus() : latest.getStatus();
+        }
+        return target;
+    }
+
+    /** release 兼容旧 orderId 调用；内部接口统一走 orderNo。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void releaseByOrder(Long orderId) {
+        release(String.valueOf(orderId), "订单取消或超时");
+    }
+
+    private boolean hasActiveDuplicate(UserCoupon current) {
+        List<UserCoupon> active = userCouponMapper.selectList(new LambdaQueryWrapper<UserCoupon>()
+                .eq(UserCoupon::getUserId, current.getUserId())
+                .eq(UserCoupon::getCouponId, current.getCouponId())
+                .in(UserCoupon::getStatus, List.of(UNUSED, LOCKED)));
+        if (active == null) {
+            return false;
+        }
+        return active.stream().anyMatch(uc -> uc != null && !Objects.equals(uc.getId(), current.getId()));
+    }
+
+    private void auditConflict(UserCoupon uc, LocalDateTime now) {
+        AuditLog log = new AuditLog();
+        log.setOperator("system");
+        log.setModule("COUPON");
+        log.setAction("REFUND_RESTORE_CONFLICT_EXPIRED");
+        log.setTarget(String.valueOf(uc.getId()));
+        log.setBeforeValue(uc.getStatus());
+        log.setAfterValue(EXPIRED);
+        log.setReason("同模板已有active新券");
+        log.setIp("internal");
+        log.setCreateTime(now);
+        log.setUpdateTime(now);
+        int inserted = auditLogMapper.insert(log);
+        if (inserted != 1) {
+            throw new BusinessException(ResultCode.ERROR, "优惠券退款恢复审计写入失败");
         }
     }
-}
 
+    private boolean storeMatches(String raw, Long storeSubjectId) {
+        List<Long> values = parseLongList(raw);
+        return values.isEmpty() || (storeSubjectId != null && values.contains(storeSubjectId));
+    }
+
+    private boolean productMatches(String raw, List<Long> productIds) {
+        List<Long> applicable = parseLongList(raw);
+        if (applicable.isEmpty()) {
+            return true;
+        }
+        if (productIds == null || productIds.isEmpty()) {
+            return false;
+        }
+        return productIds.stream().filter(Objects::nonNull).anyMatch(applicable::contains);
+    }
+
+    private boolean sceneMatches(String raw, String scene) {
+        List<String> configured = parseStringList(raw);
+        if (configured.isEmpty() || scene == null || scene.isBlank()) {
+            return true;
+        }
+        String requested = normalizeScene(scene);
+        return configured.stream().map(this::normalizeScene).anyMatch(requested::equals);
+    }
+
+    private String normalizeScene(String scene) {
+        String value = scene == null ? "" : scene.trim();
+        return switch (value) {
+            case "买单", "buy" -> "buy";
+            case "堂食(门店就餐)", "堂食（门店就餐）", "dinein" -> "dinein";
+            case "堂食(打包外带)", "堂食（打包外带）", "pickup" -> "pickup";
+            default -> value.toLowerCase();
+        };
+    }
+
+    private boolean usageTimeMatches(String raw, LocalDateTime now) {
+        if (raw == null || raw.isBlank()) {
+            return true;
+        }
+        String[] parts = raw.trim().split("~");
+        if (parts.length != 2) {
+            return true;
+        }
+        try {
+            LocalTime start = parseTime(parts[0]);
+            LocalTime end = parseTime(parts[1]);
+            LocalTime current = now.toLocalTime();
+            if (start.equals(end)) {
+                return true;
+            }
+            if (start.isBefore(end)) {
+                return !current.isBefore(start) && !current.isAfter(end);
+            }
+            return !current.isBefore(start) || !current.isAfter(end);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private LocalTime parseTime(String value) {
+        String text = value.trim();
+        if (text.matches("\\d{2}:\\d{2}")) {
+            text = text + ":00";
+        }
+        return LocalTime.parse(text);
+    }
+
+    private List<Long> parseLongList(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode node = objectMapper.readTree(raw);
+            if (node.isNull() || node.isMissingNode()) {
+                return List.of();
+            }
+            if (node.isArray()) {
+                List<Long> result = new ArrayList<>();
+                for (JsonNode item : node) {
+                    if (item != null && !item.isNull()) {
+                        result.add(item.asLong());
+                    }
+                }
+                return result;
+            }
+        } catch (Exception ignored) {
+            // 兼容老数据里的 1,2,3 文本格式。
+        }
+        List<Long> result = new ArrayList<>();
+        for (String item : raw.split(",")) {
+            if (!item.isBlank()) {
+                result.add(Long.valueOf(item.trim()));
+            }
+        }
+        return result;
+    }
+
+    private List<String> parseStringList(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode node = objectMapper.readTree(raw);
+            if (node.isNull() || node.isMissingNode()) {
+                return List.of();
+            }
+            if (node.isArray()) {
+                List<String> result = new ArrayList<>();
+                node.forEach(item -> result.add(item.asText()));
+                return result;
+            }
+        } catch (Exception ignored) {
+            // 老数据是中文文本，继续按分隔符解析。
+        }
+        return List.of(raw.split("[,，、]"));
+    }
+
+    public record CouponLockResult(Long userCouponId, Long couponId, long discountAmount) {
+    }
+}

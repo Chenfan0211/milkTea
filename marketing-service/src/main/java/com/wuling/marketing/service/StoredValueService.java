@@ -12,14 +12,18 @@ import com.wuling.marketing.entity.Coupon;
 import com.wuling.marketing.entity.StoredValueOrder;
 import com.wuling.marketing.entity.StoredValuePackage;
 import com.wuling.marketing.entity.StoredValuePackageCoupon;
+import com.wuling.marketing.entity.StoredValueTxn;
 import com.wuling.marketing.mapper.CouponMapper;
 import com.wuling.marketing.mapper.StoredValueOrderMapper;
 import com.wuling.marketing.mapper.StoredValuePackageCouponMapper;
 import com.wuling.marketing.mapper.StoredValuePackageMapper;
+import com.wuling.marketing.mapper.StoredValueTxnMapper;
 import com.wuling.user.entity.AppUser;
 import com.wuling.user.mapper.AppUserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -29,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -66,18 +71,31 @@ public class StoredValueService {
     private final StoredValueOrderMapper orderMapper;
     private final CouponMapper couponMapper;
     private final AppUserMapper appUserMapper;
+    private final StoredValueTxnMapper storedValueTxnMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** 兼容既有单测与旧调用。 */
     public StoredValueService(StoredValuePackageMapper packageMapper,
                               StoredValuePackageCouponMapper packageCouponMapper,
                               StoredValueOrderMapper orderMapper,
                               CouponMapper couponMapper,
                               AppUserMapper appUserMapper) {
+        this(packageMapper, packageCouponMapper, orderMapper, couponMapper, appUserMapper, null);
+    }
+
+    @Autowired
+    public StoredValueService(StoredValuePackageMapper packageMapper,
+                              StoredValuePackageCouponMapper packageCouponMapper,
+                              StoredValueOrderMapper orderMapper,
+                              CouponMapper couponMapper,
+                              AppUserMapper appUserMapper,
+                              StoredValueTxnMapper storedValueTxnMapper) {
         this.packageMapper = packageMapper;
         this.packageCouponMapper = packageCouponMapper;
         this.orderMapper = orderMapper;
         this.couponMapper = couponMapper;
         this.appUserMapper = appUserMapper;
+        this.storedValueTxnMapper = storedValueTxnMapper;
     }
 
     // ============================================================
@@ -277,59 +295,114 @@ public class StoredValueService {
      * @param bizNo   业务单号（点单订单号），仅用于日志与对账追溯
      * @throws BusinessException 余额不足 / 参数非法 / 用户不存在
      */
-    @Transactional(rollbackFor = Exception.class)
+    /**
+     * 储值余额支付：从余额扣款。
+     *
+     * <p>V55 的 stored_value_txn 以 bizNo 唯一记录资金动作；余额更新和
+     * txn 状态在同一营销本地事务中提交，重复或并发请求只允许扣款一次。
+     */
+    @Transactional(rollbackFor = Exception.class, noRollbackFor = BusinessException.class)
     public void payWithBalance(Long userId, long amount, String bizNo) {
-        if (userId == null) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "用户不存在");
-        }
-        if (amount <= 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "扣款金额必须大于 0");
-        }
-        int affected = appUserMapper.addBalance(userId, -amount);
-        if (affected == 0) {
-            // 0 有两种含义：用户不存在 / 余额不足。对支付场景而言
-            // 二者都必须拒绝扣款，且提示以「余额不足」为主（更可能是用户可自解的原因）。
-            log.warn("储值余额扣款失败（余额不足或用户不存在）userId={} amount={} bizNo={}",
-                    userId, amount, bizNo);
-            throw new BusinessException(ResultCode.BAD_REQUEST, "储值余额不足，请先充值");
-        }
-        log.info("储值余额支付成功 userId={} amount={} bizNo={}", userId, amount, bizNo);
+        executeBalanceOperation(userId, amount, bizNo, StoredValueTxn.PAY,
+                -amount, "储值余额不足，请先充值");
     }
 
     /**
      * 储值余额退回（仅用于「余额支付的订单」退款/取消）。
      *
-     * <p><b>与充值退款的区别（重要）</b>：
-     * <ul>
-     *   <li>充值（CZ 单）<b>不可退</b> —— 本方法绝不是充值退款；
-     *       它只回冲「用余额买商品」时扣掉的那笔钱；</li>
-     *   <li>余额支付的点单订单可退/可取消，资金原路退回<b>储值余额</b>
-     *       （不是退回微信），故走本方法而不是微信退款。</li>
-     * </ul>
-     *
-     * <p><b>幂等</b>：由调用方（trade 的退款流程）保证一单只回冲一次 ——
-     * order 的 REFUNDED 状态流转本身即为闸门。本方法不做额外判重，
-     * 避免在两处维护同一份幂等逻辑。
-     *
-     * @param userId 用户 ID
-     * @param amount 退回金额（分），必须 &gt; 0
-     * @param bizNo  业务单号（点单订单号），仅用于日志与对账追溯
+     * <p>不走微信或 Mock 网关；资金入账和 stored_value_txn 状态同事务。
      */
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, noRollbackFor = BusinessException.class)
     public void refundToBalance(Long userId, long amount, String bizNo) {
+        executeBalanceOperation(userId, amount, bizNo, StoredValueTxn.REFUND,
+                amount, "用户不存在，无法退回储值余额");
+    }
+
+    private void executeBalanceOperation(Long userId,
+                                         long amount,
+                                         String bizNo,
+                                         String operationType,
+                                         long delta,
+                                         String failureMessage) {
         if (userId == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "用户不存在");
         }
         if (amount <= 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "退回金额必须大于 0");
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    StoredValueTxn.PAY.equals(operationType) ? "扣款金额必须大于 0" : "退回金额必须大于 0");
         }
-        int affected = appUserMapper.addBalance(userId, amount);
+        if (!StringUtils.hasText(bizNo)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "业务单号不能为空");
+        }
+        if (storedValueTxnMapper == null) {
+            throw new IllegalStateException("储值资金幂等 Mapper 未注入");
+        }
+
+        StoredValueTxn txn = new StoredValueTxn();
+        txn.setBizNo(bizNo);
+        txn.setUserId(userId);
+        txn.setOrderNo(auditOrderNo(bizNo));
+        txn.setOperationType(operationType);
+        txn.setAmount(amount);
+        txn.setStatus(StoredValueTxn.PROCESSING);
+        try {
+            if (storedValueTxnMapper.insert(txn) != 1) {
+                throw new IllegalStateException("储值资金操作登记失败 bizNo=" + bizNo);
+            }
+        } catch (DuplicateKeyException duplicate) {
+            txn = storedValueTxnMapper.selectByBizNoForUpdate(bizNo);
+            if (txn == null) {
+                throw new IllegalStateException("储值资金操作登记冲突但记录不存在 bizNo=" + bizNo, duplicate);
+            }
+            validateReplay(txn, userId, amount, operationType, bizNo);
+            if (StoredValueTxn.SUCCESS.equals(txn.getStatus())) {
+                log.info("储值资金操作重复成功请求直接返回 bizNo={} operation={}", bizNo, operationType);
+                return;
+            }
+            if (StoredValueTxn.PROCESSING.equals(txn.getStatus())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "该资金操作正在处理中，请稍后重试");
+            }
+            if (!StoredValueTxn.FAILED.equals(txn.getStatus())) {
+                throw new IllegalStateException("储值资金操作状态非法 bizNo=" + bizNo + " status=" + txn.getStatus());
+            }
+            if (storedValueTxnMapper.retryFailed(txn.getId()) != 1) {
+                throw new IllegalStateException("储值资金失败状态重试抢占失败 txnId=" + txn.getId());
+            }
+        }
+
+        int affected = appUserMapper.addBalance(userId, delta);
         if (affected == 0) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在，无法退回储值余额");
+            if (storedValueTxnMapper.markFailed(txn.getId(), failureMessage) != 1) {
+                throw new IllegalStateException("储值资金失败状态写入失败 txnId=" + txn.getId());
+            }
+            log.warn("储值资金操作失败 bizNo={} userId={} amount={} operation={}",
+                    bizNo, userId, amount, operationType);
+            throw new BusinessException(ResultCode.BAD_REQUEST, failureMessage);
         }
-        log.info("储值余额退回成功 userId={} amount={} bizNo={}", userId, amount, bizNo);
+        if (storedValueTxnMapper.markSuccess(txn.getId()) != 1) {
+            throw new IllegalStateException("储值资金成功状态写入失败 txnId=" + txn.getId());
+        }
+        log.info("储值资金操作成功 bizNo={} userId={} amount={} operation={}",
+                bizNo, userId, amount, operationType);
     }
 
+    private void validateReplay(StoredValueTxn txn,
+                                Long userId,
+                                long amount,
+                                String operationType,
+                                String bizNo) {
+        boolean sameRequest = operationType.equals(txn.getOperationType())
+                && userId.equals(txn.getUserId())
+                && txn.getAmount() != null
+                && txn.getAmount() == amount;
+        if (!sameRequest) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "业务单号已被其他资金操作使用");
+        }
+    }
+
+    private String auditOrderNo(String bizNo) {
+        return bizNo.length() <= 64 ? bizNo : bizNo.substring(0, 64);
+    }
     /** 我的储值订单（分页）；status 由 pay_status 推导下发。 */
     public PageResult<StoredValueOrder> myOrders(Long userId, long current, long size) {
         Page<StoredValueOrder> page = orderMapper.selectPage(

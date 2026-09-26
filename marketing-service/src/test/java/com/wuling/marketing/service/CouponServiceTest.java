@@ -88,10 +88,11 @@ class CouponServiceTest {
         LocalDateTime now = LocalDateTime.now();
         Coupon expiredCoupon = coupon(31L, "DAYS", now.minusDays(10), null, 3);
         UserCoupon expired = userCoupon(301L, 1L, 31L, "UNUSED", now.minusDays(10));
-        when(userCouponMapper.selectById(301L)).thenReturn(expired);
+        when(userCouponMapper.selectByIdForUpdate(301L)).thenReturn(expired);
         when(couponMapper.selectById(31L)).thenReturn(expiredCoupon);
 
-        assertThrows(BusinessException.class, () -> service.lock(1L, 301L, 9001L, 10000L));
+        BusinessException error = assertThrows(BusinessException.class, () -> service.lock(1L, 301L, 9001L, 10000L));
+        assertEquals("优惠券已过期或不可用", error.getMessage());
         verify(userCouponMapper, never()).updateById(any(UserCoupon.class));
     }
 
