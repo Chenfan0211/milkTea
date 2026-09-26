@@ -9,3 +9,8 @@ spring:
         # 本地经 SSH 隧道访问 Nacos（18848 -> 服务器 8848）
         server-addr: ${NACOS_ADDR:127.0.0.1:18848}
         ip: ${NACOS_REGISTER_IP:127.0.0.1}
+
+app:
+  jwt:
+    # 仅本地开发默认值；生产环境必须通过 JWT_SECRET 注入强密钥
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}

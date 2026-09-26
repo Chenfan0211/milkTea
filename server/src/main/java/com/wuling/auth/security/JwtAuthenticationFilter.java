@@ -1,5 +1,6 @@
 package com.wuling.auth.security;
 
+import com.wuling.security.AdminUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
@@ -51,6 +52,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                // 填充 AdminUser（ThreadLocal），供 RouteController / AdminRbacGuard 等
+                // 通过 AdminUser.getUserId() 读取当前登录后台账号。
+                //
+                // 背景（2026-09-25 修复）：RouteController#getUserRoutes 依赖 AdminUser
+                // 判断登录态，但此前本过滤器只写 SecurityContext、从不写 AdminUser，
+                // 导致 AdminUser.getUserId() 恒为 null，/route/getUserRoutes 对所有账号
+                // 都返回空菜单（dynamic 菜单模式失效）。这里复用 SecurityContext 里已解析的
+                // AdminUserDetails 的 userId，避免二次解析 token。
+                if (userDetails instanceof AdminUserDetails adminUserDetails) {
+                    AdminUser.set(adminUserDetails.getUserId(), adminUserDetails.getUsername());
+                }
             } catch (ExpiredJwtException e) {
                 writeError(response, 9999, "登录已过期");
                 return;
@@ -59,7 +72,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
         }
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            // 与 AdminAuthInterceptor#afterCompletion 一致：请求结束即清理，
+            // 防止 Tomcat 线程复用导致上一个请求的 userId 串到下一个请求。
+            AdminUser.clear();
+        }
     }
 
     private void writeError(HttpServletResponse response, int code, String message) throws IOException {

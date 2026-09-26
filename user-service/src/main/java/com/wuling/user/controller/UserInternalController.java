@@ -56,4 +56,32 @@ public class UserInternalController {
         }
         return result;
     }
+
+    /**
+     * 查询用户会员等级代码（第 15 期：会员价后端重算）。
+     *
+     * <p><b>为什么交易服务必须回查这里，而不是用客户端传来的等级</b>：
+     * 会员价直接影响实收金额，若以客户端传入的 {@code vipLevel} 为准，
+     * 用户改包成 {@code Lv3} 即可自选 6 折 —— 属越权。
+     * 因此等级一律以本服务落库的 {@code app_user.vip_level} 为权威来源。
+     *
+     * <p>返回值中 {@code found} 表示「用户存在且已设置等级」：
+     * 交易服务据此区分「无等级（按原价）」与「查询失败（同样按原价但不视为正常）」。
+     * 等级为空时不报错 —— 新注册用户默认 Lv1，但历史数据可能为空。
+     */
+    @GetMapping("/{userId}/vip-level")
+    public Map<String, Object> vipLevel(@PathVariable Long userId) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("userId", userId);
+        try {
+            AppUser user = authService.requireUser(userId);
+            String level = user.getVipLevel();
+            result.put("vipLevel", level);
+            result.put("found", StringUtils.hasText(level));
+        } catch (Exception e) {
+            result.put("vipLevel", null);
+            result.put("found", false);
+        }
+        return result;
+    }
 }

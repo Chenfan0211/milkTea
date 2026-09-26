@@ -42,9 +42,14 @@ class FileTypeValidatorTest {
     }
 
     @Test
-    void shouldAcceptRealPngAndGif() {
+    void shouldAcceptRealPng() {
         assertEquals("image/png", FileTypeValidator.validate("a.png", pngHead()).mimeType());
-        assertEquals("image/gif", FileTypeValidator.validate("a.gif", gifHead()).mimeType());
+    }
+
+    @Test
+    void shouldRejectGifEvenWhenExtensionMatches() {
+        assertThrows(InvalidFileException.class,
+                () -> FileTypeValidator.validate("a.gif", gifHead()));
     }
 
     @Test

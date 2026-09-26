@@ -60,9 +60,12 @@ class AuthPolicyConsistencyTest {
         // 从测试运行目录回溯到仓库根（gateway 模块的父目录）
         Path repoRoot = Paths.get("..").toAbsolutePath().normalize();
 
-        List<String> gatewayProtected = extractPaths(
+        List<String> gatewayProtected = new java.util.ArrayList<>(extractPaths(
                 repoRoot.resolve("gateway/src/main/java/com/wuling/gateway/security/GatewayAuthPolicy.java"),
-                "PROTECTED_PREFIXES");
+                "PROTECTED_EXACT_PATHS"));
+        gatewayProtected.addAll(extractPaths(
+                repoRoot.resolve("gateway/src/main/java/com/wuling/gateway/security/GatewayAuthPolicy.java"),
+                "PROTECTED_PREFIXES"));
 
         List<String> serverProtected = extractPaths(
                 repoRoot.resolve("server/src/main/java/com/wuling/common/config/WebConfig.java"),

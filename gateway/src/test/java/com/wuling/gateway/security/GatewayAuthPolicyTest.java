@@ -36,6 +36,7 @@ class GatewayAuthPolicyTest {
     void paymentCallbackShouldNotRequireJwt() {
         // 回调改由签名校验保护，不是 JWT
         assertFalse(policy.requiresAuth("/api/v1/app/payments/callback"));
+        assertFalse(policy.requiresAuth("/api/v1/app/payments/wxpay/refund-notify"));
     }
 
     // ---------- 受保护路径 ----------
@@ -48,7 +49,6 @@ class GatewayAuthPolicyTest {
         assertTrue(policy.requiresAuth("/api/v1/app/withdrawals"));
         assertTrue(policy.requiresAuth("/api/v1/app/points/records"));
         assertTrue(policy.requiresAuth("/api/v1/app/points/signin"));
-        assertTrue(policy.requiresAuth("/api/v1/app/comments"));
         assertTrue(policy.requiresAuth("/api/v1/app/workbench/subject/1/overview"));
         assertTrue(policy.requiresAuth("/api/v1/app/auth/me"));
         assertTrue(policy.requiresAuth("/api/v1/app/auth/sms/bind"));
@@ -71,6 +71,19 @@ class GatewayAuthPolicyTest {
         assertTrue(policy.requiresAuth("/api/v1/app/whatever/thing"));
     }
 
+
+    @Test
+    void giftCardPublicAndProtectedEndpointsShouldHaveCorrectPolicy() {
+        assertFalse(policy.requiresAuth("/api/v1/app/gift-cards/denominations"));
+        assertTrue(policy.requiresAuth("/api/v1/app/gift-cards"));
+        assertTrue(policy.requiresAuth("/api/v1/app/gift-cards/purchase"));
+        assertTrue(policy.requiresAuth("/api/v1/app/gift-cards/orders"));
+        assertTrue(policy.requiresAuth("/api/v1/app/gift-cards/orders/1/cancel"));
+        assertTrue(policy.requiresAuth("/api/v1/app/gift-cards/verify"));
+        assertTrue(policy.requiresAuth("/api/v1/app/payments/gift-card/prepay"));
+        assertTrue(policy.requiresAuth("/api/v1/app/payments/gift-card/refund"));
+    }
+
     @Test
     void protectedTakesPrecedenceOverPublicPrefix() {
         // /api/v1/app/points/records 受保护，而 /api/v1/app/points/products 公开；
@@ -83,7 +96,9 @@ class GatewayAuthPolicyTest {
     void fileEndpointsShouldHaveCorrectPolicy() {
         // 自述端点公开，上传必须登录（防匿名上传恶意文件）
         assertFalse(policy.requiresAuth("/api/v1/files/service-info"));
+        assertFalse(policy.requiresAuth("/api/v1/files/public/0123456789abcdef0123456789abcdef.jpg"));
         assertTrue(policy.requiresAuth("/api/v1/files/validate"));
+        assertTrue(policy.requiresAuth("/api/v1/files/images"));
     }
 
     @Test

@@ -1,5 +1,5 @@
 # =============================================================
-# 文件服务配置（第 2 期骨架）
+# 文件服务配置（图片上传、重编码与公开读取）
 # =============================================================
 server:
   port: ${FILE_SERVICE_PORT:8082}
@@ -26,14 +26,15 @@ app:
     request:
       full: ${LOG_REQUEST_FULL:false}
       max-body: ${LOG_REQUEST_MAX_BODY:2000}
+  jwt:
+    # 与 auth-service / gateway 共用同一密钥；生产环境必须通过 JWT_SECRET 注入
+    secret: ${JWT_SECRET:}
   file:
     max-size-bytes: ${FILE_MAX_SIZE_BYTES:5242880}
-    # 以下为后续阶段接入（对象存储 / 病毒扫描）预留
-    # storage: cos
-    # virus-scan:
-    #   enabled: true
-    #   clamd-host: 127.0.0.1
-    #   clamd-port: 3310
+    storage-root: ${FILE_STORAGE_ROOT:/data/wuling/uploads}
+    public-base-url: ${FILE_PUBLIC_BASE_URL:/api/v1/files/public}
+    max-dimension: ${FILE_MAX_IMAGE_DIMENSION:8000}
+    max-pixels: ${FILE_MAX_IMAGE_PIXELS:40000000}
 
 management:
   endpoints:

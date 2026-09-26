@@ -144,4 +144,69 @@ public class InternalQueryController {
                 "hasSettlement", !records.isEmpty()
         );
     }
+
+    /**
+     * 查询订单分账快照（供 trade 后台订单接口回填「分账明细」）。
+     *
+     * <p><b>为什么需要</b>：运营后台的订单列表/详情要展示分账明细，而
+     * split_snapshot 归属 finance 域。若 trade 直接读 finance 表，会破坏
+     * 服务边界（与 /internal/product 迁走的原因相同），故由 server 暴露只读查询。
+     *
+     * <p>快照只在订单核销后生成，未核销订单返回含 null 的占位结构（而非 404），
+     * 让调用方可以无差别地判空。
+     *
+     * <p><b>返回口径</b>：金额单位一律「分」；costTotal = supplier_amount
+     * （已是「成本单价 × 件数」的合计），platformCommission = Σ(提成单价 × 件数)。
+     * base 为投资人计费基础额，快照未存该列，按
+     * 「实付 − 门店 − 资源方 − 成本 − 平台提成」现算。
+     *
+     * @param orderNo 订单号
+     * @return 快照摘要；无快照时各金额字段为 null
+     */
+    @GetMapping("/split-snapshot")
+    public Map<String, Object> splitSnapshot(@RequestParam String orderNo) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select s.snapshot_no, s.item_count, s.supplier_amount, s.store_amount, "
+                        + "s.channel_amount, s.investor_amount, s.platform_amount, s.platform_commission, "
+                        + "o.paid_amount "
+                        + "from split_snapshot s left join orders o on o.order_no = s.order_no "
+                        + "where s.order_no = ? and s.deleted = 0 order by s.id desc limit 1",
+                orderNo);
+        Map<String, Object> result = new HashMap<>();
+        result.put("snapshotNo", null);
+        result.put("itemCount", null);
+        result.put("costTotal", null);
+        result.put("storeShare", null);
+        result.put("channelShare", null);
+        result.put("investorShare", null);
+        result.put("platformCommission", null);
+        result.put("platformShare", null);
+        result.put("base", null);
+        if (rows.isEmpty()) {
+            return result;
+        }
+        Map<String, Object> row = rows.get(0);
+        long paid = nz(row.get("paid_amount"));
+        long store = nz(row.get("store_amount"));
+        long channel = nz(row.get("channel_amount"));
+        long supplier = nz(row.get("supplier_amount"));
+        long commission = nz(row.get("platform_commission"));
+        long investor = nz(row.get("investor_amount"));
+        result.put("snapshotNo", row.get("snapshot_no"));
+        result.put("itemCount", row.get("item_count"));
+        result.put("costTotal", supplier);
+        result.put("storeShare", store);
+        result.put("channelShare", channel);
+        result.put("investorShare", investor);
+        result.put("platformCommission", commission);
+        result.put("platformShare", nz(row.get("platform_amount")));
+        // 快照未存投资人基础额，按同一口径现算，供前端判断「基础为负」提示
+        result.put("base", paid - store - channel - supplier - commission);
+        return result;
+    }
+
+    /** 空值归零（JDBC 聚合列可能为 null） */
+    private long nz(Object value) {
+        return value instanceof Number n ? n.longValue() : 0L;
+    }
 }

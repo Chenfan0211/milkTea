@@ -15,4 +15,7 @@ public class RegisterBySmsRequest {
 
     @NotBlank(message = "验证码不能为空")
     private String code;
+
+    /** 邀请人用户 ID（可选），语义见 {@link RegisterByPhoneRequest#getReferrerId()} */
+    private Long referrerId;
 }

@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * 保护范围（仅用户相关）：
  * - 订单与支付、用户资料与优惠券、储值订单/充值、我的礼品卡与购买
- * - 时光币（记录/签到/兑换）、提现、评论、角色工作台、经营角色查询
+ * - 时光币（记录/签到/兑换）、提现、角色工作台、经营角色查询
  * - 账号操作：me / sms / avatar / nickname / phone / profile / location
  *
  * 公开接口（无需登录）：门店、菜单、商品、门店类型、优惠券模板、会员等级、wx-login。
@@ -34,6 +34,9 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/app/stored-value/orders",
                         "/api/v1/app/stored-value/orders/**",
                         "/api/v1/app/gift-cards",
+                        "/api/v1/app/gift-cards/orders",
+                        "/api/v1/app/gift-cards/orders/**",
+                        "/api/v1/app/gift-cards/verify",
                         "/api/v1/app/gift-cards/purchase",
                         "/api/v1/app/points/records",
                         "/api/v1/app/points/signin",
@@ -42,7 +45,6 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/app/points/exchange-orders",
                         "/api/v1/app/withdrawals",
                         "/api/v1/app/withdrawals/**",
-                        "/api/v1/app/comments",
                         "/api/v1/app/workbench/**",
                         "/api/v1/app/roles/**"
                 );

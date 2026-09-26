@@ -47,20 +47,32 @@ public class MiniAppAuthController {
     @PostMapping("/register-by-phone")
     public Result<WxLoginResponse> registerByPhone(@Valid @RequestBody RegisterByPhoneRequest request) {
         return Result.ok(miniAppAuthService.registerByPhone(
-                request.getRegisterToken(), request.getEncryptedData(), request.getIv()));
+                request.getRegisterToken(), request.getEncryptedData(), request.getIv(), request.getReferrerId()));
     }
 
     /** 新用户通过短信验证码注册并登录（未注册态） */
     @PostMapping("/register-by-sms")
     public Result<WxLoginResponse> registerBySms(@Valid @RequestBody RegisterBySmsRequest request) {
         return Result.ok(miniAppAuthService.registerBySms(
-                request.getRegisterToken(), request.getPhone(), request.getCode()));
+                request.getRegisterToken(), request.getPhone(), request.getCode(), request.getReferrerId()));
     }
 
     /** 当前登录用户资料 */
     @GetMapping("/me")
     public Result<AppUser> me() {
         return Result.ok(miniAppAuthService.requireUser(CurrentUser.require()));
+    }
+
+    /**
+     * 当前用户邀请注册人数。
+     *
+     * <p>userId 取自 JWT（CurrentUser.require），不接受前端传入，
+     * 防止查询他人邀请数。计数依据 app_user.referrer_id。
+     */
+    @GetMapping("/referrals/count")
+    public Result<Map<String, Object>> referralCount() {
+        long count = miniAppAuthService.countReferrals(CurrentUser.require());
+        return Result.ok(java.util.Map.of("count", count));
     }
 
     /** 绑定手机号（解密 encryptedData） */

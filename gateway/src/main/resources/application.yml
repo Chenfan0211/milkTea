@@ -69,7 +69,7 @@ spring:
         - id: marketing-app
           uri: lb://wuling-marketing-service
           predicates:
-            - Path=/api/v1/app/coupons,/api/v1/app/users/**,/api/v1/app/stored-value/**,/api/v1/app/gift-cards/**,/api/v1/app/points/**,/api/v1/app/member-levels,/api/v1/app/comments
+            - Path=/api/v1/app/coupons,/api/v1/app/referral-config,/api/v1/app/users/**,/api/v1/app/stored-value/**,/api/v1/app/gift-cards/**,/api/v1/app/points/**,/api/v1/app/member-levels
         - id: marketing-admin
           uri: lb://wuling-marketing-service
           predicates:

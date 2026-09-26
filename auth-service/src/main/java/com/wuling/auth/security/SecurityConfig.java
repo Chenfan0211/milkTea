@@ -20,6 +20,9 @@ import java.nio.charset.StandardCharsets;
  * <p>放行清单：
  * <ul>
  *   <li>{@code /auth/login}、{@code /auth/refreshToken} —— 登录与刷新（本身用于获取凭证）；</li>
+ *   <li>{@code /auth/quick-login/**} —— 登录页快捷入口（一键免密）。
+ *       它也是发证入口，与 {@code /auth/login} 同级；服务端用白名单把范围锁死在
+ *       4 个演示账号上，可通过 {@code app.quick-login.enabled=false} 整体关闭。</li>
  *   <li>{@code /actuator/health} —— 探活；</li>
  *   <li>{@code /internal/service-info} —— 服务自述（不含敏感信息）。</li>
  * </ul>
@@ -43,6 +46,11 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/login", "/auth/refreshToken").permitAll()
+                        // 快捷登录（一键免密）：本身就是发证入口，与 /auth/login 同级；
+                        // 风险由服务端白名单 + LoginAttemptGuard + 审计日志覆盖，
+                        // 详见 QuickLoginController 的「安全边界」。
+                        .requestMatchers("/auth/quick-login/enabled").permitAll()
+                        .requestMatchers("/auth/quick-login/*").permitAll()
                         .requestMatchers("/actuator/health", "/internal/service-info").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, ex) -> {

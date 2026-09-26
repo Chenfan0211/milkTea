@@ -25,8 +25,7 @@ public final class FileTypeValidator {
     private static final Map<String, FileType> ALLOWED = Map.of(
             "jpg", new FileType("image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}),
             "jpeg", new FileType("image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}),
-            "png", new FileType("image/png", new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}),
-            "gif", new FileType("image/gif", new byte[]{'G', 'I', 'F', '8'})
+            "png", new FileType("image/png", new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A})
     );
 
     /** 禁止的扩展名（即便文件头合法也拒绝，避免"借壳"脚本） */

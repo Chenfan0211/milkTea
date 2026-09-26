@@ -1,19 +1,21 @@
 package com.wuling.file;
 
+import com.wuling.security.AdminAuthInterceptor;
+import com.wuling.security.AdminJwtVerifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.context.annotation.Import;
 
 /**
- * 文件服务启动类（第 2 期新增）。
+ * 文件服务启动类。
  *
- * 独立端口 8082。当前阶段只提供上传校验能力，
- * 对象存储与病毒扫描在后续阶段接入。
+ * <p>安全组件位于 {@code com.wuling.security}，不在启动类的默认扫描包下，
+ * 因此显式导入管理端 JWT 校验器和拦截器。
  */
 @SpringBootApplication
 @EnableDiscoveryClient
+@Import({AdminJwtVerifier.class, AdminAuthInterceptor.class})
 public class FileServiceApplication {
 
     public static void main(String[] args) {

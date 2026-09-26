@@ -1,34 +1,41 @@
 package com.wuling.file.controller;
 
+import com.wuling.common.api.Result;
 import com.wuling.file.security.FileTypeValidator.InvalidFileException;
+import com.wuling.file.service.ImageStorageService;
+import com.wuling.file.service.ImageStorageService.ImageNotFoundException;
+import com.wuling.file.service.ImageStorageService.InvalidFilePathException;
+import com.wuling.file.service.ImageStorageService.PublicImage;
+import com.wuling.file.service.ImageStorageService.StoredImage;
 import com.wuling.file.service.UploadValidationService;
 import com.wuling.file.service.UploadValidationService.ValidatedUpload;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Map;
 
 /**
- * 文件上传端点（第 2 期骨架）。
- *
- * <p><b>安全状态说明（重要）</b>：
- * 本端点目前只做「类型与大小校验 + 重命名」，<b>尚未接入</b>：
- * 图片二次编码、对象存储、ClamAV 病毒扫描。
- * 因此该端点<b>不应对外暴露</b>，仅供内部联调；
- * 待上述三项补齐后再通过网关开放。
+ * 文件上传与公开读取端点。
  */
 @RestController
 public class FileController {
 
     private final UploadValidationService uploadService;
+    private final ImageStorageService imageStorageService;
 
-    public FileController(UploadValidationService uploadService) {
+    public FileController(UploadValidationService uploadService,
+                          ImageStorageService imageStorageService) {
         this.uploadService = uploadService;
+        this.imageStorageService = imageStorageService;
     }
 
     /** 服务自述（不暴露任何配置细节） */
@@ -36,17 +43,47 @@ public class FileController {
     public Map<String, Object> info() {
         return Map.of(
                 "service", "file-service",
-                "phase", "phase-2-skeleton",
-                "status", "up",
-                "note", "校验能力已就绪；对象存储与病毒扫描待接入，暂不对外提供上传"
+                "phase", "phase-2-image-storage",
+                "status", "up"
         );
     }
 
     /**
-     * 校验上传文件（内部联调用）。
-     *
-     * <p>注意：仅返回校验结果，<b>不落盘、不返回可访问 URL</b>，
-     * 避免在校验链路不完整时产生可访问的未扫描文件。
+     * 管理员上传图片。实际鉴权由 {@code AdminAuthInterceptor} 完成。
+     */
+    @PostMapping("/api/v1/files/images")
+    public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
+        try {
+            StoredImage result = imageStorageService.store(
+                    file.getOriginalFilename(), file.getBytes(), file.getContentType());
+            return ResponseEntity.ok(Result.ok(result));
+        } catch (InvalidFileException e) {
+            return badRequest(e.getMessage());
+        } catch (IOException e) {
+            return badRequest("文件读取失败");
+        }
+    }
+
+    /**
+     * 公开读取已经过重编码的图片。只允许 UUID 文件名和 jpg/png 后缀。
+     */
+    @GetMapping("/api/v1/files/public/{storedName:.+}")
+    public ResponseEntity<byte[]> readPublicImage(@PathVariable String storedName) {
+        try {
+            PublicImage image = imageStorageService.loadPublicImage(storedName);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(image.mimeType()))
+                    .contentLength(image.bytes().length)
+                    .body(image.bytes());
+        } catch (InvalidFilePathException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (ImageNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * 校验上传文件（内部联调用，保留原有行为）。
      */
     @PostMapping("/api/v1/files/validate")
     public ResponseEntity<?> validate(@RequestParam("file") MultipartFile file) throws IOException {
@@ -58,8 +95,16 @@ public class FileController {
                     "mimeType", result.mimeType(),
                     "size", result.size()));
         } catch (InvalidFileException e) {
-            // 校验失败：只回笼统原因，不回显内部判定细节以外的信息
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return badRequest(e.getMessage());
         }
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, String>> handleMaxUploadSize() {
+        return ResponseEntity.badRequest().body(Map.of("message", "文件超过大小限制（5MB）"));
+    }
+
+    private static ResponseEntity<Map<String, String>> badRequest(String message) {
+        return ResponseEntity.badRequest().body(Map.of("message", message));
     }
 }

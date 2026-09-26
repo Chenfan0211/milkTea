@@ -39,6 +39,8 @@ public class MiniAppAuthService {
     // 未注册用户的一次性注册凭证 key 后缀
     private static final String REGISTER_KEY_PREFIX = "wx:register:";
     private static final Duration REGISTER_TOKEN_TTL = Duration.ofMinutes(30);
+    private static final Duration SESSION_KEY_TTL = Duration.ofHours(12);
+    private static final String LOGIN_UNAVAILABLE = "登录服务暂时不可用，请稍后重试";
 
     private final WxAuthService wxAuthService;
     private final AppUserMapper appUserMapper;
@@ -86,6 +88,9 @@ public class MiniAppAuthService {
             log.error("wx-login code2Session unexpected failure", e);
             throw new BusinessException(ResultCode.ERROR, "微信登录失败，请稍后重试");
         }
+        if (!StringUtils.hasText(session.sessionKey())) {
+            throw new BusinessException(ResultCode.ERROR, LOGIN_UNAVAILABLE);
+        }
 
         AppUser user;
         try {
@@ -106,14 +111,13 @@ public class MiniAppAuthService {
             if (session.unionId() != null) {
                 context.put("unionId", session.unionId());
             }
-            if (session.sessionKey() != null) {
-                context.put("sessionKey", session.sessionKey());
-            }
+            context.put("sessionKey", session.sessionKey());
             try {
                 authRedis().opsForValue().set(authKey(REGISTER_KEY_PREFIX + registerToken),
                         objectMapper.writeValueAsString(context), REGISTER_TOKEN_TTL);
             } catch (Exception e) {
-                log.warn("cache register token failed: {}", e.getMessage());
+                log.error("cache register token failed openId={}", maskOpenId(session.openId()), e);
+                throw new BusinessException(ResultCode.ERROR, LOGIN_UNAVAILABLE);
             }
 
             WxLoginResponse response = new WxLoginResponse();
@@ -132,15 +136,8 @@ public class MiniAppAuthService {
             throw new BusinessException(ResultCode.FORBIDDEN, "账号已停用");
         }
 
-        // 缓存 session_key 供解密使用，不返回给前端
-        if (StringUtils.hasText(session.sessionKey())) {
-            try {
-                authRedis().opsForValue().set(authKey(SESSION_KEY_PREFIX + user.getId()),
-                        session.sessionKey(), Duration.ofHours(12));
-            } catch (Exception e) {
-                log.warn("cache session_key failed: {}", e.getMessage());
-            }
-        }
+        // 缓存 session_key 供解密使用，不返回给前端；写入失败不得签发不可用 token。
+        storeSessionKey(user.getId(), session.sessionKey());
 
         // 关键业务日志：登录成功（openid 仅记前 12 位，避免完整凭据落盘）
         log.info("微信登录成功 userId={} openId={}", user.getId(), maskOpenId(session.openId()));
@@ -149,7 +146,7 @@ public class MiniAppAuthService {
 
     /** 新用户通过微信手机号授权建号并登录（未注册态） */
     @Transactional(rollbackFor = Exception.class)
-    public WxLoginResponse registerByPhone(String registerToken, String encryptedData, String iv) {
+    public WxLoginResponse registerByPhone(String registerToken, String encryptedData, String iv, Long referrerId) {
         RegisterContext context = readRegisterContext(registerToken);
         if (!StringUtils.hasText(context.sessionKey())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "微信授权已失效，请重新登录");
@@ -159,22 +156,44 @@ public class MiniAppAuthService {
         if (!StringUtils.hasText(phone)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "未获取到手机号");
         }
-        AppUser user = createRegisteredUser(context.openId(), context.unionId(), phone);
+        AppUser user = createRegisteredUser(context.openId(), context.unionId(), phone, referrerId);
+        storeSessionKey(user.getId(), context.sessionKey());
         deleteRegisterToken(registerToken);
         return buildLoginResponse(user, true);
     }
 
     /** 新用户通过短信验证码建号并登录（未注册态） */
     @Transactional(rollbackFor = Exception.class)
-    public WxLoginResponse registerBySms(String registerToken, String phone, String code) {
+    public WxLoginResponse registerBySms(String registerToken, String phone, String code, Long referrerId) {
         smsCodeService.verify(phone, code);
         RegisterContext context = readRegisterContext(registerToken);
-        AppUser user = createRegisteredUser(context.openId(), context.unionId(), phone);
+        AppUser user = createRegisteredUser(context.openId(), context.unionId(), phone, referrerId);
         deleteRegisterToken(registerToken);
         return buildLoginResponse(user, true);
     }
 
-    private AppUser createRegisteredUser(String openId, String unionId, String phone) {
+    /**
+     * 校验邀请人是否有效，无效则返回 null（视为无推荐关系）。
+     *
+     * <p>为什么要校验而不是直接落库：referrerId 来自客户端分享链接，
+     * 属不可信输入。若不过滤，会出现「指向不存在用户」的脏数据，
+     * 让后续按推荐人发放奖励时查无此人；也便于挡住明显的伪造值。
+     *
+     * <p>仅在无效时返回 null 而不抛异常：推荐关系属于附加信息，
+     * 不应因为一个坏参数就让用户注册失败。
+     */
+    private Long resolveReferrerId(Long referrerId) {
+        if (referrerId == null || referrerId <= 0) {
+            return null;
+        }
+        AppUser referrer = appUserMapper.selectById(referrerId);
+        if (referrer == null) {
+            log.warn("邀请人不存在，忽略推荐关系 referrerId={}", referrerId);
+            return null;
+        }
+        return referrerId;
+    }
+    private AppUser createRegisteredUser(String openId, String unionId, String phone, Long referrerId) {
         AppUser existingByPhone = appUserMapper.selectOne(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getPhone, phone));
         if (existingByPhone != null) {
@@ -189,6 +208,10 @@ public class MiniAppAuthService {
         user.setPoints(0L);
         user.setBalance(0L);
         user.setStatus(1);
+        // 邀请人：来自分享链接的 referrerId。
+        // 只接受「已存在的其他用户」：自己推荐自己、以及指向不存在用户的脏数据
+        // 都会让推荐关系失去意义，直接按「无推荐人」处理，不因此阻塞注册。
+        user.setReferrerId(resolveReferrerId(referrerId));
         try {
             appUserMapper.insert(user);
         } catch (org.springframework.dao.DuplicateKeyException e) {
@@ -227,6 +250,19 @@ public class MiniAppAuthService {
         response.setAvatar(user.getAvatar());
         response.setPhone(user.getPhone());
         return response;
+    }
+
+    private void storeSessionKey(Long userId, String sessionKey) {
+        if (!StringUtils.hasText(sessionKey)) {
+            throw new BusinessException(ResultCode.ERROR, LOGIN_UNAVAILABLE);
+        }
+        try {
+            authRedis().opsForValue().set(authKey(SESSION_KEY_PREFIX + userId),
+                    sessionKey, SESSION_KEY_TTL);
+        } catch (Exception e) {
+            log.error("cache session_key failed userId={}", userId, e);
+            throw new BusinessException(ResultCode.ERROR, LOGIN_UNAVAILABLE);
+        }
     }
 
     private RegisterContext readRegisterContext(String registerToken) {
@@ -347,6 +383,16 @@ public class MiniAppAuthService {
         return user;
     }
 
+    /**
+     * 统计当前用户邀请注册的人数（第 15 期：邀请关系落库后接真实数据）。
+     *
+     * <p>计数依据 {@code app_user.referrer_id}，与「分享链接带 referrerId、
+     * 注册时落库」的链路一致。只统计未删除账号。
+     */
+    public long countReferrals(Long userId) {
+        return appUserMapper.countByReferrer(userId);
+    }
+
     private String getSessionKey(Long userId) {
         String sessionKey = null;
         try {
@@ -423,4 +469,3 @@ public class MiniAppAuthService {
         return result;
     }
 }
-

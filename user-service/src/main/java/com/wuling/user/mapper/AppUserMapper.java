@@ -27,4 +27,18 @@ public interface AppUserMapper extends BaseMapper<AppUser> {
     @Update("update app_user set balance = balance + #{delta}, update_time = now() "
             + "where id = #{userId} and deleted = 0")
     int addBalance(@Param("userId") Long userId, @Param("delta") long delta);
+
+    /**
+     * 统计某用户邀请注册的人数（即 referrer_id = 该用户的记录数）。
+     *
+     * <p>「已邀请人数」= 通过该用户分享链接注册、且成功写入了
+     * {@code app_user.referrer_id} 的账号数量。这里是权威计数来源，
+     * 前端不再硬编码。
+     *
+     * @param userId 邀请人用户 ID
+     * @return 被邀请注册的用户数（不含已删除账号）
+     */
+    @org.apache.ibatis.annotations.Select(
+            "select count(*) from app_user where referrer_id = #{userId} and deleted = 0")
+    long countByReferrer(@Param("userId") Long userId);
 }

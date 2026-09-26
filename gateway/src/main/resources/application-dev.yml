@@ -30,7 +30,7 @@ spring:
         - id: marketing-app
           uri: http://127.0.0.1:8083
           predicates:
-            - Path=/api/v1/app/coupons,/api/v1/app/users/**,/api/v1/app/stored-value/**,/api/v1/app/gift-cards/**,/api/v1/app/points/**,/api/v1/app/member-levels,/api/v1/app/comments
+            - Path=/api/v1/app/coupons,/api/v1/app/referral-config,/api/v1/app/users/**,/api/v1/app/stored-value/**,/api/v1/app/gift-cards/**,/api/v1/app/points/**,/api/v1/app/member-levels
         - id: marketing-admin
           uri: http://127.0.0.1:8083
           predicates:

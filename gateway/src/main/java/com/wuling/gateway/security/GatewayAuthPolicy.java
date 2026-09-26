@@ -49,13 +49,21 @@ public class GatewayAuthPolicy {
             // 保护手段为「RSA 验签 + AES-GCM 解密 + 金额比对 + 时间戳窗口」，
             // 且该接口仅在 app.pay.channel=wxpay 时注册（mock 阶段不存在）。
             "/api/v1/app/payments/wxpay/notify",
+            // 微信退款结果通知：同样由 RSA 验签 + AES-GCM 解密保护，调用方无 JWT。
+            "/api/v1/app/payments/wxpay/refund-notify",
             // 健康检查
             "/actuator/health",
+            // 文件服务公开读取（文件名由服务端生成并严格校验）
+            "/api/v1/files/public/**",
             // 文件服务自述（不含敏感信息，便于运维探活）
             "/api/v1/files/service-info"
     );
 
-    /** 需要登录的路径前缀（小程序用户态接口） */
+    /** 需要登录的精确路径（仅该路径本身，不包含子路径） */
+    private static final List<String> PROTECTED_EXACT_PATHS = List.of(
+            "/api/v1/app/gift-cards"
+    );
+
     private static final List<String> PROTECTED_PREFIXES = List.of(
             "/api/v1/app/orders",
             "/api/v1/app/users",
@@ -63,7 +71,13 @@ public class GatewayAuthPolicy {
             "/api/v1/app/stored-value/orders/**",
             // 储值支付发起（第 15 期）：需登录，由服务端按 JWT 取 openid
             "/api/v1/app/payments/stored-value/prepay",
-            "/api/v1/app/gift-cards",
+            // 礼品卡支付与退款：需登录，服务端按 JWT 校验订单归属并读取 openid
+            "/api/v1/app/payments/gift-card/prepay",
+            "/api/v1/app/payments/gift-card/refund",
+            // 礼品卡购买、订单与核销需登录；面额列表 /denominations 公开，
+            // 因此不能使用宽泛的 /api/v1/app/gift-cards 保护前缀。
+            "/api/v1/app/gift-cards/orders",
+            "/api/v1/app/gift-cards/verify",
             "/api/v1/app/gift-cards/purchase",
             "/api/v1/app/points/records",
             "/api/v1/app/points/signin",
@@ -71,7 +85,6 @@ public class GatewayAuthPolicy {
             "/api/v1/app/points/exchange",
             "/api/v1/app/points/exchange-orders",
             "/api/v1/app/withdrawals",
-            "/api/v1/app/comments",
             "/api/v1/app/workbench",
             "/api/v1/app/roles",
             "/api/v1/app/auth/me",
@@ -82,6 +95,7 @@ public class GatewayAuthPolicy {
             "/api/v1/app/auth/profile",
             "/api/v1/app/auth/location",
             // 文件上传：需登录（防匿名上传恶意文件）
+            "/api/v1/files/images",
             "/api/v1/files/validate"
     );
 
@@ -99,14 +113,18 @@ public class GatewayAuthPolicy {
         if (path == null) {
             return true;
         }
+        // 精确保护路径优先；用于保护 /gift-cards 本身，同时放行其公开子路径。
+        if (PROTECTED_EXACT_PATHS.contains(path)) {
+            return true;
+        }
         // 受保护优先：避免某个路径同时被两条清单前缀匹配时被误放行
         for (String p : PROTECTED_PREFIXES) {
-            if (path.startsWith(p)) {
+            if (matchesPrefix(path, p)) {
                 return true;
             }
         }
         for (String p : PUBLIC_PREFIXES) {
-            if (path.startsWith(p)) {
+            if (matchesPrefix(path, p)) {
                 return false;
             }
         }
@@ -118,5 +136,15 @@ public class GatewayAuthPolicy {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 将清单中的路径前缀按“精确路径或子路径”匹配，支持 {@code /**} 写法。
+     */
+    private static boolean matchesPrefix(String path, String configuredPrefix) {
+        String prefix = configuredPrefix.endsWith("/**")
+                ? configuredPrefix.substring(0, configuredPrefix.length() - 3)
+                : configuredPrefix;
+        return path.equals(prefix) || path.startsWith(prefix + "/");
     }
 }
