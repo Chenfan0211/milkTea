@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   运营后台前端一键构建 + 打包 + 上传 + 部署脚本
 
@@ -55,11 +55,16 @@ if (-not (Test-Path $dist)) { throw '未找到 dist 目录' }
 
 $httpsMark = 'api.wulingshiguang.top'
 $ipMark = '43.136.91.239'
-$hasHttps = $false; $hasIp = $false
+$hasHttps = $false; $hasIp = $false; $hasRemoteIconRuntime = $false
 Get-ChildItem $dist -Recurse -File | ForEach-Object {
   $c = Get-Content $_.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
   if ($c -match [regex]::Escape($httpsMark)) { $hasHttps = $true }
   if ($c -match [regex]::Escape($ipMark)) { $hasIp = $true }
+  if ($c -match 'https://api\.(?:iconify\.design|simplesvg\.com|unisvg\.com)') { $hasRemoteIconRuntime = $true }
+}
+
+if ($hasRemoteIconRuntime) {
+  throw '产物中残留 Iconify 公网地址。请确认使用 @iconify/vue/offline，并执行 icons:offline 后再构建。'
 }
 
 if ($Mode -eq 'https') {

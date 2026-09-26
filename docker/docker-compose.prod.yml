@@ -136,11 +136,14 @@ services:
     environment:
       <<: *backend-env
       JAVA_OPTS: "-Xms128m -Xmx256m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      FILE_STORAGE_ROOT: /data/wuling/uploads
+      FILE_PUBLIC_BASE_URL: /api/v1/files/public
     ports:
       - "127.0.0.1:8082:8082"
     volumes:
       - /opt/wuling/config/file-service:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
+      - file-uploads:/data/wuling/uploads
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
       interval: 15s
@@ -194,6 +197,8 @@ services:
       - "127.0.0.1:8084:8084"
     volumes:
       - /opt/wuling/config/trade-service:/app/config:ro
+      # 微信支付 APIv3 私钥/公钥只读挂载；容器内路径需与 WXPAY_*_KEY_PATH 一致。
+      - /opt/wuling/app/certs:/opt/wuling/app/certs:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health"]
@@ -288,3 +293,6 @@ networks:
     # 已存在（由中间件 compose 创建），此处只接入不创建
     external: true
     name: wuling-net
+
+volumes:
+  file-uploads: {}

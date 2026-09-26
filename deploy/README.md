@@ -84,7 +84,78 @@ curl http://127.0.0.1:8080/api/v1/app/products/classic-001
 - Flyway 版本：V1 schema_core / V2 schema_marketing / V3 seed_base / V4 seed_product
 - 种子数据：门店类型 4、门店 5、商品 18、规格 106、商品-门店关联 90、会员等级 3、功能开关 4、分账规则 1
 
-## 六、待办（后续批次）
+## 六、生产文件服务持久化（必须配置）
+
+当前 `deploy/dev/docker-compose.yml` 只包含 MySQL、Redis、RabbitMQ、Nacos，不包含
+`file-service`。生产 Compose 或编排模板中必须为文件服务配置持久化卷；不能只把上传目录
+放在容器可写层，否则容器重建、升级或迁移后会丢失图片。
+
+生产环境至少应设置：
+
+- `FILE_STORAGE_ROOT=/data/wuling/uploads`
+- `FILE_PUBLIC_BASE_URL=/api/v1/files/public`
+- `JWT_SECRET`：使用生产密钥管理注入，不能使用开发默认值
+
+具名卷示例：
+
+```yaml
+services:
+  file-service:
+    image: <file-service-image>
+    restart: unless-stopped
+    environment:
+      FILE_STORAGE_ROOT: /data/wuling/uploads
+      FILE_PUBLIC_BASE_URL: /api/v1/files/public
+      JWT_SECRET: ${JWT_SECRET:?required}
+    volumes:
+      - file-uploads:/data/wuling/uploads
+
+volumes:
+  file-uploads: {}
+```
+
+若需直接挂载宿主机目录，可将卷改为：
+
+```yaml
+    volumes:
+      - /srv/wuling/uploads:/data/wuling/uploads
+```
+
+两种方式都必须保证该目录只属于文件服务、随宿主机或具名卷持久化，并纳入数据库之外的
+文件备份与恢复流程。部署后应分别验证管理员上传、公开读取，以及重启容器后文件仍可读取。
+
+## 七、礼品卡真实支付生产配置（必须配置）
+
+礼品卡正式购买与退款使用微信小程序 JSAPI。生产环境必须将
+`PAY_CHANNEL=wxpay`；`PAY_CHANNEL=mock` 只允许用于开发、自动化测试和预发验收，
+不能作为正式收款通道。
+
+`secrets.env` 至少需要补齐：
+
+- `PAY_CHANNEL=wxpay`
+- `PAY_CALLBACK_SECRET`：内部支付回调签名密钥
+- `WXPAY_MCH_ID`、`WXPAY_APP_ID`、`WXPAY_API_V3_KEY`
+- `WXPAY_MCH_SERIAL_NO`、`WXPAY_PRIVATE_KEY_PATH`
+- `WXPAY_VERIFY_MODE=public-key`、`WXPAY_PUBLIC_KEY_ID`、`WXPAY_PUBLIC_KEY_PATH`
+- `WXPAY_NOTIFY_URL=https://api.wulingshiguang.top/api/v1/app/payments/wxpay/notify`
+- `WXPAY_REFUND_NOTIFY_URL=https://api.wulingshiguang.top/api/v1/app/payments/wxpay/refund-notify`
+- `INTERNAL_MARKETING_BASE=http://wuling-marketing-service`
+- `INTERNAL_SERVICE_TOKEN`：`trade-service` 与 `marketing-service` 必须使用完全相同的值
+- `STORED_VALUE_DEMO_ENABLED=false`
+
+微信商户证书目录需以只读方式挂载给 `trade-service`，例如：
+
+```yaml
+    volumes:
+      - /opt/wuling/app/certs:/opt/wuling/app/certs:ro
+```
+
+容器内两个 `WXPAY_*_KEY_PATH` 必须落在该挂载目录内且运行用户可读。生产 Nginx
+必须将两个回调地址通过 HTTPS 暴露给微信，证书域名和 ICP 备案状态需与商户平台一致。
+部署后先验证配置缺失时服务拒绝启动，再完成一笔真实购买和原路退款，并核对
+`gift_card_order`、`gift_card`、`gift_card_refund` 与 `payment` 四张表的状态证据。
+
+## 八、待办（后续批次）
 
 1. 生产环境变量与密钥注入（JWT secret、数据库口令改为强口令）
 2. Nginx + HTTPS + 域名（api.wulingshiguang.top）

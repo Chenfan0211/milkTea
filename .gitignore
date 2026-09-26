@@ -80,3 +80,6 @@ backend-*.tar.gz
 # 部署暂存目录（含编译产物 jar，不入库）
 .deploy-staging/
 
+
+# Codex 日志/临时排查记录（不入库）
+.codex-logs/

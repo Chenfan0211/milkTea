@@ -65,7 +65,8 @@ COPY ${APP_JAR} /app/app.jar
 # 日志目录：由 compose 挂载到宿主机，容器内只是占位。
 # ⚠️ 必须在切换到非 root 用户【之前】创建并授权 —— 否则 mkdir /opt/wuling 会因
 #    普通用户对 /opt 无写权限而失败（这是首轮构建实际踩到的坑）。
-RUN mkdir -p /opt/wuling/logs && chown -R ubuntu:ubuntu /app /opt/wuling
+RUN mkdir -p /opt/wuling/logs /data/wuling/uploads \
+    && chown -R ubuntu:ubuntu /app /opt/wuling /data/wuling
 
 # 切换到非 root 用户（必须位于所有 root 操作之后）
 USER ubuntu
