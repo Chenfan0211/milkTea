@@ -9,17 +9,17 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 for (const page of ['role-verify', 'role-income', 'role-withdraw']) {
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-    assert.ok(fs.existsSync(path.join(root, `pages/${page}/${page}.${extension}`)), `missing ${page}.${extension}`);
+    assert.ok(fs.existsSync(path.join(root, `packageRole/${page}/${page}.${extension}`)), `missing ${page}.${extension}`);
   }
 }
 
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
 for (const page of [
-  'pages/role-verify/role-verify',
-  'pages/role-income/role-income',
-  'pages/role-withdraw/role-withdraw'
+  'role-verify/role-verify',
+  'role-income/role-income',
+  'role-withdraw/role-withdraw'
 ]) {
-  assert.ok(appJson.pages.includes(page), `${page} must be registered`);
+  assert.ok(appJson.subpackages?.[0]?.pages?.includes(page), `${page} must be registered`);
 }
 
 const {
@@ -62,9 +62,9 @@ submitWithdraw(10).then(
 // 分享：三页均为私密且有标题
 const { getShareTitle, isPrivatePage, PAGE_SHARE_TITLES } = require(path.join(root, 'utils/share.js'));
 for (const route of [
-  'pages/role-verify/role-verify',
-  'pages/role-income/role-income',
-  'pages/role-withdraw/role-withdraw'
+  'packageRole/role-verify/role-verify',
+  'packageRole/role-income/role-income',
+  'packageRole/role-withdraw/role-withdraw'
 ]) {
   assert.ok(isPrivatePage(route), `${route} must be private`);
   assert.ok(PAGE_SHARE_TITLES[route], `${route} must define a title`);
@@ -73,20 +73,20 @@ for (const route of [
 
 // 路由：profile 按 actionId 跳转三个功能页，不再进工作台
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
-assert.ok(profileJs.includes('/pages/role-verify/role-verify'), 'profile must route verify');
-assert.ok(profileJs.includes('/pages/role-income/role-income'), 'profile must route income');
-assert.ok(profileJs.includes('/pages/role-withdraw/role-withdraw'), 'profile must route withdraw');
+assert.ok(profileJs.includes('/packageRole/role-verify/role-verify'), 'profile must route verify');
+assert.ok(profileJs.includes('/packageRole/role-income/role-income'), 'profile must route income');
+assert.ok(profileJs.includes('/packageRole/role-withdraw/role-withdraw'), 'profile must route withdraw');
 
 // 「我的」页余额改储值余额
 assert.ok(profileJs.includes("label: '储值余额'"), 'profile balance label must be 储值余额');
 assert.ok(profileJs.includes('/pages/stored-value/stored-value'), 'balance tap must still navigate to stored-value');
 
 // role-workbench handleAction 同样跳转
-const workbenchJs = fs.readFileSync(path.join(root, 'pages/role-workbench/role-workbench.js'), 'utf8');
-assert.ok(workbenchJs.includes('/pages/role-verify/role-verify'), 'workbench must route verify');
+const workbenchJs = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.js'), 'utf8');
+assert.ok(workbenchJs.includes('/packageRole/role-verify/role-verify'), 'workbench must route verify');
 
 // 核销页 WXML 含扫码/输码/确认核销
-const verifyWxml = fs.readFileSync(path.join(root, 'pages/role-verify/role-verify.wxml'), 'utf8');
+const verifyWxml = fs.readFileSync(path.join(root, 'packageRole/role-verify/role-verify.wxml'), 'utf8');
 assert.ok(
   verifyWxml.includes('handleScan') && verifyWxml.includes('handleQuery'),
   'verify page must support scan and query'
@@ -94,7 +94,7 @@ assert.ok(
 assert.ok(verifyWxml.includes('scan-line.svg'), 'verify page must use scan icon');
 
 // 核销页接入兑换核销
-const verifyJs = fs.readFileSync(path.join(root, 'pages/role-verify/role-verify.js'), 'utf8');
+const verifyJs = fs.readFileSync(path.join(root, 'packageRole/role-verify/role-verify.js'), 'utf8');
 assert.ok(verifyJs.includes('verifyExchange'), 'verify page must support exchange redemption');
 assert.ok(
   verifyJs.includes("mode: 'order'") && verifyJs.includes('switchMode'),
@@ -261,7 +261,7 @@ assert.ok(
     fs.existsSync(path.join(root, 'pages/launch/launch.wxml')),
   'launch page must exist as the single cold-start entry'
 );
-// 强拦截：冷启动收口到启动页，未注册 / 登录失败一律进授权页。
+// 公开入口：冷启动收口到启动页，但未注册 / 登录失败均放行公开目标页。
 assert.equal(
   appJson.entryPagePath,
   'pages/launch/launch',
@@ -274,12 +274,12 @@ assert.ok(
 {
   const launchJs = fs.readFileSync(path.join(root, 'pages/launch/launch.js'), 'utf8');
   assert.ok(
-    launchJs.includes('ensureEntryLogin') && launchJs.includes('shouldPromptEntry'),
-    'launch page must gate on entry login and prompt dedupe'
+    launchJs.includes('ensureEntryLogin') && launchJs.includes('resolveEntryTarget'),
+    'launch page must run entry login and resolve the public target'
   );
   assert.ok(
-    launchJs.includes('markEntryPrompted'),
-    'launch page must mark the entry prompt to avoid repeat interruption'
+    launchJs.includes('goTarget(target)') && !launchJs.includes('goAuthPage'),
+    'launch page must release public targets without forcing the auth page'
   );
   // 合规：启动页不得出现授权按钮 / 授权 API 的「实际调用」。
   // 用 open-type / bindgetphonenumber / chooseAvatar 判定，避免误伤说明性注释里的字样。
@@ -307,9 +307,10 @@ for (const page of [
   'role-apply',
   'role-withdraw'
 ]) {
-  const js = fs.readFileSync(path.join(root, `pages/${page}/${page}.js`), 'utf8');
-  const wxml = fs.readFileSync(path.join(root, `pages/${page}/${page}.wxml`), 'utf8');
-  const json = fs.readFileSync(path.join(root, `pages/${page}/${page}.json`), 'utf8');
+  const pageDir = page.startsWith('role-') ? `packageRole/${page}` : `pages/${page}`;
+  const js = fs.readFileSync(path.join(root, `${pageDir}/${page}.js`), 'utf8');
+  const wxml = fs.readFileSync(path.join(root, `${pageDir}/${page}.wxml`), 'utf8');
+  const json = fs.readFileSync(path.join(root, `${pageDir}/${page}.json`), 'utf8');
   assert.ok(!/loginSheet/.test(js), `${page} must not keep login-sheet state`);
   assert.ok(!/login-sheet/.test(wxml), `${page} must not render login-sheet`);
   assert.ok(!/login-sheet/.test(json), `${page} must not register login-sheet`);
@@ -460,8 +461,21 @@ assert.ok(
   /<button[^>]*open-type="contact"/.test(serviceWxml),
   'open-type="contact" must sit on a native button element'
 );
+const serviceHoursOutputCount = (serviceWxml.match(/服务时间 \{\{serviceHours\}\}/g) || []).length;
+const responseNoteOutputCount = (
+  serviceWxml.match(/>\{\{info\.responseNote\}\}<\/text>/g) || []
+).length;
 assert.ok(
-  serviceWxss.includes('.service-hero__button::after') && serviceWxss.includes('border: none'),
+  serviceWxml.includes('service-contact-card') &&
+    serviceHoursOutputCount === 1 &&
+    !serviceWxml.includes('info.serviceHours') &&
+    responseNoteOutputCount === 1 &&
+    serviceWxml.includes('info.hotline') &&
+    serviceWxml.includes('callPhone'),
+  'the service page must merge online support and hotline into one card without duplicate schedule data'
+);
+assert.ok(
+  serviceWxss.includes('.service-contact__button::after') && serviceWxss.includes('border: none'),
   'the native contact button must reset its default ::after border'
 );
 
@@ -557,8 +571,8 @@ assert.ok(
 // 页面渲染与交互
 assert.ok(
   serviceWxml.includes('{{info.hotline}}') &&
-    serviceWxml.includes('{{info.serviceHours}}'),
-  'service page must render the hotline and hours'
+    serviceWxml.includes('服务时间 {{serviceHours}}'),
+  'service page must render the hotline and a single shared service schedule'
 );
 assert.ok(
   serviceWxml.includes('toggleFaq') && serviceWxml.includes('expandedFaqId'),
@@ -676,7 +690,7 @@ for (const page of ['pages/home/home.wxml', 'pages/profile/profile.wxml']) {
 }
 
 // 提现页 WXML 含可提现余额/待结算/押金/规则/输入/提交
-const withdrawWxml = fs.readFileSync(path.join(root, 'pages/role-withdraw/role-withdraw.wxml'), 'utf8');
+const withdrawWxml = fs.readFileSync(path.join(root, 'packageRole/role-withdraw/role-withdraw.wxml'), 'utf8');
 assert.ok(
   withdrawWxml.includes('可提现余额') && withdrawWxml.includes('待结算') && withdrawWxml.includes('押金'),
   'withdraw page must show balance/pending/deposit'
@@ -758,7 +772,7 @@ assert.ok(
 );
 
 // 提现记录页：注册 / 骨架 / 筛选 / 空状态
-const withdrawRecordsDir = path.join(root, 'pages/role-withdraw-records');
+const withdrawRecordsDir = path.join(root, 'packageRole/role-withdraw-records');
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(
     fs.existsSync(path.join(withdrawRecordsDir, `role-withdraw-records.${extension}`)),
@@ -766,7 +780,7 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   );
 }
 assert.ok(
-  appJson.pages.includes('pages/role-withdraw-records/role-withdraw-records'),
+  appJson.subpackages?.[0]?.pages?.includes('role-withdraw-records/role-withdraw-records'),
   'role-withdraw-records must be registered'
 );
 const withdrawRecordsWxml = fs.readFileSync(
@@ -866,12 +880,12 @@ assert.ok(
 );
 assert.ok(
   !/#[0-9A-Fa-f]{3,8}\b/.test(
-    fs.readFileSync(path.join(root, 'pages/role-withdraw/role-withdraw.wxss'), 'utf8')
+    fs.readFileSync(path.join(root, 'packageRole/role-withdraw/role-withdraw.wxss'), 'utf8')
   ),
   'withdraw page WXSS must use design tokens only'
 );
 assert.ok(
-  !fs.readFileSync(path.join(root, 'pages/role-withdraw/role-withdraw.wxml'), 'utf8').includes('需接入后端接口'),
+  !fs.readFileSync(path.join(root, 'packageRole/role-withdraw/role-withdraw.wxml'), 'utf8').includes('需接入后端接口'),
   'withdraw page must not expose developer notes'
 );
 
@@ -939,7 +953,7 @@ assert.ok(
 );
 
 // 提现详情页：注册 / 结构 / 时间线三态 / 信息字段
-const withdrawDetailDir = path.join(root, 'pages/role-withdraw-detail');
+const withdrawDetailDir = path.join(root, 'packageRole/role-withdraw-detail');
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(
     fs.existsSync(path.join(withdrawDetailDir, `role-withdraw-detail.${extension}`)),
@@ -947,7 +961,7 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   );
 }
 assert.ok(
-  appJson.pages.includes('pages/role-withdraw-detail/role-withdraw-detail'),
+  appJson.subpackages?.[0]?.pages?.includes('role-withdraw-detail/role-withdraw-detail'),
   'role-withdraw-detail must be registered'
 );
 const withdrawDetailWxml = fs.readFileSync(
@@ -1003,7 +1017,7 @@ assert.ok(
   'withdraw records must copy the order no without bubbling'
 );
 assert.ok(
-  withdrawRecordsJs.includes("'/pages/role-withdraw-detail/role-withdraw-detail'"),
+  withdrawRecordsJs.includes("'/packageRole/role-withdraw-detail/role-withdraw-detail'"),
   'withdraw records must route to the detail page'
 );
 
@@ -1023,7 +1037,7 @@ for (const status of ['pending', 'processing', 'success', 'failed']) {
 }
 
 // 提现规则页：注册 / 骨架 / 渲染 ruleItems / 不含提现记录数据
-const withdrawRulesDir = path.join(root, 'pages/role-withdraw-rules');
+const withdrawRulesDir = path.join(root, 'packageRole/role-withdraw-rules');
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(
     fs.existsSync(path.join(withdrawRulesDir, `role-withdraw-rules.${extension}`)),
@@ -1031,7 +1045,7 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   );
 }
 assert.ok(
-  appJson.pages.includes('pages/role-withdraw-rules/role-withdraw-rules'),
+  appJson.subpackages?.[0]?.pages?.includes('role-withdraw-rules/role-withdraw-rules'),
   'role-withdraw-rules must be registered'
 );
 const withdrawRulesWxml = fs.readFileSync(
@@ -1081,7 +1095,7 @@ assert.ok(fs.existsSync(listingPath), 'missing utils/product-listing.js');
 const listing = require(listingPath);
 
 // 选品页文件与注册
-const productsDir = path.join(root, 'pages/role-products');
+const productsDir = path.join(root, 'packageRole/role-products');
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(
     fs.existsSync(path.join(productsDir, `role-products.${extension}`)),
@@ -1089,7 +1103,7 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   );
 }
 assert.ok(
-  appJson.pages.includes('pages/role-products/role-products'),
+  appJson.subpackages?.[0]?.pages?.includes('role-products/role-products'),
   'role-products must be registered'
 );
 const productsWxml = fs.readFileSync(path.join(productsDir, 'role-products.wxml'), 'utf8');
@@ -1118,12 +1132,12 @@ assert.equal(
 );
 
 for (const [file, label] of [
-  ['pages/role-workbench/role-workbench.js', 'workbench'],
+  ['packageRole/role-workbench/role-workbench.js', 'workbench'],
   ['pages/profile/profile.js', 'profile']
 ]) {
   const source = fs.readFileSync(path.join(root, file), 'utf8');
   assert.ok(
-    source.includes("products: '/pages/role-products/role-products'"),
+    source.includes("products: '/packageRole/role-products/role-products'"),
     `${label} must route to role-products`
   );
 }
@@ -1210,11 +1224,11 @@ assert.ok(
   'row actions must stop propagation so the detail tap is not swallowed'
 );
 assert.ok(
-  productsJs.includes("'/pages/role-product-detail/role-product-detail'"),
+  productsJs.includes("'/packageRole/role-product-detail/role-product-detail'"),
   'products page must route to the product detail page'
 );
 
-const productDetailDir = path.join(root, 'pages/role-product-detail');
+const productDetailDir = path.join(root, 'packageRole/role-product-detail');
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(
     fs.existsSync(path.join(productDetailDir, `role-product-detail.${extension}`)),
@@ -1222,7 +1236,7 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   );
 }
 assert.ok(
-  appJson.pages.includes('pages/role-product-detail/role-product-detail'),
+  appJson.subpackages?.[0]?.pages?.includes('role-product-detail/role-product-detail'),
   'role-product-detail must be registered'
 );
 const productDetailWxml = fs.readFileSync(
@@ -1305,7 +1319,7 @@ assert.equal(
 );
 
 // 商品详情页分享：私密 + 有标题
-const productDetailRoute = 'pages/role-product-detail/role-product-detail';
+const productDetailRoute = 'packageRole/role-product-detail/role-product-detail';
 assert.ok(isPrivatePage(productDetailRoute), `${productDetailRoute} must be private`);
 assert.ok(PAGE_SHARE_TITLES[productDetailRoute], `${productDetailRoute} must define a title`);
 
@@ -1520,7 +1534,7 @@ assert.ok(
 );
 
 // 选品页分享：私密 + 有标题
-const productsRoute = 'pages/role-products/role-products';
+const productsRoute = 'packageRole/role-products/role-products';
 assert.ok(isPrivatePage(productsRoute), `${productsRoute} must be private`);
 assert.ok(PAGE_SHARE_TITLES[productsRoute], `${productsRoute} must define a title`);
 
@@ -1592,15 +1606,15 @@ assert.ok(
   !/function\s+(bindStore|unbindStore|bindResourceStore)/.test(rolesSource),
   'resource role must not expose store binding or unbinding'
 );
-const ordersJs = fs.readFileSync(path.join(root, 'pages/resource-orders/resource-orders.js'), 'utf8');
+const ordersJs = fs.readFileSync(path.join(root, 'packageRole/resource-orders/resource-orders.js'), 'utf8');
 assert.ok(
   !/bind|unbind|handleBind|handleUnbind/.test(ordersJs),
   'resource orders page must not implement binding or unbinding'
 );
 
 // 提成页：Hero / 门店筛选 / 分组 / 详情弹层
-const ordersWxml = fs.readFileSync(path.join(root, 'pages/resource-orders/resource-orders.wxml'), 'utf8');
-const ordersWxss = fs.readFileSync(path.join(root, 'pages/resource-orders/resource-orders.wxss'), 'utf8');
+const ordersWxml = fs.readFileSync(path.join(root, 'packageRole/resource-orders/resource-orders.wxml'), 'utf8');
+const ordersWxss = fs.readFileSync(path.join(root, 'packageRole/resource-orders/resource-orders.wxss'), 'utf8');
 assert.ok(
   ordersWxml.includes('orders-hero') && ordersWxml.includes('{{totalText}}') && ordersWxml.includes('{{pendingCount}}'),
   'resource orders page must show the commission hero'
@@ -1641,22 +1655,22 @@ assert.ok(
 
 // 工作台：规则改为入口，且不再内联铺数据
 const workbenchWxml = fs.readFileSync(
-  path.join(root, 'pages/role-workbench/role-workbench.wxml'),
+  path.join(root, 'packageRole/role-workbench/role-workbench.wxml'),
   'utf8'
 );
 const workbenchWxss = fs.readFileSync(
-  path.join(root, 'pages/role-workbench/role-workbench.wxss'),
+  path.join(root, 'packageRole/role-workbench/role-workbench.wxss'),
   'utf8'
 );
 const workbenchScript = fs.readFileSync(
-  path.join(root, 'pages/role-workbench/role-workbench.js'),
+  path.join(root, 'packageRole/role-workbench/role-workbench.js'),
   'utf8'
 );
 assert.ok(
   workbenchWxml.includes('openIncomeRules') &&
     workbenchWxml.includes('openWithdrawRules') &&
-    workbenchScript.includes('/pages/role-income-rules/role-income-rules') &&
-    workbenchScript.includes('/pages/role-withdraw-rules/role-withdraw-rules'),
+    workbenchScript.includes('/packageRole/role-income-rules/role-income-rules') &&
+    workbenchScript.includes('/packageRole/role-withdraw-rules/role-withdraw-rules'),
   'workbench must route rules to dedicated pages instead of inlining them'
 );
 assert.ok(
@@ -1691,16 +1705,16 @@ assert.ok(
 // profile 必须能路由资源方订单页
 assert.ok(
   fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8').includes(
-    "orders: '/pages/resource-orders/resource-orders'"
+    "orders: '/packageRole/resource-orders/resource-orders'"
   ),
   'profile must route the resource orders page'
 );
 
 // ===== 投资人点位申请 =====
-const investDir = path.join(root, 'pages/role-invest');
-const investApplyDir = path.join(root, 'pages/role-invest-apply');
-const investRecordsDir = path.join(root, 'pages/role-invest-records');
-const investDetailDir = path.join(root, 'pages/role-invest-detail');
+const investDir = path.join(root, 'packageRole/role-invest');
+const investApplyDir = path.join(root, 'packageRole/role-invest-apply');
+const investRecordsDir = path.join(root, 'packageRole/role-invest-records');
+const investDetailDir = path.join(root, 'packageRole/role-invest-detail');
 
 for (const [dir, name] of [
   [investDir, 'role-invest'],
@@ -1711,7 +1725,7 @@ for (const [dir, name] of [
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
     assert.ok(fs.existsSync(path.join(dir, `${name}.${extension}`)), `missing ${name}.${extension}`);
   }
-  assert.ok(appJson.pages.includes(`pages/${name}/${name}`), `${name} must be registered`);
+  assert.ok(appJson.subpackages?.[0]?.pages?.includes(`${name}/${name}`), `${name} must be registered`);
   const wxss = fs.readFileSync(path.join(dir, `${name}.wxss`), 'utf8');
   assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(wxss), `${name} WXSS must use design tokens only`);
 }
@@ -1722,12 +1736,12 @@ assert.ok(
   'investor dashboard must expose the invest action'
 );
 for (const [file, label] of [
-  ['pages/role-workbench/role-workbench.js', 'workbench'],
+  ['packageRole/role-workbench/role-workbench.js', 'workbench'],
   ['pages/profile/profile.js', 'profile']
 ]) {
   const source = fs.readFileSync(path.join(root, file), 'utf8');
   assert.ok(
-    source.includes("invest: '/pages/role-invest/role-invest'"),
+    source.includes("invest: '/packageRole/role-invest/role-invest'"),
     `${label} must route to role-invest`
   );
 }
@@ -1965,19 +1979,19 @@ assert.ok(detailWxml.includes('record.failReason'), 'invest detail must surface 
 
 // 四页分享：私密 + 有标题
 for (const route of [
-  'pages/role-invest/role-invest',
-  'pages/role-invest-apply/role-invest-apply',
-  'pages/role-invest-records/role-invest-records',
-  'pages/role-invest-detail/role-invest-detail'
+  'packageRole/role-invest/role-invest',
+  'packageRole/role-invest-apply/role-invest-apply',
+  'packageRole/role-invest-records/role-invest-records',
+  'packageRole/role-invest-detail/role-invest-detail'
 ]) {
   assert.ok(isPrivatePage(route), `${route} must be private`);
   assert.ok(PAGE_SHARE_TITLES[route], `${route} must define a title`);
 }
 
 // ===== 收益模块 =====
-const incomeJs = fs.readFileSync(path.join(root, 'pages/role-income/role-income.js'), 'utf8');
-const incomeWxml = fs.readFileSync(path.join(root, 'pages/role-income/role-income.wxml'), 'utf8');
-const incomeWxss = fs.readFileSync(path.join(root, 'pages/role-income/role-income.wxss'), 'utf8');
+const incomeJs = fs.readFileSync(path.join(root, 'packageRole/role-income/role-income.js'), 'utf8');
+const incomeWxml = fs.readFileSync(path.join(root, 'packageRole/role-income/role-income.wxml'), 'utf8');
+const incomeWxss = fs.readFileSync(path.join(root, 'packageRole/role-income/role-income.wxss'), 'utf8');
 
 // 收益页：Hero + 入口 + 趋势，不再直接铺记录
 assert.ok(
@@ -2009,7 +2023,7 @@ assert.ok(
   'income WXSS must use design tokens only'
 );
 assert.ok(
-  /"pages\/role-income-records\/role-income-records"/.test(
+  /"role-income-records\/role-income-records"/.test(
     fs.readFileSync(path.join(root, 'app.json'), 'utf8')
   ),
   'income records page must be registered'
@@ -2119,12 +2133,12 @@ assert.ok(
 
 // 收益记录页 / 详情页 / 结算说明页：文件 + 骨架 + token
 for (const page of ['role-income-records', 'role-income-detail', 'role-income-rules']) {
-  const dir = path.join(root, `pages/${page}`);
+  const dir = path.join(root, `packageRole/${page}`);
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
     assert.ok(fs.existsSync(path.join(dir, `${page}.${extension}`)), `missing ${page}.${extension}`);
   }
   assert.ok(
-    appJson.pages.includes(`pages/${page}/${page}`),
+    appJson.subpackages?.[0]?.pages?.includes(`${page}/${page}`),
     `${page} must be registered`
   );
   const wxss = fs.readFileSync(path.join(dir, `${page}.wxss`), 'utf8');
@@ -2139,11 +2153,11 @@ for (const page of ['role-income-records', 'role-income-detail', 'role-income-ru
 
 // 收益记录页：搜索单号 + 时间范围 + 状态角标 + 跳详情
 const incomeRecordsWxml = fs.readFileSync(
-  path.join(root, 'pages/role-income-records/role-income-records.wxml'),
+  path.join(root, 'packageRole/role-income-records/role-income-records.wxml'),
   'utf8'
 );
 const incomeRecordsJs = fs.readFileSync(
-  path.join(root, 'pages/role-income-records/role-income-records.js'),
+  path.join(root, 'packageRole/role-income-records/role-income-records.js'),
   'utf8'
 );
 assert.ok(
@@ -2177,14 +2191,14 @@ assert.ok(
   'income record cards must copy the order no and route to detail'
 );
 assert.ok(
-  incomeRecordsJs.includes("'/pages/role-income-detail/role-income-detail'") &&
+  incomeRecordsJs.includes("'/packageRole/role-income-detail/role-income-detail'") &&
     incomeRecordsJs.includes('directionOf'),
   'income records must route to detail and derive the amount direction'
 );
 
 // 收益详情页：流转 + 字段
 const incomeDetailWxml = fs.readFileSync(
-  path.join(root, 'pages/role-income-detail/role-income-detail.wxml'),
+  path.join(root, 'packageRole/role-income-detail/role-income-detail.wxml'),
   'utf8'
 );
 assert.ok(
@@ -2207,7 +2221,7 @@ assert.ok(
 
 // 结算说明页：渲染 ruleItems
 const incomeRulesWxml = fs.readFileSync(
-  path.join(root, 'pages/role-income-rules/role-income-rules.wxml'),
+  path.join(root, 'packageRole/role-income-rules/role-income-rules.wxml'),
   'utf8'
 );
 assert.ok(
@@ -2219,9 +2233,9 @@ assert.ok(
 
 // 收益三页分享：私密 + 有标题
 for (const route of [
-  'pages/role-income-records/role-income-records',
-  'pages/role-income-detail/role-income-detail',
-  'pages/role-income-rules/role-income-rules'
+  'packageRole/role-income-records/role-income-records',
+  'packageRole/role-income-detail/role-income-detail',
+  'packageRole/role-income-rules/role-income-rules'
 ]) {
   assert.ok(isPrivatePage(route), `${route} must be private`);
   assert.ok(PAGE_SHARE_TITLES[route], `${route} must define a title`);
@@ -2229,9 +2243,9 @@ for (const route of [
 
 // 提现规则/记录页分享：私密 + 有标题
 for (const recordsRoute of [
-  'pages/role-withdraw-records/role-withdraw-records',
-  'pages/role-withdraw-rules/role-withdraw-rules',
-  'pages/role-withdraw-detail/role-withdraw-detail'
+  'packageRole/role-withdraw-records/role-withdraw-records',
+  'packageRole/role-withdraw-rules/role-withdraw-rules',
+  'packageRole/role-withdraw-detail/role-withdraw-detail'
 ]) {
   assert.ok(isPrivatePage(recordsRoute), `${recordsRoute} must be private`);
   assert.ok(PAGE_SHARE_TITLES[recordsRoute], `${recordsRoute} must define a title`);

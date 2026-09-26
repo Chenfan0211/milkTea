@@ -34,6 +34,17 @@
             </block>
           </view>
         </view>
+        <!-- 会员等级进度：仅登录后展示（置于用户卡片内） -->
+        <view wx:if="{{authStateLevel !== 'anonymous'}}" class="progress" bindtap="openMemberRights" aria-role="button" aria-label="查看会员权益">
+          <view class="progress__labels">
+            <text>{{vipLevel}}</text>
+            <text>{{nextLevel}}</text>
+          </view>
+          <view class="progress__track">
+            <view class="progress__value" style="width: {{progressPercent}}%;"></view>
+          </view>
+          <text class="progress__count">{{progressCurrent}}/{{progressTarget}}</text>
+        </view>
       </view>
 
       <!-- 未登录：登录引导卡（替代全部个人数据区） -->
@@ -63,17 +74,6 @@
           <image class="bind-phone-bar__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
         </view>
 
-        <!-- 会员等级进度：仅登录后展示 -->
-        <view class="progress" bindtap="openMemberRights" aria-role="button" aria-label="查看会员权益">
-          <view class="progress__labels">
-            <text>{{vipLevel}}</text>
-            <text>{{nextLevel}}</text>
-          </view>
-          <view class="progress__track">
-            <view class="progress__value" style="width: {{progressPercent}}%;"></view>
-          </view>
-          <text class="progress__count">{{progressCurrent}}/{{progressTarget}}</text>
-        </view>
       </block>
     </view>
 
@@ -99,6 +99,7 @@
       <text class="pending-notice__text">您有 {{pendingRoleCount}} 个角色申请审核中</text>
     </view>
 
+    <!-- 角色中心入口：本版本暂不展示，后续恢复时取消注释
     <view wx:if="{{authStateLevel !== 'anonymous'}}" class="profile-card role-entry" bindtap="openRoleCenter" aria-role="button" aria-label="进入角色中心">
       <image class="role-entry__icon" src="/assets/icons/lucide/users-brand.svg" mode="aspectFit" />
       <view class="role-entry__body">
@@ -107,6 +108,7 @@
       </view>
       <image class="role-entry__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
     </view>
+    -->
 
     <image class="promo-banner" src="/assets/images/3x/profile-banner.jpg" mode="widthFix" bindtap="openMenu" aria-label="抹茶轻茉莉新品" />
 

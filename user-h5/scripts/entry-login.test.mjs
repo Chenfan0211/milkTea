@@ -107,7 +107,7 @@ assert.equal(
   '白名单来源必须还原页面与安全参数'
 );
 assert.equal(
-  entry.resolveEntryTarget({ from: 'pages/role-withdraw/role-withdraw', query: 'amount=999' }),
+  entry.resolveEntryTarget({ from: 'packageRole/role-withdraw/role-withdraw', query: 'amount=999' }),
   '/pages/home/home',
   '非白名单来源必须回首页，防止被构造参数跳转'
 );

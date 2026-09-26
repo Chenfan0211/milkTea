@@ -65,7 +65,7 @@ Page(
       wx.switchTab({ url: '/pages/menu/menu' });
     },
     openJoinApply() {
-      wx.navigateTo({ url: '/pages/role-apply/role-apply' });
+      wx.navigateTo({ url: '/packageRole/role-apply/role-apply' });
     },
     handleShortcut(event) {
       const { id, label } = event.currentTarget.dataset;

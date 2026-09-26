@@ -7,6 +7,8 @@ const loginGuard = require('../../utils/login-guard');
 const auth = require('../../utils/auth');
 const authState = require('../../utils/auth-state');
 const api = require('../../utils/api');
+const { refreshCouponsFromRemote } = require('../../utils/coupons');
+const { pickGiftCardRecords, resolveGiftCardDisplay } = require('../../utils/gift-card');
 
 const initialProfile = getUserProfile();
 const initialMeta = buildLevelMeta(initialProfile);
@@ -100,31 +102,54 @@ Page(
           .fetchMe()
           .then(remote => {
             this.setData({ remoteUser: remote, phoneMasked: remote.phone ? maskPhone(remote.phone) : '' });
-            // 回写本地资料，供其他页面复用
-            saveUserProfile({
-              nickname: remote.nickName || userProfile.nickname,
-              // 未授权头像时回落到默认头像，避免头像区空白
-              avatar: remote.avatar || userProfile.avatar || DEFAULT_AVATAR,
-              phone: remote.phone || userProfile.phone,
-              region: userProfile.region
-            });
+            // 回写本地资料，供其他页面复用。
+            //
+            // ⚠️ 必须是「合并更新」而不是重建：saveUserProfile 内部是
+            // Object.assign({}, EMPTY_PROFILE, source)，未传的字段会回落到
+            // 空壳的 0 / []。若这里只挑 nickname/avatar 等字段传进去，
+            // points / balance / couponCount / giftCards 会被整体清零 ——
+            // 表现为「从其它页返回我的页，时光币/余额/优惠券全部变 0」。
+            // 因此先取当前缓存，再只覆盖远端明确返回的字段。
+            saveUserProfile(
+              Object.assign({}, userProfile, {
+                nickname: remote.nickName || userProfile.nickname,
+                // 未授权头像时回落到默认头像，避免头像区空白
+                avatar: remote.avatar || userProfile.avatar || DEFAULT_AVATAR,
+                phone: remote.phone || userProfile.phone,
+                // 资产字段以远端为准（远端缺失时保留本地值，不覆盖成 0）
+                points: Number.isFinite(Number(remote.points)) ? Number(remote.points) : userProfile.points,
+                balance: Number.isFinite(Number(remote.balance))
+                  ? Math.round((Number(remote.balance) || 0) / 100)
+                  : userProfile.balance,
+                vipLevel: remote.vipLevel || userProfile.vipLevel,
+                region: userProfile.region
+              })
+            );
             this.setData({ userProfile: getUserProfile() });
           })
           .catch(() => {});
-        // 我的礼品卡：来自后端 /api/v1/app/gift-cards（当前用户名下的卡）
-        // 卡实体只有 denomination_id，需要关联面额接口补 name / image
-        Promise.all([api.fetchMyGiftCards(), api.fetchGiftCardDenominations()])
-          .then(([cards, denominations]) => {
-            const cardList = Array.isArray(cards) ? cards : [];
-            const denomMap = {};
-            (Array.isArray(denominations) ? denominations : []).forEach(d => {
-              denomMap[d.id] = d;
-            });
+        // 我的优惠券数量与优惠券列表共用同一远端刷新方法，统一只取 UNUSED 可用券。
+        refreshCouponsFromRemote('UNUSED')
+          .then(coupons => {
+            const count = Array.isArray(coupons) ? coupons.length : 0;
+            const stats = this.data.stats.map(item =>
+              item.id === 'coupon' ? Object.assign({}, item, { value: count }) : item
+            );
+            this.setData({ stats });
+          })
+          .catch(() => {
+            // 保留上一次成功结果，失败时不清零，避免把网络异常误显示为零张。
+          });
+        // 我的礼品卡：接口直接返回历史展示元数据，不再依赖仅上架面额接口。
+        api
+          .fetchMyGiftCards()
+          .then(cards => {
+            const cardList = pickGiftCardRecords(cards);
             const decorated = cardList.map(card => {
-              const denom = denomMap[card.denominationId] || {};
+              const display = resolveGiftCardDisplay(card);
               return Object.assign({}, card, {
-                name: denom.cardName || denom.name || '礼品卡',
-                image: denom.cardImage || '/assets/images/3x/gift-card-matcha.jpg',
+                name: display.name,
+                image: display.image,
                 pendingVerify: card.status === 'ACTIVE'
               });
             });
@@ -244,10 +269,17 @@ Page(
         { reason: '登录后可查看礼品卡订单' }
       );
     },
+    /**
+     * 打开「我的礼品卡」。
+     *
+     * 必须带 ?tab=mine：gift-card 页的默认 tab 是「buy（购买）」，
+     * 不带参数会落到购买页，用户会以为「点进去没有我的卡」。
+     * 该页 onLoad 已支持 tab=mine 直接切到「我的」。
+     */
     openGiftCards() {
       loginGuard.requireLogin(
         () => {
-          wx.navigateTo({ url: '/pages/gift-card/gift-card' });
+          wx.navigateTo({ url: '/pages/gift-card/gift-card?tab=mine' });
         },
         { reason: '登录后可查看礼品卡' }
       );
@@ -264,22 +296,22 @@ Page(
       wx.switchTab({ url: '/pages/menu/menu' });
     },
     openRoleCenter() {
-      wx.navigateTo({ url: '/pages/role-center/role-center' });
+      wx.navigateTo({ url: '/packageRole/role-center/role-center' });
     },
     openRoleApply() {
-      wx.navigateTo({ url: '/pages/role-apply/role-apply' });
+      wx.navigateTo({ url: '/packageRole/role-apply/role-apply' });
     },
     openRoleFunction(event) {
       const { action } = event.currentTarget.dataset;
       const roleId = this.data.businessRole && this.data.businessRole.id;
       if (!roleId || !action) return;
       const routeMap = {
-        verify: '/pages/role-verify/role-verify',
-        products: '/pages/role-products/role-products',
-        invest: '/pages/role-invest/role-invest',
-        orders: '/pages/resource-orders/resource-orders',
-        income: '/pages/role-income/role-income',
-        withdraw: '/pages/role-withdraw/role-withdraw'
+        verify: '/packageRole/role-verify/role-verify',
+        products: '/packageRole/role-products/role-products',
+        invest: '/packageRole/role-invest/role-invest',
+        orders: '/packageRole/resource-orders/resource-orders',
+        income: '/packageRole/role-income/role-income',
+        withdraw: '/packageRole/role-withdraw/role-withdraw'
       };
       const url = routeMap[action];
       if (!url) {

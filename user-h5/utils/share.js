@@ -3,6 +3,14 @@ const DEFAULT_SHARE_TITLE = '五零时光新中式养生茶饮';
 const SHARE_SCENE_KEY = 'shareScene';
 const SHARE_SCENE_TIMELINE = 'timeline';
 const HOME_PATH = '/pages/home/home';
+/**
+ * 邀请分享参数名。
+ *
+ * 为什么单独定义：邀请分享必须携带「邀请人 userId」以便好友注册时绑定推荐关系
+ * （后端落库 app_user.referrer_id）。参数名在这里与启动页/注册链路共用，
+ * 避免各处手写字符串导致拼错或改名时漏改。
+ */
+const REFERRER_PARAM = 'referrerId';
 
 const PAGE_SHARE_TITLES = {
   'pages/home/home': '五零时光新中式养生茶饮',
@@ -30,24 +38,24 @@ const PAGE_SHARE_TITLES = {
   'pages/coupon-products/coupon-products': '五零时光适用商品',
   'pages/city-picker/city-picker': '五零时光门店',
   'pages/member-rights/member-rights': '五零时光会员权益',
-  'pages/role-center/role-center': '五零时光角色中心',
-  'pages/role-workbench/role-workbench': '五零时光角色工作台',
-  'pages/role-apply/role-apply': '五零时光加盟合作',
-  'pages/role-verify/role-verify': '五零时光核销订单',
-  'pages/role-products/role-products': '五零时光门店选品',
-  'pages/role-product-detail/role-product-detail': '五零时光商品详情',
-  'pages/role-income/role-income': '五零时光经营收益',
-  'pages/role-invest/role-invest': '五零时光点位投资申请',
-  'pages/role-invest-apply/role-invest-apply': '五零时光投资申请',
-  'pages/role-invest-records/role-invest-records': '五零时光投资申请记录',
-  'pages/role-invest-detail/role-invest-detail': '五零时光投资申请详情',
-  'pages/role-income-records/role-income-records': '五零时光收益记录',
-  'pages/role-income-detail/role-income-detail': '五零时光收益详情',
-  'pages/role-income-rules/role-income-rules': '五零时光结算说明',
-  'pages/role-withdraw/role-withdraw': '五零时光提现',
-  'pages/role-withdraw-records/role-withdraw-records': '五零时光提现记录',
-  'pages/role-withdraw-rules/role-withdraw-rules': '五零时光提现规则',
-  'pages/role-withdraw-detail/role-withdraw-detail': '五零时光提现详情',
+  'packageRole/role-center/role-center': '五零时光角色中心',
+  'packageRole/role-workbench/role-workbench': '五零时光角色工作台',
+  'packageRole/role-apply/role-apply': '五零时光加盟合作',
+  'packageRole/role-verify/role-verify': '五零时光核销订单',
+  'packageRole/role-products/role-products': '五零时光门店选品',
+  'packageRole/role-product-detail/role-product-detail': '五零时光商品详情',
+  'packageRole/role-income/role-income': '五零时光经营收益',
+  'packageRole/role-invest/role-invest': '五零时光点位投资申请',
+  'packageRole/role-invest-apply/role-invest-apply': '五零时光投资申请',
+  'packageRole/role-invest-records/role-invest-records': '五零时光投资申请记录',
+  'packageRole/role-invest-detail/role-invest-detail': '五零时光投资申请详情',
+  'packageRole/role-income-records/role-income-records': '五零时光收益记录',
+  'packageRole/role-income-detail/role-income-detail': '五零时光收益详情',
+  'packageRole/role-income-rules/role-income-rules': '五零时光结算说明',
+  'packageRole/role-withdraw/role-withdraw': '五零时光提现',
+  'packageRole/role-withdraw-records/role-withdraw-records': '五零时光提现记录',
+  'packageRole/role-withdraw-rules/role-withdraw-rules': '五零时光提现规则',
+  'packageRole/role-withdraw-detail/role-withdraw-detail': '五零时光提现详情',
   'pages/share-referral/share-referral': '五零时光分享有礼'
 };
 
@@ -66,24 +74,24 @@ const PRIVATE_PAGES = new Set([
   'pages/points-detail/points-detail',
   'pages/exchange-records/exchange-records',
   'pages/member-rights/member-rights',
-  'pages/role-center/role-center',
-  'pages/role-workbench/role-workbench',
-  'pages/role-apply/role-apply',
-  'pages/role-verify/role-verify',
-  'pages/role-products/role-products',
-  'pages/role-product-detail/role-product-detail',
-  'pages/role-income/role-income',
-  'pages/role-invest/role-invest',
-  'pages/role-invest-apply/role-invest-apply',
-  'pages/role-invest-records/role-invest-records',
-  'pages/role-invest-detail/role-invest-detail',
-  'pages/role-income-records/role-income-records',
-  'pages/role-income-detail/role-income-detail',
-  'pages/role-income-rules/role-income-rules',
-  'pages/role-withdraw/role-withdraw',
-  'pages/role-withdraw-records/role-withdraw-records',
-  'pages/role-withdraw-rules/role-withdraw-rules',
-  'pages/role-withdraw-detail/role-withdraw-detail',
+  'packageRole/role-center/role-center',
+  'packageRole/role-workbench/role-workbench',
+  'packageRole/role-apply/role-apply',
+  'packageRole/role-verify/role-verify',
+  'packageRole/role-products/role-products',
+  'packageRole/role-product-detail/role-product-detail',
+  'packageRole/role-income/role-income',
+  'packageRole/role-invest/role-invest',
+  'packageRole/role-invest-apply/role-invest-apply',
+  'packageRole/role-invest-records/role-invest-records',
+  'packageRole/role-invest-detail/role-invest-detail',
+  'packageRole/role-income-records/role-income-records',
+  'packageRole/role-income-detail/role-income-detail',
+  'packageRole/role-income-rules/role-income-rules',
+  'packageRole/role-withdraw/role-withdraw',
+  'packageRole/role-withdraw-records/role-withdraw-records',
+  'packageRole/role-withdraw-rules/role-withdraw-rules',
+  'packageRole/role-withdraw-detail/role-withdraw-detail',
   'pages/share-referral/share-referral'
 ]);
 
@@ -126,8 +134,19 @@ function buildQuery(route, options) {
 
 function buildShareAppMessage(route, options, config = {}) {
   const normalizedRoute = normalizeRoute(route);
-  const path = isPrivatePage(normalizedRoute) ? HOME_PATH : `/${normalizedRoute}`;
-  const query = isPrivatePage(normalizedRoute) ? '' : buildQuery(normalizedRoute, options);
+  const isPrivate = isPrivatePage(normalizedRoute);
+  const path = isPrivate ? HOME_PATH : `/${normalizedRoute}`;
+  let query = isPrivate ? '' : buildQuery(normalizedRoute, options);
+
+  // 邀请分享：私密页（如「分享有礼」）回落首页时，仍需带上邀请人 userId。
+  // 历史问题：私密页的 query 会被整体清空，导致分享链接既不带参数、
+  // 好友注册也无法绑定推荐关系（app_user.referrer_id 永远为空）。
+  // 这里只在显式传入 inviteReferrer 时追加该参数，不影响其它私密页的分享行为。
+  if (config.inviteReferrer) {
+    const pair = `${REFERRER_PARAM}=${encodeURIComponent(String(config.inviteReferrer))}`;
+    query = query ? `${query}&${pair}` : pair;
+  }
+
   return {
     title: getShareTitle(normalizedRoute, config.title),
     path: query ? `${path}?${query}` : path,
@@ -137,9 +156,15 @@ function buildShareAppMessage(route, options, config = {}) {
 
 function buildShareTimeline(route, options, config = {}) {
   const normalizedRoute = normalizeRoute(route);
-  const query = isPrivatePage(normalizedRoute)
+  let query = isPrivatePage(normalizedRoute)
     ? `${SHARE_SCENE_KEY}=${SHARE_SCENE_TIMELINE}`
     : buildQuery(normalizedRoute, options);
+
+  // 朋友圈分享同样需要携带邀请人（好友从朋友圈进入也要能绑定推荐关系）
+  if (config.inviteReferrer) {
+    const pair = `${REFERRER_PARAM}=${encodeURIComponent(String(config.inviteReferrer))}`;
+    query = query ? `${query}&${pair}` : pair;
+  }
   return {
     title: getShareTitle(normalizedRoute, config.title),
     query,
@@ -181,6 +206,7 @@ function withShare(pageOptions, config = {}) {
 
 module.exports = {
   DEFAULT_SHARE_IMAGE,
+  REFERRER_PARAM,
   DEFAULT_SHARE_TITLE,
   PAGE_SHARE_TITLES,
   PRIVATE_PAGES,

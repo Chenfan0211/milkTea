@@ -9,14 +9,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 for (const page of ['role-center', 'role-workbench', 'role-apply']) {
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-    assert.ok(fs.existsSync(path.join(root, `pages/${page}/${page}.${extension}`)), `missing ${page}.${extension}`);
+    assert.ok(fs.existsSync(path.join(root, `packageRole/${page}/${page}.${extension}`)), `missing ${page}.${extension}`);
   }
 }
 
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
-assert.ok(appJson.pages.includes('pages/role-center/role-center'), 'role-center must be registered');
-assert.ok(appJson.pages.includes('pages/role-workbench/role-workbench'), 'role-workbench must be registered');
-assert.ok(appJson.pages.includes('pages/role-apply/role-apply'), 'role-apply must be registered');
+assert.ok(appJson.subpackages?.[0]?.pages?.includes('role-center/role-center'), 'role-center must be registered');
+assert.ok(appJson.subpackages?.[0]?.pages?.includes('role-workbench/role-workbench'), 'role-workbench must be registered');
+assert.ok(appJson.subpackages?.[0]?.pages?.includes('role-apply/role-apply'), 'role-apply must be registered');
 
 const storage = {};
 const toasts = [];
@@ -25,8 +25,8 @@ let relaunchUrl = '';
 const navigatedTo = [];
 
 globalThis.getCurrentPages = () => [
-  { route: 'pages/role-center/role-center' },
-  { route: 'pages/role-workbench/role-workbench' }
+  { route: 'packageRole/role-center/role-center' },
+  { route: 'packageRole/role-workbench/role-workbench' }
 ];
 globalThis.wx = {
   showShareMenu() {},
@@ -188,9 +188,9 @@ assert.deepEqual(
 // 分享配置：角色页必须私密且具备标题
 const { getShareTitle, isPrivatePage, PAGE_SHARE_TITLES } = require(path.join(root, 'utils/share.js'));
 for (const route of [
-  'pages/role-center/role-center',
-  'pages/role-workbench/role-workbench',
-  'pages/role-apply/role-apply'
+  'packageRole/role-center/role-center',
+  'packageRole/role-workbench/role-workbench',
+  'packageRole/role-apply/role-apply'
 ]) {
   assert.ok(isPrivatePage(route), `${route} must be private for sharing`);
   assert.ok(PAGE_SHARE_TITLES[route], `${route} must define a share title`);
@@ -212,23 +212,23 @@ assert.ok(profileWxml.includes('data-action="{{item.actionId}}"'), 'role functio
 assert.ok(profileJs.includes('actionId: item.id'), 'buildRoleFunctions must expose actionId');
 assert.ok(profileJs.includes('openRoleFunction'), 'profile must expose openRoleFunction handler');
 assert.ok(
-  profileJs.includes('/pages/role-verify/role-verify'),
+  profileJs.includes('/packageRole/role-verify/role-verify'),
   'role function must navigate to dedicated function page'
 );
-assert.ok(profileJs.includes('/pages/role-apply/role-apply'), 'cooperation must navigate to role apply');
+assert.ok(profileJs.includes('/packageRole/role-apply/role-apply'), 'cooperation must navigate to role apply');
 assert.ok(profileJs.includes('openRoleApply'), 'profile must expose openRoleApply handler');
 
 // 角色中心：仅切换，无申请/演示工具
-const workbenchJs2 = fs.readFileSync(path.join(root, 'pages/role-workbench/role-workbench.js'), 'utf8');
-const workbenchWxml2 = fs.readFileSync(path.join(root, 'pages/role-workbench/role-workbench.wxml'), 'utf8');
+const workbenchJs2 = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.js'), 'utf8');
+const workbenchWxml2 = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.wxml'), 'utf8');
 assert.ok(workbenchJs2.includes('options.action'), 'workbench must read action option');
 assert.ok(workbenchJs2.includes('highlightActionId'), 'workbench must track highlightActionId');
 assert.ok(workbenchJs2.includes('focusAction'), 'workbench must implement focusAction');
 assert.ok(workbenchWxml2.includes('id="action-{{item.id}}"'), 'workbench action rows must have stable ids');
 assert.ok(workbenchWxml2.includes('is-highlight'), 'workbench action rows must support highlight');
 
-const roleCenterJs = fs.readFileSync(path.join(root, 'pages/role-center/role-center.js'), 'utf8');
-const roleCenterWxml = fs.readFileSync(path.join(root, 'pages/role-center/role-center.wxml'), 'utf8');
+const roleCenterJs = fs.readFileSync(path.join(root, 'packageRole/role-center/role-center.js'), 'utf8');
+const roleCenterWxml = fs.readFileSync(path.join(root, 'packageRole/role-center/role-center.wxml'), 'utf8');
 assert.ok(roleCenterJs.includes('switchRole'), 'role center must switch roles');
 assert.ok(
   !roleCenterJs.includes('mockSwitchRole'),
@@ -245,7 +245,7 @@ assert.ok(!roleCenterWxml.includes('演示工具'), 'role center must not render
 assert.ok(!roleCenterWxml.includes('empty-state'), 'role center must always show all roles, no empty state');
 
 // 申请页：按角色动态字段
-const roleApplyJs = fs.readFileSync(path.join(root, 'pages/role-apply/role-apply.js'), 'utf8');
+const roleApplyJs = fs.readFileSync(path.join(root, 'packageRole/role-apply/role-apply.js'), 'utf8');
 assert.ok(roleApplyJs.includes('storeName'), 'store role must include storeName field');
 assert.ok(roleApplyJs.includes('investBudget'), 'investor role must include investBudget field');
 assert.ok(roleApplyJs.includes('resourceLocation'), 'resource role must include resourceLocation field');

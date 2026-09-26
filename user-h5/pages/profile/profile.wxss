@@ -135,19 +135,21 @@
 
 
 
+/**
+ * 会员等级进度（置于用户卡片内）。
+ * labels 改为正常流式布局（原先悬浮在进度条上方是外部独立块时的定位），
+ * count 绝对定位到进度条下方右侧，padding-bottom 为其留出空间。
+ */
 .progress {
   position: relative;
-  margin-top: 40rpx;
+  margin-top: 28rpx;
   padding: 0 0 32rpx;
 }
 
 .progress__labels {
-  position: absolute;
-  top: -33rpx;
-  right: 0;
-  left: 0;
   display: flex;
   justify-content: space-between;
+  margin-bottom: 12rpx;
   color: var(--text-secondary);
   font-size: 24rpx;
 }
