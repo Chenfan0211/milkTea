@@ -61,7 +61,7 @@ public class AppVerifyQueryController {
     /**
      * 执行门店核销（扫码 / 输码）。
      *
-     * <p>核销后订单置 VERIFIED 并异步触发五方分账（见 {@code VerifyService}）。
+     * <p>核销后订单置 COMPLETED 并异步触发五方分账（见 {@code VerifyService}）。
      * 重复核销、非已支付订单会被服务拒绝，前端只需展示后端返回的 message。
      *
      * @param storeSubjectId 门店主体 ID（须为当前用户经营的门店）

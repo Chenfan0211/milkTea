@@ -16,11 +16,8 @@ import org.springframework.stereotype.Component;
  * <p>背景：trade 退款成功后需冲正 finance 的待结算台账。
  * 为解除 trade -> finance 的编译期依赖，改为事件驱动。
  *
- * <p><b>为什么不把「是否已结算」的校验也放到这里</b>：
- * trade 在受理退款前必须<b>同步</b>判断订单是否已进入可结算/已结算状态，
- * 否则会出现「钱已进可用余额却仍被退款」的资金穿透。
- * 该判断无法用异步事件替代，因此 trade 侧保留对 settlement_record 的同步只读查询。
- * 本消费者只负责「冲正」这一动作。
+ * <p>本消费者负责按结算记录冲正资金；若任一账户余额不足，
+ * LedgerService 会整批回滚并独立写入对账异常。
  *
  * <p>幂等：{@code reverseForOrder} 会把记录置为 CANCELED，
  * 重复消费时查不到待结算记录，自然无副作用；
@@ -45,13 +42,11 @@ public class OrderRefundedReverseConsumer extends AbstractMqConsumer {
                 return;
             }
             try {
-                ledgerService.reverseForOrder(event.getOrderNo());
-                log.info("退款冲正完成 orderNo={}", event.getOrderNo());
+                ledgerService.reverseForOrder(event.getOrderNo(), event.getRefundNo());
+                log.info("退款冲正完成 orderNo={} refundNo={}", event.getOrderNo(), event.getRefundNo());
             } catch (IllegalStateException e) {
-                // 订单已进入可结算/已结算：冲正被拒绝。
-                // 这属于业务约束触发，重试也不会成功，记为告警由人工/对账介入。
-                log.error("退款冲正被拒绝（订单可能已结算），需人工核对 orderNo={} msg={}",
-                        event.getOrderNo(), e.getMessage());
+                log.error("退款冲正遇到未知结算状态，需人工核对 orderNo={} refundNo={} msg={}",
+                        event.getOrderNo(), event.getRefundNo(), e.getMessage());
             }
         });
     }

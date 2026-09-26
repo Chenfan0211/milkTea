@@ -30,6 +30,9 @@ public class TradeSecurityConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         "/api/v1/app/orders",
                         "/api/v1/app/orders/**",
+                        // 礼品卡支付与退款：必须登录，服务端按 JWT 校验订单归属
+                        "/api/v1/app/payments/gift-card/prepay",
+                        "/api/v1/app/payments/gift-card/refund",
                         // 门店核销（读 + 写）：必须登录并校验门店归属
                         "/api/v1/app/workbench/store/*/verify-records",
                         "/api/v1/app/workbench/store/*/verify-pool",

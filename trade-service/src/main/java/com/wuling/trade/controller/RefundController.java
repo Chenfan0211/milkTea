@@ -22,4 +22,10 @@ public class RefundController {
         String reason = request == null ? null : request.getReason();
         return Result.ok(refundService.refund(orderNo, reason));
     }
+
+    /** 重新退款：仅退款失败(FAILED)的单据可重试 */
+    @PostMapping("/refunds/{id}/retry")
+    public Result<OrderDTO> retry(@PathVariable Long id) {
+        return Result.ok(refundService.retry(id));
+    }
 }

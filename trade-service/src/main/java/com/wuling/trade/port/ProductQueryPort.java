@@ -63,6 +63,10 @@ public interface ProductQueryPort {
         private Integer onSale;
         /** 供应商主体 ID */
         private Long supplierSubjectId;
+        /** 平台提成（分），一件商品一份，分账时按明细分摊 */
+        private Long platformCommission;
+        /** 成本价（分），供应商分账按商品成本直给 */
+        private Long costPrice;
 
         public Long getId() {
             return id;
@@ -126,6 +130,22 @@ public interface ProductQueryPort {
 
         public void setSupplierSubjectId(Long supplierSubjectId) {
             this.supplierSubjectId = supplierSubjectId;
+        }
+
+        public Long getPlatformCommission() {
+            return platformCommission;
+        }
+
+        public void setPlatformCommission(Long platformCommission) {
+            this.platformCommission = platformCommission;
+        }
+
+        public Long getCostPrice() {
+            return costPrice;
+        }
+
+        public void setCostPrice(Long costPrice) {
+            this.costPrice = costPrice;
         }
     }
 }

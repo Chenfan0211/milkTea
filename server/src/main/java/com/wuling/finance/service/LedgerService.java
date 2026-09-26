@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.finance.entity.FundFlow;
+import com.wuling.finance.entity.ReconcileIssue;
 import com.wuling.finance.entity.SettlementRecord;
 import com.wuling.finance.entity.SplitRule;
 import com.wuling.finance.entity.SplitSnapshot;
@@ -19,22 +20,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 分账与台账记账。
  * 规则：
- * - 核销后生成不可变五方快照，收益先记「待结算」；
- * - T+1 由待结算转「可结算」（可用余额）；
- * - 退款同步冲正，已结算不可退。
+ * - 新订单核销后生成不可变五方快照，并立即计入可用余额；
+ * - 历史 PENDING 仍由兼容结算任务转入可用余额；
+ * - 退款按原结算记录逐账户扣回，余额不足时整批回滚并记录对账异常。
  */
 @Service
 public class LedgerService {
@@ -44,12 +48,70 @@ public class LedgerService {
     public static final String SETTLE_PENDING = "PENDING";
     public static final String SETTLE_SETTLEABLE = "SETTLEABLE";
     public static final String SETTLE_SETTLED = "SETTLED";
+    public static final String SETTLE_CANCELED = "CANCELED";
+
+    public static final String BUCKET_AVAILABLE = "AVAILABLE";
+    public static final String BUCKET_FROZEN = "FROZEN";
+
+    private static final Set<String> FLOW_TYPES = Set.of(
+            "INCOME", "WITHDRAW", "REFUND", "FREEZE", "UNFREEZE");
+    private static final Set<String> FUNDED_SETTLEMENT_STATUSES = Set.of(
+            SETTLE_SETTLEABLE, SETTLE_SETTLED, "FROZEN");
+
+    /**
+     * 统一记账入参。
+     *
+     * <p>changeAmount 使用正负号表示余额桶增减，amount 入库时保存绝对值。
+     * 账户冻结/解冻会同时调整 available 与 frozen 两个余额桶，但流水快照只记录
+     * balanceBucket 指定的桶。
+     */
+    public record Posting(Long subjectId,
+                          String roleType,
+                          String type,
+                          long changeAmount,
+                          String balanceBucket,
+                          Long orderId,
+                          String orderNo,
+                          Long settlementRecordId,
+                          String bizType,
+                          String bizNo,
+                          String settlementStatus,
+                          String remark) {
+    }
+
+    /** 账户余额不足，供退款外层事务识别并写入对账异常。 */
+    public static class InsufficientBalanceException extends RuntimeException {
+        private final Long subjectId;
+        private final long available;
+        private final long required;
+
+        public InsufficientBalanceException(Long subjectId, long available, long required) {
+            super("账户余额不足 subjectId=" + subjectId + " available=" + available + " required=" + required);
+            this.subjectId = subjectId;
+            this.available = available;
+            this.required = required;
+        }
+
+        public Long getSubjectId() {
+            return subjectId;
+        }
+
+        public long getAvailable() {
+            return available;
+        }
+
+        public long getRequired() {
+            return required;
+        }
+    }
 
     private final SplitRuleMapper splitRuleMapper;
     private final SplitSnapshotMapper splitSnapshotMapper;
     private final SubjectAccountMapper subjectAccountMapper;
     private final FundFlowMapper fundFlowMapper;
     private final SettlementRecordMapper settlementRecordMapper;
+    private final ReconcileService reconcileService;
+    private final TransactionTemplate transactionTemplate;
     /** 第 12 期：主体查询改走端口（本地实现，无网络开销） */
     private final SubjectQueryPort subjectQueryPort;
     private final SplitCalculator splitCalculator;
@@ -59,15 +121,19 @@ public class LedgerService {
                          SubjectAccountMapper subjectAccountMapper,
                          FundFlowMapper fundFlowMapper,
                          SettlementRecordMapper settlementRecordMapper,
+                         ReconcileService reconcileService,
                          SubjectQueryPort subjectQueryPort,
-                         SplitCalculator splitCalculator) {
+                         SplitCalculator splitCalculator,
+                         PlatformTransactionManager transactionManager) {
         this.splitRuleMapper = splitRuleMapper;
         this.splitSnapshotMapper = splitSnapshotMapper;
         this.subjectAccountMapper = subjectAccountMapper;
         this.fundFlowMapper = fundFlowMapper;
         this.settlementRecordMapper = settlementRecordMapper;
+        this.reconcileService = reconcileService;
         this.subjectQueryPort = subjectQueryPort;
         this.splitCalculator = splitCalculator;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     public SplitRule resolveRule(Long productId) {
@@ -88,7 +154,7 @@ public class LedgerService {
     }
 
     /**
-     * 订单核销后分账：写不可变快照 + 各方待结算台账。
+     * 订单核销后分账：写不可变快照 + 各方已结算台账，并立即计入可用余额。
      * 幂等：同一订单已存在快照时直接返回。
      *
      * @param items 订单明细（含供应商归属与明细金额），用于供应商份额按明细分摊
@@ -168,19 +234,24 @@ public class LedgerService {
         putIfPositive(credits, channelSubjectId, amount.channel());
         putIfPositive(credits, investorSubjectId, amount.investor());
 
-        // 供应商按明细分别归集到各自主体
+        // 供应商按明细分别归集到各自主体（成本单价 × 件数，与快照 supplierAmount 同口径）
         if (items != null) {
             for (SplitCalculator.LineItem item : items) {
                 if (item == null || item.supplierSubjectId() == null) {
                     continue;
                 }
-                long share = item.amount() * rule.getSupplierRatio() / 10000;
+                long unitCost = item.costPrice() == null ? 0L : item.costPrice();
+                Integer qty = item.quantity();
+                long share = unitCost * (qty == null || qty <= 0 ? 1L : qty);
                 putIfPositive(credits, item.supplierSubjectId(), share);
             }
         }
 
-        for (Map.Entry<Long, Long> entry : credits.entrySet()) {
-            recordPending(snapshot, entry.getKey(), entry.getValue());
+        List<Map.Entry<Long, Long>> orderedCredits = credits.entrySet().stream()
+                .sorted(Comparator.comparing(Map.Entry::getKey))
+                .toList();
+        for (Map.Entry<Long, Long> entry : orderedCredits) {
+            recordSettled(snapshot, entry.getKey(), entry.getValue());
         }
         log.info("split done orderNo={} paid={} platform={} store={} channel={} investor={} supplier={}",
                 orderNo, paidAmount, amount.platform(), amount.store(), amount.channel(),
@@ -196,8 +267,8 @@ public class LedgerService {
         return executeSplit(orderId, orderNo, paidAmount, itemCount, storeSubjectId,
                 channelSubjectId, productId, platformCommission, List.of());
     }
-    /** 记待结算台账（不动可用余额） */
-    private void recordPending(SplitSnapshot snapshot, Long subjectId, long amount) {
+    /** 新订单核销即结算：台账置 SETTLED，同事务写入可用余额及完整流水。 */
+    private void recordSettled(SplitSnapshot snapshot, Long subjectId, long amount) {
         SubjectQueryPort.SubjectView subject = subjectQueryPort.findById(subjectId);
         SettlementRecord record = new SettlementRecord();
         record.setRecordNo(nextNo("SR"));
@@ -205,14 +276,25 @@ public class LedgerService {
         record.setSnapshotId(snapshot.getId());
         record.setOrderId(snapshot.getOrderId());
         record.setAmount(amount);
-        record.setStatus(SETTLE_PENDING);
+        record.setStatus(SETTLE_SETTLED);
+        record.setSettleDate(LocalDate.now());
         settlementRecordMapper.insert(record);
 
-        writeFlow(subjectId, subject == null ? null : subject.getSubjectType(), "INCOME", "in",
-                amount, snapshot.getOrderNo(), balanceOf(subjectId), "订单分账入账（待结算）");
+        post(new Posting(subjectId,
+                subject == null ? null : subject.getSubjectType(),
+                "INCOME",
+                amount,
+                BUCKET_AVAILABLE,
+                snapshot.getOrderId(),
+                snapshot.getOrderNo(),
+                record.getId(),
+                "ORDER",
+                snapshot.getOrderNo(),
+                SETTLE_SETTLED,
+                "订单核销分账入账"));
     }
 
-    /** T+1 结算：待结算 -> 可结算（计入可用余额） */
+    /** 兼容历史任务：旧 PENDING -> SETTLEABLE（计入可用余额）。 */
     @Transactional(rollbackFor = Exception.class)
     public int settleDue(LocalDate settleDate) {
         List<SettlementRecord> pendings = settlementRecordMapper.selectList(new LambdaQueryWrapper<SettlementRecord>()
@@ -221,46 +303,252 @@ public class LedgerService {
                 .orderByAsc(SettlementRecord::getId));
         int count = 0;
         for (SettlementRecord record : pendings) {
-            SubjectAccount account = ensureAccount(record.getSubjectId());
-            // 并发安全（第 0 期加固）：原子入账，避免与提现/分账并发时丢失更新
-            subjectAccountMapper.creditSettle(record.getSubjectId(), record.getAmount());
-
             record.setStatus(SETTLE_SETTLEABLE);
             record.setSettleDate(settleDate);
             settlementRecordMapper.updateById(record);
-
-            long balanceAfter = (account.getAvailableBalance() == null ? 0L : account.getAvailableBalance())
-                    + record.getAmount();
-            writeFlow(record.getSubjectId(), account.getRoleType(), "SETTLE", "in",
-                    record.getAmount(), null, balanceAfter, "T+1 结算转为可结算");
+            SplitSnapshot snapshot = record.getSnapshotId() == null
+                    ? null : splitSnapshotMapper.selectById(record.getSnapshotId());
+            SubjectAccount account = ensureAccount(record.getSubjectId());
+            post(new Posting(record.getSubjectId(),
+                    account.getRoleType(),
+                    "INCOME",
+                    record.getAmount(),
+                    BUCKET_AVAILABLE,
+                    record.getOrderId(),
+                    snapshot == null ? null : snapshot.getOrderNo(),
+                    record.getId(),
+                    "ORDER",
+                    snapshot == null ? null : snapshot.getOrderNo(),
+                    SETTLE_SETTLEABLE,
+                    "历史待结算转为可结算"));
             count++;
         }
         return count;
     }
 
     /**
-     * 退款冲正：仅「待结算」订单可冲正（钱尚未进入可用余额）。
-     * 已进入可结算（SETTLEABLE）或已结算（SETTLED）的订单一律拒绝，避免资金穿透。
+     * 退款冲正。历史 PENDING 只取消台账；已入账记录逐账户扣回可用余额。
+     *
+     * <p>本方法刻意不放在外层事务中：任一账户余额不足时，内部记账事务整体回滚，
+     * 随后由独立事务写入 reconcile_issue，保证不会留下半批成功流水或负余额。
      */
-    @Transactional(rollbackFor = Exception.class)
-    public void reverseForOrder(String orderNo) {
+    public void reverseForOrder(String orderNo, String refundNo) {
         Long orderId = selectOrderId(orderNo);
         if (orderId == null) {
             return;
         }
+        try {
+            transactionTemplate.executeWithoutResult(status -> reverseInTransaction(orderId, orderNo, refundNo));
+        } catch (InsufficientBalanceException e) {
+            reconcileService.recordOnce(ReconcileIssue.TYPE_REFUND_BALANCE_SHORTAGE,
+                    orderNo,
+                    refundNo,
+                    "账户可用余额=" + e.getAvailable(),
+                    "应扣回=" + e.getRequired(),
+                    e.getRequired() - e.getAvailable());
+            log.error("退款冲正余额不足，已整批回滚并记录对账异常 orderNo={} refundNo={} subjectId={} available={} required={}",
+                    orderNo, refundNo, e.getSubjectId(), e.getAvailable(), e.getRequired());
+        }
+    }
+
+    /** 兼容旧调用；新退款链路应携带 refundNo。 */
+    public void reverseForOrder(String orderNo) {
+        reverseForOrder(orderNo, null);
+    }
+
+    private void reverseInTransaction(Long orderId, String orderNo, String refundNo) {
         List<SettlementRecord> records = settlementRecordMapper.selectList(new LambdaQueryWrapper<SettlementRecord>()
-                .eq(SettlementRecord::getOrderId, orderId));
+                .eq(SettlementRecord::getOrderId, orderId)
+                .orderByAsc(SettlementRecord::getSubjectId, SettlementRecord::getId));
         for (SettlementRecord record : records) {
-            if (SETTLE_SETTLED.equals(record.getStatus())) {
-                throw new IllegalStateException("订单已结算，不可退款: " + orderNo);
+            if (SETTLE_CANCELED.equals(record.getStatus())) {
+                continue;
             }
-            if (SETTLE_SETTLEABLE.equals(record.getStatus())) {
-                throw new IllegalStateException("订单已进入可结算，不可退款: " + orderNo);
+            if (SETTLE_PENDING.equals(record.getStatus())) {
+                // 历史待结算尚未进入任何余额桶，只取消，不伪造退款流水。
+                record.setStatus(SETTLE_CANCELED);
+                settlementRecordMapper.updateById(record);
+                continue;
             }
-            writeFlow(record.getSubjectId(), null, "REFUND", "out",
-                    record.getAmount(), orderNo, balanceOf(record.getSubjectId()), "退款冲正（待结算取消）");
-            record.setStatus("CANCELED");
+            if (!FUNDED_SETTLEMENT_STATUSES.contains(record.getStatus())) {
+                throw new IllegalStateException("未知结算状态，无法退款冲正: " + record.getStatus());
+            }
+
+            SubjectAccount account = ensureAccount(record.getSubjectId());
+            post(new Posting(record.getSubjectId(),
+                    account.getRoleType(),
+                    "REFUND",
+                    -Math.abs(record.getAmount()),
+                    BUCKET_AVAILABLE,
+                    orderId,
+                    orderNo,
+                    record.getId(),
+                    "REFUND",
+                    refundNo,
+                    SETTLE_SETTLED,
+                    "退款成功，按结算记录扣回可用余额"));
+            record.setStatus(SETTLE_CANCELED);
             settlementRecordMapper.updateById(record);
+        }
+    }
+
+    /** 后台手动冻结；业务号 MF 前缀，流水关联 MANUAL。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void manualFreeze(Long subjectId, long amount) {
+        if (amount <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "冻结金额必须大于 0");
+        }
+        SubjectAccount account = ensureAccount(subjectId);
+        post(new Posting(subjectId,
+                account.getRoleType(),
+                "FREEZE",
+                amount,
+                BUCKET_FROZEN,
+                null,
+                null,
+                null,
+                "MANUAL",
+                nextNo("MF"),
+                null,
+                "后台手动冻结"));
+    }
+
+    /** 后台手动解冻；业务号 MU 前缀，流水关联 MANUAL。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void manualUnfreeze(Long subjectId, long amount) {
+        if (amount <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "解冻金额必须大于 0");
+        }
+        SubjectAccount account = ensureAccount(subjectId);
+        post(new Posting(subjectId,
+                account.getRoleType(),
+                "UNFREEZE",
+                -amount,
+                BUCKET_FROZEN,
+                null,
+                null,
+                null,
+                "MANUAL",
+                nextNo("MU"),
+                null,
+                "后台手动解冻"));
+    }
+
+    /**
+     * 统一记账入口：锁账户行、校验并更新余额、写入完整快照流水。
+     *
+     * <p>所有新业务流水必须经此入口，避免各业务自行拼余额导致并发前后值失真。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public FundFlow post(Posting posting) {
+        if (posting == null || posting.subjectId() == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "记账必须指定账户主体");
+        }
+        if (posting.changeAmount() == 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "记账变动金额不能为 0");
+        }
+        if (!FLOW_TYPES.contains(posting.type())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "不支持的流水类型: " + posting.type());
+        }
+        validatePostingType(posting);
+
+        ensureAccount(posting.subjectId());
+        SubjectAccount account = subjectAccountMapper.selectBySubjectIdForUpdate(posting.subjectId());
+        if (account == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "资金账户不存在");
+        }
+
+        long amount = Math.abs(posting.changeAmount());
+        long availableBefore = nz(account.getAvailableBalance());
+        long frozenBefore = nz(account.getFrozenBalance());
+        long availableDelta = 0L;
+        long frozenDelta = 0L;
+        long snapshotBefore;
+        long snapshotChange;
+
+        switch (posting.type()) {
+            case "INCOME", "REFUND" -> {
+                availableDelta = posting.changeAmount();
+                snapshotBefore = availableBefore;
+                snapshotChange = posting.changeAmount();
+            }
+            case "FREEZE" -> {
+                availableDelta = -amount;
+                frozenDelta = amount;
+                snapshotBefore = frozenBefore;
+                snapshotChange = amount;
+            }
+            case "UNFREEZE", "WITHDRAW" -> {
+                availableDelta = "UNFREEZE".equals(posting.type()) ? amount : 0L;
+                frozenDelta = -amount;
+                snapshotBefore = frozenBefore;
+                snapshotChange = -amount;
+            }
+            default -> throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "不支持的流水类型: " + posting.type());
+        }
+
+        long availableAfter = availableBefore + availableDelta;
+        long frozenAfter = frozenBefore + frozenDelta;
+        if (availableAfter < 0) {
+            throw new InsufficientBalanceException(posting.subjectId(), availableBefore, -availableDelta);
+        }
+        if (frozenAfter < 0) {
+            throw new InsufficientBalanceException(posting.subjectId(), frozenBefore, -frozenDelta);
+        }
+
+        account.setAvailableBalance(availableAfter);
+        account.setFrozenBalance(frozenAfter);
+        if ("INCOME".equals(posting.type()) && posting.changeAmount() > 0) {
+            account.setTotalIncome(nz(account.getTotalIncome()) + posting.changeAmount());
+        }
+        if ("WITHDRAW".equals(posting.type())) {
+            account.setTotalWithdrawn(nz(account.getTotalWithdrawn()) + amount);
+        }
+        if (subjectAccountMapper.updateById(account) == 0) {
+            throw new IllegalStateException("资金账户更新失败 subjectId=" + posting.subjectId());
+        }
+
+        long snapshotAfter = snapshotBefore + snapshotChange;
+        FundFlow flow = new FundFlow();
+        flow.setFlowNo(nextNo("FF"));
+        flow.setSubjectId(posting.subjectId());
+        flow.setRoleType(posting.roleType() == null ? account.getRoleType() : posting.roleType());
+        flow.setType(posting.type());
+        flow.setDirection(snapshotChange >= 0 ? "in" : "out");
+        flow.setAmount(amount);
+        flow.setAccountId(account.getId());
+        flow.setOrderId(posting.orderId());
+        flow.setOrderNo(posting.orderNo());
+        flow.setSettlementRecordId(posting.settlementRecordId());
+        flow.setBizType(posting.bizType());
+        flow.setBizNo(posting.bizNo());
+        flow.setBalanceBucket(posting.balanceBucket());
+        flow.setBalanceBefore(snapshotBefore);
+        flow.setChangeAmount(snapshotChange);
+        flow.setBalanceAfter(snapshotAfter);
+        flow.setSettlementStatus(posting.settlementStatus());
+        flow.setRemark(posting.remark());
+        fundFlowMapper.insert(flow);
+        return flow;
+    }
+
+    private void validatePostingType(Posting posting) {
+        String type = posting.type();
+        String bucket = posting.balanceBucket();
+        long change = posting.changeAmount();
+        if (("INCOME".equals(type) || "REFUND".equals(type)) && !BUCKET_AVAILABLE.equals(bucket)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, type + " 必须作用于可用余额");
+        }
+        if (("FREEZE".equals(type) || "UNFREEZE".equals(type) || "WITHDRAW".equals(type))
+                && !BUCKET_FROZEN.equals(bucket)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, type + " 必须作用于冻结余额");
+        }
+        if (("INCOME".equals(type) || "FREEZE".equals(type)) && change <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, type + " 变动金额必须为正");
+        }
+        if (("REFUND".equals(type) || "UNFREEZE".equals(type) || "WITHDRAW".equals(type)) && change >= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, type + " 变动金额必须为负");
         }
     }
     /**
@@ -308,27 +596,6 @@ public class LedgerService {
                 .in(SubjectAccount::getSubjectId, subjectIds));
     }
 
-    private void writeFlow(Long subjectId, String roleType, String type, String direction,
-                           long amount, String orderNo, long balanceAfter, String remark) {
-        FundFlow flow = new FundFlow();
-        flow.setFlowNo(nextNo("FF"));
-        flow.setSubjectId(subjectId);
-        flow.setRoleType(roleType);
-        flow.setType(type);
-        flow.setDirection(direction);
-        flow.setAmount(amount);
-        flow.setOrderNo(orderNo);
-        flow.setBalanceAfter(balanceAfter);
-        flow.setRemark(remark);
-        fundFlowMapper.insert(flow);
-    }
-
-    private long balanceOf(Long subjectId) {
-        SubjectAccount account = subjectAccountMapper.selectOne(new LambdaQueryWrapper<SubjectAccount>()
-                .eq(SubjectAccount::getSubjectId, subjectId));
-        return account == null ? 0L : account.getAvailableBalance();
-    }
-
     private Long platformSubjectId() {
         return subjectQueryPort.findFirstByType("PLATFORM");
     }
@@ -369,6 +636,10 @@ public class LedgerService {
         if (subjectId != null && amount > 0) {
             map.merge(subjectId, amount, Long::sum);
         }
+    }
+
+    private long nz(Long value) {
+        return value == null ? 0L : value;
     }
 
     private String nextNo(String prefix) {

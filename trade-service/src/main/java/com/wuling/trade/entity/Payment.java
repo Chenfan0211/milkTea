@@ -28,16 +28,19 @@ public class Payment {
     /** 业务类型：储值充值 */
     public static final String BIZ_STORED_VALUE = "STORED_VALUE";
 
+    /** 业务类型：礼品卡购买 */
+    public static final String BIZ_GIFT_CARD = "GIFT_CARD";
+
     @TableId(type = IdType.AUTO)
     private Long id;
     private String paymentNo;
     private Long orderId;
     private String orderNo;
 
-    /** 业务类型：ORDER 订单支付 / STORED_VALUE 储值充值（第 15 期新增） */
+    /** 业务类型：ORDER 订单支付 / STORED_VALUE 储值充值 / GIFT_CARD 礼品卡购买 */
     private String bizType;
 
-    /** 业务单号：储值场景为 CZ 储值单号；订单场景同 orderNo（第 15 期新增） */
+    /** 业务单号：储值场景为 CZ 储值单号，礼品卡场景为 GC 订单号；订单场景同 orderNo */
     private String bizNo;
     private Long amount;
     private String channel;

@@ -66,6 +66,9 @@ public class ProductInternalQueryController {
         result.put("image", product.getImage());
         result.put("onSale", product.getOnSale());
         result.put("supplierSubjectId", product.getSupplierSubjectId());
+        // 平台提成与成本价：供 trade 核销分账时按商品明细分摊（每件一份）
+        result.put("platformCommission", product.getPlatformCommission());
+        result.put("costPrice", product.getCostPrice());
         return result;
     }
 

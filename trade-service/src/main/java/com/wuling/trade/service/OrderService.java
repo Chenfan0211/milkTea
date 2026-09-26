@@ -12,7 +12,10 @@ import com.wuling.common.exception.BusinessException;
 
 
 
+import com.wuling.trade.pricing.MemberPriceCheck;
+import com.wuling.trade.pricing.MemberPricingService;
 import com.wuling.trade.port.ProductQueryPort;
+import com.wuling.trade.port.SplitSnapshotQueryPort;
 import com.wuling.trade.dto.CreateOrderRequest;
 import com.wuling.trade.dto.OrderDTO;
 import com.wuling.trade.entity.Order;
@@ -44,9 +47,7 @@ public class OrderService {
 
     public static final String STATUS_CREATED = "CREATED";
     public static final String STATUS_PAID = "PAID";
-    public static final String STATUS_VERIFIED = "VERIFIED";
     public static final String STATUS_COMPLETED = "COMPLETED";
-    public static final String STATUS_REFUNDED = "REFUNDED";
     public static final String STATUS_CANCELED = "CANCELED";
 
     private final OrderMapper orderMapper;
@@ -54,17 +55,37 @@ public class OrderService {
     /** 第 6 期：product/subject 的只读查询改走端口，解除跨域编译依赖 */
     private final ProductQueryPort productQueryPort;
 
+    /**
+     * 分账快照只读端口：后台订单接口据此回填「分账明细」。
+     *
+     * <p>split_snapshot 归属 finance 域，trade 不直接读表；
+     * 未核销订单查不到快照，dto.split 为 null，前端会提示暂无快照。
+     */
+    private final SplitSnapshotQueryPort splitSnapshotQueryPort;
+
 
     private final MqProducer mqProducer;
+
+    /**
+     * 会员价计算与校验（第 15 期）。
+     *
+     * <p>放在独立 service 而非本类私有方法：计价规则需要被单测直接覆盖，
+     * 混在下单主流程（含 MQ、分账、事务）里很难单独验证。
+     */
+    private final MemberPricingService memberPricingService;
 
     public OrderService(OrderMapper orderMapper,
                         OrderItemMapper orderItemMapper,
                         ProductQueryPort productQueryPort,
-                        MqProducer mqProducer) {
+                        SplitSnapshotQueryPort splitSnapshotQueryPort,
+                        MqProducer mqProducer,
+                        MemberPricingService memberPricingService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.productQueryPort = productQueryPort;
+        this.splitSnapshotQueryPort = splitSnapshotQueryPort;
         this.mqProducer = mqProducer;
+        this.memberPricingService = memberPricingService;
     }
 
     // ---------- 下单 ----------
@@ -77,6 +98,9 @@ public class OrderService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "门店不存在");
         }
 
+
+        // 会员等级：以服务端记录为准，客户端传入值仅作交叉校验（见 MemberPricingService）
+        String levelCode = memberPricingService.resolveLevelCode(request.getUserId(), request.getVipLevel());
 
         long total = 0L;
         long original = 0L;
@@ -98,8 +122,13 @@ public class OrderService {
             requireProductInStore(product.getId(), request.getStoreSubjectId());
 
             int quantity = reqItem.getQuantity() == null ? 1 : reqItem.getQuantity();
-            long unitPrice = product.getPrice() == null ? 0L : product.getPrice();
-            long originalPrice = product.getOriginalPrice() == null ? unitPrice : product.getOriginalPrice();
+            // 打折基准是「商品原价」而非 product.price：
+            // product.price 本身就是「会员价基数」（seed 里 1390 分，前端显示 ¥13.9），
+            // 再乘折扣会变成折上折。原价（original_price，1600 分 / ¥16）才是门市价。
+            long listPrice = product.getOriginalPrice() == null ? 0L : product.getOriginalPrice();
+            // 会员单价 = 原价 × 等级折扣（无等级/未知等级时折扣为 1，即原价）
+            long unitPrice = memberPricingService.memberPrice(listPrice, levelCode);
+            long originalPrice = listPrice;
 
             OrderItem item = new OrderItem();
             item.setProductId(product.getProductId());
@@ -140,9 +169,9 @@ public class OrderService {
         }
 
         // 关键业务日志：下单成功（金额为「分」，便于对账核对）
-        log.info("订单创建成功 orderNo={} userId={} storeSubjectId={} items={} 实付={}分 应付={}分",
+        log.info("订单创建成功 orderNo={} userId={} storeSubjectId={} items={} 实付={}分 应付={}分 等级={}",
                 order.getOrderNo(), order.getUserId(), order.getStoreSubjectId(),
-                items.size(), order.getPaidAmount(), order.getTotalAmount());
+                items.size(), order.getPaidAmount(), order.getTotalAmount(), levelCode);
 
         // 发送延迟消息：15 分钟未支付则自动关闭（MQ 基础设施示例用法）
         try {
@@ -151,7 +180,23 @@ public class OrderService {
             // MQ 不可用不应阻塞下单，记录日志由补偿任务兜底
             log.warn("订单超时消息发送失败 orderNo={} err={}", order.getOrderNo(), e.getMessage());
         }
-        return toDTO(order, items);
+
+        // 把「客户端算的价对不对」带回给前端：金额以服务端为准，
+        // 但前端需要知道自己是否口径漂移，否则会长期「显示一个价、实收另一个价」。
+        MemberPriceCheck check = memberPricingService.verify(request.getClientAmount(), total);
+        OrderDTO dto = toDTO(order, items);
+        dto.setPriceCheck(toPriceCheckDTO(check));
+        return dto;
+    }
+
+    /** 校验结果 -> 响应 DTO（响应层不直接暴露 pricing 包的类型，避免耦合到接口契约）。 */
+    private static OrderDTO.PriceCheck toPriceCheckDTO(MemberPriceCheck check) {
+        OrderDTO.PriceCheck dto = new OrderDTO.PriceCheck();
+        dto.setClientAmount(check.clientAmount());
+        dto.setServerAmount(check.serverAmount());
+        dto.setCorrect(check.correct());
+        dto.setReason(check.reason());
+        return dto;
     }
 
     // ---------- 查询 ----------
@@ -161,7 +206,8 @@ public class OrderService {
         if (order == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
         }
-        return toDTO(order, loadItems(order.getId()));
+        // byAdmin=true：后台订单详情要展示「金额与分账」
+        return toDTO(order, loadItems(order.getId()), true);
     }
 
     /**
@@ -180,17 +226,22 @@ public class OrderService {
         return PageResult.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
 
-    public PageResult<OrderDTO> pageOrders(long current, long size, String status, String search) {
+    public PageResult<OrderDTO> pageOrders(long current, long size, String status, String search, Long storeSubjectId) {
         LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>().orderByDesc(Order::getId);
         if (StringUtils.hasText(status)) {
             query.eq(Order::getStatus, status);
+        }
+        // 门店可搜索下拉框：按门店主体 id 精确过滤
+        if (storeSubjectId != null) {
+            query.eq(Order::getStoreSubjectId, storeSubjectId);
         }
         if (StringUtils.hasText(search)) {
             query.and(w -> w.like(Order::getOrderNo, search).or().like(Order::getPickupCode, search));
         }
         Page<Order> page = orderMapper.selectPage(new Page<>(current, size), query);
         List<OrderDTO> records = page.getRecords().stream()
-                .map(o -> toDTO(o, loadItems(o.getId())))
+                // byAdmin=true：后台列表要展示「分账明细」，需附上分账快照
+                .map(o -> toDTO(o, loadItems(o.getId()), true))
                 .toList();
         return PageResult.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
@@ -199,6 +250,8 @@ public class OrderService {
     public List<OrderDTO> pendingVerifyOrders(Long storeSubjectId) {
         LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>()
                 .eq(Order::getStatus, STATUS_PAID)
+                .and(w -> w.isNull(Order::getRefundStatus)
+                        .or().ne(Order::getRefundStatus, "PENDING"))
                 .orderByAsc(Order::getId);
         if (storeSubjectId != null) {
             query.eq(Order::getStoreSubjectId, storeSubjectId);
@@ -244,20 +297,20 @@ public class OrderService {
     public void markVerified(Order order, LocalDateTime verifyTime) {
         Order patch = new Order();
         patch.setId(order.getId());
-        patch.setStatus(STATUS_VERIFIED);
+        patch.setStatus(STATUS_COMPLETED);
         patch.setVerifyTime(verifyTime);
         orderMapper.updateById(patch);
-        order.setStatus(STATUS_VERIFIED);
+        order.setStatus(STATUS_COMPLETED);
         order.setVerifyTime(verifyTime);
     }
 
     public void markRefunded(Order order) {
         Order patch = new Order();
         patch.setId(order.getId());
-        patch.setStatus(STATUS_REFUNDED);
+        patch.setStatus(STATUS_CANCELED);
         patch.setRefundStatus("REFUNDED");
         orderMapper.updateById(patch);
-        order.setStatus(STATUS_REFUNDED);
+        order.setStatus(STATUS_CANCELED);
         order.setRefundStatus("REFUNDED");
     }
 
@@ -267,6 +320,17 @@ public class OrderService {
         patch.setRefundStatus("PENDING");
         orderMapper.updateById(patch);
         order.setRefundStatus("PENDING");
+    }
+
+    public void markRefundFailed(Order order) {
+        Order patch = new Order();
+        patch.setId(order.getId());
+        // 退款失败只恢复退款状态，不能把已核销订单从 COMPLETED 降回 PAID。
+        patch.setStatus(STATUS_COMPLETED.equals(order.getStatus()) ? STATUS_COMPLETED : STATUS_PAID);
+        patch.setRefundStatus("FAILED");
+        orderMapper.updateById(patch);
+        order.setStatus(patch.getStatus());
+        order.setRefundStatus("FAILED");
     }
 
     // ---------- 内部工具 ----------
@@ -376,6 +440,17 @@ public class OrderService {
     }
 
     public OrderDTO toDTO(Order order, List<OrderItem> items) {
+        return toDTO(order, items, false);
+    }
+
+    /**
+     * 订单 -> DTO。
+     *
+     * @param byAdmin 是否按「后台口径」组装：为 true 时附加分账快照（split）
+     *                与商品成本/提成单价，供运营后台的「分账明细」展示；
+     *                为 false（小程序查询）时跳过，避免给 C 端链路增加跨服务调用。
+     */
+    public OrderDTO toDTO(Order order, List<OrderItem> items, boolean byAdmin) {
         OrderDTO dto = new OrderDTO();
         dto.setId(order.getId());
         dto.setOrderNo(order.getOrderNo());
@@ -387,7 +462,10 @@ public class OrderService {
         dto.setMealType(order.getMealType());
         dto.setStatus(order.getStatus());
         dto.setPayStatus(order.getPayStatus());
-        dto.setPickupCode(order.getPickupCode());
+        // 核销码口径：只有「已支付待核销」的订单才下发取餐码。
+        // 待支付尚未生成；已核销/已完成/已取消/已退款即使库里有历史值也不再对外暴露，
+        // 保证后台与小程序任一出口的核销码展示口径一致。
+        dto.setPickupCode(STATUS_PAID.equals(order.getStatus()) ? order.getPickupCode() : null);
         // 门店订单固定来源分类，供小程序订单页页签过滤
         dto.setCategory("store");
         dto.setTotalAmount(order.getTotalAmount());
@@ -413,6 +491,14 @@ public class OrderService {
             dtoItem.setOriginalPrice(item.getOriginalPrice());
             dtoItem.setQuantity(item.getQuantity());
             dtoItem.setSubTotal(item.getSubTotal());
+            if (byAdmin) {
+                // 成本价 / 平台提成都是「单价（分/件）」，后台据此按件数复算成本合计
+                ProductQueryPort.ProductView product = productQueryPort.findProduct(item.getProductId());
+                if (product != null) {
+                    dtoItem.setCostPrice(product.getCostPrice());
+                    dtoItem.setPlatformCommission(product.getPlatformCommission());
+                }
+            }
             itemMap.put(item.getProductId() + "#" + item.getId(), dtoItem);
             merged.merge(item.getProductName(), item.getQuantity() == null ? 0 : item.getQuantity(), Integer::sum);
         }
@@ -420,11 +506,37 @@ public class OrderService {
         dto.setSummary(merged.entrySet().stream()
                 .map(e -> e.getKey() + " x" + e.getValue())
                 .collect(Collectors.joining(",")));
+        if (byAdmin) {
+            dto.setSplit(loadSplitSummary(order.getOrderNo()));
+        }
         return dto;
+    }
+
+    /**
+     * 组装分账明细（未核销 / 查询失败时为 null）。
+     *
+     * <p>快照里的 costTotal（supplier_amount）与 platformCommission 已是
+     * 「单价 × 件数」的合计值，直接透传，前端不得再乘件数。
+     */
+    private OrderDTO.Split loadSplitSummary(String orderNo) {
+        SplitSnapshotQueryPort.SplitSnapshotView view = splitSnapshotQueryPort.findByOrderNo(orderNo);
+        if (view == null) {
+            return null;
+        }
+        OrderDTO.Split split = new OrderDTO.Split();
+        split.setSnapshotNo(view.getSnapshotNo());
+        split.setItemCount(view.getItemCount());
+        split.setCostTotal(view.getCostTotal());
+        split.setStoreShare(view.getStoreShare());
+        split.setChannelShare(view.getChannelShare());
+        split.setInvestorShare(view.getInvestorShare());
+        split.setPlatformCommission(view.getPlatformCommission());
+        split.setPlatformShare(view.getPlatformShare());
+        split.setBase(view.getBase());
+        return split;
     }
 
     private String fmt(LocalDateTime time) {
         return time == null ? null : time.format(FMT);
     }
 }
-

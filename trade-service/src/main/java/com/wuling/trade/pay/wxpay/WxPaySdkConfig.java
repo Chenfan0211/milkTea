@@ -9,6 +9,7 @@ import com.wechat.pay.java.core.notification.NotificationConfig;
 import com.wechat.pay.java.core.notification.NotificationParser;
 import com.wechat.pay.java.core.notification.RSAPublicKeyNotificationConfig;
 import com.wechat.pay.java.service.payments.jsapi.JsapiServiceExtension;
+import com.wechat.pay.java.service.refund.RefundService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -122,6 +123,14 @@ public class WxPaySdkConfig {
     public JsapiServiceExtension wxPayJsapiService(HttpClient wxPayHttpClient) {
         log.info("微信支付 JsapiServiceExtension 已装配 verifyMode={}", properties.getVerifyMode());
         return new JsapiServiceExtension.Builder()
+                .httpClient(wxPayHttpClient)
+                .build();
+    }
+
+    /** 退款服务扩展：发起退款 / 查询退款单（境内普通商户退款 API） */
+    @Bean
+    public RefundService wxPayRefundService(HttpClient wxPayHttpClient) {
+        return new RefundService.Builder()
                 .httpClient(wxPayHttpClient)
                 .build();
     }

@@ -70,6 +70,8 @@ public class RemoteProductQueryAdapter implements ProductQueryPort {
             view.setImage(body.get("image") == null ? null : String.valueOf(body.get("image")));
             view.setOnSale(asInt(body.get("onSale")));
             view.setSupplierSubjectId(asLong(body.get("supplierSubjectId")));
+            view.setPlatformCommission(asLong(body.get("platformCommission")));
+            view.setCostPrice(asLong(body.get("costPrice")));
             return view;
         } catch (Exception e) {
             log.error("远程查询商品失败 productId={} err={}", productId, e.getMessage());

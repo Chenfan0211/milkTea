@@ -71,6 +71,9 @@ public class WxPayProperties {
     /** 支付结果通知地址：必须是已备案的 https 域名 */
     private String notifyUrl;
 
+    /** 退款结果通知地址：必须是已备案的 https 域名 */
+    private String refundNotifyUrl;
+
     /** 微信支付 API 基地址，可覆盖以便本地用「假微信服务端」做端到端验证 */
     private String apiBaseUrl = "https://api.mch.weixin.qq.com";
 
@@ -105,6 +108,7 @@ public class WxPayProperties {
         requireText(merchantSerialNo, "app.pay.wxpay.merchant-serial-no", "WXPAY_MCH_SERIAL_NO");
         requireReadableFile(privateKeyPath, "app.pay.wxpay.private-key-path", "WXPAY_PRIVATE_KEY_PATH");
         requireText(notifyUrl, "app.pay.wxpay.notify-url", "WXPAY_NOTIFY_URL");
+        requireText(refundNotifyUrl, "app.pay.wxpay.refund-notify-url", "WXPAY_REFUND_NOTIFY_URL");
 
         if (apiV3Key.trim().length() != 32) {
             throw new IllegalStateException(
@@ -128,6 +132,11 @@ public class WxPayProperties {
             throw new IllegalStateException(
                     "app.pay.wxpay.notify-url（环境变量 WXPAY_NOTIFY_URL）必须是 https 地址，"
                     + "微信支付要求回调地址为已备案域名且启用 HTTPS。当前值：" + notifyUrl);
+        }
+        if (!refundNotifyUrl.toLowerCase().startsWith("https://")) {
+            throw new IllegalStateException(
+                    "app.pay.wxpay.refund-notify-url（环境变量 WXPAY_REFUND_NOTIFY_URL）必须是 https 地址，"
+                    + "微信支付要求退款回调地址为已备案域名且启用 HTTPS。当前值：" + refundNotifyUrl);
         }
 
         log.info("微信支付通道已启用 mchId={} verifyMode={} apiBaseUrl={}", mchId, verifyMode, apiBaseUrl);
@@ -244,6 +253,14 @@ public class WxPayProperties {
 
     public void setNotifyUrl(String notifyUrl) {
         this.notifyUrl = notifyUrl;
+    }
+
+    public String getRefundNotifyUrl() {
+        return refundNotifyUrl;
+    }
+
+    public void setRefundNotifyUrl(String refundNotifyUrl) {
+        this.refundNotifyUrl = refundNotifyUrl;
     }
 
     public String getApiBaseUrl() {

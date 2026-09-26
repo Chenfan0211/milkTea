@@ -27,8 +27,8 @@ import java.util.Map;
  *
  * <p>检查项：
  * <ol>
- *   <li><b>核销后未分账</b>：订单状态为 VERIFIED/COMPLETED，但 split_snapshot 无记录；</li>
- *   <li><b>退款后未冲正</b>：订单已退款，但仍有 PENDING 的 settlement_record；</li>
+ *   <li><b>完成后未分账</b>：订单状态为 COMPLETED，但 split_snapshot 无记录；</li>
+ *   <li><b>退款后未冲正</b>：订单为 CANCELED 且 refund_status=REFUNDED，但仍有 PENDING 的 settlement_record；</li>
  *   <li><b>分账金额不一致</b>：快照五方之和 ≠ 订单实付金额。</li>
  * </ol>
  *
@@ -45,8 +45,8 @@ public class ReconcileService {
 
     private static final Logger log = LoggerFactory.getLogger(ReconcileService.class);
 
-    /** 视为"已消费"的订单状态 */
-    private static final List<String> CONSUMED_STATUS = List.of("VERIFIED", "COMPLETED");
+    /** 视为"已消费"的订单状态（四态中的 COMPLETED） */
+    private static final String CONSUMED_STATUS = "COMPLETED";
 
     private final JdbcTemplate jdbcTemplate;
     private final SplitSnapshotMapper splitSnapshotMapper;
@@ -89,19 +89,19 @@ public class ReconcileService {
     }
 
     /**
-     * 检查项 1：已核销但无分账快照。
+     * 检查项 1：已完成但无分账快照。
      *
      * <p>这是 MQ 分账事件丢失的典型症状：门店已放行、订单已消费，
      * 但没有任何一方收到钱。
      */
     private int checkMissingSplit() {
-        // 已核销/已完成的订单，且不存在分账快照
+        // 已完成订单，且不存在分账快照
         String sql = "select o.order_no, o.paid_amount from orders o "
                 + "left join split_snapshot s on s.order_id = o.id and s.deleted = 0 "
-                + "where o.deleted = 0 and o.status in (" + placeholders(CONSUMED_STATUS.size()) + ") "
+                + "where o.deleted = 0 and o.status = ? "
                 + "and s.id is null "
                 + "limit 500";
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, CONSUMED_STATUS.toArray());
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, CONSUMED_STATUS);
 
         int count = 0;
         for (Map<String, Object> row : rows) {
@@ -118,13 +118,13 @@ public class ReconcileService {
     /**
      * 检查项 2：已退款但未冲正。
      *
-     * <p>退款冲正消息丢失的症状：订单已退款给用户，
+     * <p>退款冲正消息丢失的症状：订单已取消并退款成功给用户，
      * 但各方台账仍挂着 PENDING（钱还没从待结算中扣回，存在重复结算风险）。
      */
     private int checkMissingReverse() {
         String sql = "select distinct o.order_no, o.paid_amount from orders o "
                 + "join settlement_record r on r.order_id = o.id and r.deleted = 0 "
-                + "where o.deleted = 0 and o.status = 'REFUNDED' and r.status = 'PENDING' "
+                + "where o.deleted = 0 and o.status = 'CANCELED' and o.refund_status = 'REFUNDED' and r.status = 'PENDING' "
                 + "limit 500";
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
 
@@ -176,16 +176,30 @@ public class ReconcileService {
     @Transactional(rollbackFor = Exception.class)
     public boolean recordOnce(String issueType, String orderNo,
                               String systemValue, String expectedValue, long diffAmount) {
-        Long exists = reconcileIssueMapper.selectCount(new LambdaQueryWrapper<ReconcileIssue>()
+        return recordOnce(issueType, orderNo, null, systemValue, expectedValue, diffAmount);
+    }
+
+    /** 记录对账异常；退款相关异常额外以 refundNo 做幂等键。 */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean recordOnce(String issueType, String orderNo, String refundNo,
+                              String systemValue, String expectedValue, long diffAmount) {
+        LambdaQueryWrapper<ReconcileIssue> query = new LambdaQueryWrapper<ReconcileIssue>()
                 .eq(ReconcileIssue::getIssueType, issueType)
                 .eq(ReconcileIssue::getOrderNo, orderNo)
-                .eq(ReconcileIssue::getStatus, ReconcileIssue.STATUS_OPEN));
+                .eq(ReconcileIssue::getStatus, ReconcileIssue.STATUS_OPEN);
+        if (refundNo == null) {
+            query.isNull(ReconcileIssue::getRefundNo);
+        } else {
+            query.eq(ReconcileIssue::getRefundNo, refundNo);
+        }
+        Long exists = reconcileIssueMapper.selectCount(query);
         if (exists != null && exists > 0) {
             return false;
         }
         ReconcileIssue issue = new ReconcileIssue();
         issue.setIssueType(issueType);
         issue.setOrderNo(orderNo);
+        issue.setRefundNo(refundNo);
         issue.setSystemValue(systemValue);
         issue.setThirdValue(expectedValue);
         issue.setDiffAmount(diffAmount);
@@ -216,10 +230,6 @@ public class ReconcileService {
         reconcileIssueMapper.updateById(issue);
         log.info("对账异常已处理 id={} orderNo={} status={}", id, issue.getOrderNo(), status);
         return issue;
-    }
-
-    private String placeholders(int n) {
-        return String.join(",", java.util.Collections.nCopies(n, "?"));
     }
 
     private long toLong(Object v) {

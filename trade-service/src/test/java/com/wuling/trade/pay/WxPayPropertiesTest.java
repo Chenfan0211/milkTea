@@ -50,6 +50,26 @@ class WxPayPropertiesTest {
     }
 
     @Test
+    void wxpay通道缺少退款回调地址时拒绝启动() {
+        WxPayProperties props = validPublicKeyProps();
+        props.setRefundNotifyUrl(null);
+        IllegalStateException e = assertThrows(IllegalStateException.class, props::validateOnStartup);
+        assertTrue(e.getMessage().contains("WXPAY_REFUND_NOTIFY_URL"),
+                "报错信息必须带出退款回调环境变量名，实际：" + e.getMessage());
+    }
+
+    @Test
+    void wxpay通道退款回调用http地址时拒绝启动() {
+        WxPayProperties props = validPublicKeyProps();
+        props.setRefundNotifyUrl(
+                "http://43.136.91.239:8089/api/v1/app/payments/wxpay/refund-notify");
+        IllegalStateException e = assertThrows(IllegalStateException.class, props::validateOnStartup);
+        assertTrue(e.getMessage().contains("WXPAY_REFUND_NOTIFY_URL"),
+                "应指出退款回调配置项，实际：" + e.getMessage());
+        assertTrue(e.getMessage().contains("https"), "应提示必须 https，实际：" + e.getMessage());
+    }
+
+    @Test
     void wxpay通道私钥文件不可读时拒绝启动() {
         WxPayProperties props = validPublicKeyProps();
         props.setPrivateKeyPath("/opt/wuling/app/certs/not-exist.pem");
@@ -78,6 +98,8 @@ class WxPayPropertiesTest {
         props.setPublicKeyId("PUB_KEY_ID_0000000000000000000000000000000001");
         props.setPublicKeyPath(System.getProperty("java.home") + "/release");
         props.setNotifyUrl("https://api.wulingshiguang.top/api/v1/app/payments/wxpay/notify");
+        props.setRefundNotifyUrl(
+                "https://api.wulingshiguang.top/api/v1/app/payments/wxpay/refund-notify");
         return props;
     }
 }

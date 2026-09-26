@@ -8,6 +8,7 @@ import com.wuling.trade.pay.wxpay.WxPayPrepayResult;
 import com.wuling.trade.port.UserQueryPort;
 import com.wuling.trade.service.PaymentGatewayResolver;
 import com.wuling.trade.service.PaymentService;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,15 +47,19 @@ public class StoredValuePayController {
     private final PaymentService paymentService;
     private final PaymentGatewayResolver gatewayResolver;
     private final UserQueryPort userQueryPort;
+    private final boolean storedValueDemoEnabled;
 
     public StoredValuePayController(StoredValueOrderPort storedValueOrderPort,
                                     PaymentService paymentService,
                                     PaymentGatewayResolver gatewayResolver,
-                                    UserQueryPort userQueryPort) {
+                                    UserQueryPort userQueryPort,
+                                    @Value("${app.pay.stored-value-demo-enabled:true}")
+                                    boolean storedValueDemoEnabled) {
         this.storedValueOrderPort = storedValueOrderPort;
         this.paymentService = paymentService;
         this.gatewayResolver = gatewayResolver;
         this.userQueryPort = userQueryPort;
+        this.storedValueDemoEnabled = storedValueDemoEnabled;
     }
 
     /**
@@ -81,11 +86,23 @@ public class StoredValuePayController {
         if (!userId.equals(order.getUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权支付该储值订单");
         }
-        if ("PAID".equalsIgnoreCase(order.getPayStatus())) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "该储值订单已完成，请勿重复支付");
-        }
         if (order.getAmount() == null || order.getAmount() <= 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "储值订单金额异常");
+        }
+
+        if (storedValueDemoEnabled && gatewayResolver.isMockChannel()) {
+            if ("PAID".equalsIgnoreCase(order.getPayStatus())) {
+                log.info("储值模拟充值重复请求，订单已入账 orderNo={}", orderNo);
+                return Result.ok(null);
+            }
+            // 复用支付回调的幂等入账端口，演示继续沿用现有前端查单流程。
+            storedValueOrderPort.markPaid(orderNo, "DEMO-" + orderNo, null, order.getAmount());
+            log.info("储值模拟充值已入账 orderNo={} transactionId={}", orderNo, "DEMO-" + orderNo);
+            return Result.ok(null);
+        }
+
+        if ("PAID".equalsIgnoreCase(order.getPayStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该储值订单已完成，请勿重复支付");
         }
 
         if (gatewayResolver.isMockChannel()) {

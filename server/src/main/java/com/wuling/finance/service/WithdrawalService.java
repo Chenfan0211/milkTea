@@ -5,11 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
-import com.wuling.finance.entity.FundFlow;
-import com.wuling.finance.entity.SubjectAccount;
 import com.wuling.finance.entity.Withdrawal;
-import com.wuling.finance.mapper.FundFlowMapper;
-import com.wuling.finance.mapper.SubjectAccountMapper;
 import com.wuling.finance.mapper.WithdrawalMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,17 +41,11 @@ public class WithdrawalService {
     public static final String FAILED = "FAILED";
 
     private final WithdrawalMapper withdrawalMapper;
-    private final SubjectAccountMapper subjectAccountMapper;
-    private final FundFlowMapper fundFlowMapper;
     private final LedgerService ledgerService;
 
     public WithdrawalService(WithdrawalMapper withdrawalMapper,
-                             SubjectAccountMapper subjectAccountMapper,
-                             FundFlowMapper fundFlowMapper,
                              LedgerService ledgerService) {
         this.withdrawalMapper = withdrawalMapper;
-        this.subjectAccountMapper = subjectAccountMapper;
-        this.fundFlowMapper = fundFlowMapper;
         this.ledgerService = ledgerService;
     }
 
@@ -65,18 +55,6 @@ public class WithdrawalService {
         if (amount <= 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "提现金额必须大于 0");
         }
-        // 确保账户存在（并发安全见 LedgerService.ensureAccount）
-        SubjectAccount account = ledgerService.ensureAccount(subjectId);
-
-        // 并发安全（第 0 期加固）：冻结改为原子 UPDATE
-        // `available_balance = available_balance - ? where available_balance >= ?`，
-        // 把「校验余额充足 + 扣减」合并为单条语句，由 InnoDB 行锁串行，
-        // 并发提现时不会出现超提。
-        if (subjectAccountMapper.freeze(subjectId, amount) == 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "可提现余额不足");
-        }
-        long balanceAfter = (account.getAvailableBalance() == null ? 0L : account.getAvailableBalance()) - amount;
-        writeFlow(subjectId, roleType, "FREEZE", "out", amount, null, balanceAfter, "提现申请冻结");
 
         Withdrawal w = new Withdrawal();
         w.setWithdrawNo(nextNo());
@@ -97,8 +75,9 @@ public class WithdrawalService {
         }
         withdrawalMapper.insert(w);
 
+        freeze(w, amount);
         if (PAID.equals(w.getStatus())) {
-            settlePaid(w, account);
+            settlePaid(w);
         }
         log.info("withdrawal apply no={} amount={} status={}", w.getWithdrawNo(), amount, w.getStatus());
         return w;
@@ -114,24 +93,18 @@ public class WithdrawalService {
         if (!APPLIED.equals(w.getStatus()) && !AUDITING.equals(w.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该提现申请已处理，不能重复审核");
         }
-        SubjectAccount account = ledgerService.ensureAccount(w.getSubjectId());
         if (approve) {
-            long available = account.getAvailableBalance() == null ? 0L : account.getAvailableBalance();
-            long frozen = account.getFrozenBalance() == null ? 0L : account.getFrozenBalance();
-            if (frozen < w.getAmount()) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "冻结金额异常，无法出款");
-            }
+            settlePaid(w);
             w.setStatus(PAID);
             w.setReviewTime(LocalDateTime.now());
             w.setPayTime(LocalDateTime.now());
             withdrawalMapper.updateById(w);
-            settlePaid(w, account);
         } else {
             w.setStatus(REJECTED);
             w.setReviewTime(LocalDateTime.now());
             w.setFailureReason(reason);
             withdrawalMapper.updateById(w);
-            unfreeze(w, account, "审核驳回，金额已解冻");
+            unfreeze(w, "提现审核驳回，金额已解冻");
         }
         return w;
     }
@@ -146,11 +119,10 @@ public class WithdrawalService {
         if (PAID.equals(w.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "已出款，不能标记失败");
         }
-        SubjectAccount account = ledgerService.ensureAccount(w.getSubjectId());
         w.setStatus(FAILED);
         w.setFailureReason(reason);
         withdrawalMapper.updateById(w);
-        unfreeze(w, account, "出款失败，金额已解冻");
+        unfreeze(w, "提现出款失败，金额已解冻");
         return w;
     }
 
@@ -168,38 +140,64 @@ public class WithdrawalService {
         return PageResult.of(page.getRecords(), page.getCurrent(), page.getSize(), page.getTotal());
     }
 
-    /** 出款成功：从冻结中扣减（原子 SQL，防并发重复出款） */
-    private void settlePaid(Withdrawal w, SubjectAccount account) {
-        if (subjectAccountMapper.settleWithdraw(w.getSubjectId(), w.getAmount()) == 0) {
+    /** 申请提现：可用余额转入冻结余额，并写入统一台账快照。 */
+    private void freeze(Withdrawal w, long amount) {
+        try {
+            ledgerService.post(new LedgerService.Posting(w.getSubjectId(),
+                    w.getRoleType(),
+                    "FREEZE",
+                    amount,
+                    LedgerService.BUCKET_FROZEN,
+                    null,
+                    null,
+                    null,
+                    "WITHDRAWAL",
+                    w.getWithdrawNo(),
+                    null,
+                    "提现申请冻结"));
+        } catch (LedgerService.InsufficientBalanceException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "可提现余额不足");
+        }
+    }
+
+    /** 出款成功：冻结余额扣减，并写入统一台账快照。 */
+    private void settlePaid(Withdrawal w) {
+        try {
+            ledgerService.post(new LedgerService.Posting(w.getSubjectId(),
+                    w.getRoleType(),
+                    "WITHDRAW",
+                    -w.getAmount(),
+                    LedgerService.BUCKET_FROZEN,
+                    null,
+                    null,
+                    null,
+                    "WITHDRAWAL",
+                    w.getWithdrawNo(),
+                    null,
+                    "提现出款"));
+        } catch (LedgerService.InsufficientBalanceException e) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "冻结金额异常，无法出款");
         }
-        writeFlow(w.getSubjectId(), w.getRoleType(), "WITHDRAW", "out", w.getAmount(), null,
-                account.getAvailableBalance(), "提现出款");
     }
 
-    /** 失败/驳回：冻结金额退回可用（原子 SQL） */
-    private void unfreeze(Withdrawal w, SubjectAccount account, String remark) {
-        if (subjectAccountMapper.unfreeze(w.getSubjectId(), w.getAmount()) == 0) {
+    /** 失败/驳回：冻结金额退回可用，并写入统一台账快照。 */
+    private void unfreeze(Withdrawal w, String remark) {
+        try {
+            ledgerService.post(new LedgerService.Posting(w.getSubjectId(),
+                    w.getRoleType(),
+                    "UNFREEZE",
+                    -w.getAmount(),
+                    LedgerService.BUCKET_FROZEN,
+                    null,
+                    null,
+                    null,
+                    "WITHDRAWAL",
+                    w.getWithdrawNo(),
+                    null,
+                    remark));
+        } catch (LedgerService.InsufficientBalanceException e) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "解冻失败：冻结金额不足");
         }
-        writeFlow(w.getSubjectId(), w.getRoleType(), "UNFREEZE", "in", w.getAmount(), null,
-                account.getAvailableBalance(), remark);
-    }
-
-    private void writeFlow(Long subjectId, String roleType, String type, String direction,
-                           long amount, String orderNo, long balanceAfter, String remark) {
-        FundFlow flow = new FundFlow();
-        flow.setFlowNo("FF" + System.currentTimeMillis() % 100000000L
-                + String.format("%03d", ThreadLocalRandom.current().nextInt(1000)));
-        flow.setSubjectId(subjectId);
-        flow.setRoleType(roleType);
-        flow.setType(type);
-        flow.setDirection(direction);
-        flow.setAmount(amount);
-        flow.setOrderNo(orderNo);
-        flow.setBalanceAfter(balanceAfter);
-        flow.setRemark(remark);
-        fundFlowMapper.insert(flow);
     }
 
     private String nextNo() {

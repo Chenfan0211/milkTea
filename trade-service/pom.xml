@@ -135,6 +135,27 @@
         </dependency>
     </dependencies>
 
+    <!--
+      ============================================================
+      构建习惯（踩坑固化）：wuling-common 改动后必须重新 install
+      ============================================================
+
+      事故回顾：wuling-common 里给 OrderVerifiedEvent.Line 新增了 4 参数构造器，
+      但本地仓库的 common-0.1.0-SNAPSHOT.jar 仍是 8 小时前的旧包，
+      导致 trade-service 编译报「找不到合适的构造器」。
+
+      排查成本高的原因：错误信息指向 VerifyService（业务代码），
+      而病根在构建产物 —— 表现为「代码明明是对的，编译就是不过」。
+      更隐蔽的是 artifactId 叫 common 而模块目录叫 wuling-common，
+      做增量编译（-pl trade-service）时不会带上它。
+
+      处置：
+        · 改 wuling-common / security-common 后，用
+          `mvn -pl wuling-common,security-common -am install -DskipTests`
+          让依赖模块拿到最新类；
+        · 下面的 maven-enforcer 规则会校验「被依赖模块是否已安装」，
+          未安装时直接失败并提示命令，而不是抛出难懂的编译错误。
+    -->
     <build>
         <plugins>
             <plugin>

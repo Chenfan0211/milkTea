@@ -21,7 +21,16 @@ public class FundFlow {
     private String direction;
     private Long amount;
     private String orderNo;
+    private Long accountId;
+    private Long orderId;
+    private Long settlementRecordId;
+    private String bizType;
+    private String bizNo;
+    private String balanceBucket;
+    private Long balanceBefore;
+    private Long changeAmount;
     private Long balanceAfter;
+    private String settlementStatus;
     private String remark;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

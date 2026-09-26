@@ -28,6 +28,8 @@ public class ReconcileIssue {
     public static final String TYPE_MISSING_REVERSE = "MISSING_REVERSE";
     /** 异常类型：分账五方金额与实付不一致 */
     public static final String TYPE_SPLIT_AMOUNT_MISMATCH = "SPLIT_AMOUNT_MISMATCH";
+    /** 异常类型：退款冲正时可用余额不足 */
+    public static final String TYPE_REFUND_BALANCE_SHORTAGE = "REFUND_BALANCE_SHORTAGE";
 
     /** 状态：待处理 */
     public static final String STATUS_OPEN = "OPEN";
@@ -42,6 +44,8 @@ public class ReconcileIssue {
     private String issueType;
     /** 订单号 */
     private String orderNo;
+    /** 退款单号（退款冲正异常时记录） */
+    private String refundNo;
     /** 系统侧值（如"无快照"、"PENDING"） */
     private String systemValue;
     /** 第三方/预期值（如"应有快照"、"CANCELED"） */

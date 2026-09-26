@@ -32,7 +32,7 @@ import java.util.List;
 /**
  * 门店核销。
  * 规则（对齐 docs/data-schema.md）：
- * - ORDER：按取餐码 / 订单号匹配已支付订单，核销后订单置 VERIFIED，并触发五方分账；
+ * - ORDER：按取餐码 / 订单号匹配已支付订单，核销后订单置 COMPLETED，并触发五方分账；
  * - EXCHANGE：兑换类核销不联动订单表，仅写核销记录。
  * 幂等：通过订单行锁 + 状态机保证重复核销被拒绝。
  */
@@ -89,12 +89,15 @@ public class VerifyService {
         if (order == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "核销码无效或订单不存在");
         }
-        if (OrderService.STATUS_VERIFIED.equals(order.getStatus())
-                || OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
+        if (OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单已核销，请勿重复核销");
         }
         if (!OrderService.STATUS_PAID.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单当前状态不可核销: " + order.getStatus());
+        }
+
+        if ("PENDING".equalsIgnoreCase(order.getRefundStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "订单退款中，不可核销");
         }
 
         List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
@@ -114,8 +117,13 @@ public class VerifyService {
         verifyRecordMapper.insert(record);
 
         // 核销即消费：触发五方分账快照 + 待结算台账（供应商份额按明细分摊）
+        //
+        // 件数口径：costPrice / platformCommission 都是「单价（分/件）」。
+        // 若不下发 quantity，finance 侧会按 1 件计算，导致成本合计漏算、
+        // 平台提成少扣，平台剩余被高估，故此处把明细件数一并带出。
         List<OrderVerifiedEvent.Line> lineItems = new ArrayList<>();
         Long firstProductId = null;
+        int totalQuantity = 0;
         for (OrderItem item : items) {
             ProductQueryPort.ProductView product = productQueryPort.findProduct(item.getProductId());
             if (product == null) {
@@ -124,8 +132,13 @@ public class VerifyService {
             if (firstProductId == null) {
                 firstProductId = product.getId();
             }
+            int quantity = item.getQuantity() == null || item.getQuantity() <= 0 ? 1 : item.getQuantity();
+            totalQuantity += quantity;
             long lineAmount = item.getSubTotal() == null ? 0L : item.getSubTotal();
-            lineItems.add(new OrderVerifiedEvent.Line(product.getSupplierSubjectId(), lineAmount));
+            lineItems.add(new OrderVerifiedEvent.Line(
+                    product.getSupplierSubjectId(), lineAmount,
+                    product.getPlatformCommission(), product.getCostPrice(),
+                    quantity));
         }
 
         // 第 6 期解耦：不再直接调用 finance 的 LedgerService.executeSplit，
@@ -137,7 +150,9 @@ public class VerifyService {
         event.setOrderId(order.getId());
         event.setOrderNo(order.getOrderNo());
         event.setPaidAmount(order.getPaidAmount());
-        event.setItemCount(items.size());
+        // itemCount 必须是「商品件数」（Σ quantity）而非明细条数：
+        // 门店/资源方份额按每件提成 × 件数计，用条数会把多件订单的分成算少。
+        event.setItemCount(totalQuantity);
         event.setStoreSubjectId(order.getStoreSubjectId());
         event.setChannelSubjectId(order.getChannelSubjectId());
         event.setFirstProductId(firstProductId);

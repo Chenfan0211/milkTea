@@ -48,6 +48,17 @@ public class OrderVerifiedEvent implements Serializable {
         private Long supplierSubjectId;
         /** 行金额（分） */
         private Long amount;
+        /** 平台提成单价（分/件）；分账时按「单价 × 件数」汇总 */
+        private Long platformCommission;
+        /** 成本单价（分/件）；供应商分账按「成本单价 × 件数」直给 */
+        private Long costPrice;
+        /**
+         * 该明细的商品件数（quantity）。
+         *
+         * <p>成本合计与平台提成都必须乘以件数才能与订单实付对齐，故件数随事件下发；
+         * 缺失时按 1 件兜底（见构造方法），避免历史消息重放时把成本算成 0。
+         */
+        private Integer quantity;
 
         public Line() {
         }
@@ -55,6 +66,18 @@ public class OrderVerifiedEvent implements Serializable {
         public Line(Long supplierSubjectId, Long amount) {
             this.supplierSubjectId = supplierSubjectId;
             this.amount = amount;
+        }
+
+        public Line(Long supplierSubjectId, Long amount, Long platformCommission, Long costPrice) {
+            this(supplierSubjectId, amount, platformCommission, costPrice, null);
+        }
+
+        public Line(Long supplierSubjectId, Long amount, Long platformCommission, Long costPrice, Integer quantity) {
+            this.supplierSubjectId = supplierSubjectId;
+            this.amount = amount;
+            this.platformCommission = platformCommission;
+            this.costPrice = costPrice;
+            this.quantity = quantity == null ? 1 : quantity;
         }
 
         public Long getSupplierSubjectId() {
@@ -71,6 +94,30 @@ public class OrderVerifiedEvent implements Serializable {
 
         public void setAmount(Long amount) {
             this.amount = amount;
+        }
+
+        public Long getPlatformCommission() {
+            return platformCommission;
+        }
+
+        public void setPlatformCommission(Long platformCommission) {
+            this.platformCommission = platformCommission;
+        }
+
+        public Long getCostPrice() {
+            return costPrice;
+        }
+
+        public void setCostPrice(Long costPrice) {
+            this.costPrice = costPrice;
+        }
+
+        public Integer getQuantity() {
+            return quantity;
+        }
+
+        public void setQuantity(Integer quantity) {
+            this.quantity = quantity;
         }
     }
 

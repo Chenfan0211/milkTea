@@ -119,6 +119,35 @@ public class AppOrderController {
     }
 
     /**
+     * 储值余额支付点单订单。
+     *
+     * <p><b>为什么单独一个接口而不是复用 {@code /pay}</b>：
+     * <ul>
+     *   <li>{@code /pay} 是「向三方发起支付」，返回收银台参数，订单状态不变；</li>
+     *   <li>本接口是「余额直接扣款」，同步完成支付并把订单置为已支付，
+     *       返回的是<b>订单视图</b>而不是支付参数。</li>
+     * </ul>
+     * 两者响应结构与语义都不同，混在一个接口里会让前端难以区分「该唤起收银台」
+     * 还是「已支付完成」。
+     *
+     * <p><b>金额取自服务端订单</b>，不接受前端传入 —— 否则可篡改成任意金额扣款。
+     * 用户 ID 一律取自 JWT。
+     */
+    @PostMapping("/orders/{orderNo}/pay-by-balance")
+    public Result<OrderDTO> payByBalance(@PathVariable String orderNo) {
+        Long userId = CurrentUser.require();
+        OrderDTO order = orderService.getByOrderNo(orderNo);
+        if (!userId.equals(order.getUserId())) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.FORBIDDEN, "无权支付该订单");
+        }
+        OrderDTO paid = paymentService.payWithStoredValue(orderNo, userId, order.getPaidAmount());
+        auditLog.record(String.valueOf(userId), "PAY", "STORED_VALUE", orderNo,
+                "通道=STORED_VALUE 金额=" + order.getPaidAmount(), null);
+        return Result.ok(paid);
+    }
+
+    /**
      * 取消订单（用户主动）。
      *
      * <p>按订单当前状态分流：

@@ -31,6 +31,24 @@ public class CreateOrderRequest {
 
     private String remark;
 
+    /**
+     * 会员等级代码（如 Lv1），由客户端传入，仅用于与服务端记录交叉校验。
+     *
+     * <p><b>不参与计价决策</b>：服务端一律以 {@code app_user.vip_level} 为准。
+     * 若直接采信本字段，用户改包成 Lv3 即可自选 6 折 —— 属越权。
+     * 两者不一致时只记 WARN 日志，仍按服务端等级计价。
+     */
+    private String vipLevel;
+
+    /**
+     * 客户端计算的会员价总额（分），仅用于交叉校验。
+     *
+     * <p>服务端会用「商品原价 × 等级折扣」重算，并在响应里通过
+     * {@code priceCheck} 告知客户端算得对不对；<b>下单金额永远以服务端为准</b>。
+     * 传 null 表示客户端不做校验（服务端仍按自己算的金额下单）。
+     */
+    private Long clientAmount;
+
     @NotEmpty(message = "订单明细不能为空")
     @Valid
     private List<Item> items;

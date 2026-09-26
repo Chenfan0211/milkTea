@@ -51,23 +51,6 @@ class LedgerConsistencyIT {
         }
     }
 
-    @Test
-    void splitRuleRatioMustSumToOneHundredPercent() throws Exception {
-        if (!enabled()) {
-            return;
-        }
-        try (Connection conn = DriverManager.getConnection(URL, USER, PWD);
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(
-                     "select code, (platform_ratio+store_ratio+channel_ratio+investor_ratio+supplier_ratio) as total "
-                             + "from split_rule where status='enabled'")) {
-            while (rs.next()) {
-                long total = rs.getLong("total");
-                assertTrue(total == 10000,
-                        "分账规则比例合计必须为 10000: " + rs.getString("code") + " = " + total);
-            }
-        }
-    }
 
     @Test
     void withdrawalFrozenAmountCannotExceedAvailable() throws Exception {

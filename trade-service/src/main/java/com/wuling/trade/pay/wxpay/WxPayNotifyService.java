@@ -121,6 +121,35 @@ public class WxPayNotifyService {
         return transaction;
     }
 
+    /**
+     * 校验并解密回调，返回原始 {@link Notification}（含明文 plaintext）。
+     *
+     * <p>供退款结果通知等非「支付成功」事件复用：支付入账走
+     * {@link #verifyAndDecrypt(String, String, String, String, String)}，
+     * 退款结果通知需要按 refund_status 自行解析，故暴露此通用方法。
+     */
+    public Notification verifyAndDecryptRaw(String serial, String timestamp, String nonce,
+                                            String signature, String body) {
+        requireText(serial, "Wechatpay-Serial");
+        requireText(timestamp, "Wechatpay-Timestamp");
+        requireText(nonce, "Wechatpay-Nonce");
+        requireText(signature, "Wechatpay-Signature");
+        requireText(body, "请求体");
+        checkTimestampWindow(timestamp);
+        try {
+            RequestParam requestParam = new RequestParam.Builder()
+                    .serialNumber(serial)
+                    .timestamp(timestamp)
+                    .nonce(nonce)
+                    .signature(signature)
+                    .body(body)
+                    .build();
+            return notificationParser.parse(requestParam, Notification.class);
+        } catch (Exception e) {
+            log.warn("微信支付回调验签/解密失败 serial={} err={}", serial, e.getMessage());
+            throw new WxPayNotifyException("回调验签或解密失败", e);
+        }
+    }
     /** 时间戳窗口校验，防重放 */
     private void checkTimestampWindow(String timestamp) {
         long tolerance = properties.getNotifyToleranceSeconds();

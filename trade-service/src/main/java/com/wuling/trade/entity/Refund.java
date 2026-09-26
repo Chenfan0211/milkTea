@@ -20,6 +20,8 @@ public class Refund {
     private Long amount;
     private String status;
     private String reason;
+    /** 微信退款单号（受理成功后回填，用于对账/查询） */
+    private String thirdRefundNo;
     private LocalDateTime applyTime;
     private LocalDateTime reviewTime;
     private LocalDateTime completeTime;

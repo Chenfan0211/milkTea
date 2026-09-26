@@ -50,9 +50,12 @@ public class OrderVerifiedSplitConsumer extends AbstractMqConsumer {
                 log.warn("分账事件缺少必要字段，已忽略");
                 return;
             }
+            // quantity 必须透传：成本价与平台提成都是单价（分/件），
+            // 丢了件数会把多件订单的成本与提成算成 1 件，平台剩余被高估。
             List<SplitCalculator.LineItem> lines = event.getLines() == null ? List.of()
                     : event.getLines().stream()
-                            .map(l -> new SplitCalculator.LineItem(l.getSupplierSubjectId(), l.getAmount()))
+                            .map(l -> new SplitCalculator.LineItem(l.getSupplierSubjectId(), l.getAmount(),
+                                    l.getPlatformCommission(), l.getCostPrice(), l.getQuantity()))
                             .toList();
 
             ledgerService.executeSplit(

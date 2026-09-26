@@ -2,6 +2,9 @@ package com.wuling.finance.controller;
 
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
+import com.wuling.common.api.ResultCode;
+import com.wuling.common.exception.BusinessException;
+import com.wuling.finance.service.LedgerService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,9 +22,11 @@ import java.util.Map;
 public class AdminFinanceQueryController {
 
     private final JdbcTemplate jdbcTemplate;
+    private final LedgerService ledgerService;
 
-    public AdminFinanceQueryController(JdbcTemplate jdbcTemplate) {
+    public AdminFinanceQueryController(JdbcTemplate jdbcTemplate, LedgerService ledgerService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.ledgerService = ledgerService;
     }
 
     // ---------- 资金池 ----------
@@ -47,19 +52,114 @@ public class AdminFinanceQueryController {
     @GetMapping("/flows")
     public Result<PageResult<Map<String, Object>>> flows(@RequestParam(defaultValue = "1") long current,
                                                          @RequestParam(defaultValue = "10") long size,
-                                                         @RequestParam(required = false) String subjectId,
-                                                         @RequestParam(required = false) String type) {
-        StringBuilder where = new StringBuilder(" where deleted = 0");
+                                                         @RequestParam(required = false) Long subjectId,
+                                                         @RequestParam(required = false) String type,
+                                                         @RequestParam(required = false) String orderNo,
+                                                         @RequestParam(required = false) Boolean settled) {
+        long pageCurrent = Math.max(1L, current);
+        long pageSize = Math.min(200L, Math.max(1L, size));
+        String normalizedType = normalizeFlowType(type);
+
+        String from = " from fund_flow f"
+                + " left join biz_subject s on s.id = f.subject_id and s.deleted = 0"
+                + " left join subject_account a on a.id = f.account_id"
+                + " left join orders o on o.id = f.order_id";
+        StringBuilder where = new StringBuilder(" where f.deleted = 0");
         List<Object> args = new ArrayList<>();
-        if (subjectId != null && !subjectId.isBlank()) {
-            where.append(" and subject_id = ?");
-            args.add(Long.parseLong(subjectId));
+        if (subjectId != null) {
+            where.append(" and f.subject_id = ?");
+            args.add(subjectId);
         }
-        if (type != null && !type.isBlank()) {
-            where.append(" and type = ?");
-            args.add(type);
+        if (normalizedType != null) {
+            if ("INCOME".equals(normalizedType)) {
+                where.append(" and f.type in ('INCOME', 'SETTLE')");
+            } else {
+                where.append(" and f.type = ?");
+                args.add(normalizedType);
+            }
         }
-        return Result.ok(pageOf("fund_flow", where.toString(), args, "id desc", current, size));
+        if (orderNo != null && !orderNo.isBlank()) {
+            where.append(" and (f.order_no like ? or f.biz_no like ? or o.order_no like ?)");
+            String keyword = "%" + orderNo.trim() + "%";
+            args.add(keyword);
+            args.add(keyword);
+            args.add(keyword);
+        }
+        if (Boolean.TRUE.equals(settled)) {
+            where.append(" and f.settlement_status = 'SETTLED'");
+        } else if (Boolean.FALSE.equals(settled)) {
+            where.append(" and f.settlement_status in ('PENDING', 'SETTLEABLE', 'FROZEN', 'CANCELED')");
+        }
+
+        Long total = jdbcTemplate.queryForObject(
+                "select count(*)" + from + where, Long.class, args.toArray());
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(pageSize);
+        pageArgs.add(Math.max(0L, (pageCurrent - 1L) * pageSize));
+        String select = "select f.id,"
+                + " f.flow_no,"
+                + " case when f.type = 'SETTLE' then 'INCOME' else f.type end as type,"
+                + " case when f.type = 'SETTLE' then '入账'"
+                + "      when f.type = 'INCOME' then '入账'"
+                + "      when f.type = 'WITHDRAW' then '提现'"
+                + "      when f.type = 'REFUND' then '退款'"
+                + "      when f.type = 'FREEZE' then '冻结'"
+                + "      when f.type = 'UNFREEZE' then '解冻'"
+                + "      else f.type end as type_name,"
+                + " f.direction,"
+                + " case when f.direction = 'in' then '入' when f.direction = 'out' then '出' else f.direction end as direction_name,"
+                + " f.amount,"
+                + " f.subject_id,"
+                + " s.name as subject_name,"
+                + " coalesce(f.role_type, a.role_type) as role_type,"
+                + " f.account_id,"
+                + " case when s.name is null then null"
+                + "      else concat(s.name, '-', case coalesce(f.role_type, a.role_type)"
+                + "          when 'PLATFORM' then '平台账户'"
+                + "          when 'STORE' then '门店账户'"
+                + "          when 'CHANNEL' then '资源方账户'"
+                + "          when 'INVESTOR' then '投资人账户'"
+                + "          when 'SUPPLIER' then '供应商账户'"
+                + "          else '未知账户' end) end as account_name,"
+                + " f.order_id,"
+                + " coalesce(f.order_no, o.order_no) as order_no,"
+                + " f.settlement_record_id,"
+                + " f.settlement_status,"
+                + " case f.settlement_status"
+                + "      when 'PENDING' then '待结算'"
+                + "      when 'SETTLEABLE' then '可结算'"
+                + "      when 'FROZEN' then '冻结中'"
+                + "      when 'SETTLED' then '已结算'"
+                + "      when 'CANCELED' then '已取消'"
+                + "      else null end as settlement_status_name,"
+                + " f.biz_type,"
+                + " f.biz_no,"
+                + " f.balance_bucket,"
+                + " case f.balance_bucket when 'AVAILABLE' then '可用余额'"
+                + "      when 'FROZEN' then '冻结余额' else null end as balance_bucket_name,"
+                + " f.balance_before,"
+                + " f.change_amount,"
+                + " f.balance_after,"
+                + " f.remark,"
+                + " f.create_time";
+        List<Map<String, Object>> records = jdbcTemplate.queryForList(
+                select + from + where + " order by f.id desc limit ? offset ?", pageArgs.toArray());
+        return Result.ok(PageResult.of(
+                records.stream().map(this::camelize).toList(),
+                pageCurrent,
+                pageSize,
+                total == null ? 0L : total));
+    }
+
+    private String normalizeFlowType(String type) {
+        if (type == null || type.isBlank()) {
+            return null;
+        }
+        String normalized = type.trim().toUpperCase();
+        if (!List.of("INCOME", "WITHDRAW", "REFUND", "FREEZE", "UNFREEZE").contains(normalized)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "不支持的流水类型: " + type);
+        }
+        return normalized;
     }
 
     // ---------- 分账快照 ----------
@@ -142,12 +242,9 @@ public class AdminFinanceQueryController {
     /** 冻结 / 解冻主体账户 */
     @PostMapping("/accounts/{subjectId}/freeze")
     public Result<Void> freeze(@PathVariable Long subjectId, @RequestParam Long amount) {
-        int affected = jdbcTemplate.update(
-                "update subject_account set available_balance = available_balance - ?, "
-                        + "frozen_balance = frozen_balance + ? where subject_id = ? and deleted = 0 "
-                        + "and available_balance >= ?",
-                amount, amount, subjectId, amount);
-        if (affected == 0) {
+        try {
+            ledgerService.manualFreeze(subjectId, amount);
+        } catch (LedgerService.InsufficientBalanceException e) {
             return Result.fail(400, "余额不足或账户不存在");
         }
         return Result.ok();
@@ -155,12 +252,9 @@ public class AdminFinanceQueryController {
 
     @PostMapping("/accounts/{subjectId}/unfreeze")
     public Result<Void> unfreeze(@PathVariable Long subjectId, @RequestParam Long amount) {
-        int affected = jdbcTemplate.update(
-                "update subject_account set frozen_balance = frozen_balance - ?, "
-                        + "available_balance = available_balance + ? where subject_id = ? and deleted = 0 "
-                        + "and frozen_balance >= ?",
-                amount, amount, subjectId, amount);
-        if (affected == 0) {
+        try {
+            ledgerService.manualUnfreeze(subjectId, amount);
+        } catch (LedgerService.InsufficientBalanceException e) {
             return Result.fail(400, "冻结金额不足或账户不存在");
         }
         return Result.ok();

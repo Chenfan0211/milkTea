@@ -69,6 +69,10 @@ app:
     server-base: ${INTERNAL_SERVER_BASE:http://wuling-server}
     # 第 14 期：用户域内部调用（微信支付下单需查询 openid）
     user-base: ${INTERNAL_USER_BASE:http://wuling-user-service}
+    # 第 15 期：营销域内部调用（会员价重算需查询等级折扣）
+    marketing-base: ${INTERNAL_MARKETING_BASE:http://wuling-marketing-service}
+    # 内部资金接口令牌：仅礼品卡内部接口请求逐次携带，保持空值时便于本地联调
+    service-token: ${INTERNAL_SERVICE_TOKEN:}
   # ---------- 支付（第 14 期：微信支付接入）----------
   #
   # channel 决定生效的支付通道：
@@ -86,6 +90,8 @@ app:
   pay:
     # 支付通道：mock | wxpay
     channel: ${PAY_CHANNEL:mock}
+    # 储值模拟充值：仅 PAY_CHANNEL=mock 时生效，默认开启供联调，生产切真实支付前关闭
+    stored-value-demo-enabled: ${STORED_VALUE_DEMO_ENABLED:true}
     # 内部网关回调签名密钥（/api/v1/app/payments/callback）
     # enabled=true 触发 PaymentSignConfig 生效：未注入密钥则拒绝启动
     enabled: true
@@ -110,6 +116,7 @@ app:
       public-key-path: ${WXPAY_PUBLIC_KEY_PATH:}
       # 回调地址必须是已备案的 https 域名（微信硬性要求）
       notify-url: ${WXPAY_NOTIFY_URL:}
+      refund-notify-url: ${WXPAY_REFUND_NOTIFY_URL:https://api.wulingshiguang.top/api/v1/app/payments/wxpay/refund-notify}
       # API 基地址；可用本地「假微信服务端」覆盖，做无商户号的端到端验证
       api-base-url: ${WXPAY_API_BASE_URL:https://api.mch.weixin.qq.com}
       # 回调时间戳允许漂移窗口（秒），防重放

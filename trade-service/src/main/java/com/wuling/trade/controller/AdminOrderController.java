@@ -25,8 +25,9 @@ public class AdminOrderController {
     public Result<PageResult<OrderDTO>> orders(@RequestParam(defaultValue = "1") long current,
                                                @RequestParam(defaultValue = "10") long size,
                                                @RequestParam(required = false) String status,
-                                               @RequestParam(required = false) String search) {
-        return Result.ok(orderService.pageOrders(current, size, status, search));
+                                               @RequestParam(required = false) String search,
+                                               @RequestParam(required = false) Long storeSubjectId) {
+        return Result.ok(orderService.pageOrders(current, size, status, search, storeSubjectId));
     }
 
     /** 后台：订单详情（含商品明细 items） */

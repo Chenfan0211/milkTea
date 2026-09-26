@@ -1,9 +1,15 @@
 package com.wuling.trade.service;
 
 import com.wechat.pay.java.service.payments.jsapi.JsapiServiceExtension;
+import com.wechat.pay.java.service.refund.RefundService;
+import com.wechat.pay.java.service.refund.model.AmountReq;
+import com.wechat.pay.java.service.refund.model.CreateRequest;
+import com.wechat.pay.java.service.refund.model.Refund;
 import com.wechat.pay.java.service.payments.jsapi.model.Amount;
 import com.wechat.pay.java.service.payments.jsapi.model.Payer;
 import com.wechat.pay.java.service.payments.jsapi.model.PrepayRequest;
+import com.wechat.pay.java.service.payments.jsapi.model.QueryOrderByOutTradeNoRequest;
+import com.wechat.pay.java.service.payments.model.Transaction;
 import com.wechat.pay.java.service.payments.jsapi.model.PrepayWithRequestPaymentResponse;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
@@ -15,6 +21,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 微信支付通道实现（第 14 期支付接入）。
@@ -45,10 +55,12 @@ public class WechatPayGateway implements PaymentGateway {
 
     private final WxPayProperties properties;
     private final JsapiServiceExtension jsapiService;
+    private final RefundService refundService;
 
-    public WechatPayGateway(WxPayProperties properties, JsapiServiceExtension jsapiService) {
+    public WechatPayGateway(WxPayProperties properties, JsapiServiceExtension jsapiService, RefundService refundService) {
         this.properties = properties;
         this.jsapiService = jsapiService;
+        this.refundService = refundService;
     }
 
     @Override
@@ -71,6 +83,13 @@ public class WechatPayGateway implements PaymentGateway {
     @Override
     public WxPayPrepayResult prepayForMiniApp(String orderNo, long amountFen,
                                               String payerOpenid, String description) {
+        return prepayForMiniApp(orderNo, amountFen, payerOpenid, description, null);
+    }
+
+    @Override
+    public WxPayPrepayResult prepayForMiniApp(String orderNo, long amountFen,
+                                              String payerOpenid, String description,
+                                              LocalDateTime expireTime) {
         if (!StringUtils.hasText(payerOpenid)) {
             // 不静默降级：缺 openid 说明用户登录态异常，下单必然被微信拒绝
             throw new BusinessException(ResultCode.UNAUTHORIZED, "登录状态异常，请重新登录后再支付");
@@ -85,6 +104,10 @@ public class WechatPayGateway implements PaymentGateway {
         request.setDescription(buildDescription(description));
         request.setOutTradeNo(orderNo);
         request.setNotifyUrl(properties.getNotifyUrl());
+        if (expireTime != null) {
+            request.setTimeExpire(expireTime.atZone(ZoneId.systemDefault())
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        }
 
         Amount amount = new Amount();
         amount.setTotal(Math.toIntExact(amountFen));
@@ -120,6 +143,88 @@ public class WechatPayGateway implements PaymentGateway {
             // 不向上暴露微信原始报文（可能含敏感信息），但保留本地日志便于排查
             log.error("微信支付统一下单失败 orderNo={} err={}", orderNo, e.getMessage(), e);
             throw new BusinessException(ResultCode.ERROR, "发起支付失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 主动查询微信订单状态（后台「异常重试」用。
+     *
+     * <p><b>为什么不直接把状态改成成功</b>：后台重试必须由三方真实状态驱动。
+     * 若把「重试」实现成直接置为 PAID，等于人工伪造一笔交易 ——
+     * 用户实际未付款却交付商品，属资金损失。
+     *
+     * <p><b>返回值语义</b>：
+     * <ul>
+     *   <li>查到订单 → 返回三方状态（含 SUCCESS / NOTPAY / CLOSED / PAYERROR 等）；</li>
+     *   <li>订单不存在 / 网络异常 → 返回 null，由调用方保持原状态并提示。</li>
+     * </ul>
+     */
+    @Override
+    public PaymentQueryResult queryOrder(String orderNo) {
+        if (!StringUtils.hasText(orderNo)) {
+            return null;
+        }
+        QueryOrderByOutTradeNoRequest request = new QueryOrderByOutTradeNoRequest();
+        request.setMchid(properties.getMchId());
+        request.setOutTradeNo(orderNo);
+        try {
+            Transaction transaction = jsapiService.queryOrderByOutTradeNo(request);
+            if (transaction == null) {
+                return null;
+            }
+            Integer total = transaction.getAmount() == null ? null : transaction.getAmount().getTotal();
+            return new PaymentQueryResult(
+                    transaction.getTradeState() == null ? null : transaction.getTradeState().name(),
+                    transaction.getTradeStateDesc(),
+                    transaction.getTransactionId(),
+                    total == null ? null : total.longValue());
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            // 查不到订单（ORDER_NOT_EXIST）属于补偿流程的正常分支：
+            // 记录告警级日志并返回 null，让后台保持原状态而不是抛错中断列表操作。
+            log.warn("微信支付订单查询失败 orderNo={} err={}", orderNo, e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public RefundApplyResult refund(String orderNo, String refundNo, long amountFen, String reason) {
+        if (!StringUtils.hasText(orderNo) || !StringUtils.hasText(refundNo)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "退款参数缺失");
+        }
+        if (amountFen <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "退款金额必须大于 0");
+        }
+
+        CreateRequest request = new CreateRequest();
+        request.setOutTradeNo(orderNo);
+        request.setOutRefundNo(refundNo);
+        if (StringUtils.hasText(reason)) {
+            request.setReason(reason.trim());
+        }
+        // 证书/回调信息接入前 refundNotifyUrl 为空：此时不下发 notify_url，
+        // 微信会回调商户平台里配置的默认退款通知地址。
+        if (StringUtils.hasText(properties.getRefundNotifyUrl())) {
+            request.setNotifyUrl(properties.getRefundNotifyUrl());
+        }
+
+        AmountReq amount = new AmountReq();
+        amount.setRefund(amountFen);
+        amount.setTotal(amountFen);
+        amount.setCurrency("CNY");
+        request.setAmount(amount);
+
+        try {
+            Refund refund = refundService.create(request);
+            // 受理成功：微信返回退款状态（PROCESSING 等），最终结果以退款结果通知为准
+            return new RefundApplyResult(true, refund == null ? null : refund.getRefundId(), null);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            // 同步失败：记录日志并返回失败结果，由 RefundService 置 FAILED 并保留订单可重试
+            log.error("微信支付退款下单失败 orderNo={} refundNo={} err={}", orderNo, refundNo, e.getMessage(), e);
+            return new RefundApplyResult(false, null, e.getMessage());
         }
     }
 

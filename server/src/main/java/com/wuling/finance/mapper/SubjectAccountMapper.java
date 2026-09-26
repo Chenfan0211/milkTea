@@ -3,9 +3,15 @@ package com.wuling.finance.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.wuling.finance.entity.SubjectAccount;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 public interface SubjectAccountMapper extends BaseMapper<SubjectAccount> {
+
+    /** 事务内锁定账户行，随后基于当前余额生成前后快照并更新。 */
+    @Select("select * from subject_account "
+            + "where subject_id = #{subjectId} and deleted = 0 limit 1 for update")
+    SubjectAccount selectBySubjectIdForUpdate(@Param("subjectId") Long subjectId);
 
     /**
      * 原子冻结（提现申请）：可用余额 -> 冻结余额。
