@@ -91,7 +91,7 @@ public final class CrudRegistry {
             // 后，该月起改用 investor_ratio_after（万分比）；阈值为 0 表示不启用该规则。
             // scope 登记为 filterable，供页面「范围」下拉做精确筛选。
             Map.entry("splitRules", new Resource("splitRules", "split_rule",
-                    List.of("code", "name", "scope", "product_id", "platform_ratio", "store_ratio",
+                    List.of("code", "name", "scope", "platform_ratio", "store_ratio",
                             "channel_ratio", "investor_ratio", "investor_threshold_amount",
                             "investor_ratio_after", "supplier_ratio", "status"),
                     List.of("code", "name"), "id asc", List.of("scope"))),
@@ -108,11 +108,16 @@ public final class CrudRegistry {
             Map.entry("storedValuePackages", new Resource("storedValuePackages", "stored_value_package",
                     List.of("code", "name", "amount", "status", "usage_paragraphs"),
                     List.of("code", "name"), "id asc")),
-            // category：积分商品分区（pet=宠物公益专区 / coupon=优惠券区）
+            // 分类编码为业务关联键：points_product.category 保存 points_category.code。
+            Map.entry("pointsCategories", new Resource("pointsCategories", "points_category",
+                    List.of("code", "name", "sort", "enabled"),
+                    List.of("code", "name"), "sort asc, id asc", List.of("enabled"))),
+            // coupon_id：优惠券分类商品绑定的券模板；其余字段与小程序积分商品配置保持一致。
             Map.entry("pointsProducts", new Resource("pointsProducts", "points_product",
                     List.of("code", "name", "image", "points", "stock", "badge", "limit_text",
-                            "description", "category", "status"),
-                    List.of("code", "name"), "id asc")),
+                            "description", "category", "status", "purchase_limit", "display_type",
+                            "coupon_amount", "coupon_condition", "badge_in_image", "coupon_id"),
+                    List.of("code", "name"), "id asc", List.of("category", "status"))),
             Map.entry("pointsEarningRules", new Resource("pointsEarningRules", "points_earning_rule",
                     List.of("code", "action", "reward", "note", "sort"),
                     List.of("code", "action"), "sort asc, id asc")),
@@ -171,9 +176,6 @@ public final class CrudRegistry {
             Map.entry("withdrawals", new Resource("withdrawals", "withdrawal",
                     List.of("failure_reason"),
                     List.of("withdraw_no"), "id desc")),
-            Map.entry("commentsAdmin", new Resource("commentsAdmin", "comments",
-                    List.of("status", "review_time"),
-                    List.of("content"), "id desc")),
             Map.entry("auditLogs", new Resource("auditLogs", "audit_log",
                     List.of("operator", "module", "action", "target", "reason", "ip"),
                     List.of("operator", "module", "action", "target", "before_value", "after_value", "reason"), "id desc",
@@ -195,9 +197,6 @@ public final class CrudRegistry {
             Map.entry("exchangeRecords", new Resource("exchangeRecords", "exchange_order",
                     List.of("status"),
                     List.of("exchange_no", "pickup_code"), "id desc")),
-            Map.entry("comments", new Resource("comments", "comments",
-                    List.of("status", "review_time"),
-                    List.of("content"), "id desc")),
             Map.entry("referralConfig", new Resource("referralConfig", "referral_config",
                     List.of("config"),
                     List.of(), "id desc")),

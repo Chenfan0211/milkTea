@@ -141,6 +141,7 @@ VALUES
 ('marketing_gift-order', 'marketing', '礼品卡订单', '/marketing/gift-order', 'view.marketing_gift-order', 'mdi:gift-open', 7, 0, 'ENABLE_STORED_VALUE'),
 ('marketing_member', 'marketing', '会员等级', '/marketing/member', 'view.marketing_member', 'mdi:account-star', 5, 0, 'ENABLE_STORED_VALUE'),
 ('marketing_points', 'marketing', '积分商城', '/marketing/points', 'view.marketing_points', 'mdi:star', 4, 0, 'ENABLE_STORED_VALUE'),
+('marketing_points-category', 'marketing', '积分商城分类', '/marketing/points-category', 'view.marketing_points-category', NULL, 0, 1, 'ENABLE_STORED_VALUE'),
 ('marketing_points-rule', 'marketing', 'marketing_points-rule', '/marketing/points-rule', 'view.marketing_points-rule', NULL, 0, 0, NULL),
 ('marketing_referral', 'marketing', '分享有礼', '/marketing/referral', 'view.marketing_referral', 'mdi:share-variant', 9, 0, NULL),
 ('marketing_stored', 'marketing', '储值套餐', '/marketing/stored', 'view.marketing_stored', 'mdi:gift', 2, 0, 'ENABLE_STORED_VALUE'),

@@ -89,7 +89,15 @@ class DedicatedEndpointConsistencyTest {
             "marketing-service/src/main/java/com/wuling/marketing/controller/AdminMarketingConfigController.java",
             // 详情查询（快照详情 / 角色申请详情 / 核销详情）
             "server/src/main/java/com/wuling/system/controller/AdminDetailQueryController.java",
+            // 后台交易查询（支付记录 / 退款 / 核销记录；支付记录页直读其返回字段）
+            "trade-service/src/main/java/com/wuling/trade/controller/AdminTradeQueryController.java",
+            // 后台订单列表 / 详情（含商品明细 items 与分账快照 split）
+            "trade-service/src/main/java/com/wuling/trade/controller/AdminOrderController.java",
+            // 订单 DTO：字段以它为准（OrderDTO / OrderDTO.Split / OrderDTO.Item）
+            "trade-service/src/main/java/com/wuling/trade/dto/OrderDTO.java",
             // 授权中心（2026-09-25 RBAC 重构）：账号 / 角色菜单 / 角色与授权查询
+            // 资金流水：走 AdminFinanceQueryController#flows 专用查询（账户/业务/结算/余额快照联表）。
+            "server/src/main/java/com/wuling/finance/controller/AdminFinanceQueryController.java",
             "server/src/main/java/com/wuling/auth/controller/AdminAccountController.java",
             "server/src/main/java/com/wuling/auth/controller/AdminRoleMenuController.java",
             "server/src/main/java/com/wuling/auth/controller/AdminAuthQueryController.java"
@@ -109,6 +117,9 @@ class DedicatedEndpointConsistencyTest {
             // 礼品卡页 / 储值页：读 AdminMarketingConfigController 的配置接口
             // （gift-card-faces / stored-value-packages），走专用接口，仅登记覆盖
             "src/views/marketing/gift/index.vue",
+            // 礼品卡新增/编辑与分组管理弹窗：分别调用礼品卡面保存、图片上传和分组 CRUD。
+            "src/views/marketing/gift/GiftCardEditor.vue",
+            "src/views/marketing/gift/GiftGroupManager.vue",
             "src/views/marketing/stored/index.vue",
             // 以下 3 个为详情页：用描述列表（descriptions）而非 DataTable columns 展示，
             // 故不参与「直读列」校验，仅登记以满足覆盖范围可见性要求
@@ -121,7 +132,28 @@ class DedicatedEndpointConsistencyTest {
             // 此处登记以满足覆盖范围可见性要求（新增专用接口页面时不得遗漏）。
             "src/views/auth/account/index.vue",
             "src/views/auth/role/index.vue",
-            "src/views/auth/grant/index.vue"
+            "src/views/auth/grant/index.vue",
+            // 分账规则页：启用/停用改走专用接口 toggleSplitRule
+            // （AdminMarketingConfigController#toggleSplitRule），不再是纯本地 store 写。
+            "src/views/product/split/index.vue",
+            // 支付记录页：改走 AdminTradeQueryController#payments 专用接口
+            // （支持「订单号 / 流水订单号」双字段检索 + 显式列返回），
+            // 且「异常重试」调 /payments/{id}/retry，不再是纯通用 CRUD。
+            "src/views/trade/payment/index.vue",
+            // 订单管理页：订单列表/详情走 AdminOrderController（含商品明细与分账快照），
+            // 不再走通用 CRUD（通用 CRUD 返回 orders 裸列，无 items / split）。
+            // 说明：该页表格列的 orderNo / store 等由后端 OrderDTO 返回，
+            // 故需同时在 BACKEND_IMPLEMENTATIONS 登记 OrderDTO。
+            "src/views/trade/order/index.vue",
+            // 资金流水页：改走 AdminFinanceQueryController#flows 专用接口，
+            // 以 changeAmount 展示变动金额，并返回账户、业务和结算快照。
+            "src/views/finance/flow/index.vue",
+            // 以下 3 个页面 import 并调用了 service/api 的专用查询函数，
+            // 登记以满足覆盖范围可见性；其表格列多数带自定义 render 或
+            // 读本地派生字段，不参与「直读列」严格校验。
+            "src/views/finance/snapshot/index.vue",
+            "src/views/review/role/index.vue",
+            "src/views/trade/verify/index.vue"
     );
 
     /** 后端行字段名 -> 是否可用（含 SQL select 出来的列，做 camel/snake 双向匹配）。 */
@@ -141,11 +173,22 @@ class DedicatedEndpointConsistencyTest {
             for (Matcher m = Pattern.compile("data\\.put\\(\\s*\"(\\w+)\"").matcher(src); m.find(); ) {
                 fields.add(m.group(1));
             }
+            // 2b) DTO 字段：Lombok @Data 的 DTO（如 OrderDTO）只有 private Xxx yyy;，
+            //     没有 row.put(...)。不提取会导致「页面直读 DTO 字段」被误报为不一致。
+            for (Matcher m = Pattern.compile("private\\s+[\\w<>.\\[\\]]+\\s+(\\w+)\\s*;").matcher(src); m.find(); ) {
+                fields.add(m.group(1));
+            }
             // 3) payload.get("x") —— 写入路径读的字段
             for (Matcher m = Pattern.compile("payload\\.get\\(\\s*\"(\\w+)\"").matcher(src); m.find(); ) {
                 fields.add(m.group(1));
             }
             // 4) select xxx as yyy / select a, b —— SQL 里出现过的列
+            //
+            // 两种写法都要覆盖：
+            //   a) 单段字面量： jdbcTemplate.queryForList("select a, b from t ...")
+            //   b) 多段拼接（含「select ... from 」前缀拆到另一段的情况）：
+            //      pageOf("payment", "select a, b from ", ...)
+            // 后者在源码里被引号与换行切开，需先按「不跨行」的方式逐段取。
             for (Matcher m = Pattern.compile("select\\s+([^\"]+?)\\s+from", Pattern.CASE_INSENSITIVE).matcher(src); m.find(); ) {
                 for (String col : m.group(1).split(",")) {
                     String c = col.trim();
@@ -156,6 +199,23 @@ class DedicatedEndpointConsistencyTest {
                     }
                     c = c.replaceAll("^\\w+\\.", "").replaceAll("[^\\w]", "");
                     if (!c.isEmpty() && !c.equalsIgnoreCase("count")) {
+                        fields.add(c);
+                    }
+                }
+            }
+            // 4b) 拼接写法：把相邻的字符串字面量合并后再提取列名，
+            //     例如 "select id, order_no, amount, channel," + " third_status ... from "
+            String merged = src.replaceAll("\"\\s*\\+\\s*\"", " ");
+            for (Matcher m = Pattern.compile("select\\s+([^\"]+?)\\s+from", Pattern.CASE_INSENSITIVE).matcher(merged); m.find(); ) {
+                for (String col : m.group(1).split(",")) {
+                    String c = col.trim();
+                    Matcher asM = Pattern.compile("\\bas\\s+(\\w+)$", Pattern.CASE_INSENSITIVE).matcher(c);
+                    if (asM.find()) {
+                        fields.add(asM.group(1));
+                        continue;
+                    }
+                    c = c.replaceAll("^\\w+\\.", "").replaceAll("[^\\w]", "");
+                    if (!c.isEmpty() && !c.equalsIgnoreCase("count") && !c.equalsIgnoreCase("select")) {
                         fields.add(c);
                     }
                 }

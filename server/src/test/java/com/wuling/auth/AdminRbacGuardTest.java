@@ -38,6 +38,9 @@ class AdminRbacGuardTest {
 
     private static final String MIGRATION = "server/src/main/resources/db/migration/V39__admin_rbac_menu.sql";
 
+    private static final String POINTS_RULE_MENU_RENAME =
+            "server/src/main/resources/db/migration/V46__rename_points_rule_menu.sql";
+
     /** 1) 迁移必须存在，且建了 sys_role_menu、给 sys_role/sys_user 补了标记列 */
     @Test
     void rbacMigrationShouldExistAndBeComplete() throws IOException {
@@ -176,6 +179,21 @@ class AdminRbacGuardTest {
                         + "动态菜单模式下前端拿不到任何菜单");
         assertTrue(route.contains("menuCodesOf"),
                 "/route/isRouteExist 未按账号菜单判定 —— 恒返回 true 会绕过 403 逻辑");
+    }
+
+    /** 5) 菜单重命名只能改 name，不能顺手改动路由或权限锚点。 */
+    @Test
+    void pointsRuleMenuRenameShouldOnlyChangeDisplayName() throws IOException {
+        String sql = readIfExists(repoRoot().resolve(POINTS_RULE_MENU_RENAME));
+        String normalized = sql.replaceAll("\\s+", " ").trim();
+
+        assertTrue(normalized.contains(
+                        "UPDATE sys_menu SET name = '签到规则' WHERE code = 'marketing_points-rule' AND deleted = 0;"),
+                "V46 必须只按 marketing_points-rule 更新菜单展示名");
+        assertTrue(!normalized.contains("path =")
+                        && !normalized.contains("component =")
+                        && !normalized.contains("perms ="),
+                "菜单重命名迁移不得修改路由、组件或权限字段");
     }
 
     private String readIfExists(Path path) throws IOException {

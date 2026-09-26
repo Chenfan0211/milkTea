@@ -46,7 +46,7 @@ class ReconcileLogicIT {
     // ---------- 检查项 1：已核销但无分账快照 ----------
 
     @Test
-    void shouldDetectVerifiedOrderWithoutSplitSnapshot() throws Exception {
+    void shouldDetectCompletedOrderWithoutSplitSnapshot() throws Exception {
         if (!enabled()) { return; }
 
         long orderId = 999_100_001L;
@@ -54,7 +54,7 @@ class ReconcileLogicIT {
         cleanup(orderId, orderNo);
 
         try (Connection c = conn()) {
-            insertOrder(c, orderId, orderNo, "VERIFIED", 1000L, "PAID");
+            insertOrder(c, orderId, orderNo, "COMPLETED", 1000L, "PAID");
 
             List<String> found = queryMissingSplit(c);
             assertTrue(found.contains(orderNo),
@@ -73,7 +73,7 @@ class ReconcileLogicIT {
         cleanup(orderId, orderNo);
 
         try (Connection c = conn()) {
-            insertOrder(c, orderId, orderNo, "VERIFIED", 1000L, "PAID");
+            insertOrder(c, orderId, orderNo, "COMPLETED", 1000L, "PAID");
             try (PreparedStatement ps = c.prepareStatement(
                     "insert into split_snapshot (snapshot_no, order_id, order_no, item_count, "
                             + "platform_amount, store_amount, channel_amount, investor_amount, supplier_amount, deleted) "
@@ -93,7 +93,7 @@ class ReconcileLogicIT {
     }
 
     @Test
-    void shouldIgnoreUnverifiedOrder() throws Exception {
+    void shouldIgnorePaidOrder() throws Exception {
         if (!enabled()) { return; }
 
         long orderId = 999_100_003L;
@@ -101,12 +101,12 @@ class ReconcileLogicIT {
         cleanup(orderId, orderNo);
 
         try (Connection c = conn()) {
-            // 仅支付未核销：不应分账，也不应报异常
+            // 仅支付未完成：不应分账，也不应报异常
             insertOrder(c, orderId, orderNo, "PAID", 1000L, "PAID");
 
             List<String> found = queryMissingSplit(c);
             assertTrue(!found.contains(orderNo),
-                    "未核销订单不应被报为漏分账（分账发生在核销时）");
+                    "未完成订单不应被报为漏分账（分账发生在完成时）");
         } finally {
             cleanup(orderId, orderNo);
         }
@@ -115,7 +115,7 @@ class ReconcileLogicIT {
     // ---------- 检查项 2：已退款但未冲正 ----------
 
     @Test
-    void shouldDetectRefundedOrderWithPendingSettlement() throws Exception {
+    void shouldDetectCanceledRefundedOrderWithPendingSettlement() throws Exception {
         if (!enabled()) { return; }
 
         long orderId = 999_100_004L;
@@ -123,7 +123,7 @@ class ReconcileLogicIT {
         cleanup(orderId, orderNo);
 
         try (Connection c = conn()) {
-            insertOrder(c, orderId, orderNo, "REFUNDED", 1000L, "PAID");
+            insertOrder(c, orderId, orderNo, "CANCELED", "REFUNDED", 1000L, "PAID");
             try (PreparedStatement ps = c.prepareStatement(
                     "insert into settlement_record (record_no, subject_id, snapshot_id, order_id, "
                             + "amount, status, deleted) values (?, 101, 1, ?, 300, 'PENDING', 0)")) {
@@ -134,14 +134,14 @@ class ReconcileLogicIT {
 
             List<String> found = queryMissingReverse(c);
             assertTrue(found.contains(orderNo),
-                    "已退款但仍挂 PENDING 台账的订单应被对账发现");
+                    "已退款取消但仍挂 PENDING 台账的订单应被对账发现");
         } finally {
             cleanup(orderId, orderNo);
         }
     }
 
     @Test
-    void shouldIgnoreRefundedOrderWithCanceledSettlement() throws Exception {
+    void shouldIgnoreCanceledRefundedOrderWithCanceledSettlement() throws Exception {
         if (!enabled()) { return; }
 
         long orderId = 999_100_005L;
@@ -149,7 +149,7 @@ class ReconcileLogicIT {
         cleanup(orderId, orderNo);
 
         try (Connection c = conn()) {
-            insertOrder(c, orderId, orderNo, "REFUNDED", 1000L, "PAID");
+            insertOrder(c, orderId, orderNo, "CANCELED", "REFUNDED", 1000L, "PAID");
             try (PreparedStatement ps = c.prepareStatement(
                     "insert into settlement_record (record_no, subject_id, snapshot_id, order_id, "
                             + "amount, status, deleted) values (?, 101, 1, ?, 300, 'CANCELED', 0)")) {
@@ -160,12 +160,37 @@ class ReconcileLogicIT {
 
             List<String> found = queryMissingReverse(c);
             assertTrue(!found.contains(orderNo),
-                    "已冲正（CANCELED）的订单不应被误报");
+                    "已退款取消且已冲正（CANCELED）的订单不应被误报");
         } finally {
             cleanup(orderId, orderNo);
         }
     }
 
+    @Test
+    void shouldIgnoreCanceledOrderWithoutRefundedStatus() throws Exception {
+        if (!enabled()) { return; }
+
+        long orderId = 999_100_007L;
+        String orderNo = "IT-RECON-CANCELED";
+        cleanup(orderId, orderNo);
+
+        try (Connection c = conn()) {
+            insertOrder(c, orderId, orderNo, "CANCELED", null, 1000L, "PAID");
+            try (PreparedStatement ps = c.prepareStatement(
+                    "insert into settlement_record (record_no, subject_id, snapshot_id, order_id, "
+                            + "amount, status, deleted) values (?, 101, 1, ?, 300, 'PENDING', 0)")) {
+                ps.setString(1, "SR-" + orderNo);
+                ps.setLong(2, orderId);
+                ps.executeUpdate();
+            }
+
+            List<String> found = queryMissingReverse(c);
+            assertTrue(!found.contains(orderNo),
+                    "CANCELED 但 refund_status 未达到 REFUNDED 的订单不应被报为退款未冲正");
+        } finally {
+            cleanup(orderId, orderNo);
+        }
+    }
     // ---------- 检查项 3：分账金额不一致 ----------
 
     @Test
@@ -177,7 +202,7 @@ class ReconcileLogicIT {
         cleanup(orderId, orderNo);
 
         try (Connection c = conn()) {
-            insertOrder(c, orderId, orderNo, "VERIFIED", 1000L, "PAID");
+            insertOrder(c, orderId, orderNo, "COMPLETED", 1000L, "PAID");
             // 五方之和 = 900 ≠ 实付 1000
             try (PreparedStatement ps = c.prepareStatement(
                     "insert into split_snapshot (snapshot_no, order_id, order_no, item_count, "
@@ -202,7 +227,7 @@ class ReconcileLogicIT {
     private List<String> queryMissingSplit(Connection c) throws Exception {
         String sql = "select o.order_no from orders o "
                 + "left join split_snapshot s on s.order_id = o.id and s.deleted = 0 "
-                + "where o.deleted = 0 and o.status in ('VERIFIED','COMPLETED') and s.id is null "
+                + "where o.deleted = 0 and o.status = 'COMPLETED' and s.id is null "
                 + "and o.order_no like 'IT-RECON%'";
         return collect(c, sql);
     }
@@ -210,7 +235,7 @@ class ReconcileLogicIT {
     private List<String> queryMissingReverse(Connection c) throws Exception {
         String sql = "select distinct o.order_no from orders o "
                 + "join settlement_record r on r.order_id = o.id and r.deleted = 0 "
-                + "where o.deleted = 0 and o.status = 'REFUNDED' and r.status = 'PENDING' "
+                + "where o.deleted = 0 and o.status = 'CANCELED' and o.refund_status = 'REFUNDED' and r.status = 'PENDING' "
                 + "and o.order_no like 'IT-RECON%'";
         return collect(c, sql);
     }
@@ -237,15 +262,21 @@ class ReconcileLogicIT {
 
     private void insertOrder(Connection c, long id, String orderNo, String status,
                              long paidAmount, String payStatus) throws Exception {
+        insertOrder(c, id, orderNo, status, null, paidAmount, payStatus);
+    }
+
+    private void insertOrder(Connection c, long id, String orderNo, String status, String refundStatus,
+                             long paidAmount, String payStatus) throws Exception {
         try (PreparedStatement ps = c.prepareStatement(
-                "insert into orders (id, order_no, user_id, store_subject_id, status, pay_status, "
-                        + "total_amount, paid_amount, deleted) values (?, ?, 1, 101, ?, ?, ?, ?, 0)")) {
+                "insert into orders (id, order_no, user_id, store_subject_id, status, refund_status, pay_status, "
+                        + "total_amount, paid_amount, deleted) values (?, ?, 1, 101, ?, ?, ?, ?, ?, 0)")) {
             ps.setLong(1, id);
             ps.setString(2, orderNo);
             ps.setString(3, status);
-            ps.setString(4, payStatus);
-            ps.setLong(5, paidAmount);
+            ps.setString(4, refundStatus);
+            ps.setString(5, payStatus);
             ps.setLong(6, paidAmount);
+            ps.setLong(7, paidAmount);
             ps.executeUpdate();
         }
     }

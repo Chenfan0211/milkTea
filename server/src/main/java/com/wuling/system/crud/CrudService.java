@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -49,6 +50,12 @@ public class CrudService {
      */
     private static final String RESOURCE_ROLES = "roles";
     private static final String SUPER_ROLE_CODE = "R_SUPER";
+
+    /** 积分商城分类与商品资源：分类编码是商品关联键，写操作必须由服务端校验引用完整性。 */
+    private static final String RESOURCE_POINTS_CATEGORIES = "pointsCategories";
+    private static final String RESOURCE_POINTS_PRODUCTS = "pointsProducts";
+    private static final String RESOURCE_COUPONS = "coupons";
+    private static final String POINTS_CATEGORY_COUPON = "coupon";
 
     /**
      * 「授权中心」资源：roles / grants。
@@ -154,6 +161,8 @@ public class CrudService {
         CrudRegistry.Resource def = require(resource);
         guardSuperOnly(resource);
         Map<String, Object> values = filterWritable(def, payload);
+        guardSplitRule(def, values, true);
+        guardPointsCategoryCreate(def, values);
         // code 为 NOT NULL 唯一键的表（如 coupon/points_product/stored_value_package 等），
         // 前端表单大多不填 code，直接 insert 会报「Field 'code' doesn't have a default value」。
         // 这里在 code 缺失或为空时自动生成唯一 code，保证新增可用；前端显式传 code 时尊重前端值。
@@ -163,6 +172,7 @@ public class CrudService {
         if (values.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "没有可写入的字段");
         }
+        guardPointsProduct(def, values, null);
         String columns = String.join(", ", values.keySet());
         String placeholders = String.join(", ", values.keySet().stream().map(c -> "?").toList());
         String sql = "insert into " + SqlGuard.ident(def.table()) + " (" + columns + ") values (" + placeholders + ")";
@@ -188,11 +198,14 @@ public class CrudService {
         guardSuperOnly(resource);
         guardBuiltinRoleWrite(resource, id, false);
         Map<String, Object> values = filterWritable(def, payload);
+        guardSplitRule(def, values, false);
         if (values.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "没有可更新的字段");
         }
-        // 审计需要「改前/改后」对比，故先取原值（失败则不存在，直接抛错）
+        // 部分更新必须先取旧行再校验；积分商城分类编码创建后不可修改。
         Map<String, Object> before = getOne(resource, id);
+        guardPointsCategoryWrite(def, values, before);
+        guardPointsProduct(def, values, before);
         String sets = String.join(", ", values.keySet().stream().map(c -> c + " = ?").toList());
         List<Object> args = new ArrayList<>(values.values());
         args.add(id);
@@ -214,6 +227,8 @@ public class CrudService {
         guardBuiltinRoleWrite(resource, id, true);
         // 逻辑删除后记录带 deleted=1，但审计仍需原始内容，故统一在删除前取出
         Map<String, Object> before = getOne(resource, id);
+        guardPointsCategoryDelete(def, before);
+        guardCouponDelete(def, id);
         int affected = jdbcTemplate.update(
                 "update " + SqlGuard.ident(def.table()) + " set deleted = 1 where id = ? and deleted = 0", id);
         if (affected == 0) {
@@ -418,6 +433,180 @@ public class CrudService {
         return n != null && n > 0;
     }
 
+    /**
+     * 分账规则（splitRules）写入前的业务约束：
+     * <ul>
+     *   <li>作用范围强制为全局（GLOBAL）；</li>
+     *   <li>投资人达标额必填且大于 0；</li>
+     *   <li>启用时保证全局范围有且仅有一条启用。</li>
+     * </ul>
+     */
+    private void guardSplitRule(CrudRegistry.Resource def, Map<String, Object> values, boolean isCreate) {
+        if (!"splitRules".equals(def.resource())) {
+            return;
+        }
+        // scope 强制全局（前端只留 GLOBAL，此处兜底防止直接调接口写入 PRODUCT）
+        if (values.containsKey("scope") && !"GLOBAL".equals(String.valueOf(values.get("scope")))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "分账规则作用范围仅支持全局（GLOBAL）");
+        }
+        // 投资人达标额必填：新增时必须提供且 > 0；编辑时仅当显式传入时才校验 > 0
+        Object threshold = values.get("investor_threshold_amount");
+        if (isCreate) {
+            if (threshold == null || ((Number) threshold).longValue() <= 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "投资人达标额必填且必须大于 0");
+            }
+        } else if (threshold != null && ((Number) threshold).longValue() <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "投资人达标额必须大于 0");
+        }
+    }
+
+    /**
+     * 积分商城分类新增约束。
+     *
+     * <p>分类编码是商品关联键，客户端又把 all 用作虚拟“全部”页签，因此新增时必须显式提供
+     * 唯一编码和名称，禁止占用 all。
+     */
+    private void guardPointsCategoryCreate(CrudRegistry.Resource def, Map<String, Object> values) {
+        if (!RESOURCE_POINTS_CATEGORIES.equals(def.resource())) {
+            return;
+        }
+        if (!hasText(values.get("code"))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "分类编码不能为空");
+        }
+        if (!hasText(values.get("name"))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "分类名称不能为空");
+        }
+        String code = textValue(values.get("code")).trim();
+        if ("all".equalsIgnoreCase(code)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "all 为客户端保留分类编码，不能创建");
+        }
+        values.put("code", code);
+        values.put("name", textValue(values.get("name")).trim());
+    }
+
+    /** 积分商城分类更新约束：编码创建后不可修改；名称、排序和启停允许调整。 */
+    private void guardPointsCategoryWrite(CrudRegistry.Resource def,
+                                          Map<String, Object> values,
+                                          Map<String, Object> before) {
+        if (!RESOURCE_POINTS_CATEGORIES.equals(def.resource())) {
+            return;
+        }
+        if (values.containsKey("code")) {
+            String newCode = textValue(values.get("code"));
+            if (!hasText(newCode)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "分类编码不能为空");
+            }
+            if (!Objects.equals(textValue(before.get("code")), newCode)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "分类编码创建后不可修改");
+            }
+        }
+        if (values.containsKey("name") && !hasText(values.get("name"))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "分类名称不能为空");
+        }
+    }
+
+    /** 系统优惠券分类禁止删除；其他分类有有效积分商品引用时只能停用。 */
+    private void guardPointsCategoryDelete(CrudRegistry.Resource def, Map<String, Object> before) {
+        if (!RESOURCE_POINTS_CATEGORIES.equals(def.resource())) {
+            return;
+        }
+        if (isFlagOn(before.get("systemLocked"))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "系统优惠券分类不能删除");
+        }
+        String code = textValue(before.get("code"));
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from points_product where deleted = 0 and category = ?",
+                Integer.class, code);
+        if (count != null && count > 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "该分类下存在积分商品，只能停用，不能删除");
+        }
+    }
+
+    /** 被有效积分商品绑定的优惠券模板禁止删除，避免兑换时出现悬空券。 */
+    private void guardCouponDelete(CrudRegistry.Resource def, long id) {
+        if (!RESOURCE_COUPONS.equals(def.resource())) {
+            return;
+        }
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from points_product where deleted = 0 and coupon_id = ?",
+                Integer.class, id);
+        if (count != null && count > 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "该优惠券已被积分商品绑定，请先解绑或停用关联商品后再删除");
+        }
+    }
+
+    /**
+     * 积分商品分类与优惠券绑定约束。
+     *
+     * <p>更新接口是部分更新：未提交的字段必须从旧行补齐；显式提交 null 则仍应按 null 校验，
+     * 因此这里用 {@code containsKey} 区分“未传”和“传空”。
+     */
+    private void guardPointsProduct(CrudRegistry.Resource def,
+                                    Map<String, Object> values,
+                                    Map<String, Object> before) {
+        if (!RESOURCE_POINTS_PRODUCTS.equals(def.resource())) {
+            return;
+        }
+        String category = textValue(values.containsKey("category")
+                ? values.get("category")
+                : before == null ? null : before.get("category"));
+        if (!hasText(category)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "积分商品必须选择分类");
+        }
+        Integer categoryCount = jdbcTemplate.queryForObject(
+                "select count(*) from points_category where deleted = 0 and code = ?",
+                Integer.class, category);
+        if (categoryCount == null || categoryCount == 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "积分商品分类不存在或已删除");
+        }
+
+        Object couponValue = values.containsKey("coupon_id")
+                ? values.get("coupon_id")
+                : before == null ? null : before.get("couponId");
+        if (POINTS_CATEGORY_COUPON.equals(category)) {
+            Long couponId = toLong(couponValue);
+            if (couponId == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券分类商品必须绑定一张优惠券");
+            }
+            Integer enabledCount = jdbcTemplate.queryForObject(
+                    "select count(*) from coupon where id = ? and deleted = 0 and status = 'enabled'",
+                    Integer.class, couponId);
+            if (enabledCount == null || enabledCount == 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "绑定的优惠券不存在、已删除或已停用");
+            }
+        } else if (couponValue != null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "非优惠券分类商品不能绑定优惠券");
+        }
+    }
+
+    private boolean isFlagOn(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue() == 1;
+        }
+        return "1".equals(String.valueOf(value)) || Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private String textValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private Long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && text.matches("\\d+")) {
+            try {
+                return Long.parseLong(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     private CrudRegistry.Resource require(String resource) {
         CrudRegistry.Resource def = CrudRegistry.get(resource);
         if (def == null) {
@@ -478,6 +667,7 @@ public class CrudService {
         String prefix = switch (resource) {
             case "coupons" -> "CP";
             case "pointsProducts" -> "PP";
+            case "pointsCategories" -> "PC";
             case "pointsEarningRules" -> "PR";
             case "storedValuePackages" -> "SV";
             case "giftCards", "giftCardDenominations" -> "GC";
