@@ -170,7 +170,7 @@ export async function fetchSubjectsByType(type: string): Promise<any[]> {
 
 // ---------------- 营销配置特殊动作 ----------------
 
-/** 启用/停用分账规则（后端会校验万分比合计 = 10000） */
+/** 启用/停用分账规则（后端保证全局范围有且仅有一条启用） */
 export async function toggleSplitRule(id: number, enabled: boolean): Promise<void> {
   const res = await request<void>({
     url: `/api/v1/admin/marketing/config/split-rule/${id}/toggle`,
@@ -253,16 +253,6 @@ export async function failWithdraw(id: number, reason?: string): Promise<any> {
   return unwrap<any>(res);
 }
 
-/** 评论审核 */
-export async function reviewComment(id: number, approve: boolean, reason?: string): Promise<void> {
-  const res = await request<void>({
-    url: `/api/v1/admin/marketing/config/comment/${id}/review`,
-    method: 'post',
-    params: { approve, reason }
-  });
-  return unwrap<void>(res);
-}
-
 // ---------------- 储值套餐 / 礼品卡（marketing-service 专用接口） ----------------
 
 /** 储值套餐列表（含赠送券明细 + 使用说明） */
@@ -295,15 +285,138 @@ export async function saveStoredValueUsage(packageId: number, paragraphs: string
   return unwrap<void>(res);
 }
 
-/** 礼品卡「卡面」聚合列表（同 card_name 的多个面额聚为 faceValues） */
-export async function fetchGiftCardFaces(params?: Record<string, any>): Promise<CrudPage> {
-  const res = await request<CrudPage>({
+/** 礼品卡分组与卡面管理 */
+
+export interface GiftCardGroup {
+  code: string;
+  name: string;
+  sort: number;
+}
+
+export interface GiftCardDenomination {
+  id: number;
+  amount: number;
+  salePrice: number;
+  referenced: boolean;
+  deleted: boolean;
+}
+
+export interface GiftCardFace {
+  faceId: number;
+  groupId: string;
+  groupTitle: string;
+  cardName: string;
+  cardImage: string;
+  sort: number;
+  status: 'enabled' | 'disabled';
+  denominations: GiftCardDenomination[];
+}
+
+export interface GiftCardFacePayload {
+  groupId: string;
+  cardName: string;
+  cardImage: string;
+  sort: number;
+  denominations: { id?: number; amount: number; salePrice: number }[];
+}
+
+export interface GiftImageUploadResult {
+  url: string;
+  storedName: string;
+  mimeType: string;
+  size: number;
+}
+
+/** 礼品卡「卡面」聚合列表（面额为分） */
+export async function fetchGiftCardFaces(params?: Record<string, any>): Promise<CrudPage<GiftCardFace>> {
+  const res = await request<CrudPage<GiftCardFace>>({
     url: '/api/v1/admin/marketing/config/gift-card-faces',
     method: 'get',
     params
   });
-  return unwrap<CrudPage>(res);
+  return unwrap<CrudPage<GiftCardFace>>(res);
 }
+
+/** 礼品卡分组列表 */
+export async function fetchGiftCardGroups(): Promise<GiftCardGroup[]> {
+  const res = await request<GiftCardGroup[]>({
+    url: '/api/v1/admin/marketing/config/gift-card-groups',
+    method: 'get'
+  });
+  return unwrap<GiftCardGroup[]>(res);
+}
+
+/** 新增礼品卡分组 */
+export async function createGiftCardGroup(payload: { name: string; sort: number }): Promise<void> {
+  const res = await request<void>({
+    url: '/api/v1/admin/marketing/config/gift-card-groups',
+    method: 'post',
+    data: payload
+  });
+  return unwrap<void>(res);
+}
+
+/** 更新礼品卡分组名称与排序 */
+export async function updateGiftCardGroup(code: string, payload: { name: string; sort: number }): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/marketing/config/gift-card-groups/${encodeURIComponent(code)}`,
+    method: 'put',
+    data: payload
+  });
+  return unwrap<void>(res);
+}
+
+/** 删除礼品卡分组（有关联卡面时由后端拒绝） */
+export async function deleteGiftCardGroup(code: string): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/marketing/config/gift-card-groups/${encodeURIComponent(code)}`,
+    method: 'delete'
+  });
+  return unwrap<void>(res);
+}
+
+/** 新增礼品卡卡面及面额 */
+export async function createGiftCardFace(payload: GiftCardFacePayload): Promise<GiftCardFace> {
+  const res = await request<GiftCardFace>({
+    url: '/api/v1/admin/marketing/config/gift-card-faces',
+    method: 'post',
+    data: payload
+  });
+  return unwrap<GiftCardFace>(res);
+}
+
+/** 更新礼品卡卡面及面额 */
+export async function updateGiftCardFace(faceId: number, payload: GiftCardFacePayload): Promise<GiftCardFace> {
+  const res = await request<GiftCardFace>({
+    url: `/api/v1/admin/marketing/config/gift-card-faces/${faceId}`,
+    method: 'put',
+    data: payload
+  });
+  return unwrap<GiftCardFace>(res);
+}
+
+/** 上架/下架礼品卡卡面 */
+export async function updateGiftCardFaceStatus(faceId: number, enabled: boolean): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/marketing/config/gift-card-faces/${faceId}/status`,
+    method: 'post',
+    params: { enabled }
+  });
+  return unwrap<void>(res);
+}
+
+/** 上传礼品卡图片，业务字段只保存服务端返回的真实 URL */
+export async function uploadGiftCardImage(file: File): Promise<GiftImageUploadResult> {
+  const data = new FormData();
+  data.append('file', file);
+  const res = await request<GiftImageUploadResult>({
+    url: '/api/v1/files/images',
+    method: 'post',
+    data
+  });
+  return unwrap<GiftImageUploadResult>(res);
+}
+
 
 // ---------------- 财务查询 ----------------
 
@@ -385,6 +498,15 @@ export async function refundOrderApi(orderNo: string, reason?: string): Promise<
     method: 'post',
     params: { orderNo },
     data: { reason }
+  });
+  return unwrap<any>(res);
+}
+
+/** 重新退款：仅退款失败(FAILED)的单据可重试 */
+export async function retryRefundApi(refundId: number): Promise<any> {
+  const res = await request<any>({
+    url: `/api/v1/admin/trade/refunds/${refundId}/retry`,
+    method: 'post'
   });
   return unwrap<any>(res);
 }

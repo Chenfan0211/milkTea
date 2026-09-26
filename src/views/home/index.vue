@@ -45,7 +45,7 @@ const kpis = computed<Kpi[]>(() => {
   const settleableFen = orders
     .filter(o => o.status === 'COMPLETED')
     .reduce((sum, o) => sum + (Number(o.paidAmount) || 0), 0);
-  const pendingRefund = adminStore.refunds.filter(r => r.status === 'PENDING').length;
+  const pendingRefund = adminStore.refunds.filter(r => r.status === 'FAILED').length;
   const pendingWithdraw = adminStore.withdrawals.filter(w => w.status === 'pending').length;
 
   return [
@@ -53,7 +53,7 @@ const kpis = computed<Kpi[]>(() => {
     { key: 'paid', label: '今日实付(元)', value: formatMoney(todayPaidFen), color: '#3F6E1F' },
     { key: 'verify', label: '待核销', value: String(pendingVerify), color: '#E6A23C' },
     { key: 'settle', label: '待结算(元)', value: formatMoney(settleableFen), color: '#C65A1E' },
-    { key: 'refund', label: '待审核退款', value: String(pendingRefund), color: '#E6A23C' },
+    { key: 'refund', label: '退款失败', value: String(pendingRefund), color: '#E6A23C' },
     { key: 'withdraw', label: '待审核提现', value: String(pendingWithdraw), color: '#C65A1E' }
   ];
 });
@@ -96,9 +96,7 @@ const trendOptions = computed(() => {
 const statusLabel: Record<string, string> = {
   CREATED: '待支付',
   PAID: '待核销',
-  VERIFIED: '已核销',
   COMPLETED: '已完成',
-  REFUNDED: '已退款',
   CANCELED: '已取消'
 };
 
@@ -111,9 +109,8 @@ const pieOptions = computed(() => {
   const colorMap: Record<string, string> = {
     CREATED: '#9B9B96',
     PAID: '#E6A23C',
-    VERIFIED: '#53882C',
     COMPLETED: '#3F6E1F',
-    REFUNDED: '#C65A1E'
+    CANCELED: '#9B9B96'
   };
   return {
     color: data.map(d => colorMap[Object.keys(statusLabel).find(k => statusLabel[k] === d.name) || ''] || '#9B9B96'),

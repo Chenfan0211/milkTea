@@ -27,8 +27,8 @@
   },
   "type": "module",
   "scripts": {
-    "build": "vite build --mode prod",
-    "build:test": "vite build --mode test",
+    "build": "node scripts/generate-iconify-offline.mjs && vite build --mode prod",
+    "build:test": "node scripts/generate-iconify-offline.mjs && vite build --mode test",
     "cleanup": "sa cleanup",
     "commit": "sa git-commit",
     "commit:zh": "sa git-commit -l=zh-cn",
@@ -42,8 +42,10 @@
     "release": "sa release",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
     "check:vue-root": "node scripts/vue-single-root.test.mjs",
+    "sync:admin-images": "node scripts/sync-admin-images.mjs",
+    "icons:offline": "node scripts/generate-iconify-offline.mjs",
     "update-pkg": "sa update-pkg",
-    "build:prod-ip": "vite build --mode prod-ip"
+    "build:prod-ip": "node scripts/generate-iconify-offline.mjs && vite build --mode prod-ip"
   },
   "dependencies": {
     "@better-scroll/core": "2.5.1",

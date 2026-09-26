@@ -8,7 +8,8 @@ import type { AdminListConfig, SearchField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useRoute } from 'vue-router';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney, renderDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, formatFen, renderDateTime } from '@/views/_shared/render';
+import { fetchFinanceFlows } from '@/service/api/crud';
 
 const store = useAdminStore();
 const route = useRoute();
@@ -22,34 +23,72 @@ const roleLabel = (v: string) =>
   )[v] ?? v;
 
 const typeMap = statusMap({
-  INCOME: ['订单入账', 'success'],
-  WITHDRAW: ['提现出款', 'warning'],
+  INCOME: ['入账', 'success'],
+  WITHDRAW: ['提现', 'warning'],
   REFUND: ['退款', 'error'],
   FREEZE: ['冻结', 'info'],
-  UNFREEZE: ['解冻', 'primary'],
-  SETTLE: ['结算入账', 'primary']
+  UNFREEZE: ['解冻', 'primary']
 });
 
+const missing = '历史数据缺失';
+const textOrMissing = (value: any) => (value == null || value === '' ? missing : String(value));
+const moneyOrMissing = (value: any) => (value == null ? missing : formatFen(Number(value)));
+const isOrderFlow = (row: any) =>
+  row.orderId != null || row.orderNo || row.bizType === 'ORDER' || row.bizType === 'REFUND';
+const renderSettlementStatus = (row: any) => {
+  if (row.settlementStatusName) return row.settlementStatusName;
+  if (!isOrderFlow(row)) return '不适用';
+  return missing;
+};
+
 const columns: DataTableColumns<any> = [
-  { title: '流水号', key: 'flowNo', width: 150 },
+  { title: '账户', key: 'accountName', minWidth: 180, render: (row: any) => textOrMissing(row.accountName) },
   {
     title: '类型',
     key: 'type',
     width: 88,
     render: renderTag('type', typeMap)
   },
-  { title: '方向', key: 'direction', width: 70, render: (row: any) => (row.direction === 'in' ? '入' : '出') },
-  { title: '金额(元)', key: 'amount', width: 88, align: 'right', render: renderMoney('amount') },
-  { title: '经营方', key: 'subjectName', width: 120, render: (row: any) => row.subjectName || '—' },
-  { title: '关联订单', key: 'orderNo', width: 125, render: (row: any) => row.orderNo || '—' },
   {
-    title: '变动后池子余额(元)',
-    key: 'poolBalanceAfter',
+    title: '结算状态',
+    key: 'settlementStatus',
+    width: 100,
+    render: renderSettlementStatus
+  },
+  {
+    title: '关联订单/业务单号',
+    key: 'bizNo',
+    minWidth: 180,
+    render: (row: any) => textOrMissing(row.orderNo || row.bizNo)
+  },
+  {
+    title: '余额口径',
+    key: 'balanceBucketName',
+    width: 100,
+    render: (row: any) => textOrMissing(row.balanceBucketName)
+  },
+  {
+    title: '变动前金额(元)',
+    key: 'balanceBefore',
     width: 120,
     align: 'right',
-    render: renderMoney('poolBalanceAfter')
+    render: (row: any) => moneyOrMissing(row.balanceBefore)
   },
-  { title: '备注', key: 'remark', minWidth: 160, render: (row: any) => row.remark || '—' },
+  {
+    title: '变动金额(元)',
+    key: 'changeAmount',
+    width: 110,
+    align: 'right',
+    render: (row: any) => moneyOrMissing(row.changeAmount)
+  },
+  {
+    title: '变动后金额(元)',
+    key: 'balanceAfter',
+    width: 120,
+    align: 'right',
+    render: (row: any) => moneyOrMissing(row.balanceAfter)
+  },
+  { title: '备注', key: 'remark', minWidth: 160, render: (row: any) => row.remark || missing },
   { title: '时间', key: 'createTime', width: 170, render: renderDateTime('createTime') }
 ];
 
@@ -70,18 +109,26 @@ const searchFields: SearchField[] = [
     label: '类型',
     type: 'select',
     options: [
-      { label: '订单入账', value: 'INCOME' },
-      { label: '提现出款', value: 'WITHDRAW' },
+      { label: '入账', value: 'INCOME' },
+      { label: '提现', value: 'WITHDRAW' },
       { label: '退款', value: 'REFUND' },
       { label: '冻结', value: 'FREEZE' },
       { label: '解冻', value: 'UNFREEZE' }
+    ]
+  },
+  {
+    key: 'settled',
+    label: '结算状态',
+    type: 'select',
+    options: [
+      { label: '已结算', value: 'true' },
+      { label: '未结算', value: 'false' }
     ]
   }
 ];
 
 const config: AdminListConfig = {
   title: '资金流水',
-  remoteKey: 'fundFlows',
   // 「经营方」筛选下拉与列表列都按 subjectId 解析名称，需预加载 subjects / subjectAccounts
   remoteDeps: ['subjects', 'subjectAccounts'],
   initialSearch: route.query.subjectId ? { subjectId: String(route.query.subjectId) } : {},
@@ -90,11 +137,16 @@ const config: AdminListConfig = {
   toolbar: [],
   rowActions: [],
   loadData: async ({ page, pageSize, search }) => {
-    // 资金流水走通用 CRUD 真分页；subjectId 为等值过滤（后端 eq_ 前缀约定）
-    const { subjectId: searchSubjectId, ...restSearch } = search;
-    const subjectId = searchSubjectId ?? route.query.subjectId;
-    const params = subjectId ? { ...restSearch, eq_subjectId: String(subjectId) } : restSearch;
-    return store.queryRemote('fundFlows', params, page, pageSize);
+    const subjectId = search.subjectId ?? route.query.subjectId;
+    const result = await fetchFinanceFlows({
+      current: page,
+      size: pageSize,
+      subjectId: subjectId || undefined,
+      type: search.type || undefined,
+      orderNo: search.orderNo || undefined,
+      settled: search.settled || undefined
+    });
+    return { data: result.records, total: result.total };
   }
 };
 </script>

@@ -28,8 +28,9 @@ const columns: DataTableColumns<any> = [
   }
 ];
 const searchFields: SearchField[] = [
-  { key: 'pickupCode', label: '取餐码', placeholder: '取餐码' },
-  { key: 'orderNo', label: '订单号', placeholder: '订单号' },
+  // 后端 verify-pool 只有一个 search 参数（同时匹配取餐码/订单号/兑换单号），
+  // 这里合并成一项，避免「填了取餐码又填了订单号」时语义冲突。
+  { key: 'search', label: '取餐码/单号', placeholder: '取餐码 / 订单号' },
   {
     key: 'type',
     label: '类型',
@@ -45,8 +46,10 @@ const rowActions: RowAction[] = [
   {
     label: '执行核销',
     type: 'success',
-    reasonPrompt: '确认核销该订单？（请填写备注）',
-    handler: (row, reason) => store.executeVerify(row.id, reason)
+    reasonPrompt: '确认核销该单据？（请填写备注）',
+    // 必须传整行：待核销池是服务端分页，本地镜像没有这行数据，
+    // 按 id 反查会拿到 undefined 而静默失败（历史 Bug）。
+    handler: (row, reason) => store.executeVerify(row, reason)
   }
 ];
 const config: AdminListConfig = {

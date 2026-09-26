@@ -91,10 +91,17 @@ const config: AdminListConfig = {
   form: {
     title: '字典项',
     fields: formFields,
+    /**
+     * 编辑回填：只回填表单声明字段 + enabled（enabled 不在表单中展示，
+     * 但 onSubmit 组装 payload 时依赖它，缺失会把停用项误改回启用）。
+     * 不再整行 {...row} 回填，避免 id/updateTime 等服务端字段进入 payload。
+     */
     toFormData: (row: any) => ({
-      ...row,
-      enabled: row.enabled == null ? 1 : Number(row.enabled),
-      sort: row.sort == null ? 0 : Number(row.sort)
+      dictType: row.dictType,
+      itemCode: row.itemCode,
+      itemName: row.itemName,
+      sort: row.sort == null ? 0 : Number(row.sort),
+      enabled: row.enabled == null ? 1 : Number(row.enabled)
     }),
     onSubmit: async (data, editing) => {
       const payload = {

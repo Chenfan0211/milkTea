@@ -113,9 +113,14 @@ const config: AdminListConfig = {
   form: {
     title: '分类',
     fields: formFields,
-    /** 编辑回填：tag 空值兜底为 ''，enabled/sort 归一为数字，避免 NSelect 值类型不匹配 */
+    /**
+     * 编辑回填：只回填表单声明的字段（不再整行 {...row} 回填）。
+     * 整行回填会把 id/updateTime/deleted 等服务端字段带进提交 payload，
+     * 其中 updateTime 会被后端自动更新，导致误报「未写入数据库」。
+     */
     toFormData: (row: any) => ({
-      ...row,
+      code: row.code,
+      name: row.name,
       tag: row.tag ?? '',
       enabled: row.enabled == null ? 1 : Number(row.enabled),
       sort: row.sort == null ? 0 : Number(row.sort)

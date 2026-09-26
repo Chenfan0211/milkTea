@@ -27,6 +27,28 @@ export function fetchAdminPayments(params?: any) {
   return request<Api.Common.PaginatingQueryRecord<Api.Admin.Payment>>({ url: '/api/v1/admin/trade/payments', params });
 }
 
+/**
+ * 支付异常重试：由后端向三方查询真实状态并回写。
+ *
+ * 注意：这是「查三方」而不是「改状态」——
+ * 后端不会把支付单直接置为成功，状态以三方返回为准。
+ * 仅 standardStatus ∈ (FAILED, CLOSED) 的支付单可重试。
+ */
+export async function retryAdminPayment(id: number) {
+  const res = await request<any>({ url: `/api/v1/admin/trade/payments/${id}/retry`, method: 'post' });
+  return unwrap<any>(res);
+}
+
+/**
+ * 待核销池（订单 + 积分兑换双池合并）。
+ *
+ * search 同时模糊匹配「取餐码 / 订单号 / 兑换单号」；
+ * type = order / exchange 过滤单池，空 = 全部。
+ */
+export function fetchAdminVerifyPool(params?: any) {
+  return request<any>({ url: '/api/v1/admin/trade/verify-pool/page', params });
+}
+
 export function fetchAdminRefunds(params?: any) {
   return request<Api.Common.PaginatingQueryRecord<Api.Admin.Refund>>({ url: '/api/v1/admin/trade/refunds', params });
 }

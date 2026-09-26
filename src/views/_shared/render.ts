@@ -73,6 +73,31 @@ export function statusMap(def: Record<string, [string, TagType?]>): StatusMap {
   return result;
 }
 
+/**
+ * 支付渠道中文映射。
+ *
+ * 后端 payment.channel 存原始通道码（WXPAY / MOCK / STORED_VALUE），
+ * 直接展示会露出英文代码，故统一在此映射。
+ * 未登记的通道回落到原值，避免新通道上线时显示空白。
+ */
+export const PAY_CHANNEL_LABELS: Record<string, string> = {
+  WXPAY: '微信支付',
+  MOCK: '模拟支付',
+  STORED_VALUE: '储值支付',
+  BALANCE: '储值余额'
+};
+
+/** 渠道码 -> 中文（未知渠道原样返回） */
+export function payChannelLabel(channel?: string | null): string {
+  if (!channel) return '—';
+  return PAY_CHANNEL_LABELS[channel.toUpperCase()] ?? channel;
+}
+
+/** 供 DataTable 渠道列使用的 render */
+export function renderPayChannel(key: string) {
+  return (row: any) => payChannelLabel(row[key]);
+}
+
 export function formatFen(fen?: number | null): string {
   // 金额为空/无账户时统一显示 0.00（用户约定：余额没值显示 0）
   if (fen == null) return '0.00';

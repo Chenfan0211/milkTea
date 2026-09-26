@@ -268,10 +268,10 @@ const local: App.I18n.Schema = {
     marketing_coupon: 'Coupons',
     marketing_stored: 'Stored Value',
     marketing_gift: 'Gift Cards',
+    'marketing_points-category': 'Points Mall Categories',
     marketing_points: 'Points Mall',
-    'marketing_points-rule': 'Points Rules',
+    'marketing_points-rule': 'Check-in Rules',
     marketing_member: 'Member Levels',
-    marketing_comment: 'Reviews',
     'marketing_gift-order': 'Gift Card Orders',
     marketing_exchange: 'Exchange Records',
     marketing_referral: 'Referral',
@@ -305,7 +305,13 @@ const local: App.I18n.Schema = {
         rememberMe: 'Remember me',
         forgetPassword: 'Forget password?',
         register: 'Register',
-        otherAccountLogin: 'Other Account Login',
+        otherAccountLogin: 'Quick Login',
+        quickLoginHint:
+          'One-click sign-in for the demo roles. Credentials are held on the server and never shipped to the client.',
+        quickLoginSuper: 'Super Admin',
+        quickLoginOperation: 'Operation',
+        quickLoginFinance: 'Finance',
+        quickLoginAudit: 'Audit',
         otherLoginMode: 'Other Login Mode'
       },
       codeLogin: {
@@ -388,4 +394,3 @@ const local: App.I18n.Schema = {
 };
 
 export default local;
-

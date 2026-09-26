@@ -114,15 +114,21 @@ declare namespace Api {
       order: number;
     }
 
+
     interface SplitRule {
       code: string;
       name: string;
       scope: string;
-      platformRatio: number;
+      /** 门店每件提成（分） */
       storeRatio: number;
+      /** 资源方每件提成（分） */
       channelRatio: number;
+      /** 投资人提成比例（万分比） */
       investorRatio: number;
-      supplierRatio: number;
+      /** 投资人当月累计达标额（分，必填） */
+      investorThresholdAmount: number;
+      /** 达标后投资人比例（万分比） */
+      investorRatioAfter: number;
       status: string;
     }
 
@@ -135,7 +141,7 @@ declare namespace Api {
       summary: string;
       /** 实付金额（分），与小程序 amount(元)*100 对齐 */
       paidAmount: number;
-      status: 'CREATED' | 'PAID' | 'VERIFIED' | 'COMPLETED' | 'REFUNDED';
+      status: 'CREATED' | 'PAID' | 'COMPLETED' | 'CANCELED';
       payStatus: 'PAID' | 'UNPAID';
       pickupCode: string;
       createTime: string;
@@ -156,7 +162,12 @@ declare namespace Api {
       orderNo: string;
       amount: number;
       status: string;
+      reason?: string;
+      thirdRefundNo?: string;
+      store?: string;
+      summary?: string;
       applyTime: string;
+      completeTime?: string;
     }
 
     interface VerifyRecord {

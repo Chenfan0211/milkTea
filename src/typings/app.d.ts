@@ -502,6 +502,11 @@ declare namespace App {
             forgetPassword: string;
             register: string;
             otherAccountLogin: string;
+            quickLoginHint: string;
+            quickLoginSuper: string;
+            quickLoginOperation: string;
+            quickLoginFinance: string;
+            quickLoginAudit: string;
             otherLoginMode: string;
           };
           codeLogin: {

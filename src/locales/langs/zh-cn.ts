@@ -263,10 +263,10 @@ const local: App.I18n.Schema = {
     marketing_coupon: '优惠券管理',
     marketing_stored: '储值套餐',
     marketing_gift: '礼品卡',
+    'marketing_points-category': '积分商城分类',
     marketing_points: '积分商城',
-    'marketing_points-rule': '积分规则',
+    'marketing_points-rule': '签到规则',
     marketing_member: '会员等级',
-    marketing_comment: '评论审核',
     'marketing_gift-order': '礼品卡订单',
     marketing_exchange: '兑换记录',
     marketing_referral: '分享有礼',
@@ -300,7 +300,12 @@ const local: App.I18n.Schema = {
         rememberMe: '记住我',
         forgetPassword: '忘记密码？',
         register: '注册账号',
-        otherAccountLogin: '其他账号登录',
+        otherAccountLogin: '快捷登录',
+        quickLoginHint: '点击即可免密进入对应角色的后台视图（口令由服务端保管，不落前端）',
+        quickLoginSuper: '超级管理员',
+        quickLoginOperation: '运营',
+        quickLoginFinance: '财务',
+        quickLoginAudit: '审计',
         otherLoginMode: '其他登录方式'
       },
       codeLogin: {
@@ -383,4 +388,3 @@ const local: App.I18n.Schema = {
 };
 
 export default local;
-

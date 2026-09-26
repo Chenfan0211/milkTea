@@ -10,7 +10,7 @@ import {
   executeVerifyApi,
   freezeAccount as freezeAccountApi,
   refundOrderApi,
-  reviewComment as reviewCommentApi,
+  retryRefundApi,
   adminApplyWithdraw as adminApplyWithdrawApi,
   bindSubjectUser as bindSubjectUserApi,
   bindChannelStore as bindChannelStoreApi,
@@ -23,7 +23,9 @@ import {
   saveReferralConfigApi,
   fetchReferralConfig,
   saveSigninRule as saveSigninRuleApi,
-  unfreezeAccount as unfreezeAccountApi
+  unfreezeAccount as unfreezeAccountApi,
+  // 支付记录专用接口（双字段：订单号 / 流水订单号）
+  fetchPayments
 } from '@/service/api/crud';
 import {
   bindStoreInvestor as bindStoreInvestorApi,
@@ -42,7 +44,7 @@ import {
   updateProduct,
   updateProductOnSale
 } from '@/service/api/admin-product';
-import { fetchAdminOrders, fetchAdminOrderDetail } from '@/service/api/trade';
+import { fetchAdminOrders, fetchAdminOrderDetail, fetchAdminRefunds, fetchAdminVerifyPool } from '@/service/api/trade';
 import { fetchAdminRoleGrants } from '@/service/api/auth_admin';
 import { fetchAdminSnapshots } from '@/service/api/finance';
 
@@ -70,6 +72,7 @@ const REMOTE_RESOURCES: Record<string, string> = {
   coupons: 'coupons',
   storedValuePackages: 'storedValuePackages',
   pointsProducts: 'pointsProducts',
+  pointsCategories: 'pointsCategories',
   pointsEarningRules: 'pointsEarningRules',
   giftCards: 'giftCards',
   giftCardOrders: 'giftCardOrders',
@@ -97,7 +100,6 @@ const REMOTE_RESOURCES: Record<string, string> = {
   verifyPool: 'verifyPool',
   verifyRecords: 'verifyRecords',
   exchangeRecords: 'exchangeRecords',
-  comments: 'comments',
   // 小程序运营配置（app_config）：首页入口 / 活动文案 / 客服信息与常见问题 /
   // 提现与结算说明 / 城市列表等，由后台维护、小程序只读。
   appConfig: 'appConfig'
@@ -220,13 +222,13 @@ function seed(): AdminData {
     cities: [],
     storeTypes: [],
     pointsProducts: [],
+    pointsCategories: [],
     pointsEarningRules: [],
     signInDaily: 1 as any,
     signInRewards: [{ days: 7, amount: 20 }] as any,
     referralConfig: {} as any,
     exchangeRecords: [],
     memberLevels: [],
-    comments: [],
     auditLogs: []
   };
 }
@@ -439,11 +441,6 @@ function migrate(data: AdminData): AdminData {
     if (snap.platformCommission == null) snap.platformCommission = 0;
     if (snap.platformBonus == null) snap.platformBonus = snap.platformAmount ?? 0;
   });
-  (data.splitRules || []).forEach((rule: any) => {
-    if (rule.storePerItem == null) rule.storePerItem = 2;
-    if (rule.channelPerItem == null) rule.channelPerItem = 1;
-    if (rule.investorPercent == null) rule.investorPercent = 10;
-  });
   (data.subjects || []).forEach((s: any) => {
     if (s.boundUserId == null) s.boundUserId = null;
     if (s.boundUserName == null) s.boundUserName = null;
@@ -455,6 +452,7 @@ function migrate(data: AdminData): AdminData {
   });
   if (!Array.isArray(data.storeTypes)) data.storeTypes = [];
   if (!Array.isArray(data.productCategories)) data.productCategories = [];
+  if (!Array.isArray(data.pointsCategories)) data.pointsCategories = [];
   // 注意：以下三张表**不做** defaults 回填。
   // 早期实现会在「接口返回空数组」时塞回前端假数据，导致页面显示与数据库不一致却难以察觉
   // （症状：库里明明是空，页面却有条目）。现统一遵循「接口返回什么就是什么」。
@@ -474,12 +472,14 @@ function migrate(data: AdminData): AdminData {
     if (!p.badge) p.badge = '';
     if (!p.limitText) p.limitText = '';
     if (!p.description) p.description = '';
+    if (p.purchaseLimit == null) p.purchaseLimit = 0;
+    if (p.couponId == null) p.couponId = null;
   });
   if (data.signInDaily == null) (data as any).signInDaily = 1;
   if (!Array.isArray((data as any).signInRewards)) (data as any).signInRewards = [{ days: 7, amount: 20 }];
   // 营销相关功能开关兜底为开启，保证营销中心可访问
   (data.features || []).forEach((f: any) => {
-    if (f.code === 'ENABLE_COUPON' || f.code === 'ENABLE_STORED_VALUE' || f.code === 'ENABLE_REVIEW') {
+    if (f.code === 'ENABLE_COUPON' || f.code === 'ENABLE_STORED_VALUE') {
       f.currentStatus = '开启';
       f.defaultStatus = '开启';
     }
@@ -785,6 +785,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     coupons: '优惠券',
     memberLevels: '会员等级',
     pointsProducts: '积分商品',
+    pointsCategories: '积分商城分类',
     pointsEarningRules: '积分规则',
     storedValuePackages: '储值套餐',
     giftCards: '礼品卡',
@@ -796,12 +797,22 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   }
 
   /**
+   * 服务端维护字段：由数据库或后端负责写入，前端不应提交、也不参与「未落库」告警。
+   *
+   * <p>为什么不参与告警：这些字段不属于 CrudRegistry 白名单（本就不该由前端写），
+   * 且 updateTime 由 MySQL `ON UPDATE CURRENT_TIMESTAMP` 自动更新 ——
+   * 若纳入比对，任何编辑都会因「提交旧值 vs 返回新值」而误报「未写入数据库」。
+   * @see warnDroppedFields
+   */
+  const SERVER_MANAGED_FIELDS = new Set(['id', 'createTime', 'updateTime', 'deleted']);
+
+  /**
    * 写库后比对「实际落库结果」，发现被后端丢弃的字段时显式告警。
    *
    * <p><b>为什么需要它</b>：后端 CrudService 只会写入 CrudRegistry 白名单内的列，
    * 白名单外字段会被静默跳过，接口仍返回 200。
    * 历史上因此出现过「界面提示保存成功、库里其实没变」的假成功，
-   * 且前端毫无感知（如分类的 tag/enabled、分账规则的 storePerItem）。
+   * 且前端毫无感知（如分类的 tag/enabled）。
    *
    * <p>策略：把提交值与后端回读值逐一比对，仅对**明确规定过但未落库**的字段告警；
    * 不阻断流程（写入本身已成功，只是部分字段未生效），但让问题可见。
@@ -814,6 +825,11 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     if (!submitted || !persisted || typeof persisted !== 'object') return;
     const dropped: string[] = [];
     for (const [key, value] of Object.entries(submitted)) {
+      // 服务端维护字段不参与比对：id/createTime/updateTime/deleted 由数据库或后端维护，
+      // 其中 update_time 为 ON UPDATE CURRENT_TIMESTAMP，写入后必然变为新值，
+      // 若参与比对会被误判为「未写入数据库」（分类管理页曾因此误报 updateTime）。
+      // 这些字段即便被整行回填带进 payload，也不属于「白名单漏配」，不应告警。
+      if (SERVER_MANAGED_FIELDS.has(key)) continue;
       // 只校验有明确提交值的字段；空值/未填不参与比对
       if (value === undefined || value === null || value === '') continue;
       if (!(key in persisted)) {
@@ -1124,6 +1140,50 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       return { data: normalizeRemoteRow('snapshots', records), total };
     }
 
+    // 支付记录走 /admin/trade/payments 专用接口：
+    // 需要按「订单号（含储值单号 biz_no）」+「流水订单号 transaction_id」双字段检索，
+    // 且要按显式列返回；通用 CRUD 只认单列 like，无法表达这组条件。
+    if (key === 'payments') {
+      const res: any = await fetchPayments({
+        current: page,
+        size: pageSize,
+        orderNo: String(search?.orderNo ?? '').trim() || undefined,
+        tradeNo: String(search?.tradeNo ?? '').trim() || undefined,
+        standardStatus: String(search?.standardStatus ?? '').trim() || undefined
+      });
+      const records = res?.records ?? res?.data?.records ?? [];
+      const total = res?.total ?? res?.data?.total ?? 0;
+      return { data: records, total };
+    }
+
+    // 退款单走 /admin/trade/refunds 专用接口：需关联订单取门店 + order_item 聚合商品摘要；
+    // 通用 CRUD 单表查询只有退款单本身，列表「商品信息」「门店」列恒为空。
+    if (key === 'refunds') {
+      const res: any = await fetchAdminRefunds({
+        current: page,
+        size: pageSize,
+        orderNo: String(search?.orderNo ?? '').trim() || undefined,
+        status: String(search?.eq_status ?? '').trim() || undefined
+      });
+      const records = res?.records ?? res?.data?.records ?? [];
+      const total = res?.total ?? res?.data?.total ?? 0;
+      return { data: normalizeRemoteRow('refunds', records), total };
+    }
+    // 待核销池走 /admin/trade/verify-pool/page 专用接口：
+    // 订单 + 兑换双池 UNION（通用 CRUD 无法跨表），
+    // 且搜索参数是 search（单框同时匹配取餐码/单号），与通用 CRUD 的多字段不同。
+    if (key === 'verifyPool') {
+      const res: any = await fetchAdminVerifyPool({
+        current: page,
+        size: pageSize,
+        search: String(search?.search ?? search?.pickupCode ?? search?.orderNo ?? '').trim() || undefined,
+        type: String(search?.type ?? '').trim() || undefined
+      });
+      const records = res?.records ?? res?.data?.records ?? [];
+      const total = res?.total ?? res?.data?.total ?? 0;
+      return { data: records, total };
+    }
+
     // 角色授权记录走 /admin/auth/grants：该接口 join 了 sys_user / sys_role，
     // 直接给出 username / nickName / roleName / roleCode，前端无需二次解析。
     // （原实现读的是 user_role_grant，2026-09-25 已切换为后台账号口径。）
@@ -1190,7 +1250,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    * 同时把完整列表写入 orders 镜像，供详情页 store.orders.find 使用。
    */
   async function loadAdminOrders(params?: Record<string, any>) {
-    const page = await fetchAdminOrders({ current: 1, size: 200, ...params });
+    const page = await fetchAdminOrders(params);
     const list = ensure('orders');
     list.splice(0, list.length, ...((page?.records || []) as any[]));
     remoteLoaded.value.orders = true;
@@ -1493,12 +1553,10 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     const order = list.find((o: any) => o.id === id);
     if (!order) return;
     const st = String(order.status || '').toUpperCase();
-    if (st === 'VERIFIED' || st === 'COMPLETED') {
-      window.$message?.error('已核销订单不可取消');
-      return;
-    }
-    if (st === 'REFUNDED') {
-      window.$message?.warning('该订单已退款，不能重复取消');
+    // 白名单：只有「已支付待核销」的订单可以取消；
+    // 待支付应走超时关单，已核销/已完成/已退款/已取消一律拒绝（防止绕过按钮直接调用）。
+    if (st !== 'PAID') {
+      window.$message?.warning('仅已支付待核销的订单可以取消');
       return;
     }
     await refundOrderApi(order.orderNo, reason);
@@ -1530,17 +1588,35 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   /**
    * 执行核销（走后端接口）。
    *
-   * 后端负责订单状态流转（PAID -> VERIFIED）与核销记录落库，
+   * 后端负责订单状态流转（PAID -> COMPLETED）与核销记录落库，
    * 前端不再本地拼装核销记录，避免「界面有记录、库里没有」。
    */
-  async function executeVerify(id: number, reason = '') {
-    const pool = ensure('verifyPool');
-    const item = pool.find((x: any) => x.id === id);
-    if (!item) return;
+  /**
+   * 执行核销（后台待核销池）。
+   *
+   * <p><b>参数必须是行对象而不是 id</b>：待核销池走 {@link queryRemote}（服务端分页），
+   * 不会写入本地镜像；若按 id 去 {@code ensure('verifyPool')} 里反查，
+   * 服务端分页模式下镜像为空/过期，会静默 return，表现为「点了没反应」。
+   *
+   * <p><b>字段名必须是 {@code code}</b>：后端 {@code VerifyRequest} 的校验字段是
+   * {@code @NotBlank code}；历史实现传的是 {@code verifyCode}，后端绑定不到，
+   * 直接被参数校验拦下「核销码不能为空」—— 这正是「执行核销报错」的根因。
+   *
+   * @param row    待核销池行（含 type / orderNo / pickupCode）
+   * @param reason 备注原因
+   */
+  async function executeVerify(row: any, reason = '') {
+    if (!row) return;
+    const code = String(row.pickupCode || row.code || '').trim();
+    if (!code) {
+      window.$message?.error('该单据缺少取餐码/自提码，无法核销');
+      return;
+    }
     await executeVerifyApi({
-      type: item.type === 'exchange' ? 'EXCHANGE' : 'ORDER',
-      orderNo: item.orderNo,
-      verifyCode: item.code || item.pickupCode,
+      type: row.type === 'exchange' ? 'EXCHANGE' : 'ORDER',
+      // 兑换单的 exchange_no 不是订单号：核销只认码，orderNo 仅作备注追溯
+      code,
+      orderNo: row.orderNo,
       reason
     });
     await loadRemote('verifyPool');
@@ -1548,37 +1624,25 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     await loadRemote('orders');
   }
 
-  /** 评论审核（走后端接口，成功后再改本地镜像；失败抛出） */
-  async function reviewComment(id: number, approve: boolean, reason = '') {
-    const list = ensure('comments');
-    const item = list.find((x: any) => x.id === id);
-    const st = String(item?.status || '').toUpperCase();
-    if (st && st !== 'PENDING') {
-      window.$message?.warning('该评论已审核，不能重复操作');
-      return;
-    }
-    await reviewCommentApi(id, approve, reason);
-    await loadRemote('comments');
+  /**
+   * 【已废弃】退款审核。第一版不做审核：用户取消订单直接退款，
+   * 状态机已收敛为 退款中/退款失败/退款成功 三态，不再存在 PENDING 待审核单。
+   * 保留空实现仅为兼容旧引用，请勿再调用。
+   */
+  function refundAudit(_id: number, _approve: boolean, _reason = '') {
+    window.$message?.warning('当前版本退款无需审核');
   }
 
-  function refundAudit(id: number, approve: boolean, reason = '') {
-    const list = ensure('refunds');
-    const idx = list.findIndex((x: any) => x.id === id);
-    if (idx < 0) return;
-    const item = list[idx];
-    if (item.status !== 'PENDING') {
-      window.$message?.warning('该退款单已处理，不能重复审核');
-      return;
-    }
-    patch(
-      'refunds',
-      id,
-      { status: approve ? 'SUCCESS' : 'REJECTED' },
-      '交易中心',
-      approve ? '退款审核通过' : '退款驳回',
-      'refundNo',
-      reason
-    );
+  /**
+   * 重新退款：仅退款失败(FAILED)的单据可重试（走后端接口）。
+   *
+   * 后端 RefundService#retry 会重新生成退款单号并再次调微信退款下单，
+   * 成功后刷新退款列表镜像。
+   */
+  async function retryRefund(id: number) {
+    await retryRefundApi(id);
+    await loadRemote('refunds');
+    await loadRemote('orders');
   }
 
   /**
@@ -1588,44 +1652,6 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    * 且页面已统一改用 store.patch('splitRules', ...) 真写库，留着容易被误用。
    * 分账规则的启用/停用一律走 store.patch('splitRules')。
    */
-
-  /**
-   * 分账计算：
-   * 成本合计 = Σ(商品成本价×数量) —— 供应商分账
-   * 门店 = 门店每件 × 件数
-   * 资源方 = 有资源方 ? 资源方每件 × 件数 : 0
-   * 基础 = 实付 - 成本 - 门店 - 资源方
-   * 投资人 = max(0, 基础) × X%
-   * 平台 = 实付 - 成本 - 门店 - 资源方 - 投资人（可能为负，平台承担）
-   */
-  function calcOrderSplit(
-    paid: number,
-    itemCount: number,
-    costTotal: number,
-    rule: any,
-    hasChannel: boolean,
-    platformCommission = 0
-  ) {
-    const storeShare = (rule?.storePerItem ?? 0) * itemCount;
-    const channelShare = hasChannel ? (rule?.channelPerItem ?? 0) * itemCount : 0;
-    const base = paid - costTotal - storeShare - channelShare;
-    const investorShare = base > 0 ? (base * (rule?.investorPercent ?? 0)) / 100 : 0;
-    const platformShare = paid - costTotal - storeShare - channelShare - investorShare;
-    const platformBonus = platformShare - platformCommission;
-    return {
-      costTotal,
-      itemCount,
-      storeShare,
-      channelShare,
-      investorShare,
-      platformShare,
-      platformCommission,
-      platformBonus,
-      base,
-      ruleName: rule?.name || '默认分账'
-    };
-  }
-
   function getPlatformConfig() {
     const platform = ensure('subjects').find((subj: any) => subj.type === 'platform');
     return platform || { withdrawFreeAuditThreshold: 0 };
@@ -1828,11 +1854,11 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     cities: computed(() => ensure('cities')),
     referralConfig: computed(() => (data.value as any).referralConfig || { id: 1 }),
     pointsProducts: computed(() => ensure('pointsProducts')),
+    pointsCategories: computed(() => ensure('pointsCategories')),
     pointsEarningRules: computed(() => ensure('pointsEarningRules')),
     signInDaily: computed(() => (data.value as any).signInDaily ?? 1),
     signInRewards: computed(() => (data.value as any).signInRewards || [{ days: 7, amount: 20 }]),
     memberLevels: computed(() => ensure('memberLevels')),
-    comments: computed(() => ensure('comments')),
     add,
     update,
     remove,
@@ -1868,20 +1894,18 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     reviewApplication,
     toggleFeature,
     refundOrder,
-    calcOrderSplit,
     saveSignInRule,
     saveReferralConfig,
     loadReferralConfig,
     refundAudit,
+    retryRefund,
     reviewWithdraw,
     orderIncome,
     applyWithdraw,
     freezeAccount,
     unfreezeAccount,
     getPlatformConfig,
-    executeVerify,
-    reviewComment
+    executeVerify
   };
 });
-
 

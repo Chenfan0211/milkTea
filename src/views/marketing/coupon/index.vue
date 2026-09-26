@@ -204,18 +204,30 @@ const config: AdminListConfig = {
   form: {
     title: '优惠券',
     fields: formFields,
-    /** 编辑回填：分 -> 元；日期型字段兜底为空串，避免 NDatePicker 值类型不匹配 */
+    /**
+     * 编辑回填：只回填表单声明字段（分 -> 元；日期型兜底空串，避免 NDatePicker 值类型不匹配）。
+     * 不再整行 {...row} 回填，避免 id/updateTime/deleted 等服务端字段进入提交 payload。
+     */
     toFormData: (row: any) => ({
-      ...row,
+      image: row.image,
+      name: row.name,
+      type: row.type,
       amount: row.amount == null ? 0 : Number(row.amount) / 100,
       threshold: row.threshold == null ? 0 : Number(row.threshold) / 100,
+      brand: row.brand,
+      scenes: row.scenes,
       validityType: row.validityType || 'range',
       validityStart: row.validityStart || '',
       validityEnd: row.validityEnd || '',
       validityDays: row.validityDays == null ? 0 : Number(row.validityDays),
+      usageTime: row.usageTime,
+      channel: row.channel,
+      paymentRestriction: row.paymentRestriction,
       stock: row.stock == null ? 0 : Number(row.stock),
+      source: row.source,
       applicableStoreIds: Array.isArray(row.applicableStoreIds) ? row.applicableStoreIds : [],
-      applicableProductIds: Array.isArray(row.applicableProductIds) ? row.applicableProductIds : []
+      applicableProductIds: Array.isArray(row.applicableProductIds) ? row.applicableProductIds : [],
+      description: row.description
     }),
     onSubmit: async (data, editing) => {
       // 元 -> 分；有效期按所选方式清理无关字段，避免残留脏数据

@@ -247,9 +247,13 @@ const config: AdminListConfig = {
   form: {
     title: '后台账号',
     fields: formFields,
+    /**
+     * 编辑回填：只回填表单声明字段（password 不回显，留空=不改密码）。
+     * 不再整行 {...row} 回填，避免 id/updateTime/deleted 等服务端字段进入提交 payload。
+     */
     toFormData: (row: any) => ({
-      ...row,
-      // 编辑时不回填密码：口令不回显，留空即表示"不改密码"
+      username: row.username,
+      nickName: row.nickName,
       password: '',
       roleCodes: Array.isArray(row.roleCodes) ? row.roleCodes : []
     }),

@@ -9,31 +9,34 @@ export const generatedRoutes: GeneratedRoute[] = [
   {
     name: '403',
     path: '/403',
-    component: 'layout.base$view.403',
+    component: 'layout.blank$view.403',
     meta: {
       title: '403',
       i18nKey: 'route.403',
-      constant: true
+      constant: true,
+      hideInMenu: true
     }
   },
   {
     name: '404',
     path: '/404',
-    component: 'layout.base$view.404',
+    component: 'layout.blank$view.404',
     meta: {
       title: '404',
       i18nKey: 'route.404',
-      constant: true
+      constant: true,
+      hideInMenu: true
     }
   },
   {
     name: '500',
     path: '/500',
-    component: 'layout.base$view.500',
+    component: 'layout.blank$view.500',
     meta: {
       title: '500',
       i18nKey: 'route.500',
-      constant: true
+      constant: true,
+      hideInMenu: true
     }
   },
   {
@@ -199,18 +202,22 @@ export const generatedRoutes: GeneratedRoute[] = [
     props: true,
     meta: {
       title: 'iframe-page',
-      i18nKey: 'route.iframe-page'
+      i18nKey: 'route.iframe-page',
+      constant: true,
+      hideInMenu: true,
+      keepAlive: true
     }
   },
   {
     name: 'login',
     path: '/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?',
-    component: 'layout.base$view.login',
+    component: 'layout.blank$view.login',
     props: true,
     meta: {
       title: 'login',
       i18nKey: 'route.login',
-      constant: true
+      constant: true,
+      hideInMenu: true
     }
   },
   {
@@ -225,19 +232,6 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: null
     },
     children: [
-      {
-        name: 'marketing_comment',
-        path: '/marketing/comment',
-        component: 'view.marketing_comment',
-        meta: {
-          title: '评论审核',
-          order: 6,
-          roles: ['R_SUPER', 'R_OPERATION'],
-          featureFlag: 'ENABLE_REVIEW',
-          keepAlive: true,
-          i18nKey: null
-        }
-      },
       {
         name: 'marketing_coupon',
         path: '/marketing/coupon',
@@ -257,7 +251,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_exchange',
         meta: {
           title: '兑换记录',
-          order: 8,
+          order: 9,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
           keepAlive: true,
@@ -283,7 +277,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_gift-order',
         meta: {
           title: '礼品卡订单',
-          order: 7,
+          order: 8,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
           keepAlive: true,
@@ -296,7 +290,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_member',
         meta: {
           title: '会员等级',
-          order: 5,
+          order: 6,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
           keepAlive: true,
@@ -309,6 +303,21 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_points',
         meta: {
           title: '积分商城',
+          order: 5,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          featureFlag: 'ENABLE_STORED_VALUE',
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'marketing_points-category',
+        path: '/marketing/points-category',
+        component: 'view.marketing_points-category',
+        meta: {
+          title: '积分商城分类',
+          hideInMenu: true,
+          activeMenu: 'marketing_points',
           order: 4,
           roles: ['R_SUPER', 'R_OPERATION'],
           featureFlag: 'ENABLE_STORED_VALUE',
@@ -321,7 +330,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         path: '/marketing/points-rule',
         component: 'view.marketing_points-rule',
         meta: {
-          title: 'marketing_points-rule',
+          title: '签到规则',
           i18nKey: 'route.marketing_points-rule'
         }
       },
@@ -331,7 +340,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_referral',
         meta: {
           title: '分享有礼',
-          order: 9,
+          order: 10,
           roles: ['R_SUPER', 'R_OPERATION'],
           keepAlive: true,
           i18nKey: null

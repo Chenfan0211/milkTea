@@ -4,15 +4,15 @@ defineOptions({
   name: 'finance_snapshot'
 });
 
-import { useRouter } from 'vue-router';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
+import type { DetailGroup } from '@/views/_shared/detail-types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
+import { fetchAdminSnapshotDetail } from '@/service/api/finance';
+import { renderTag, statusMap, renderDateTime, formatDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
-const router = useRouter();
 
 const columns: DataTableColumns<any> = [
   { title: '快照号', key: 'snapshotNo', width: 140 },
@@ -52,13 +52,51 @@ const searchFields: SearchField[] = [
   }
 ];
 const toolbar: RowAction[] = [];
+
+const snapshotStatusLabel = (v: string) => ({ valid: '有效', invalid: '已作废' } as Record<string, string>)[v] ?? v;
+const totalCheckLabel = (v: string) =>
+  ({ 一致: '一致', 不一致: '不一致', ok: '一致', mismatch: '不一致' } as Record<string, string>)[v] ?? v;
+const money = (v: any) => `¥${(Number(v) || 0).toFixed(2)}`;
+
+/** 分账快照详情弹层字段（原 /finance/snapshot-detail 页面口径） */
+const detailGroups: DetailGroup[] = [
+  {
+    title: '基础信息',
+    fields: [
+      { label: '快照号', key: 'snapshotNo' },
+      { label: '订单号', key: 'orderNo' },
+      { label: '商品信息', render: (r: any) => r.summary || '—' },
+      { label: '商品件数', render: (r: any) => String(r.itemCount ?? 0) },
+      { label: '合计校验', render: (r: any) => totalCheckLabel(r.totalCheck) },
+      { label: '状态', render: (r: any) => snapshotStatusLabel(r.status) },
+      { label: '创建时间', render: (r: any) => formatDateTime(r.createTime) }
+    ]
+  },
+  {
+    title: '分账金额（元）',
+    fields: [
+      { label: '供应商（成本）', render: (r: any) => money(r.supplierAmount) },
+      { label: '门店', render: (r: any) => money(r.storeAmount) },
+      { label: '资源方', render: (r: any) => money(r.channelAmount) },
+      { label: '投资人', render: (r: any) => money(r.investorAmount) },
+      { label: '平台分佣', render: (r: any) => money(r.platformCommission) },
+      { label: '平台提成', render: (r: any) => money(r.platformBonus) },
+      { label: '平台合计', render: (r: any) => money(r.platformAmount) }
+    ]
+  }
+];
+
 const rowActions: RowAction[] = [
   {
     label: '详情',
     type: 'info',
-    handler: row => router.push({ path: '/finance/snapshot-detail', query: { id: row.id } })
-  },
-
+    // 弹层展示：按 id 拉取快照详情（含商品摘要），不跳转新页面
+    detail: {
+      title: '分账快照详情',
+      groups: detailGroups,
+      load: (row: any) => fetchAdminSnapshotDetail(row.id)
+    }
+  }
 ];
 const config: AdminListConfig = {
   title: '分账快照',

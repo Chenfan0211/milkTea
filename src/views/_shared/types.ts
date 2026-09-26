@@ -1,4 +1,5 @@
 import type { DataTableColumns } from 'naive-ui';
+import type { RowActionDetail } from './detail-types';
 
 export type TagType = 'default' | 'error' | 'primary' | 'info' | 'success' | 'warning';
 
@@ -22,11 +23,15 @@ export interface FormField {
   label: string;
   rules?: any[];
   type?: 'input' | 'select' | 'number' | 'multiple' | 'image' | 'date' | 'textarea' | 'geocode' | 'password';
-  options?: SelectOption[] | (() => SelectOption[]);
+  options?: SelectOption[] | ((form: Record<string, any>) => SelectOption[]);
   placeholder?: string;
   multiple?: boolean;
   /** 文本输入最大长度（如左侧分组标签限 5 字，保证小程序单行完整显示） */
   maxlength?: number;
+  /** 按当前表单动态决定字段是否显示 */
+  visible?: (form: Record<string, any>) => boolean;
+  /** 按当前表单动态决定字段是否禁用 */
+  disabled?: (form: Record<string, any>) => boolean;
   /** geocode 类型：从 sourceKey 地址解析，回填到 latKey / lngKey */
   geocodeSourceKey?: string;
   geocodeLatKey?: string;
@@ -59,6 +64,8 @@ export interface RowAction {
     ];
     handler: (row: any, values: { first: string; second: string }) => unknown;
   };
+  /** 点击后在弹层展示详情，不跳转新页面 */
+  detail?: RowActionDetail;
   handler?: (row: any, picked?: string, groupKey?: string, groupValue?: string) => unknown;
   visible?: (row: any) => boolean;
 }

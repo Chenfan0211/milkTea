@@ -9,6 +9,7 @@ import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchStoredValuePackages, saveStoredValueCoupons, saveStoredValueUsage } from '@/service/api/crud';
+import { formatFen } from '@/views/_shared/render';
 import GiftCouponsEditor from './GiftCouponsEditor.vue';
 
 const store = useAdminStore();
@@ -72,7 +73,9 @@ const columns: DataTableColumns<any> = [
     key: 'coupons',
     minWidth: 320,
     render: (row: any) =>
-      (row.coupons || []).map((c: any) => `${(Number(c.amount) / 100).toFixed(0)}元x${c.quantity}张`).join('、') || '—'
+      (row.coupons || [])
+        .map((c: any) => `${c.description || '优惠券'} ¥${formatFen(c.amount)} × ${c.quantity}张`)
+        .join('、') || '—'
   }
 ];
 
@@ -95,6 +98,8 @@ const rowActions: RowAction[] = [
 const config: AdminListConfig = {
   title: '储值套餐',
   remoteKey: 'storedValuePackages',
+  // 赠送券弹窗的券池来自 coupons 镜像，直接进入本页时也必须先加载。
+  remoteDeps: ['coupons'],
   columns,
   searchFields,
   toolbar,
@@ -110,8 +115,12 @@ const config: AdminListConfig = {
   form: {
     title: '储值套餐',
     fields: formFields,
-    // 编辑回填：amount 存的是「分」，表单里按「元」展示与输入
-    toFormData: (row: any) => ({ ...row, amount: row.amount == null ? 0 : Number(row.amount) / 100 }),
+    /**
+     * 编辑回填：amount 存的是「分」，表单按「元」展示与输入。
+     * 只回填表单声明的 amount：不再整行 {...row} 回填，
+     * 避免 id/updateTime 等服务端字段进入 payload（update 为部分更新，其余字段保持原值）。
+     */
+    toFormData: (row: any) => ({ amount: row.amount == null ? 0 : Number(row.amount) / 100 }),
     onSubmit: async (data, editing) => {
       // 元 -> 分（储值金额统一以分落库）
       const yuan = Number(data.amount) || 0;

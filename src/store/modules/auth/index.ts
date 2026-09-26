@@ -2,7 +2,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { defineStore } from 'pinia';
 import { useLoading } from '@sa/hooks';
-import { fetchGetUserInfo, fetchLogin } from '@/service/api';
+import { fetchGetUserInfo, fetchLogin, fetchQuickLogin } from '@/service/api';
 import { useRouterPush } from '@/hooks/common/router';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
@@ -128,6 +128,47 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     endLoading();
   }
 
+  /**
+   * 快捷登录（一键免密）。
+   *
+   * <p>与 {@link login} 的差别只在「怎么拿到 token」：这里是服务端按账号标识
+   * 直接签发，前端不持有任何口令。拿到 token 之后的链路（落库 → 拉用户信息 →
+   * 展开页签 → 跳转）与密码登录完全一致，因此直接复用 {@link loginByToken}，
+   * 避免两套登录流程各自演化出不一致的行为。
+   *
+   * @param key 快捷账号标识（服务端白名单：super / operation / finance / audit）
+   * @param redirect 登录成功后是否按 redirect 参数跳转
+   */
+  async function quickLogin(key: string, redirect = true) {
+    startLoading();
+
+    const { data: loginToken, error } = await fetchQuickLogin(key);
+
+    if (!error) {
+      const pass = await loginByToken(loginToken);
+
+      if (pass) {
+        const isClear = checkTabClear();
+        let needRedirect = redirect;
+
+        if (isClear) {
+          needRedirect = false;
+        }
+        await redirectFromLogin(needRedirect);
+
+        window.$notification?.success({
+          title: $t('page.login.common.loginSuccess'),
+          content: $t('page.login.common.welcomeBack', { userName: userInfo.userName }),
+          duration: 4500
+        });
+      }
+    } else {
+      resetStore();
+    }
+
+    endLoading();
+  }
+
   async function loginByToken(loginToken: Api.Auth.LoginToken) {
     // 1. stored in the localStorage, the later requests need it in headers
     localStg.set('token', loginToken.token);
@@ -179,6 +220,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     loginLoading,
     resetStore,
     login,
+    quickLogin,
     initUserInfo
   };
 });

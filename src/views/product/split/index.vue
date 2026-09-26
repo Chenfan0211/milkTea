@@ -9,49 +9,34 @@ import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { renderTag, statusMap } from '@/views/_shared/render';
+import { toggleSplitRule } from '@/service/api/crud';
 
 const store = useAdminStore();
 
 /**
- * 分账规则。
+ * 分账规则（固定金额 + 成本直给模型）。
  *
- * 口径说明（重要）：
- * 数据库 split_rule 存的是**万分比**（0~10000，五方合计必须 = 10000），
- * 不是「每件固定金额」。故页面统一按「比例」展示：
- *   展示值 = 万分比 / 100，例如 store_ratio=5000 -> 50%
- *
- * 历史问题：原页面列名写成「门店/件(元)」并读取 storePerItem / channelPerItem /
- * investorPercent，但后端返回的是 storeRatio / channelRatio / investorRatio，
- * 字段名对不上导致三列恒为空。此处已改为直接读取库中字段。
- *
- * scope 取值为 GLOBAL / PRODUCT（大写英文），需做中文映射。
+ * 口径说明：
+ * - store_ratio / channel_ratio：门店 / 资源方「每件提成」，固定金额（分），按商品件数计；
+ * - investor_ratio / investor_ratio_after：投资人提成 / 达标后提成，百分比（万分比存库）；
+ * - investor_threshold_amount：投资人当月累计达标额（分），必填；
+ * - 供应商成本、平台提成从商品明细（cost_price / platform_commission）取，不在规则里配置；
+ * - scope 仅支持 GLOBAL，商品维度规则后续再开发。
  */
 
-/** 作用范围：数据库取值 -> 中文 */
-const SCOPE_LABELS: Record<string, string> = {
-  GLOBAL: '全局',
-  PRODUCT: '商品'
-};
+/** 分 -> 元展示（金额列用） */
+function fenToYuan(fen: any): string {
+  const n = Number(fen);
+  if (!Number.isFinite(n) || n === 0) return '¥0.00';
+  return `¥${(n / 100).toFixed(2)}`;
+}
 
-/** 作用范围下拉（value 必须用数据库原值，否则查询条件匹配不到） */
-const SCOPE_OPTIONS = [
-  { label: '全局', value: 'GLOBAL' },
-  { label: '商品', value: 'PRODUCT' }
-];
-
-/** 万分比 -> 百分比展示（5000 -> 50%），保留两位小数去掉多余的 0 */
+/** 万分比 -> 百分比展示（5000 -> 50%） */
 function toPercent(ratio: any): string {
   const n = Number(ratio);
   if (!Number.isFinite(n)) return '0%';
   const percent = n / 100;
   return `${Number.isInteger(percent) ? percent : percent.toFixed(2)}%`;
-}
-
-/** 分 -> 元展示（阈值金额列用） */
-function fenToYuan(fen: any): string {
-  const n = Number(fen);
-  if (!Number.isFinite(n) || n === 0) return '—';
-  return `¥${(n / 100).toFixed(2)}`;
 }
 
 const columns: DataTableColumns<any> = [
@@ -60,12 +45,30 @@ const columns: DataTableColumns<any> = [
   {
     title: '作用范围',
     key: 'scope',
-    width: 100,
-    render: (row: any) => SCOPE_LABELS[String(row.scope)] ?? row.scope ?? '—'
+    width: 90,
+    render: () => '全局'
   },
-  { title: '门店比例', key: 'storeRatio', width: 100, align: 'right', render: (row: any) => toPercent(row.storeRatio) },
-  { title: '资源方比例', key: 'channelRatio', width: 110, align: 'right', render: (row: any) => toPercent(row.channelRatio) },
-  { title: '投资人比例', key: 'investorRatio', width: 110, align: 'right', render: (row: any) => toPercent(row.investorRatio) },
+  {
+    title: '门店每件提成',
+    key: 'storeRatio',
+    width: 120,
+    align: 'right',
+    render: (row: any) => fenToYuan(row.storeRatio)
+  },
+  {
+    title: '资源方每件提成',
+    key: 'channelRatio',
+    width: 130,
+    align: 'right',
+    render: (row: any) => fenToYuan(row.channelRatio)
+  },
+  {
+    title: '投资人比例',
+    key: 'investorRatio',
+    width: 110,
+    align: 'right',
+    render: (row: any) => toPercent(row.investorRatio)
+  },
   {
     title: '投资人达标额',
     key: 'investorThresholdAmount',
@@ -78,55 +81,79 @@ const columns: DataTableColumns<any> = [
     key: 'investorRatioAfter',
     width: 110,
     align: 'right',
-    // 阈值为 0 表示不启用该规则，此时显示 —，避免与「投资人比例」重复造成误解
-    render: (row: any) => (Number(row.investorThresholdAmount) > 0 ? toPercent(row.investorRatioAfter) : '—')
+    render: (row: any) => toPercent(row.investorRatioAfter)
   },
   {
     title: '状态',
     key: 'status',
-    width: 100,
+    width: 90,
     render: renderTag('status', statusMap({ enabled: ['启用', 'success'], disabled: ['停用', 'default'] }))
   }
 ];
 
 const searchFields: SearchField[] = [
-  { key: 'name', label: '规则', placeholder: '规则名称' },
-  {
-    // eq_ 前缀 -> 后端按等值过滤（scope 已在 CrudRegistry 登记为 filterable）
-    key: 'eq_scope',
-    label: '范围',
-    type: 'select',
-    options: SCOPE_OPTIONS
-  }
+  { key: 'name', label: '规则', placeholder: '规则名称' }
 ];
+
+/** 百分比（如 15） -> 万分比（1500） */
+function percentToBp(v: any): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/** 万分比 -> 百分比（回填用） */
+function bpToPercent(bp: any): number {
+  const n = Number(bp);
+  return Number.isFinite(n) ? n / 100 : 0;
+}
+
+/** 元 -> 分 */
+function yuanToFen(v: any): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/** 分 -> 元 */
+function fenToYuanNum(fen: any): number {
+  const n = Number(fen);
+  return Number.isFinite(n) ? n / 100 : 0;
+}
 
 const formFields: FormField[] = [
   { key: 'code', label: '编码', rules: [{ required: true, message: '请输入编码', trigger: ['input', 'blur'] }] },
   { key: 'name', label: '名称', rules: [{ required: true, message: '请输入名称', trigger: ['input', 'blur'] }] },
   {
-    key: 'scope',
-    label: '范围',
-    type: 'select',
-    options: SCOPE_OPTIONS,
-    placeholder: '请选择作用范围',
-    rules: [{ required: true, message: '请选择作用范围', trigger: ['change', 'blur'] }]
+    key: 'storeRatio',
+    label: '门店每件提成(元)',
+    type: 'number',
+    placeholder: '如 3.50 = 每件 3.5 元',
+    rules: [{ required: true, message: '请输入门店每件提成', trigger: ['input', 'blur'] }]
   },
-  { key: 'platformRatio', label: '平台比例(万分比)', type: 'number', placeholder: '如 1000 = 10%' },
-  { key: 'storeRatio', label: '门店比例(万分比)', type: 'number', placeholder: '如 5000 = 50%' },
-  { key: 'channelRatio', label: '资源方比例(万分比)', type: 'number', placeholder: '如 1500 = 15%' },
-  { key: 'investorRatio', label: '投资人比例(万分比)', type: 'number', placeholder: '如 1500 = 15%' },
-  { key: 'supplierRatio', label: '供应商比例(万分比)', type: 'number', placeholder: '如 1000 = 10%' },
+  {
+    key: 'channelRatio',
+    label: '资源方每件提成(元)',
+    type: 'number',
+    placeholder: '如 1.00 = 每件 1 元'
+  },
+  {
+    key: 'investorRatio',
+    label: '投资人比例(%)',
+    type: 'number',
+    placeholder: '如 15 = 15%',
+    rules: [{ required: true, message: '请输入投资人比例', trigger: ['input', 'blur'] }]
+  },
   {
     key: 'investorThresholdAmount',
-    label: '达标额(分)',
+    label: '投资人达标额(元)',
     type: 'number',
-    placeholder: '0 = 不启用；如 100000 = 1000 元'
+    placeholder: '必填，投资人当月累计分账达标额',
+    rules: [{ required: true, message: '请输入投资人达标额', trigger: ['input', 'blur'] }]
   },
   {
     key: 'investorRatioAfter',
-    label: '达标后比例(万分比)',
+    label: '达标后比例(%)',
     type: 'number',
-    placeholder: '投资人达标后启用的比例'
+    placeholder: '达标后投资人提成百分比'
   }
 ];
 
@@ -138,18 +165,14 @@ const rowActions: RowAction[] = [
     label: '启用',
     type: 'success',
     reasonPrompt: '确认启用该规则？（请填写备注）',
-    // 统一走 patch 写库：原实现调用 store.enableSplitRule()，只改本地镜像不落库，
-    // 刷新后状态回退（同页「停用」走 patch 却是真写库，两者行为不一致）。
-    handler: async (row, reason) =>
-      await store.patch('splitRules', row.id, { status: 'enabled' }, '商品中心', '启用规则', 'name', reason),
+    handler: async (row, reason) => await toggleSplitRule(row.id, true),
     visible: row => row.status === 'disabled'
   },
   {
     label: '停用',
     type: 'warning',
     reasonPrompt: '确认停用该规则？（请填写备注）',
-    handler: async (row, reason) =>
-      await store.patch('splitRules', row.id, { status: 'disabled' }, '商品中心', '停用规则', 'name', reason),
+    handler: async (row, reason) => await toggleSplitRule(row.id, false),
     visible: row => row.status === 'enabled'
   },
   {
@@ -160,43 +183,19 @@ const rowActions: RowAction[] = [
   }
 ];
 
-/**
- * 校验五方比例合计。
- * 与后端 SplitCalculator 校验口径一致（totalRatio != 10000 抛错），
- * 前端提前拦截可避免提交后才收到「分账比例合计必须为 10000」的报错。
- */
-function validateRatios(data: Record<string, any>) {
-  const keys = ['platformRatio', 'storeRatio', 'channelRatio', 'investorRatio', 'supplierRatio'];
-  const total = keys.reduce((sum, key) => sum + (Number(data[key]) || 0), 0);
-  if (total !== 10000) {
-    throw new Error(`五方比例合计必须为 10000（万分比），当前为 ${total}`);
-  }
-  validateInvestorThreshold(data);
-}
-
-/**
- * 校验「投资人当月达标后比例」配置的合法性。
- *
- * <p>达标后比例提升的部分由平台让出（平台 = 原平台 - 增量），故增量不能超过原平台比例，
- * 否则平台比例会变成负数 —— 等于平台倒贴钱。
- * 后端 SplitCalculator 会直接抛错，这里提前拦截以给出更明确的中文提示。
- */
-function validateInvestorThreshold(data: Record<string, any>) {
-  const threshold = Number(data.investorThresholdAmount) || 0;
+/** 校验投资人与达标后比例：达标后比例应不低于原比例，且均为 0~100 的百分比 */
+function validateForm(data: Record<string, any>) {
+  const investor = Number(data.investorRatio) || 0;
   const after = Number(data.investorRatioAfter) || 0;
-  const base = Number(data.investorRatio) || 0;
-  const platform = Number(data.platformRatio) || 0;
-
-  // 阈值为 0 表示不启用；达标比例为 0 表示未配置 —— 都不参与校验
-  if (threshold <= 0 || after <= 0) return;
-  if (after <= base) return;
-
-  const delta = after - base;
-  if (delta > platform) {
-    throw new Error(
-      `达标后投资人比例比原比例高 ${delta}（万分比），超出平台比例 ${platform}，会导致平台比例变负。` +
-        '请提高平台比例，或降低达标后投资人比例。'
-    );
+  const threshold = Number(data.investorThresholdAmount) || 0;
+  if (threshold <= 0) {
+    throw new Error('投资人达标额必填且必须大于 0');
+  }
+  if (investor < 0 || investor > 100) {
+    throw new Error('投资人比例必须在 0~100 之间');
+  }
+  if (after < 0 || after > 100) {
+    throw new Error('达标后比例必须在 0~100 之间');
   }
 }
 
@@ -211,29 +210,31 @@ const config: AdminListConfig = {
   form: {
     title: '分账规则',
     fields: formFields,
-    /** 编辑回填：比例与阈值归一为数字，避免 NInputNumber 值类型不匹配 */
+    /**
+     * 编辑回填：只回填表单声明字段，金额/比例换算为「元 / 百分比」供表单展示。
+     * 不再整行 {...row} 回填，避免 id/updateTime/deleted 等服务端字段进入提交 payload。
+     */
     toFormData: (row: any) => ({
-      ...row,
-      platformRatio: Number(row.platformRatio) || 0,
-      storeRatio: Number(row.storeRatio) || 0,
-      channelRatio: Number(row.channelRatio) || 0,
-      investorRatio: Number(row.investorRatio) || 0,
-      supplierRatio: Number(row.supplierRatio) || 0,
-      investorThresholdAmount: Number(row.investorThresholdAmount) || 0,
-      investorRatioAfter: Number(row.investorRatioAfter) || 0
+      code: row.code,
+      name: row.name,
+      storeRatio: fenToYuanNum(row.storeRatio),
+      channelRatio: fenToYuanNum(row.channelRatio),
+      investorRatio: bpToPercent(row.investorRatio),
+      investorThresholdAmount: fenToYuanNum(row.investorThresholdAmount),
+      investorRatioAfter: bpToPercent(row.investorRatioAfter)
     }),
     onSubmit: async (data, editing) => {
+      validateForm(data);
       const payload = {
-        ...data,
-        platformRatio: Number(data.platformRatio) || 0,
-        storeRatio: Number(data.storeRatio) || 0,
-        channelRatio: Number(data.channelRatio) || 0,
-        investorRatio: Number(data.investorRatio) || 0,
-        supplierRatio: Number(data.supplierRatio) || 0,
-        investorThresholdAmount: Number(data.investorThresholdAmount) || 0,
-        investorRatioAfter: Number(data.investorRatioAfter) || 0
+        code: data.code,
+        name: data.name,
+        scope: 'GLOBAL',
+        storeRatio: yuanToFen(data.storeRatio),
+        channelRatio: yuanToFen(data.channelRatio),
+        investorRatio: percentToBp(data.investorRatio),
+        investorThresholdAmount: yuanToFen(data.investorThresholdAmount),
+        investorRatioAfter: percentToBp(data.investorRatioAfter)
       };
-      validateRatios(payload);
       if (editing) await store.update('splitRules', editing.id, payload, '商品中心', 'name');
       else await store.add('splitRules', { ...payload, status: 'disabled' }, '商品中心', 'name');
     }

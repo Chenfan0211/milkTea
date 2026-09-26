@@ -3,6 +3,7 @@ import type { RouteKey, RoutePath } from '@elegant-router/types';
 import { useAuthStore } from '@/store/modules/auth';
 import { useRouteStore } from '@/store/modules/route';
 import { useAdminStore } from '@/store/modules/admin';
+import { clearAuthStorage } from '@/store/modules/auth/shared';
 import { localStg } from '@/utils/storage';
 import { getRouteName } from '@/router/elegant/transform';
 
@@ -121,6 +122,18 @@ async function initRoute(to: RouteLocationNormalized): Promise<RouteLocationRaw 
     // initialize the auth route
     await routeStore.initAuthRoute();
 
+    // 带 token 但鉴权路由初始化失败（token 失效 / 账号已被停用或删除 /
+    // /route/getUserRoutes 不可用）时，authStore 内部已清空登录态。
+    //
+    // 为什么必须在这里直接跳登录页，而不是交给后续守卫：
+    // 布局在守卫放行后立刻渲染，若只是清空登录态而不返回跳转指令，
+    // 用户会在「后台骨架（侧边栏/头部/Tab）+ 空白内容」上停留一到两帧，
+    // 表现为「未登录却看到了后台」。这里提前拦截，不渲染任何后台框架。
+    if (!routeStore.isInitAuthRoute) {
+      clearAuthStorage();
+      return getLoginLocation(to, routeStore.routeHome);
+    }
+
     // the route is captured by the "not-found" route because the auth route is not initialized
     // after the auth route is initialized, redirect to the original route
     if (isNotFoundRoute) {
@@ -168,6 +181,23 @@ function handleRouteSwitch(to: RouteLocationNormalized, from: RouteLocationNorma
 
     return { path: from.fullPath, replace: true, query: from.query, hash: to.hash };
   }
+}
+
+/**
+ * 构造「跳登录页」的路由目标。
+ *
+ * 与 {@link getRouteQueryOfLoginRoute} 的区别：这里不做「首页不算 redirect」的裁剪，
+ * 因为调用点在「已带 token 但鉴权失败」的场景，用户想去的页面必须原样记下来，
+ * 以便重新登录后回到原处。
+ */
+function getLoginLocation(to: RouteLocationNormalized, routeHome: RouteKey): RouteLocationRaw {
+  const loginRoute: RouteKey = 'login';
+  const query = getRouteQueryOfLoginRoute(to, routeHome);
+
+  return {
+    name: loginRoute,
+    query
+  };
 }
 
 function getRouteQueryOfLoginRoute(to: RouteLocationNormalized, routeHome: RouteKey) {

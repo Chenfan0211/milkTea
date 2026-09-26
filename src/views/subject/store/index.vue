@@ -196,7 +196,20 @@ const config: AdminListConfig = {
   form: {
     title: '门店',
     fields: formFields,
-    toFormData: (row: any) => ({ ...row, address: row.location }),
+    /**
+     * 编辑回填：只回填表单声明字段（location -> address 映射）。
+     * 不再整行 {...row} 回填，避免 id/updateTime 等服务端字段进入 payload。
+     */
+    toFormData: (row: any) => ({
+      name: row.name,
+      storeType: row.storeType,
+      city: row.city,
+      manager: row.manager,
+      address: row.location,
+      phone: row.phone,
+      latitude: row.latitude,
+      longitude: row.longitude
+    }),
     onSubmit: async (data, editing) => {
       for (const key of ['name', 'storeType', 'city', 'manager', 'address', 'phone']) {
         if (!String(data[key] ?? '').trim())

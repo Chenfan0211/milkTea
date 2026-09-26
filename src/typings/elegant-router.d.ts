@@ -36,13 +36,13 @@ declare module "@elegant-router/types" {
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
     "marketing": "/marketing";
-    "marketing_comment": "/marketing/comment";
     "marketing_coupon": "/marketing/coupon";
     "marketing_exchange": "/marketing/exchange";
     "marketing_gift": "/marketing/gift";
     "marketing_gift-order": "/marketing/gift-order";
     "marketing_member": "/marketing/member";
     "marketing_points": "/marketing/points";
+    "marketing_points-category": "/marketing/points-category";
     "marketing_points-rule": "/marketing/points-rule";
     "marketing_referral": "/marketing/referral";
     "marketing_stored": "/marketing/stored";
@@ -153,12 +153,12 @@ declare module "@elegant-router/types" {
     | "finance_snapshot"
     | "finance_withdraw"
     | "home"
-    | "marketing_comment"
     | "marketing_coupon"
     | "marketing_exchange"
     | "marketing_gift-order"
     | "marketing_gift"
     | "marketing_member"
+    | "marketing_points-category"
     | "marketing_points-rule"
     | "marketing_points"
     | "marketing_referral"

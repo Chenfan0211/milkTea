@@ -41,22 +41,7 @@ const searchFields: SearchField[] = [
   }
 ];
 const toolbar: RowAction[] = [];
-const rowActions: RowAction[] = [
-  {
-    label: '通过',
-    type: 'success',
-    reasonPrompt: '确认通过该评论？（请填写备注）',
-    handler: (row, reason) => store.reviewComment(row.id, true, reason),
-    visible: row => row.status === 'PENDING'
-  },
-  {
-    label: '驳回',
-    type: 'error',
-    reasonPrompt: '确认驳回该评论？（请填写备注）',
-    handler: (row, reason) => store.reviewComment(row.id, false, reason),
-    visible: row => row.status === 'PENDING'
-  }
-];
+const rowActions: RowAction[] = [];
 const config: AdminListConfig = {
   title: '评论审核',
   remoteKey: 'comments',

@@ -114,10 +114,17 @@ const config: AdminListConfig = {
   rowActions,
   form: {
     title: '平台主体',
+    /**
+     * 编辑回填：只回填表单声明字段（appSecret 永不回显，留空=不修改）。
+     * 不再整行 {...row} 回填，避免 id/updateTime 等服务端字段进入 payload。
+     */
     toFormData: (row: any) => ({
-      ...row,
-      // 编辑时把已配置的 AppID / 商户号带进表单（AppSecret 永不回显）
+      code: row.code,
+      name: row.name,
+      status: row.status,
+      // 编辑时把已配置的 AppID / 商户号带进表单
       appid: row.appid || platformProfile.value?.appId || '',
+      appSecret: '',
       mchId: platformProfile.value?.mchId || '',
       // 阈值：分 -> 元（表单按元编辑）
       withdrawFreeAuditThreshold:

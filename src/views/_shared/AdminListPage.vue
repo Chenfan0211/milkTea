@@ -24,6 +24,8 @@ import { useAdminStore } from '@/store/modules/admin';
 import * as XLSX from 'xlsx';
 import { geocodeAddress } from '@/utils/tencent-map';
 import type { AdminListConfig, FormField, RowAction } from './types';
+import DetailModal from './DetailModal.vue';
+import type { DetailGroup } from './detail-types';
 
 const props = defineProps<{ config: AdminListConfig }>();
 
@@ -84,6 +86,12 @@ const modalVisible = ref(false);
 const modalMode = ref<'add' | 'edit'>('add');
 const editingRow = ref<any>(null);
 const formModel = reactive<Record<string, any>>({});
+const visibleFormFields = computed(() =>
+  (props.config.form?.fields ?? []).filter(field => !field.visible || field.visible(formModel))
+);
+function isFieldDisabled(field: FormField) {
+  return field.disabled?.(formModel) ?? false;
+}
 
 const reasonVisible = ref(false);
 const reasonTitle = ref('');
@@ -114,6 +122,13 @@ const cascadeSecondValue = ref<string | null>(null);
 const pendingCascadeAction = ref<RowAction | null>(null);
 const pendingCascadeRow = ref<any>(null);
 
+// detail modal state（详情统一用弹层展示，不跳转新页面）
+const detailVisible = ref(false);
+const detailTitle = ref('详情');
+const detailGroups = ref<DetailGroup[]>([]);
+const detailRow = ref<any>(null);
+const detailLoader = ref<((row: any) => any | Promise<any>) | undefined>(undefined);
+
 // import state
 const importVisible = ref(false);
 const importRows = ref<Record<string, string>[]>([]);
@@ -137,7 +152,9 @@ function openModal(mode: 'add' | 'edit', row: any) {
 async function submitModal() {
   if (props.config.form) {
     try {
-      await props.config.form.onSubmit({ ...formModel }, modalMode.value === 'edit' ? editingRow.value : null);
+      const visibleKeys = new Set(visibleFormFields.value.map(field => field.key));
+      const payload = Object.fromEntries(Object.entries(formModel).filter(([key]) => visibleKeys.has(key)));
+      await props.config.form.onSubmit(payload, modalMode.value === 'edit' ? editingRow.value : null);
     } catch (e: any) {
       window.$message?.error(e?.message || '提交失败');
       return;
@@ -180,9 +197,13 @@ async function confirmReason() {
     window.$message?.warning('请填写备注信息');
     return;
   }
-  await pendingReasonAction.value?.handler?.(pendingReasonRow.value, reason);
-  reasonVisible.value = false;
-  loadData();
+  try {
+    await pendingReasonAction.value?.handler?.(pendingReasonRow.value, reason);
+    reasonVisible.value = false;
+    loadData();
+  } catch {
+    // 请求层已展示后端业务错误，保留弹窗便于用户根据提示调整。
+  }
 }
 
 function openGroupPicker(action: RowAction, row: any) {
@@ -333,6 +354,16 @@ async function confirmImport() {
   }
 }
 
+function openDetail(action: RowAction, row: any) {
+  const cfg = action.detail ?? {};
+  detailTitle.value = typeof cfg.title === "function" ? cfg.title(row) : cfg.title ?? action.label ?? "详情";
+  detailGroups.value = typeof cfg.groups === "function" ? cfg.groups(row) : cfg.groups ?? [];
+  detailLoader.value = cfg.load;
+  detailRow.value = row;
+  detailVisible.value = true;
+}
+
+
 async function handleAction(action: RowAction, row: any) {
   if (action.modal) {
     openModal(action.modal, row);
@@ -352,6 +383,11 @@ async function handleAction(action: RowAction, row: any) {
   }
   if (action.cascadePicker) {
     openCascadePicker(action, row);
+    return;
+  }
+  if (action.detail) {
+    // 详情统一走弹层，不跳转新页面
+    openDetail(action, row);
     return;
   }
   // 裸 handler 同样要 await：handler 可能是异步写库，
@@ -443,8 +479,8 @@ onMounted(async () => {
     } finally {
       loading.value = false;
     }
-    await loadData();
   }
+  await loadData();
 });
 async function loadData() {
   loading.value = true;
@@ -483,12 +519,14 @@ function handleReset() {
 }
 
 function renderField(field: FormField) {
+  const disabled = isFieldDisabled(field);
   if (field.type === 'multiple' || field.multiple) {
     return h(NSelect, {
       value: formModel[field.key] ?? [],
-      options: toSelectOptions(typeof field.options === 'function' ? field.options() : (field.options ?? [])),
+      options: toSelectOptions(typeof field.options === 'function' ? field.options(formModel) : (field.options ?? [])),
       clearable: true,
       filterable: true,
+      disabled,
       multiple: true,
       maxTagCount: 2,
       placeholder: field.placeholder ?? '请选择（可多选）',
@@ -498,9 +536,10 @@ function renderField(field: FormField) {
   if (field.type === 'select') {
     return h(NSelect, {
       value: formModel[field.key],
-      options: toSelectOptions(typeof field.options === 'function' ? field.options() : (field.options ?? [])),
+      options: toSelectOptions(typeof field.options === 'function' ? field.options(formModel) : (field.options ?? [])),
       clearable: true,
       filterable: true,
+      disabled,
       placeholder: field.placeholder,
       'onUpdate:value': (v: any) => (formModel[field.key] = v)
     });
@@ -516,6 +555,7 @@ function renderField(field: FormField) {
           max: 1,
           showFileList: false,
           defaultUpload: false,
+          disabled,
           'onUpdate:fileList': (files: UploadFileInfo[]) => {
             const file = files[0]?.file;
             if (!file) return;
@@ -539,6 +579,7 @@ function renderField(field: FormField) {
             {
               size: 'tiny',
               quaternary: true,
+              disabled,
               style: 'margin-top:8px',
               onClick: () => {
                 formModel[field.key] = '';
@@ -556,6 +597,7 @@ function renderField(field: FormField) {
       value: ts,
       type: 'date',
       clearable: true,
+      disabled,
       placeholder: field.placeholder ?? '请选择日期',
       'onUpdate:value': (v: any) => {
         if (!v) {
@@ -573,6 +615,7 @@ function renderField(field: FormField) {
       value: formModel[field.key] ?? '',
       type: 'textarea',
       rows: 4,
+      disabled,
       placeholder: field.placeholder,
       'onUpdate:value': (v: string) => (formModel[field.key] = v)
     });
@@ -585,6 +628,7 @@ function renderField(field: FormField) {
       {
         size: 'small',
         type: 'info',
+        disabled,
         onClick: async () => {
           const addr = formModel[field.geocodeSourceKey ?? 'address'];
           if (!addr || !String(addr).trim()) {
@@ -613,6 +657,7 @@ function renderField(field: FormField) {
     return h(NInputNumber, {
       value: formModel[field.key] ?? null,
       placeholder: field.placeholder,
+      disabled,
       'onUpdate:value': (v: any) => (formModel[field.key] = v)
     });
   }
@@ -621,6 +666,7 @@ function renderField(field: FormField) {
       value: formModel[field.key] ?? '',
       type: 'password',
       showPasswordOn: 'click',
+      disabled,
       placeholder: field.placeholder ?? '请输入',
       'onUpdate:value': (v: string) => (formModel[field.key] = v)
     });
@@ -628,6 +674,7 @@ function renderField(field: FormField) {
   return h(NInput, {
     value: formModel[field.key] ?? '',
     maxlength: field.maxlength,
+    disabled,
     placeholder: field.placeholder,
     'onUpdate:value': (v: string) => (formModel[field.key] = v)
   });
@@ -731,7 +778,7 @@ defineExpose({ reload: loadData });
 
     <NModal v-model:show="modalVisible" preset="card" :title="config.form?.title ?? '表单'" class="w-560px">
       <NForm label-placement="left" :label-width="90">
-        <NFormItem v-for="field in config.form?.fields ?? []" :key="field.key" :label="field.label">
+        <NFormItem v-for="field in visibleFormFields" :key="field.key" :label="field.label">
           <component :is="renderField(field)" />
         </NFormItem>
         <div class="flex flex-wrap justify-end gap-12px">
@@ -816,6 +863,15 @@ defineExpose({ reload: loadData });
         <NButton type="primary" @click="confirmPicker">确定</NButton>
       </div>
     </NModal>
+
+    <!-- 详情弹层：所有「详情」入口统一在这里展示，不跳转新页面 -->
+    <DetailModal
+      v-model:show="detailVisible"
+      :title="detailTitle"
+      :groups="detailGroups"
+      :row="detailRow"
+      :load="detailLoader"
+    />
   </div>
 </template>
 

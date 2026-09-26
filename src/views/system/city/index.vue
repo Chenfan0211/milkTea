@@ -89,10 +89,16 @@ const config: AdminListConfig = {
   form: {
     title: '城市',
     fields: formFields,
-    /** 编辑回填：parent_id 可能为数字，统一转字符串以匹配下拉 value */
+    /**
+     * 编辑回填：只回填表单声明字段；parentId 可能为数字，统一转字符串以匹配下拉 value。
+     * 不再整行 {...row} 回填，避免 id/updateTime 等服务端字段进入 payload。
+     */
     toFormData: (row: any) => ({
-      ...row,
       parentId: row.parentId == null ? null : String(row.parentId),
+      name: row.name,
+      code: row.code,
+      longitude: row.longitude,
+      latitude: row.latitude,
       sort: row.sort == null ? 0 : Number(row.sort)
     }),
     onSubmit: async (data, editing) => {

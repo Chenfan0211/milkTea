@@ -4,15 +4,15 @@ defineOptions({
   name: 'trade_verify'
 });
 
-import { useRouter } from 'vue-router';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
+import type { DetailGroup } from '@/views/_shared/detail-types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
+import { fetchAdminVerifyDetail } from '@/service/api/trade';
+import { renderTag, statusMap, renderDateTime, formatDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
-const router = useRouter();
 
 const columns: DataTableColumns<any> = [
   { title: '核销码', key: 'verifyCode', width: 120 },
@@ -56,8 +56,39 @@ const searchFields: SearchField[] = [
   }
 ];
 const toolbar: RowAction[] = [];
+
+const resultLabel = (v: string) =>
+  (({ SUCCESS: '核销成功', success: '核销成功', FAIL: '核销失败', failed: '核销失败', rejected: '重复拦截' }) as Record<string, string>)[v] ?? v;
+const typeLabel = (v: string) => ({ ORDER: '订单', EXCHANGE: '兑换' } as Record<string, string>)[v] ?? v;
+
+/** 核销记录详情弹层字段（原 /trade/verify-detail 页面口径） */
+const detailGroups: DetailGroup[] = [
+  {
+    title: '核销信息',
+    fields: [
+      { label: '核销码', key: 'verifyCode' },
+      { label: '订单号', key: 'orderNo' },
+      { label: '门店', render: (r: any) => r.store || '—' },
+      { label: '操作人', render: (r: any) => r.operator || '—' },
+      { label: '设备', render: (r: any) => r.device || '—' },
+      { label: '核销类型', render: (r: any) => typeLabel(r.type) },
+      { label: '结果', render: (r: any) => resultLabel(r.result) },
+      { label: '时间', render: (r: any) => formatDateTime(r.time ?? r.createTime) }
+    ]
+  }
+];
+
 const rowActions: RowAction[] = [
-  { label: '详情', type: 'info', handler: row => router.push({ path: '/trade/verify-detail', query: { id: row.id } }) }
+  {
+    label: '详情',
+    type: 'info',
+    // 弹层展示：按 id 拉取核销记录详情，不跳转新页面
+    detail: {
+      title: '核销记录详情',
+      groups: detailGroups,
+      load: (row: any) => fetchAdminVerifyDetail(row.id)
+    }
+  }
 ];
 const config: AdminListConfig = {
   title: '核销记录',

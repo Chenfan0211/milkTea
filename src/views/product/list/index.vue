@@ -239,9 +239,15 @@ const config: AdminListConfig = {
     /**
      * 编辑回填时把「分」换算为「元」，避免输入框显示 640 而非 6.40。
      * 提交时后端负责「元 -> 分」换算（AdminProductWriteService#yuanToFen）。
+     *
+     * 只回填表单声明字段：不再整行 {...row} 回填，避免 id/updateTime/deleted
+     * 等服务端字段进入提交 payload（后端会自动更新 update_time，导致误报未落库）。
      */
     toFormData: (row: any) => ({
-      ...row,
+      image: row.image,
+      code: row.code,
+      name: row.name,
+      onSale: row.onSale,
       // 分类：后端 Long 序列化为数字；老数据若缺 categoryId，按分类名反查兜底
       categoryId:
         row.categoryId != null
@@ -264,7 +270,7 @@ const config: AdminListConfig = {
       cupCapacity: row.cupCapacity || '',
       // 标签：后端下发字符串数组，表单用逗号文本编辑（直接绑定数组会导致输入即被覆写）
       tagsText: Array.isArray(row.tags) ? row.tags.join('，') : '',
-      tipsText: (row.tips || []).join('\n'),
+      tipsText: (row.tips || []).join('\n')
     }),
     onSubmit: async (data, editing) => {
       const tags = String(data.tagsText || '')

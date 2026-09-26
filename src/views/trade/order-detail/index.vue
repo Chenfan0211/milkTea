@@ -17,7 +17,7 @@ const mealTypeLabel = (v: string) =>
 const refundStatusLabel = (v: string) =>
   ({ PENDING: '退款中', REFUNDED: '已退款' } as Record<string, string>)[v] ?? v;
 const statusLabel = (v: string) =>
-  ({ CREATED: '待支付', PAID: '已支付', VERIFIED: '已核销', COMPLETED: '已完成', REFUNDED: '已退款', CANCELED: '已取消' } as Record<string, string>)[v] ?? v;
+  ({ CREATED: '待支付', PAID: '待核销', COMPLETED: '已完成', CANCELED: '已取消' } as Record<string, string>)[v] ?? v;
 
 /** 商品明细：图片 + 名称 x数量 + 规格 + 单价 */
 function renderItems(row: any) {

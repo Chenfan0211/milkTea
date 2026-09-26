@@ -14,8 +14,9 @@ const store = useAdminStore();
 
 const statusMapDef = statusMap({
   CREATED: ['待支付', 'warning'],
-  PAID: ['已支付', 'primary'],
-  COMPLETED: ['已完成', 'success'], REFUNDED: ['已退款', 'default'], CANCELED: ['已取消', 'default']
+  PAID: ['待核销', 'primary'],
+  COMPLETED: ['已完成', 'success'],
+  CANCELED: ['已取消', 'default']
 });
 
 const columns: DataTableColumns<any> = [
@@ -38,9 +39,9 @@ const searchFields: SearchField[] = [
     type: 'select',
     options: [
       { label: '待支付', value: 'CREATED' },
-      { label: '已支付', value: 'PAID' },
+      { label: '待核销', value: 'PAID' },
       { label: '已完成', value: 'COMPLETED' },
-      { label: '已退款', value: 'REFUNDED' }
+      { label: '已取消', value: 'CANCELED' }
     ]
   }
 ];
