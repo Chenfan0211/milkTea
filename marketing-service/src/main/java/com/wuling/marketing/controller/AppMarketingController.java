@@ -2,7 +2,9 @@ package com.wuling.marketing.controller;
 
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
+import com.wuling.marketing.dto.PointsCategoryView;
 import com.wuling.marketing.dto.StoredValuePackageDTO;
+import com.wuling.marketing.dto.UserCouponView;
 import com.wuling.marketing.entity.*;
 import com.wuling.marketing.service.*;
 import com.wuling.user.entity.AppUser;
@@ -14,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/** 小程序端：营销（优惠券 / 储值 / 礼品卡 / 积分 / 评论） */
+/** 小程序端：营销（优惠券 / 储值 / 礼品卡 / 积分） */
 @RestController
 @RequestMapping("/api/v1/app")
 public class AppMarketingController {
@@ -23,7 +25,7 @@ public class AppMarketingController {
     private final StoredValueService storedValueService;
     private final GiftCardService giftCardService;
     private final PointsService pointsService;
-    private final CommentService commentService;
+    private final ReferralConfigService referralConfigService;
     private final AppUserMapper appUserMapper;
     private final MemberLevelMapper memberLevelMapper;
 
@@ -31,14 +33,14 @@ public class AppMarketingController {
                                   StoredValueService storedValueService,
                                   GiftCardService giftCardService,
                                   PointsService pointsService,
-                                  CommentService commentService,
+                                  ReferralConfigService referralConfigService,
                                   AppUserMapper appUserMapper,
                                   MemberLevelMapper memberLevelMapper) {
         this.couponService = couponService;
         this.storedValueService = storedValueService;
         this.giftCardService = giftCardService;
         this.pointsService = pointsService;
-        this.commentService = commentService;
+        this.referralConfigService = referralConfigService;
         this.appUserMapper = appUserMapper;
         this.memberLevelMapper = memberLevelMapper;
     }
@@ -49,13 +51,19 @@ public class AppMarketingController {
         return Result.ok(couponService.listEnabled());
     }
 
+    /** 分享有礼展示配置（公开接口，供小程序展示奖励规则）。 */
+    @GetMapping("/referral-config")
+    public Result<Map<String, Object>> referralConfig() {
+        return Result.ok(referralConfigService.getConfig());
+    }
+
     /**
      * 我的优惠券。
      * 注意：userId 一律取自 JWT，路径参数仅用于兼容旧前端调用，不参与鉴权。
      * 前端可传任意占位值（如 0），实际归属以 token 为准。
      */
     @GetMapping("/users/{userId}/coupons")
-    public Result<List<UserCoupon>> myCoupons(@PathVariable Long userId,
+    public Result<List<UserCouponView>> myCoupons(@PathVariable Long userId,
                                               @RequestParam(required = false) String status) {
         return Result.ok(couponService.myCoupons(CurrentUser.require(), status));
     }
@@ -112,7 +120,28 @@ public class AppMarketingController {
     }
 
     @PostMapping("/gift-cards/purchase")
-    public Result<GiftCardOrder> purchase(@RequestParam Long denominationId) {
+    public Result<GiftCardOrder> purchase(@RequestBody Map<String, Object> body) {
+        if (body == null || body.size() != 1 || !body.containsKey("denominationId")) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST,
+                    "每次只能选择一个礼品卡面额和一张卡");
+        }
+        Object raw = body.get("denominationId");
+        if (raw == null || raw instanceof java.util.Collection<?> || raw instanceof Map<?, ?>) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST,
+                    "礼品卡面额参数不合法");
+        }
+        Long denominationId;
+        try {
+            denominationId = raw instanceof Number number
+                    ? number.longValue()
+                    : Long.valueOf(String.valueOf(raw));
+        } catch (NumberFormatException e) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST,
+                    "礼品卡面额参数不合法");
+        }
         return Result.ok(giftCardService.purchase(CurrentUser.require(), denominationId));
     }
 
@@ -128,9 +157,15 @@ public class AppMarketingController {
         return Result.ok(giftCardService.myOrders(CurrentUser.require(), page, size));
     }
 
-    @PostMapping("/gift-cards/orders/{orderId}/cancel")
-    public Result<GiftCardOrder> cancelGiftCardOrder(@PathVariable Long orderId) {
-        return Result.ok(giftCardService.cancelOrder(CurrentUser.require(), orderId));
+    /** 支付后轮询与订单页刷新统一按业务订单号查询。 */
+    @GetMapping("/gift-cards/orders/{orderNo}")
+    public Result<GiftCardOrder> giftCardOrder(@PathVariable String orderNo) {
+        return Result.ok(giftCardService.orderView(CurrentUser.require(), orderNo));
+    }
+
+    @PostMapping("/gift-cards/orders/{orderNo}/cancel")
+    public Result<GiftCardOrder> cancelGiftCardOrder(@PathVariable String orderNo) {
+        return Result.ok(giftCardService.cancelOrder(CurrentUser.require(), orderNo));
     }
 
     @PostMapping("/gift-cards/verify")
@@ -139,9 +174,18 @@ public class AppMarketingController {
     }
 
     // ---------- 积分 ----------
+    @GetMapping("/points/categories")
+    public Result<List<PointsCategoryView>> pointsCategories() {
+        return Result.ok(pointsService.listCategories().stream()
+                .map(category -> new PointsCategoryView(
+                        category.getCode(), category.getName(), category.getSort()))
+                .toList());
+    }
+
     @GetMapping("/points/products")
-    public Result<List<PointsProduct>> pointsProducts() {
-        return Result.ok(pointsService.listProducts(null));
+    public Result<List<PointsProduct>> pointsProducts(
+            @RequestParam(required = false) String category) {
+        return Result.ok(pointsService.listProducts(category));
     }
 
     @GetMapping("/points/rules")
@@ -166,8 +210,15 @@ public class AppMarketingController {
     }
 
     @PostMapping("/points/exchange")
-    public Result<ExchangeOrder> exchange(@RequestParam Long productId) {
-        return Result.ok(pointsService.exchange(CurrentUser.require(), productId));
+    public Result<ExchangeOrder> exchange(@RequestBody Map<String, Object> body) {
+        if (body == null || body.isEmpty() || !body.containsKey("productId")) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST, "请选择兑换商品");
+        }
+        Long productId = parseLongValue(body.get("productId"), "商品参数不合法");
+        Object rawQuantity = body.get("quantity");
+        Integer quantity = rawQuantity == null ? 1 : parseIntValue(rawQuantity, "兑换数量不合法");
+        return Result.ok(pointsService.exchange(CurrentUser.require(), productId, quantity));
     }
 
     @GetMapping("/points/exchange-orders")
@@ -196,18 +247,30 @@ public class AppMarketingController {
         return Result.ok(appUserMapper.selectById(current));
     }
 
-    // ---------- 评论 ----------
-    @PostMapping("/comments")
-    public Result<Comment> comment(@RequestParam Long orderId,
-                                   @RequestParam(required = false) Integer rating,
-                                   @RequestParam(required = false) String content,
-                                   @RequestParam(required = false) String images) {
-        return Result.ok(commentService.submit(orderId, CurrentUser.require(), rating, content, images));
+    private Long parseLongValue(Object raw, String message) {
+        if (raw == null || raw instanceof java.util.Collection<?> || raw instanceof Map<?, ?>) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST, message);
+        }
+        try {
+            return raw instanceof Number number
+                    ? number.longValue()
+                    : Long.valueOf(String.valueOf(raw));
+        } catch (NumberFormatException e) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST, message);
+        }
+    }
+
+    private Integer parseIntValue(Object raw, String message) {
+        Long value = parseLongValue(raw, message);
+        if (value < 1 || value > Integer.MAX_VALUE) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST, message);
+        }
+        return value.intValue();
     }
 }
-
-
-
 
 
 

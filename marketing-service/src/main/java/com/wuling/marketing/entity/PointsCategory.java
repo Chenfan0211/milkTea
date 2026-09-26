@@ -6,23 +6,20 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("exchange_order")
-public class ExchangeOrder {
+@TableName("points_category")
+public class PointsCategory {
 
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String exchangeNo;
-    private Long userId;
-    private Long pointsProductId;
-    private Long points;
-    /** 本次兑换数量 */
-    private Integer quantity;
-    private String pickupCode;
-    private String status;
+    private String code;
+    private String name;
+    private Integer sort;
+    private Integer enabled;
+    /** 1系统分类，禁止改码和删除，名称/排序/启停仍可管理 */
+    private Integer systemLocked;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 

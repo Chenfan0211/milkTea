@@ -25,13 +25,18 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class MarketingSecurityConfig implements WebMvcConfigurer {
 
     private final MiniAppAuthInterceptor miniAppAuthInterceptor;
+    private final GiftCardInternalAuthInterceptor giftCardInternalAuthInterceptor;
 
-    public MarketingSecurityConfig(MiniAppAuthInterceptor miniAppAuthInterceptor) {
+    public MarketingSecurityConfig(MiniAppAuthInterceptor miniAppAuthInterceptor,
+                                   GiftCardInternalAuthInterceptor giftCardInternalAuthInterceptor) {
         this.miniAppAuthInterceptor = miniAppAuthInterceptor;
+        this.giftCardInternalAuthInterceptor = giftCardInternalAuthInterceptor;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(giftCardInternalAuthInterceptor)
+                .addPathPatterns("/internal/gift-card-orders/**");
         registry.addInterceptor(miniAppAuthInterceptor)
                 .addPathPatterns(
                         // 用户优惠券
@@ -42,6 +47,9 @@ public class MarketingSecurityConfig implements WebMvcConfigurer {
                         "/api/v1/app/stored-value/orders/**",
                         // 礼品卡：我的卡与购买需登录（面额列表公开）
                         "/api/v1/app/gift-cards",
+                        "/api/v1/app/gift-cards/orders",
+                        "/api/v1/app/gift-cards/orders/**",
+                        "/api/v1/app/gift-cards/verify",
                         "/api/v1/app/gift-cards/purchase",
                         // 时光币：记录/签到/兑换需登录（商品与规则公开）
                         "/api/v1/app/points/records",
@@ -50,9 +58,7 @@ public class MarketingSecurityConfig implements WebMvcConfigurer {
                         // 否则鉴权缺失会返回 8888，导致页面误显示「可签到」。
                         "/api/v1/app/points/signin-dates",
                         "/api/v1/app/points/exchange",
-                        "/api/v1/app/points/exchange-orders",
-                        // 评论
-                        "/api/v1/app/comments"
+                        "/api/v1/app/points/exchange-orders"
                 );
     }
 }

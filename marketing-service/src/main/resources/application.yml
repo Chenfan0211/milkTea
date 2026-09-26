@@ -56,6 +56,8 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 app:
+  internal:
+    service-token: ${INTERNAL_SERVICE_TOKEN:}
   # 请求日志开关（生产默认脱敏；排查时可临时置 true 输出全量参数，排查完务必关闭）
   log:
     request:

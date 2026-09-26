@@ -6,23 +6,22 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("exchange_order")
-public class ExchangeOrder {
+@TableName("gift_card_refund")
+public class GiftCardRefund {
 
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String exchangeNo;
-    private Long userId;
-    private Long pointsProductId;
-    private Long points;
-    /** 本次兑换数量 */
-    private Integer quantity;
-    private String pickupCode;
+    private String refundNo;
+    private String orderNo;
+    private Long amount;
+    private String reason;
     private String status;
+    private String wxRefundId;
+    private String failReason;
+    private LocalDateTime finishedTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 

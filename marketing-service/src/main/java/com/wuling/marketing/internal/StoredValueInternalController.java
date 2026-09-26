@@ -1,5 +1,6 @@
 package com.wuling.marketing.internal;
 
+import com.wuling.common.exception.BusinessException;
 import com.wuling.marketing.entity.StoredValueOrder;
 import com.wuling.marketing.service.StoredValueService;
 import org.slf4j.Logger;
@@ -86,6 +87,63 @@ public class StoredValueInternalController {
                 "orderNo", order.getOrderNo(),
                 "payStatus", order.getPayStatus()
         );
+    }
+
+    /**
+     * 储值余额支付扣款（供 trade 的「余额支付点单」调用）。
+     *
+     * <p><b>为什么放在 /internal 而不是 /api/v1/app</b>：扣款必须与
+     * 「置订单已支付 + 写支付单」在同一个 trade 事务里完成，
+     * 由服务端内部调用；小程序端只负责发起请求，不直接调扣款接口。
+     *
+     * <p>余额不足时返回 {@code success=false}，<b>不抛异常</b> ——
+     * 「余额不足」是正常业务分支，需让 trade 得到明确结果而不是 500。
+     *
+     * @return { success: true } 或 { success: false, message: "..." }
+     */
+    @PostMapping("/balance/pay")
+    public Map<String, Object> payWithBalance(@RequestBody Map<String, Object> body) {
+        Long userId = asLong(body.get("userId"));
+        Long amount = asLong(body.get("amount"));
+        String bizNo = asString(body.get("bizNo"));
+        if (userId == null || amount == null) {
+            return Map.of("success", false, "message", "缺少 userId 或 amount");
+        }
+        try {
+            storedValueService.payWithBalance(userId, amount, bizNo);
+            return Map.of("success", true);
+        } catch (BusinessException e) {
+            // 业务性失败（余额不足等）如实回传，让 trade 决定是否回滚整个订单事务
+            log.info("储值余额扣款未成功 userId={} amount={} bizNo={} reason={}",
+                    userId, amount, bizNo, e.getMessage());
+            return Map.of("success", false, "message", e.getMessage());
+        }
+    }
+
+    /**
+     * 储值余额退回（供 trade 的「余额支付订单」退款/取消调用）。
+     *
+     * <p>口径：退款原路退回 —— 当初用余额付的，就退回余额（不是微信）。
+     * 储值「充值」不可退，本接口与充值退款无关。
+     *
+     * @return { success: true } 或 { success: false, message: "..." }
+     */
+    @PostMapping("/balance/refund")
+    public Map<String, Object> refundToBalance(@RequestBody Map<String, Object> body) {
+        Long userId = asLong(body.get("userId"));
+        Long amount = asLong(body.get("amount"));
+        String bizNo = asString(body.get("bizNo"));
+        if (userId == null || amount == null) {
+            return Map.of("success", false, "message", "缺少 userId 或 amount");
+        }
+        try {
+            storedValueService.refundToBalance(userId, amount, bizNo);
+            return Map.of("success", true);
+        } catch (BusinessException e) {
+            log.info("储值余额退回未成功 userId={} amount={} bizNo={} reason={}",
+                    userId, amount, bizNo, e.getMessage());
+            return Map.of("success", false, "message", e.getMessage());
+        }
     }
 
     private String asString(Object v) {

@@ -18,6 +18,8 @@ public class UserCoupon {
     private Long userId;
     private Long couponId;
     private String status;
+    /** 来源：RECEIVE领券/POINTS_EXCHANGE积分兑换 */
+    private String source;
     private LocalDateTime receiveTime;
     private Long lockOrderId;
     private LocalDateTime useTime;

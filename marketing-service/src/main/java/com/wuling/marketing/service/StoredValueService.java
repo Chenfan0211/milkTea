@@ -260,6 +260,76 @@ public class StoredValueService {
         return requireByOrderNo(orderNo);
     }
 
+    /**
+     * 储值余额支付：从余额扣款，用于「点单订单」的支付。
+     *
+     * <p><b>为什么必须走服务端扣款</b>：前端曾用本地存储直接改余额
+     * （{@code submitWithStoredValue} 只改本地 profile），既不产生支付记录，
+     * 也无法防并发超扣。扣款是一次资金动作，必须在服务端以 DB 行为准。
+     *
+     * <p><b>并发与透支防护</b>：{@link AppUserMapper#addBalance} 的 SQL 条件带
+     * {@code balance + delta >= 0}，扣到不足时返回 0 —— 这里据此抛「余额不足」，
+     * 而不是当成系统错误。调用方（trade）在一个事务内完成
+     * 「扣余额 + 置订单已支付 + 写支付单」，任一步失败整体回滚。
+     *
+     * @param userId  用户 ID
+     * @param amount  扣款金额（分），必须 &gt; 0
+     * @param bizNo   业务单号（点单订单号），仅用于日志与对账追溯
+     * @throws BusinessException 余额不足 / 参数非法 / 用户不存在
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void payWithBalance(Long userId, long amount, String bizNo) {
+        if (userId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "用户不存在");
+        }
+        if (amount <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "扣款金额必须大于 0");
+        }
+        int affected = appUserMapper.addBalance(userId, -amount);
+        if (affected == 0) {
+            // 0 有两种含义：用户不存在 / 余额不足。对支付场景而言
+            // 二者都必须拒绝扣款，且提示以「余额不足」为主（更可能是用户可自解的原因）。
+            log.warn("储值余额扣款失败（余额不足或用户不存在）userId={} amount={} bizNo={}",
+                    userId, amount, bizNo);
+            throw new BusinessException(ResultCode.BAD_REQUEST, "储值余额不足，请先充值");
+        }
+        log.info("储值余额支付成功 userId={} amount={} bizNo={}", userId, amount, bizNo);
+    }
+
+    /**
+     * 储值余额退回（仅用于「余额支付的订单」退款/取消）。
+     *
+     * <p><b>与充值退款的区别（重要）</b>：
+     * <ul>
+     *   <li>充值（CZ 单）<b>不可退</b> —— 本方法绝不是充值退款；
+     *       它只回冲「用余额买商品」时扣掉的那笔钱；</li>
+     *   <li>余额支付的点单订单可退/可取消，资金原路退回<b>储值余额</b>
+     *       （不是退回微信），故走本方法而不是微信退款。</li>
+     * </ul>
+     *
+     * <p><b>幂等</b>：由调用方（trade 的退款流程）保证一单只回冲一次 ——
+     * order 的 REFUNDED 状态流转本身即为闸门。本方法不做额外判重，
+     * 避免在两处维护同一份幂等逻辑。
+     *
+     * @param userId 用户 ID
+     * @param amount 退回金额（分），必须 &gt; 0
+     * @param bizNo  业务单号（点单订单号），仅用于日志与对账追溯
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void refundToBalance(Long userId, long amount, String bizNo) {
+        if (userId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "用户不存在");
+        }
+        if (amount <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "退回金额必须大于 0");
+        }
+        int affected = appUserMapper.addBalance(userId, amount);
+        if (affected == 0) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在，无法退回储值余额");
+        }
+        log.info("储值余额退回成功 userId={} amount={} bizNo={}", userId, amount, bizNo);
+    }
+
     /** 我的储值订单（分页）；status 由 pay_status 推导下发。 */
     public PageResult<StoredValueOrder> myOrders(Long userId, long current, long size) {
         Page<StoredValueOrder> page = orderMapper.selectPage(

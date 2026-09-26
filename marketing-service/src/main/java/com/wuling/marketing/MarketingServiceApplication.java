@@ -4,6 +4,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 营销服务启动类（第 5 期拆分）。
@@ -19,6 +20,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  */
 @SpringBootApplication(scanBasePackages = "com.wuling")
 @EnableDiscoveryClient
+@EnableScheduling
 @MapperScan({"com.wuling.marketing.mapper", "com.wuling.user.mapper"})
 public class MarketingServiceApplication {
 

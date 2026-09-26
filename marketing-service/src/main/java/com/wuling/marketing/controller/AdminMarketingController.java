@@ -23,10 +23,4 @@ public class AdminMarketingController {
         return Result.ok(commentService.page(current, size, status));
     }
 
-    @PostMapping("/comments/{id}/review")
-    public Result<Comment> review(@PathVariable Long id,
-                                  @RequestParam boolean approve,
-                                  @RequestParam(required = false) String reason) {
-        return Result.ok(commentService.review(id, approve, reason));
-    }
 }

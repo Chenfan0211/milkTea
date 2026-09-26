@@ -25,6 +25,8 @@ public class PointsProduct {
     private String status;
     /** 分类 all/pet/coupon */
     private String category;
+    /** 绑定优惠券模板ID（优惠券分类必填） */
+    private Long couponId;
     /** 每人限购，0 = 不限 */
     private Integer purchaseLimit;
     /** 券展示类型 fixed/buyone/halfprice */

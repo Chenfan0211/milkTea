@@ -3,18 +3,24 @@ package com.wuling.marketing.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.marketing.entity.Coupon;
 import com.wuling.marketing.entity.ExchangeOrder;
+import com.wuling.marketing.entity.PointsCategory;
 import com.wuling.marketing.mapper.ExchangeOrderMapper;
 import com.wuling.marketing.entity.PointsEarningRule;
 import com.wuling.marketing.entity.PointsProduct;
 import com.wuling.marketing.entity.PointsRecord;
 import com.wuling.marketing.entity.PointsSignin;
 import com.wuling.marketing.entity.PointsSigninRule;
+import com.wuling.marketing.entity.UserCoupon;
+import com.wuling.marketing.mapper.CouponMapper;
+import com.wuling.marketing.mapper.PointsCategoryMapper;
 import com.wuling.marketing.mapper.PointsEarningRuleMapper;
 import com.wuling.marketing.mapper.PointsProductMapper;
 import com.wuling.marketing.mapper.PointsRecordMapper;
 import com.wuling.marketing.mapper.PointsSigninMapper;
 import com.wuling.marketing.mapper.PointsSigninRuleMapper;
+import com.wuling.marketing.mapper.UserCouponMapper;
 import com.wuling.user.entity.AppUser;
 import com.wuling.user.mapper.AppUserMapper;
 import org.slf4j.Logger;
@@ -24,7 +30,9 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** 时光币（积分）：获取 / 签到 / 兑换 */
 @Service
@@ -35,6 +43,9 @@ public class PointsService {
 
     public static final String PENDING = "PENDING";
     public static final String VERIFIED = "VERIFIED";
+    public static final String COMPLETED = "COMPLETED";
+    public static final String SOURCE_POINTS_EXCHANGE = "POINTS_EXCHANGE";
+    public static final String CATEGORY_COUPON = "coupon";
 
     private final PointsProductMapper pointsProductMapper;
     private final PointsRecordMapper pointsRecordMapper;
@@ -43,6 +54,9 @@ public class PointsService {
     private final PointsEarningRuleMapper pointsEarningRuleMapper;
     private final AppUserMapper appUserMapper;
     private final ExchangeOrderMapper exchangeOrderMapper;
+    private final PointsCategoryMapper pointsCategoryMapper;
+    private final CouponMapper couponMapper;
+    private final UserCouponMapper userCouponMapper;
 
     public PointsService(PointsProductMapper pointsProductMapper,
                          PointsRecordMapper pointsRecordMapper,
@@ -50,7 +64,10 @@ public class PointsService {
                          PointsSigninRuleMapper pointsSigninRuleMapper,
                          PointsEarningRuleMapper pointsEarningRuleMapper,
                          AppUserMapper appUserMapper,
-                         ExchangeOrderMapper exchangeOrderMapper) {
+                         ExchangeOrderMapper exchangeOrderMapper,
+                         PointsCategoryMapper pointsCategoryMapper,
+                         CouponMapper couponMapper,
+                         UserCouponMapper userCouponMapper) {
         this.pointsProductMapper = pointsProductMapper;
         this.pointsRecordMapper = pointsRecordMapper;
         this.pointsSigninMapper = pointsSigninMapper;
@@ -58,11 +75,36 @@ public class PointsService {
         this.pointsEarningRuleMapper = pointsEarningRuleMapper;
         this.appUserMapper = appUserMapper;
         this.exchangeOrderMapper = exchangeOrderMapper;
+        this.pointsCategoryMapper = pointsCategoryMapper;
+        this.couponMapper = couponMapper;
+        this.userCouponMapper = userCouponMapper;
+    }
+
+    /** 小程序积分商城分类，仅返回启用项。 */
+    public List<PointsCategory> listCategories() {
+        return pointsCategoryMapper.selectList(new LambdaQueryWrapper<PointsCategory>()
+                .eq(PointsCategory::getEnabled, 1)
+                .orderByAsc(PointsCategory::getSort)
+                .orderByAsc(PointsCategory::getId));
     }
 
     public List<PointsProduct> listProducts(String category) {
+        List<PointsCategory> categories = listCategories();
+        if (categories.isEmpty()) {
+            return List.of();
+        }
+        String requested = category == null ? null : category.trim();
+        boolean all = requested == null || requested.isEmpty() || "all".equalsIgnoreCase(requested);
+        if (!all && categories.stream().noneMatch(item -> requested.equals(item.getCode()))) {
+            return List.of();
+        }
+        List<String> categoryCodes = categories.stream()
+                .map(PointsCategory::getCode)
+                .collect(Collectors.toList());
         return pointsProductMapper.selectList(new LambdaQueryWrapper<PointsProduct>()
                 .eq(PointsProduct::getStatus, "enabled")
+                .eq(!all, PointsProduct::getCategory, requested)
+                .in(all, PointsProduct::getCategory, categoryCodes)
                 .orderByAsc(PointsProduct::getId));
     }
 
@@ -144,33 +186,93 @@ public class PointsService {
         return balance;
     }
 
-    /** 积分兑换（扣库存 + 扣币 + 生成自提码） */
+    /** 积分兑换：普通商品生成自提码，优惠券商品直接发放到券包。 */
     @Transactional(rollbackFor = Exception.class)
-    public ExchangeOrder exchange(Long userId, Long productId) {
-        PointsProduct product = pointsProductMapper.selectById(productId);
+    public ExchangeOrder exchange(Long userId, Long productId, Integer requestedQuantity) {
+        int quantity = requestedQuantity == null ? 1 : requestedQuantity;
+        if (quantity <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "兑换数量不合法");
+        }
+
+        PointsProduct product = pointsProductMapper.selectByIdForUpdate(productId);
         if (product == null || !"enabled".equals(product.getStatus())) {
             throw new BusinessException(ResultCode.NOT_FOUND, "兑换商品不存在");
         }
-        // 并发安全：原子扣库存，避免超兑（先扣库存，扣币失败则整体事务回滚）
-        if (pointsProductMapper.deductStock(productId) == 0) {
+
+        PointsCategory category = pointsCategoryMapper.selectOne(new LambdaQueryWrapper<PointsCategory>()
+                .eq(PointsCategory::getCode, product.getCategory())
+                .eq(PointsCategory::getEnabled, 1)
+                .last("limit 1"));
+        if (category == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "积分商品分类不存在或已停用");
+        }
+
+        boolean couponProduct = CATEGORY_COUPON.equals(product.getCategory());
+        Coupon coupon = null;
+        if (couponProduct) {
+            // 优惠券商品按张兑换，服务端强制固定为 1。
+            quantity = 1;
+            if (product.getCouponId() == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券商品未绑定优惠券");
+            }
+            coupon = couponMapper.selectById(product.getCouponId());
+            if (coupon == null || !"enabled".equals(coupon.getStatus())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "绑定优惠券不存在或已停用");
+            }
+        } else if (product.getCouponId() != null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "普通分类商品不能绑定优惠券");
+        }
+
+        Long usedQuantity = exchangeOrderMapper.sumSuccessfulQuantity(userId, productId);
+        long used = usedQuantity == null ? 0L : usedQuantity;
+        Integer purchaseLimit = product.getPurchaseLimit();
+        if (purchaseLimit != null && purchaseLimit > 0
+                && used + quantity > purchaseLimit) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "已达到每人限兑次数");
+        }
+
+        long unitPoints = product.getPoints() == null ? 0L : product.getPoints();
+        long points;
+        try {
+            points = Math.multiplyExact(unitPoints, quantity);
+        } catch (ArithmeticException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "兑换积分超出范围");
+        }
+
+        // 并发安全：原子扣库存，扣币或后续步骤失败时整体事务回滚。
+        if (pointsProductMapper.deductStock(productId, quantity) == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "库存不足");
         }
-        long points = product.getPoints() == null ? 0L : product.getPoints();
         change(userId, "CONSUME", -points, "exchange", null, "兑换 " + product.getName());
 
-        // 落库兑换单：自提码与订单一一对应，供门店核销（type=EXCHANGE）
-        String pickupCode = nextExchangeNo();
+        String exchangeNo = nextExchangeNo();
+        String pickupCode = null;
+        if (couponProduct) {
+            if (couponMapper.deductStock(coupon.getId()) == 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券库存不足");
+            }
+            UserCoupon userCoupon = new UserCoupon();
+            userCoupon.setUserId(userId);
+            userCoupon.setCouponId(coupon.getId());
+            userCoupon.setStatus("UNUSED");
+            userCoupon.setReceiveTime(LocalDateTime.now());
+            userCoupon.setSource(SOURCE_POINTS_EXCHANGE);
+            userCouponMapper.insert(userCoupon);
+        } else {
+            pickupCode = exchangeNo;
+        }
+
         ExchangeOrder order = new ExchangeOrder();
-        order.setExchangeNo(pickupCode);
+        order.setExchangeNo(exchangeNo);
         order.setUserId(userId);
         order.setPointsProductId(product.getId());
         order.setPoints(points);
+        order.setQuantity(quantity);
         order.setPickupCode(pickupCode);
-        order.setStatus(PENDING);
+        order.setStatus(couponProduct ? COMPLETED : PENDING);
         exchangeOrderMapper.insert(order);
-        // 关键业务日志：兑换下单（消耗时光币 + 自提码）
-        log.info("兑换成功 userId={} productId={} product={} 消耗={} 自提码={}",
-                userId, productId, product.getName(), points, pickupCode);
+        log.info("兑换成功 userId={} productId={} product={} quantity={} 消耗={} 状态={} 自提码={}",
+                userId, productId, product.getName(), quantity, points, order.getStatus(), pickupCode);
         return order;
     }
 
@@ -193,6 +295,12 @@ public class PointsService {
         if (VERIFIED.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "兑换码已核销，请勿重复核销");
         }
+        if (COMPLETED.equals(order.getStatus()) || order.getPickupCode() == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该兑换单无需门店核销");
+        }
+        if (!PENDING.equals(order.getStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "兑换单状态不可核销");
+        }
         order.setStatus(VERIFIED);
         exchangeOrderMapper.updateById(order);
         return order;
@@ -203,5 +311,3 @@ public class PointsService {
         return "CZ" + System.currentTimeMillis() % 100000000000000L;
     }
 }
-
-

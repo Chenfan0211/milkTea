@@ -7,6 +7,7 @@ import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.marketing.entity.PointsSigninRule;
 import com.wuling.marketing.mapper.PointsSigninRuleMapper;
+import com.wuling.marketing.service.GiftCardAdminService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,7 @@ import java.util.Map;
 
 /**
  * 后台营销配置的特殊业务动作（非通用 CRUD）。
- * 覆盖：分账规则启停、签到规则、邀请配置、评论审核。
+ * 覆盖：分账规则启停、签到规则、邀请配置。
  */
 @RestController
 @RequestMapping("/api/v1/admin/marketing/config")
@@ -25,38 +26,34 @@ public class AdminMarketingConfigController {
 
     private final JdbcTemplate jdbcTemplate;
     private final PointsSigninRuleMapper pointsSigninRuleMapper;
+    private final GiftCardAdminService giftCardAdminService;
 
     public AdminMarketingConfigController(JdbcTemplate jdbcTemplate,
-                                          PointsSigninRuleMapper pointsSigninRuleMapper) {
+                                          PointsSigninRuleMapper pointsSigninRuleMapper,
+                                          GiftCardAdminService giftCardAdminService) {
         this.jdbcTemplate = jdbcTemplate;
         this.pointsSigninRuleMapper = pointsSigninRuleMapper;
+        this.giftCardAdminService = giftCardAdminService;
     }
 
     // ---------- 分账规则启停 ----------
 
     /**
      * 启用/停用分账规则。
-     * 启用时会校验五方比例合计必须为 10000（万分比），并保证同 scope 下只有一条启用。
+     * 启用时保证全局（GLOBAL）范围下有且仅有一条启用。
      */
     @PostMapping("/split-rule/{id}/toggle")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> toggleSplitRule(@PathVariable Long id, @RequestParam boolean enabled) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select id, code, scope, product_id, "
-                        + "(platform_ratio+store_ratio+channel_ratio+investor_ratio+supplier_ratio) as total "
-                        + "from split_rule where id = ? and deleted = 0", id);
+                "select id, code, scope from split_rule where id = ? and deleted = 0", id);
         if (rows.isEmpty()) {
             throw new BusinessException(ResultCode.NOT_FOUND, "分账规则不存在");
         }
         Map<String, Object> rule = rows.get(0);
-        long total = ((Number) rule.get("total")).longValue();
         String scope = String.valueOf(rule.get("scope"));
 
         if (enabled) {
-            if (total != 10000) {
-                throw new BusinessException(ResultCode.BAD_REQUEST,
-                        "分账比例合计必须为 10000（万分比），当前为 " + total);
-            }
             // 同范围只允许一条启用，避免分账时规则歧义
             if ("GLOBAL".equals(scope)) {
                 jdbcTemplate.update("update split_rule set status = 'disabled' "
@@ -67,7 +64,6 @@ public class AdminMarketingConfigController {
                 enabled ? "enabled" : "disabled", id);
         return Result.ok();
     }
-
     // ---------- 签到规则 ----------
 
     @GetMapping("/signin-rule")
@@ -142,26 +138,6 @@ public class AdminMarketingConfigController {
         } else {
             jdbcTemplate.update("update referral_config set config = ? where deleted = 0 order by id limit 1", json);
         }
-        return Result.ok();
-    }
-
-    // ---------- 评论审核 ----------
-
-    @PostMapping("/comment/{id}/review")
-    @Transactional(rollbackFor = Exception.class)
-    public Result<Void> reviewComment(@PathVariable Long id,
-                                      @RequestParam boolean approve,
-                                      @RequestParam(required = false) String reason) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select id, status from comments where id = ? and deleted = 0", id);
-        if (rows.isEmpty()) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "评论不存在");
-        }
-        if (!"PENDING".equalsIgnoreCase(String.valueOf(rows.get(0).get("status")))) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "该评论已审核，不能重复操作");
-        }
-        jdbcTemplate.update("update comments set status = ?, review_time = now() where id = ?",
-                approve ? "APPROVED" : "REJECTED", id);
         return Result.ok();
     }
 
@@ -278,50 +254,55 @@ public class AdminMarketingConfigController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size,
             @RequestParam(required = false) String name) {
-        // name 为卡面名称模糊搜索：先按条件过滤出相关行，再聚合、再分页。
-        // 若先聚合再过滤，搜索结果会依赖「全量聚合后的顺序」，与列表展示口径不一致。
-        StringBuilder sql = new StringBuilder(
-                "select id, code, group_id, group_title, card_name, card_image, name, amount, sale_price, sort, status "
-                        + "from gift_card_denomination where deleted = 0");
-        List<Object> args = new java.util.ArrayList<>();
-        if (name != null && !name.isBlank()) {
-            sql.append(" and (card_name like ? or name like ? or group_title like ?)");
-            String like = "%" + name.trim() + "%";
-            args.add(like);
-            args.add(like);
-            args.add(like);
-        }
-        sql.append(" order by sort asc, amount asc, id asc");
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), args.toArray());
-        Map<String, Map<String, Object>> faces = new java.util.LinkedHashMap<>();
-        for (Map<String, Object> r : rows) {
-            String groupId = r.get("group_id") == null ? "default" : String.valueOf(r.get("group_id"));
-            String cardName = r.get("card_name") == null
-                    ? String.valueOf(r.get("name"))
-                    : String.valueOf(r.get("card_name"));
-            String key = groupId + "\u0000" + cardName;
-            Map<String, Object> face = faces.get(key);
-            if (face == null) {
-                face = new java.util.LinkedHashMap<>();
-                face.put("groupId", groupId);
-                face.put("groupTitle", r.get("group_title"));
-                face.put("cardName", cardName);
-                face.put("cardImage", r.get("card_image"));
-                face.put("status", r.get("status"));
-                face.put("faceValues", new java.util.ArrayList<Long>());
-                faces.put(key, face);
-            }
-            @SuppressWarnings("unchecked")
-            java.util.List<Long> values = (java.util.List<Long>) face.get("faceValues");
-            values.add(((Number) r.get("amount")).longValue());
-        }
-        // 分页作用在「聚合后」的卡面列表上：
-        // gift_card_denomination 是按面额平铺的多行，若在 SQL 层 limit 会把同一卡面的面额拆到相邻两页。
-        List<Map<String, Object>> allFaces = new java.util.ArrayList<>(faces.values());
-        long offset = Math.max(0, (Math.max(1, current) - 1) * size);
-        int from = (int) Math.min(offset, allFaces.size());
-        int to = (int) Math.min(offset + size, allFaces.size());
-        return Result.ok(PageResult.of(allFaces.subList(from, to), Math.max(1, current), size, allFaces.size()));
+        return Result.ok(giftCardAdminService.listFaces(current, size, name));
+    }
+
+    @PostMapping("/gift-card-faces")
+    public Result<Void> createGiftCardFace(
+            @RequestBody GiftCardAdminService.SaveGiftCardFaceRequest request) {
+        giftCardAdminService.createFace(request);
+        return Result.ok();
+    }
+
+    @PutMapping("/gift-card-faces/{faceId}")
+    public Result<Void> updateGiftCardFace(
+            @PathVariable Long faceId,
+            @RequestBody GiftCardAdminService.SaveGiftCardFaceRequest request) {
+        giftCardAdminService.updateFace(faceId, request);
+        return Result.ok();
+    }
+
+    @PostMapping("/gift-card-faces/{faceId}/status")
+    public Result<Void> updateGiftCardFaceStatus(
+            @PathVariable Long faceId,
+            @RequestParam boolean enabled) {
+        giftCardAdminService.setFaceStatus(faceId, enabled);
+        return Result.ok();
+    }
+
+    @GetMapping("/gift-card-groups")
+    public Result<List<Map<String, Object>>> giftCardGroups() {
+        return Result.ok(giftCardAdminService.listGroups());
+    }
+
+    @PostMapping("/gift-card-groups")
+    public Result<Map<String, Object>> createGiftCardGroup(
+            @RequestBody GiftCardAdminService.GiftCardGroupRequest request) {
+        return Result.ok(giftCardAdminService.createGroup(request));
+    }
+
+    @PutMapping("/gift-card-groups/{code}")
+    public Result<Void> updateGiftCardGroup(
+            @PathVariable String code,
+            @RequestBody GiftCardAdminService.GiftCardGroupRequest request) {
+        giftCardAdminService.updateGroup(code, request);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/gift-card-groups/{code}")
+    public Result<Void> deleteGiftCardGroup(@PathVariable String code) {
+        giftCardAdminService.deleteGroup(code);
+        return Result.ok();
     }
 
     // ---------- 内部工具 ----------
