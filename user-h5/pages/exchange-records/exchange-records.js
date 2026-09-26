@@ -45,7 +45,7 @@ Page(
         exchangeNo: record.exchangeNo || '',
         name: record.name || record.productName || record.exchangeNo || '时光币兑换',
         pickupCode: record.pickupCode || '',
-        status: record.status || '',
+        status: String(record.status || '').toLowerCase(),
         points: Number(record.points) || 0,
         time: record.createTime || '',
         statusLabel: this.statusText(record.status)
@@ -66,7 +66,7 @@ Page(
         completed: '已完成'
       };
       const value = String(status || '');
-      return map[value] || map[value.toUpperCase()] || value;
+      return map[value.toLowerCase()] || value;
     },
     switchCategory(event) {
       const { id } = event.currentTarget.dataset;
@@ -74,4 +74,3 @@ Page(
     }
   })
 );
-

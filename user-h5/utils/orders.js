@@ -17,12 +17,30 @@ const PAYMENT_WINDOW_SECONDS = PAYMENT_WINDOW_MINUTES * 60;
 /** 后端订单状态（英文枚举）-> 前端中文文案。 */
 const STATUS_TEXT_MAP = {
   CREATED: '待支付',
-  UNPAID: '待支付',
+  UNPAID: '未支付',
   PAID: '待核销',
-  VERIFIED: '已核销',
   COMPLETED: '已完成',
-  CANCELED: '已取消',
-  REFUNDED: '已退款'
+  CANCELED: '已取消'
+};
+
+/** 不同订单来源的主状态文案互不复用，储值充值不得出现待核销等门店文案。 */
+const ORDER_STATUS_TEXT = {
+  store: {
+    pending_payment: '待支付',
+    pending_verify: '待核销',
+    completed: '已完成',
+    canceled: '已取消'
+  },
+  'gift-card': {
+    pending_payment: '待支付',
+    pending_verify: '待核销',
+    completed: '已完成',
+    canceled: '已取消'
+  },
+  'stored-value': {
+    unpaid: '未支付',
+    paid: '已支付'
+  }
 };
 
 /**
@@ -36,7 +54,9 @@ const STATUS_META = {
   pending_payment: { title: '等待支付', note: '请在 15 分钟内完成支付，超时订单将自动关闭' },
   pending_verify: { title: '待核销', note: '请到店出示核销码完成取餐' },
   completed: { title: '已完成', note: '感谢惠顾，期待再次光临' },
-  canceled: { title: '已取消', note: '订单已取消' }
+  canceled: { title: '已取消', note: '订单已取消' },
+  unpaid: { title: '未支付', note: '请完成充值支付，支付成功后余额将自动到账' },
+  paid: { title: '已支付', note: '充值已到账，可在余额记录中查看' }
 };
 
 /** 支付方式（后端英文枚举 / 支付状态）-> 中文文案。 */
@@ -111,14 +131,78 @@ function buildMealInfo(order) {
   return info;
 }
 
-/** 后端状态（英文枚举）-> 前端内部状态码。 */
-function resolveOrderStatus(raw) {
-  const value = String(raw || '').toUpperCase();
-  if (value === 'CANCELED' || value === '已取消') return 'canceled';
-  if (value === 'VERIFIED' || value === 'COMPLETED') return 'completed';
-  if (value === 'PAID') return 'pending_verify';
-  if (value === 'CREATED' || value === 'UNPAID') return 'pending_payment';
+/** 各订单来源允许保留的前端内部状态码；外部枚举仍统一经 resolveOrderStatus 解析。 */
+const INTERNAL_ORDER_STATUS = {
+  store: ['pending_payment', 'pending_verify', 'completed', 'canceled'],
+  'gift-card': ['pending_payment', 'pending_verify', 'completed', 'canceled'],
+  'stored-value': ['unpaid', 'paid']
+};
+
+function resolveInternalOrderStatus(category, value) {
+  const categoryKey = category === 'stored-value' || category === 'gift-card'
+    ? category
+    : 'store';
+  const normalized = String(value || '');
+  return INTERNAL_ORDER_STATUS[categoryKey].includes(normalized) ? normalized : '';
+}
+
+function normalizeOrderStatusValue(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function isPaidStatus(value) {
+  const normalized = normalizeOrderStatusValue(value);
+  return normalized === 'PAID' || normalized === '已支付';
+}
+
+function resolvePaidOrderStatus(payStatus) {
+  const normalized = normalizeOrderStatusValue(payStatus);
+  if (isPaidStatus(normalized)) return 'pending_verify';
+  if (['UNPAID', 'CREATED', '待支付', '未支付'].includes(normalized)) return 'pending_payment';
   return '';
+}
+
+/**
+ * 按订单来源解析主状态。
+ *
+ * store / gift-card 只使用四态；stored-value 只依据支付状态使用两态。
+ * VERIFIED / REFUNDED 仅可作为业务辅助状态，不能覆盖订单主状态。
+ */
+function resolveOrderStatus(raw, category, payStatus) {
+  const categoryKey = category === 'stored-value' || category === 'gift-card'
+    ? category
+    : 'store';
+  const value = normalizeOrderStatusValue(raw);
+
+  if (categoryKey === 'stored-value') {
+    return isPaidStatus(payStatus || value) ? 'paid' : 'unpaid';
+  }
+
+  if (value === 'CANCELED' || value === '已取消') return 'canceled';
+  if (value === 'COMPLETED' || value === '已完成') return 'completed';
+  if (value === 'CREATED' || value === 'UNPAID' || value === '待支付' || value === '未支付') {
+    return 'pending_payment';
+  }
+  if (value === 'PAID' || value === '待核销') return 'pending_verify';
+
+  const paidOrderStatus = resolvePaidOrderStatus(payStatus);
+  if (paidOrderStatus) return paidOrderStatus;
+
+
+  return '';
+}
+
+function resolveOrderStatusText(orderStatus, category, rawStatus, payStatus) {
+  const categoryKey = category === 'stored-value' || category === 'gift-card'
+    ? category
+    : 'store';
+  const categoryText = ORDER_STATUS_TEXT[categoryKey] || ORDER_STATUS_TEXT.store;
+  if (categoryText[orderStatus]) return categoryText[orderStatus];
+
+  const resolvedStatus = resolveOrderStatus(rawStatus, categoryKey, payStatus);
+  if (resolvedStatus && categoryText[resolvedStatus]) return categoryText[resolvedStatus];
+
+  return STATUS_TEXT_MAP[normalizeOrderStatusValue(rawStatus)] || '';
 }
 
 /**
@@ -133,27 +217,23 @@ function normalizeOrderShape(order) {
   if (!orderInfo.orderNo && order.orderNo) orderInfo.orderNo = order.orderNo;
   if (!orderInfo.createdAt && order.createTime) orderInfo.createdAt = order.createTime;
   if (!orderInfo.payMethod && order.payStatus) orderInfo.payMethod = order.payStatus;
-  // 后端下发英文状态枚举（CREATED / PAID / VERIFIED / COMPLETED / CANCELED），
-  // 前端按内部状态码与中文文案渲染，这里统一归一化（已是中文时保持原样）。
-  //
-  // 注意（原 bug）：不能用「是否含下划线」来判断 orderStatus 是否已是内部码，
-  // 因为内部码里 completed / canceled 都不含下划线，会被误判成非法值而清空，
-  // 导致已完成 / 已取消订单的状态卡、评价入口、用餐信息全部失效。
-  // 正确做法：只要当前值本身是已知内部码就沿用，否则再按原始枚举解析。
-  const INTERNAL_STATUS = ['pending_payment', 'pending_verify', 'completed', 'canceled'];
+  // 后端下发英文状态枚举，前端统一按 category 转为内部状态码与中文文案。
+  // 注意：不能按「是否含下划线」判断内部码，completed / canceled / paid
+  // 都不含下划线，必须直接按已知内部状态白名单保留。
+  const category = order.category || 'store';
   const rawStatus = order.status || order.orderStatus;
-  const orderStatus = INTERNAL_STATUS.indexOf(String(order.orderStatus || '')) !== -1
-    ? order.orderStatus
-    : resolveOrderStatus(rawStatus) || resolveOrderStatus(order.orderStatus) || '';
-  const statusText = order.status && /[\u4e00-\u9fa5]/.test(order.status)
-    ? order.status
-    : STATUS_TEXT_MAP[String(rawStatus || '').toUpperCase()] || order.status || '';
+  const payStatus = order.payStatus || orderInfo.payStatus || '';
+  const orderStatus = resolveInternalOrderStatus(category, order.orderStatus)
+    || resolveOrderStatus(rawStatus, category, payStatus)
+    || resolveOrderStatus(order.orderStatus, category, payStatus)
+    || '';
+  const statusText = resolveOrderStatusText(orderStatus, category, rawStatus, payStatus);
   return Object.assign({}, order, {
     orderInfo,
     // 后端扁平 store -> 前端 storeName
     storeName: order.storeName || order.store || '',
     // 后端不下发 category（订单来源分类），缺失时按门店订单兜底，保证页签过滤与卡片样式正常
-    category: order.category || 'store',
+    category,
     orderStatus,
     status: statusText
   });
@@ -167,26 +247,26 @@ function normalizeOrderShape(order) {
  */
 function normalizeAuxOrder(order, category) {
   if (!order || typeof order !== 'object') return order;
-  const payStatus = String(order.payStatus || '').toUpperCase();
-  const isPaid = payStatus === 'PAID';
-  const status = String(order.status || '').toUpperCase();
-  const isCanceled = status === 'CANCELED';
-  const isVerified = status === 'VERIFIED' || String(order.verifyStatus || '').toUpperCase() === 'VERIFIED';
-  const isPendingPayment = !isPaid && !isCanceled;
-  const orderStatus = isCanceled
-    ? 'canceled'
-    : isVerified
-      ? 'completed'
-      : isPendingPayment
-        ? 'pending_payment'
-        : 'pending_verify';
+  const categoryKey = category === 'stored-value' || category === 'gift-card'
+    ? category
+    : 'store';
+  const rawPayStatus = order.payStatus || (order.orderInfo && order.orderInfo.payStatus) || '';
+  const payStatus = normalizeOrderStatusValue(rawPayStatus);
+  const rawStatus = order.status || order.orderStatus;
+  const orderStatus = resolveInternalOrderStatus(categoryKey, order.orderStatus)
+    || resolveOrderStatus(rawStatus, categoryKey, payStatus);
+  const statusText = resolveOrderStatusText(orderStatus, categoryKey, rawStatus, payStatus);
   return Object.assign({}, order, {
-    category,
+    category: categoryKey,
     // 统一金额字段名，交由 orderAmountYuan 按「分 -> 元」换算
     totalAmount: order.amount != null ? order.amount : order.totalAmount,
     createTime: order.createTime,
     orderStatus,
-    payStatus
+    status: statusText,
+    // 储值充值对外只保留 UNPAID / PAID 两个支付状态。
+    payStatus: categoryKey === 'stored-value'
+      ? (orderStatus === 'paid' ? 'PAID' : 'UNPAID')
+      : payStatus
   });
 }
 
@@ -390,15 +470,12 @@ function decorateOrder(order, now) {
   const previewItems = decoratedItems.slice(0, 2);
 
   // 状态卡的标题 / 说明：详情页顶部用它渲染，缺失会导致顶部状态区整块空白
-  const statusKey = isPendingPayment
-    ? 'pending_payment'
-    : isCanceled
-      ? 'canceled'
-      : order.orderStatus === 'pending_verify'
-        ? 'pending_verify'
-        : order.orderStatus === 'completed'
-          ? 'completed'
-          : '';
+  const statusKey = isCanceled
+    ? 'canceled'
+    : isPendingPayment
+      ? 'pending_payment'
+      : resolveInternalOrderStatus(order.category, order.orderStatus)
+        || '';
   const statusMeta = STATUS_META[statusKey] || { title: '', note: '' };
   // 取消订单的说明按「待支付取消 / 已支付取消」区分，退款提示更准确
   const cancelNote =
@@ -420,10 +497,12 @@ function decorateOrder(order, now) {
       isPendingPayment
         ? '待支付'
         : isCanceled
-          ? (order.category === 'gift-card'
-              ? (cancelType === 'pending' ? '待支付取消' : '已支付取消')
-              : '已取消')
-          : order.status || STATUS_TEXT_MAP[String(order.orderStatus || '').toUpperCase()] || '已完成',
+          ? '已取消'
+          : order.orderStatus === 'unpaid'
+            ? '未支付'
+            : order.orderStatus === 'paid'
+              ? '已支付'
+              : order.status || (ORDER_STATUS_TEXT[order.category] || {})[order.orderStatus] || '',
     countdownText: formatCountdown(remainingSeconds),
     // 订单金额统一由「分」换算为「元」，并对已换算过的订单保持幂等
     amountText: formatOrderAmount(orderAmountYuan(order, 'totalAmount')),

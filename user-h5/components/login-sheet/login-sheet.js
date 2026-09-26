@@ -7,7 +7,7 @@ const api = require('../../utils/api');
  *
  * 与 pages/auth-login 的分工：
  *   · 本组件用于**页内唤起**（首页昵称位、需要登录的操作），不跳页、体验更轻；
- *   · pages/auth-login 作为整页兜底（冷启动未注册、分享/扫码进入）。
+ *   · pages/auth-login 作为受保护操作触发的整页兜底。
  *
  * 合规：getPhoneNumber 必须由用户点击触发，本组件只承载按钮，绝不程序化调起。
  *
@@ -27,9 +27,39 @@ Component({
     attached() {
       // 每次挂载都是全新实例，勾选态天然重置；这里显式声明便于阅读
       this.setData({ agreementChecked: false });
+      // 提前刷新微信会话，用户真正点击手机号按钮时可直接使用最新 session_key。
+      this.preparePhoneAuthorization().catch(() => {});
     }
   },
   methods: {
+    preparePhoneAuthorization() {
+      this._phoneAuthorizationReady = false;
+      this._phoneAuthorizationFailed = false;
+      this._phoneAuthorizationPromise = auth
+        .preparePhoneAuthorization()
+        .then(result => {
+          this._preparedPhoneAuthorization = result || {
+            needRegister: false,
+            registerContext: null
+          };
+          this._phoneAuthorizationReady = true;
+          return this._preparedPhoneAuthorization;
+        })
+        .catch(error => {
+          this._phoneAuthorizationFailed = true;
+          this._phoneAuthorizationError = error;
+          this._phoneAuthorizationPromise = null;
+          throw error;
+        });
+      return this._phoneAuthorizationPromise;
+    },
+    resetPhoneAuthorization() {
+      this._phoneAuthorizationReady = false;
+      this._phoneAuthorizationFailed = false;
+      this._phoneAuthorizationError = null;
+      this._preparedPhoneAuthorization = null;
+      this._phoneAuthorizationPromise = null;
+    },
     toggleAgreement() {
       this.setData({ agreementChecked: !this.data.agreementChecked });
     },
@@ -62,17 +92,41 @@ Component({
         guard.toast('请先阅读并同意协议');
         return;
       }
-      const registerContext = auth.getRegisterContext();
-      const needRegister = Boolean(registerContext && registerContext.registerToken && !auth.isLoggedIn());
+      if (!this._phoneAuthorizationReady) {
+        guard.toast(
+          this._phoneAuthorizationFailed
+            ? '登录会话准备失败，请稍后重试'
+            : '正在准备登录，请稍后重试'
+        );
+        if (this._phoneAuthorizationFailed) {
+          this.preparePhoneAuthorization().catch(() => {});
+        }
+        return;
+      }
+      const prepared = this._preparedPhoneAuthorization || {};
+      const registerContext = prepared.registerContext || null;
+      const needRegister = Boolean(
+        prepared.needRegister && registerContext && registerContext.registerToken
+      );
       const promise = needRegister
         ? auth.registerByPhone(registerContext.registerToken, detail.encryptedData, detail.iv)
         : api.bindPhone(detail.encryptedData, detail.iv);
-      promise
+      return promise
         .then(data => {
           this.triggerEvent('success', { needRegister, data });
         })
-        .catch(() => {
-          this.triggerEvent('fail', { needRegister });
+        .catch(error => {
+          if (auth.isSessionInvalidError(error)) {
+            // encryptedData/iv 已绑定旧 session_key，必须丢弃并要求用户重新点击授权。
+            auth.clearSession();
+            auth.clearRegisterContext();
+            this.resetPhoneAuthorization();
+            this.preparePhoneAuthorization().catch(() => {});
+            guard.toast('授权会话已刷新，请再次点击同意');
+            return;
+          }
+          this.triggerEvent('fail', { needRegister, error });
+          guard.toast((error && error.message) || '授权失败，请重试');
         });
     }
   }

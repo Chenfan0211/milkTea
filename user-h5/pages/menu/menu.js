@@ -1,6 +1,13 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { getListedMenuTabs, getMergedMenuTab, isProductListed, refreshMenuFromRemote, getMenuCatalog } = require('../../utils/product-listing');
+const {
+  getListedMenuTabs,
+  getMergedMenuTab,
+  isProductListed,
+  refreshMenuFromRemote,
+  getMenuCatalog,
+  getMenuSyncState
+} = require('../../utils/product-listing');
 const { buildCartId, mergeEditedCartItem } = require('../../utils/cart');
 const { buildStoreMarkers } = require('../../utils/store-markers');
 const { normalizeSpecProduct } = require('../../utils/spec-sheet');
@@ -17,13 +24,32 @@ const {
 } = require('../../utils/store');
 const location = require('../../utils/location');
 
+/**
+ * 取首个分类 id：菜单为空、分组为空或分类为空时统一返回 ''。
+ *
+ * 菜单来自接口，可能出现「门店已上架但菜单未就绪 / 该门店下架全部商品」，
+ * 此时 applyListing 会把空分组整组过滤掉，activeMenu.groups 为空数组。
+ * 这里必须做完整防御，否则首屏与下拉刷新会抛
+ * `Cannot read properties of undefined (reading 'categories')`。
+ */
 function getFirstCategoryId(menu) {
-  return menu.groups[0].categories[0].id;
+  const firstGroup = menu && menu.groups && menu.groups[0];
+  const firstCategory = firstGroup && firstGroup.categories && firstGroup.categories[0];
+  return firstCategory ? firstCategory.id : '';
 }
 
+/** 取首个分组 id：无分组时返回 ''，避免 activeMenu.groups[0] 越界。 */
+function getFirstGroupId(menu) {
+  const firstGroup = menu && menu.groups && menu.groups[0];
+  return firstGroup ? firstGroup.id : '';
+}
+
+/** 由分类反查所属分组 id；菜单为空时返回 ''，避免菜单未就绪时点击分类崩溃。 */
 function getGroupIdByCategoryId(menu, categoryId) {
-  const group = menu.groups.find(item => item.categories.some(category => category.id === categoryId));
-  return group ? group.id : menu.groups[0].id;
+  const groups = (menu && menu.groups) || [];
+  const group = groups.find(item => (item.categories || []).some(category => category.id === categoryId));
+  if (group) return group.id;
+  return groups[0] ? groups[0].id : '';
 }
 
 function findProductById(menus, productId) {
@@ -131,19 +157,43 @@ Page(
     refreshMenuPage() {
       return Promise.all([refreshStoreCatalogFromRemote(), refreshMenuFromRemote()]).then(() => this.renderMenu());
     },
+    /**
+     * 菜单加载失败时的用户提示。
+     *
+     * 只在「镜像从未成功加载过」时提示：此时页面是空的，用户必须知道可以下拉重试；
+     * 若只是某次刷新失败（已有旧镜像在展示），静默保留旧数据即可，不该打扰用户。
+     */
+    notifyMenuLoadFailure() {
+      const sync = getMenuSyncState();
+      if (sync.error && !sync.loaded) {
+        wx.showToast({ title: '菜单加载失败，请下拉重试', icon: 'none' });
+      }
+    },
+    /**
+     * 下拉刷新：手动兜底。
+     *
+     * onShow 已保证每次进入都会刷新，但用户停留在页面上时后台改价 / 上下架不会自动同步，
+     * 因此保留一个手动刷新入口。
+     */
+    onPullDownRefresh() {
+      return this.refreshThenSync()
+        .then(() => this.notifyMenuLoadFailure())
+        .then(() => wx.stopPullDownRefresh());
+    },
     onLoad() {
       // 首屏需要四类数据：城市（选店依赖）、门店、菜单、会员等级（规格弹层会员价依赖）。
-      // 顺序敏感：必须等门店与菜单都就绪后再渲染，否则会先渲染出空门店列表。
+      //
+      // 这里只负责「把数据灌进内存镜像」，不负责渲染：
+      // 小程序生命周期保证 onLoad 之后必然触发 onShow，而 onShow 已经统一走
+      // refreshThenSync()（先 await 接口再 syncCurrentStore）。
+      // 历史 bug：onLoad 自己也调 renderMenu()，于是和 onShow 的异步链并发渲染，
+      // 谁后返回谁覆盖 setData —— 出现过「门店明明已缓存，门店选择层却又被打开」的竞态。
       Promise.all([
         refreshCitiesFromRemote(),
-        refreshStoreCatalogFromRemote().then(() => {
-          if (typeof this.syncCurrentStore === 'function' && resolveStoreCatalog().currentStore) {
-            this.syncCurrentStore();
-          }
-        }),
+        refreshStoreCatalogFromRemote(),
         refreshMenuFromRemote(),
         refreshMemberLevelsFromRemote()
-      ]).then(() => this.renderMenu());
+      ]);
       api
         .fetchHomeConfig()
         .then(cfg => {
@@ -157,22 +207,43 @@ Page(
       const catalog = resolveStoreCatalog();
       // 点单页不展示顶部页签：其余 TAB 的分组已并入首个 TAB，同级展示
       const activeMenu = getMergedMenuTab(catalog.currentStore && catalog.currentStore.id);
+      // 门店/选择层数据与菜单是否就绪无关，必须先算出来。
+      // 历史 bug：这段原本写在「有菜单」分支里，菜单为空时提前 return 会连带跳过，
+      // 导致门店选择层拿不到 pickerStores（列表空白），用户无法选门店自救。
+      const catalogUpdates = this.buildCatalogUpdates(catalog, { openPicker: !catalog.currentStore });
+      const cartUpdates = this.buildCartUpdates(catalog.currentStore && catalog.currentStore.id);
+      const base = { orderMode: app.globalData.orderMode };
       if (!activeMenu || !activeMenu.groups.length) {
-        this.setData({ activeMenu: {}, selectedCategoryId: '', selectedGroupId: '' });
+        // 无菜单时清空菜单相关字段，避免残留上一次的 activeMenu / 分类选中态 / 商品行；
+        // 但门店与购物车数据照常写入，否则门店选择层会变成空列表。
+        this.setData(
+          Object.assign(
+            base,
+            {
+              activeMenu: { groups: [] },
+              selectedCategoryId: '',
+              selectedGroupId: '',
+              scrollIntoView: '',
+              productRows: []
+            },
+            catalogUpdates,
+            cartUpdates
+          )
+        );
         return;
       }
       this.setData(
         Object.assign(
+          base,
           {
-            orderMode: app.globalData.orderMode,
             activeMenu,
             selectedCategoryId: getFirstCategoryId(activeMenu),
-            selectedGroupId: activeMenu.groups[0].id,
+            selectedGroupId: getFirstGroupId(activeMenu),
             scrollIntoView: '',
             productRows: buildProductRows(activeMenu)
           },
-          this.buildCatalogUpdates(catalog, { openPicker: !catalog.currentStore }),
-          this.buildCartUpdates(catalog.currentStore && catalog.currentStore.id)
+          catalogUpdates,
+          cartUpdates
         )
       );
     },
@@ -185,57 +256,33 @@ Page(
     refreshThenSync() {
       return this.refreshMenuPage().then(() => this.syncCurrentStore());
     },
+    /**
+     * 页面展示统一入口。
+     *
+     * 进入点单页的路径有很多（冷启动 / 切换 Tab / 从收藏、城市、下单页返回），
+     * 它们**必须走同一条数据链路**：先向后端拉「门店 + 菜单」，拿到新数据后再渲染。
+     *
+     * 为什么要把分支全部收敛掉（历史 bug）：
+     *   · 旧实现里「无缓存门店」那条分支只调 openStorePicker()，一个请求都不发，
+     *     但底下的 renderMenu 已经用「未按门店过滤」的兜底数据画了一版菜单，
+     *     表现为「门店还在选，菜单却先出来了，而且不走接口」；
+     *   · 各分支时序不一致，容易出现先渲染旧镜像再闪回新数据。
+     *
+     * 现在只保留一个入口：refreshThenSync() 内部先 await 接口再 syncCurrentStore，
+     * 门店选择层不再单独打开，而是由 buildCatalogUpdates 里
+     * `openPicker: !catalog.currentStore` 按「有没有可用门店」自动决定（无门店时自动弹出）。
+     * 这样「没有门店」也不会出现「不请求接口」的空档。
+     */
     onShow() {
       if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
       this.setTabBarHidden(false);
-      if (this.returningFrom === 'favorites') {
-        this.returningFrom = '';
-        const app = getApp();
-        const selected = Boolean(app.globalData.favoriteStoreSelected);
-        app.globalData.favoriteStoreSelected = false;
-        if (selected) {
-          this.refreshThenSync();
-          return;
-        }
-        this.setData({ storePickerVisible: true });
-        // 门店页 TabBar 常显，无需隐藏
-        this.setTabBarHidden(false);
-        return;
-      }
-      if (this.returningFrom === 'city') {
-        this.returningFrom = '';
-        const cityCatalog = resolveStoreCatalog();
-        if (cityCatalog.currentStore) {
-          this.refreshThenSync();
-          return;
-        }
-        this.openStorePicker(false);
-        return;
-      }
-      if (this.returningFrom === 'order') {
-        this.returningFrom = '';
-        this.refreshThenSync();
-        return;
-      }
-      const catalog = resolveStoreCatalog();
-      if (catalog.currentStore) {
-        this.refreshThenSync();
-        if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
-        this.setTabBarHidden(false);
-        return;
-      }
-      this.openStorePicker(true);
-    },
-    onTabItemTap() {
+      // 清掉一次性来源标记：门店层开合已由 catalog 状态决定，不再依赖它分支
       this.returningFrom = '';
-      const catalog = resolveStoreCatalog();
-      if (catalog.currentStore) {
-        this.refreshThenSync();
-        if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
-        this.setTabBarHidden(false);
-        return;
-      }
-      this.openStorePicker(true);
+      this.refreshThenSync().then(() => this.notifyMenuLoadFailure());
+    },
+    /** 点击当前 Tab（已在点单页）时同样走统一入口，保证每次点进来都刷新。 */
+    onTabItemTap() {
+      this.onShow();
     },
     buildCatalogUpdates(catalog, options = {}) {
       const favoriteStoreIds = getFavoriteStoreIds();
@@ -267,7 +314,11 @@ Page(
         currentStore,
         favoriteStoreIds
       };
-      if (options.openPicker) updates.storePickerVisible = true;
+      // storePickerVisible 必须双向显式赋值：
+      // 页面 data 里的初值是 true（首屏无门店时直接展示选择层），
+      // 若这里只在 openPicker 为真时赋值、为假时不赋值，就会出现
+      // 「已选好门店、商品列表也出来了，门店选择框却还留着」的串台状态。
+      updates.storePickerVisible = Boolean(options.openPicker);
       return updates;
     },
     syncGlobals(catalog) {
@@ -349,6 +400,14 @@ Page(
       const pickerStores = applyFavoriteState(resolveStoreCatalog().stores, getFavoriteStoreIds());
       this.setData({ pickerSearchKeyword: '', pickerStores });
     },
+    /**
+     * 门店选择层里选中门店。
+     *
+     * 必须「先落库 + 立刻关层（给用户即时反馈），再拉该门店的菜单」：
+     * 旧实现只 setData 换掉 currentStore 就结束了，不发任何请求，
+     * 于是切门店后菜单仍是上一家门店的商品与上下架状态 —— 这是真实 bug。
+     * 这里复用 refreshThenSync()，拉到新数据后再 syncCurrentStore 覆盖渲染。
+     */
     handleSelectPickerStore(event) {
       const { id } = event.detail.store;
       persistSelectedStore(id);
@@ -356,9 +415,12 @@ Page(
       const updates = this.buildCatalogUpdates(catalog, { openPicker: false });
       updates.storePickerVisible = false;
       this.syncGlobals(catalog);
+      // 先关层并切到新门店名，避免用户等待接口时看着旧门店名
       this.setData(updates);
       if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
       this.setTabBarHidden(false);
+      // 再拉新门店的菜单；失败时 refreshMenuFromRemote 会保留旧镜像，不会白屏
+      this.refreshThenSync();
     },
     handleStorePhone(event) {
       const { phone } = event.detail.store;
@@ -430,10 +492,20 @@ Page(
       this.setData(updates);
       wx.showToast({ title: result.favorite ? '已收藏' : '已取消收藏', icon: 'none' });
     },
+    /**
+     * 基于最新门店/菜单数据同步渲染。
+     *
+     * 关键：storePickerVisible 不能写死 false。
+     * 历史 bug：门店选择有效期是 30 分钟（见 utils/store.js 的 STORE_SELECTION_TTL），
+     * 用户退后台超过 30 分钟再回来时 activeStoreId 会被清空，此时若强行把门店层设为不可见，
+     * 就会出现「顶部门店信息是空的（currentStore = {}）+ 商品列表照旧渲染」的错乱界面 ——
+     * 既没有门店信息，也没有入口去选门店。
+     * 正确做法：沿用 buildCatalogUpdates 里 openPicker: !catalog.currentStore 的判定，
+     * 没有可用门店就自动弹出选择层，让用户重新选。
+     */
     syncCurrentStore() {
       const catalog = resolveStoreCatalog();
-      const updates = this.buildCatalogUpdates(catalog, { openPicker: false });
-      updates.storePickerVisible = false;
+      const updates = this.buildCatalogUpdates(catalog, { openPicker: !catalog.currentStore });
       this.syncGlobals(catalog);
       Object.assign(updates, this.buildListingUpdates(catalog.currentStore));
       this.setData(updates);
@@ -441,15 +513,19 @@ Page(
     // 按当前门店过滤菜单：下架商品不出现在点单页，空分类 / 空分组 / 空 Tab 自动隐藏。
     buildListingUpdates(store) {
       const storeId = store && store.id;
+      // getMergedMenuTab 在「菜单接口未返回 / 该门店商品全部下架」时返回 null，
+      // 此时必须回落到带空 groups 的菜单骨架，否则下面读 groups[0].id 会崩溃。
       const activeMenu = getMergedMenuTab(storeId) || { groups: [] };
-      const catalogMenus = this.buildCartUpdates(storeId);
       return Object.assign(
         {
           activeMenu,
           selectedCategoryId: getFirstCategoryId(activeMenu),
-          selectedGroupId: activeMenu.groups[0].id
+          selectedGroupId: getFirstGroupId(activeMenu),
+          // 无菜单时不保留旧的滚动锚点，避免 scrollIntoView 指向已不存在的锚点
+          scrollIntoView: activeMenu.groups.length ? this.data.scrollIntoView : '',
+          productRows: buildProductRows(activeMenu)
         },
-        catalogMenus
+        this.buildCartUpdates(storeId)
       );
     },
     // 购物车里的已下架商品仅做标记，不自动移除，由用户自行处理。
@@ -665,4 +741,3 @@ Page(
     }
   })
 );
-

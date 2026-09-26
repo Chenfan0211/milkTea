@@ -32,7 +32,7 @@
   </scroll-view>
 
   <view class="exchange-bar">
-    <view class="exchange-quantity">
+    <view wx:if="{{!isCoupon}}" class="exchange-quantity">
       <text class="exchange-quantity__label">数量</text>
       <view class="exchange-stepper">
         <view
@@ -65,4 +65,3 @@
     </view>
   </view>
 </view>
-

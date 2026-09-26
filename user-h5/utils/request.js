@@ -116,7 +116,10 @@ function request(options) {
       success(res) {
         const body = res && res.data;
         // 登录态失效：静默重登后自动重试一次（避免 token 过期导致整个页面失效）
-        if (body && (body.code === 8888 || body.code === 9999) && !options.skipAuth) {
+        // 加密数据类请求的 session_key 与本次授权绑定，不能拿旧 encryptedData/iv
+        // 在静默重登后原样重试；调用方可显式关闭自动重试，由页面提示用户重新授权。
+        if (body && (body.code === 8888 || body.code === 9999) &&
+            !options.skipAuth && options.retryAuth !== false) {
           silentRelogin().then(token => {
             if (!token) {
               // 重登失败：清理会话并明确提示，避免页面静默卡在 401

@@ -59,8 +59,14 @@
   margin-bottom: 20rpx;
   padding: 24rpx;
   background: var(--card-bg);
+  border: 2rpx solid transparent;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
+}
+
+.gift-denomination.is-selected {
+  background: var(--brand-soft);
+  border-color: var(--brand-green);
 }
 
 .gift-denomination__value {
@@ -90,52 +96,40 @@
   font-size: var(--font-sm);
 }
 
-.gift-quantity {
+.gift-denomination__selection {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: flex-end;
-  min-width: 180rpx;
+  min-width: 144rpx;
   margin-left: 16rpx;
 }
 
-.gift-quantity__step {
+.gift-denomination__quantity {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.gift-denomination__radio {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56rpx;
-  height: 56rpx;
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 12rpx;
+  background: var(--card-bg);
+  border: 2rpx solid var(--line-color);
   border-radius: 50%;
 }
 
-.gift-quantity__step--minus {
-  background: var(--card-bg);
-  border: 2rpx solid var(--brand-green);
-}
-
-.gift-quantity__step--plus {
+.gift-denomination.is-selected .gift-denomination__radio {
   background: var(--brand-green);
+  border-color: var(--brand-green);
 }
 
-.gift-quantity__step.is-disabled {
-  opacity: 0.35;
-}
-
-.gift-quantity__icon {
-  width: 32rpx;
-  height: 32rpx;
-}
-
-.gift-quantity__icon--minus {
+.gift-denomination__radio-icon {
   width: 24rpx;
   height: 24rpx;
-}
-
-.gift-quantity__value {
-  width: 64rpx;
-  color: var(--text-main);
-  font-size: var(--font-md);
-  text-align: center;
 }
 
 .gift-agreement {
@@ -240,4 +234,13 @@
   font-weight: 600;
   background: var(--brand-green);
   border-radius: var(--radius-pill);
+}
+
+.gift-purchase-bar__button--pressed {
+  background: var(--brand-dark);
+}
+
+.gift-purchase-bar__button.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
 }

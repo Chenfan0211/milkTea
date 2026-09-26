@@ -113,9 +113,6 @@ Page(
     handleReorder() {
       wx.showToast({ title: '再次购买暂未接入', icon: 'none' });
     },
-    handleReview() {
-      wx.showToast({ title: '评价功能暂未接入', icon: 'none' });
-    },
     copyVerifyCode() {
       const code = this.data.order.pickupCode;
       if (!code) return;

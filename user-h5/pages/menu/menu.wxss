@@ -178,7 +178,8 @@
 
 .category-scroll {
   flex: none;
-  width: 182rpx;
+  /* 栏宽 195rpx：按参考图（1170px 宽 = 750rpx）实测 304px 换算所得 */
+  width: 195rpx;
   height: 100%;
   background: var(--page-bg-neutral);
 }
@@ -186,30 +187,49 @@
 .category-item {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 59rpx;
-  padding: 0 24rpx;
+  /* 项高 88rpx：参考图实测两项文字行距 137px 换算所得 */
+  min-height: 88rpx;
+  padding: 0 16rpx;
   color: var(--brand-green);
-  font-size: 24rpx;
+  /* 字号取规范档位 --font-md(28rpx)：参考图实测约 26rpx，向上归到最近 token */
+  font-size: 28rpx;
   line-height: 34rpx;
 }
 
-/* 分类左上角标签：绿色角标，单行显示（可留空，空则不渲染） */
+/*
+ * 分类左上角标签。
+ *
+ * 排版：占独立一行（非 absolute 叠字），复现参考图「标签在上、分类名在下」的两行结构。
+ * 尺寸：高 29rpx / 字号 20rpx / 圆角 0 8rpx 8rpx 0（左贴边），
+ *       均按参考图实测（45px 高、1170px 宽换算）取整到规范档位。
+ * 底色：固定 --brand-green（用户确认）。参考图实测 #5A9134，
+ *       但 design-system.md 未收录该色，按「颜色只能取 token」统一回落品牌绿。
+ */
 .category-item__tag {
-  position: absolute;
-  top: 4rpx;
-  left: 4rpx;
-  max-width: 96rpx;
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 20rpx;
   overflow: hidden;
-  padding: 0 6rpx;
+  padding: 0 12rpx;
   color: #ffffff;
-  font-size: 18rpx;
-  line-height: 24rpx;
+  font-size: 20rpx;
+  line-height: 29rpx;
   white-space: nowrap;
   text-overflow: ellipsis;
   background: var(--brand-green);
   border-radius: 0 8rpx 8rpx 0;
+}
+
+/*
+ * 分类名。只有「标签存在」时才补 4rpx 间隙：
+ * 用相邻兄弟选择器而非无条件 margin，
+ * 否则无标签的分类会凭空多出 4rpx 偏移，跟有标签的对不齐。
+ */
+.category-item__tag + .category-item__label {
+  margin-top: 4rpx;
 }
 
 .category-item.is-active {
@@ -224,14 +244,23 @@
   flex: 1;
   height: 100%;
   min-width: 0;
-  /* 默认只为底部安全区留白；有购物车时由 has-cart 追加高度 */
-  padding: 0 20rpx calc(40rpx + env(safe-area-inset-bottom)) 12rpx;
+  /*
+   * 底部必须预留「自定义 TabBar 高度 + 安全区」，否则滚到最后一个商品时，
+   * 卡片下半部分会被固定在底部的 custom-tab-bar 盖住（信息被遮挡）。
+   * TabBar 高 112rpx（见 app.wxss 的 --tabbar-height，与 custom-tab-bar/index.wxss 一致），
+   * 再加 32rpx 视觉留白，避免最后一张卡片紧贴 TabBar。
+   */
+  padding: 0 20rpx calc(var(--tabbar-height) + 32rpx + env(safe-area-inset-bottom)) 12rpx;
   background: var(--card-bg);
 }
 
-/* 购物车栏可见时为其预留空间，避免遮挡最后一个商品（280rpx 为已登记豁免值） */
+/*
+ * 购物车栏可见时，底部还有 cart-bar 叠在 TabBar 之上，
+ * 需要把留白追加到「TabBar + 购物车栏」的高度，避免两个浮层同时遮挡。
+ * 280rpx 为已登记豁免值（与 cart-bar 组件高度口径一致）。
+ */
 .product-scroll.has-cart {
-  padding-bottom: calc(280rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(280rpx + var(--tabbar-height) + env(safe-area-inset-bottom));
 }
 
 .product-scroll__inner {
@@ -429,4 +458,3 @@
 .store-page__list-inner {
   padding: 20rpx;
 }
-

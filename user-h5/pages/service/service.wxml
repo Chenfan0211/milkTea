@@ -3,41 +3,52 @@
 
   <scroll-view class="service-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="service-content">
-      <view class="service-hero">
-        <image class="service-hero__icon" src="/assets/icons/lucide/headset.svg" mode="aspectFit" />
-        <view class="service-hero__body">
-          <text class="service-hero__title">在线客服</text>
-          <text class="service-hero__desc">服务时间 {{serviceHours}}</text>
-          <text class="service-hero__note">{{onlineNote}}</text>
+      <view class="service-contact-card">
+        <view class="service-contact__head">
+          <view class="service-contact__head-icon">
+            <image class="service-contact__head-image" src="/assets/icons/lucide/headset.svg" mode="aspectFit" />
+          </view>
+          <view class="service-contact__heading">
+            <text class="service-contact__title">联系客服</text>
+            <text wx:if="{{serviceHours}}" class="service-contact__hours">服务时间 {{serviceHours}}</text>
+          </view>
         </view>
-        <!-- 微信原生客服会话必须使用 button open-type="contact"，无法用 view 替代 -->
-        <button
-          class="service-hero__button"
-          open-type="contact"
-          aria-role="button"
-          aria-label="联系在线客服"
-        >联系客服</button>
-      </view>
 
-      <view class="service-card">
-        <view class="service-card__head">
-          <image class="service-card__icon" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
-          <text class="service-card__title">客服热线</text>
+        <view class="service-contact__online">
+          <text class="service-contact__section-title">在线客服</text>
+          <text class="service-contact__desc">{{onlineNote}}</text>
+          <!-- 微信原生客服会话必须使用 button open-type="contact"，无法用 view 替代 -->
+          <button
+            class="service-contact__button"
+            open-type="contact"
+            aria-role="button"
+            aria-label="联系在线客服"
+          >联系客服</button>
         </view>
+
+        <view class="service-contact__divider"></view>
+
         <view
           wx:if="{{info.hotline}}"
-          class="service-row"
+          class="service-contact__hotline"
           data-phone="{{info.hotline}}"
           bindtap="callPhone"
           aria-role="button"
           aria-label="拨打客服热线"
         >
-          <text class="service-row__label">{{info.hotline}}</text>
-          <text class="service-row__action">拨打</text>
+          <view class="service-contact__hotline-icon">
+            <image class="service-contact__hotline-image" src="/assets/icons/lucide/phone.svg" mode="aspectFit" />
+          </view>
+          <view class="service-contact__hotline-body">
+            <text class="service-contact__hotline-label">客服热线</text>
+            <text class="service-contact__hotline-number">{{info.hotline}}</text>
+          </view>
+          <text class="service-contact__hotline-action">拨打</text>
         </view>
-        <text wx:elif="{{loadFailed}}" class="service-tip">客服热线加载失败，请下拉重试或稍后再试。</text>
-        <text wx:else class="service-tip">客服热线暂未配置，可通过上方在线客服联系我们。</text>
-        <text wx:if="{{info.hotline}}" class="service-tip">{{info.serviceHours}} · {{info.responseNote}}</text>
+        <text wx:elif="{{loadFailed}}" class="service-contact__hotline-tip">客服热线加载失败，可通过在线客服联系我们。</text>
+        <text wx:else class="service-contact__hotline-tip">客服热线暂未配置，可通过在线客服联系我们。</text>
+
+        <text wx:if="{{info.responseNote}}" class="service-contact__response">{{info.responseNote}}</text>
       </view>
 
       <view class="service-card">

@@ -1,6 +1,11 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store');
+const {
+  pickGiftCardRecords,
+  resolveGiftCardDisplay,
+  resolveGiftCardImageUrl
+} = require('../../utils/gift-card');
 
 function filterGiftCardGroups(keyword, groups) {
   const source = Array.isArray(groups) ? groups : [];
@@ -53,8 +58,9 @@ Page(
             if (!groupMap[groupId].cards.some(card => card.id === cardId)) {
               groupMap[groupId].cards.push({
                 id: cardId,
+                groupId,
                 name: item.cardName || item.name,
-                image: item.cardImage || ''
+                image: resolveGiftCardImageUrl(item.cardImage || item.image || '')
               });
             }
           });
@@ -66,20 +72,17 @@ Page(
           });
         });
     },
-    /** 我的礼品卡：/api/v1/app/gift-cards，关联面额补 name / image；ACTIVE 即待核销 */
+    /** 我的礼品卡：接口直接返回历史展示元数据，不再依赖仅上架面额接口。ACTIVE 即待核销 */
     loadMyCards() {
-      Promise.all([api.fetchMyGiftCards(), api.fetchGiftCardDenominations()])
-        .then(([cards, denominations]) => {
-          const cardList = Array.isArray(cards) ? cards : [];
-          const denomMap = {};
-          (Array.isArray(denominations) ? denominations : []).forEach(d => {
-            denomMap[d.id] = d;
-          });
+      api
+        .fetchMyGiftCards()
+        .then(cards => {
+          const cardList = pickGiftCardRecords(cards);
           const decorated = cardList.map(card => {
-            const denom = denomMap[card.denominationId] || {};
+            const display = resolveGiftCardDisplay(card);
             return Object.assign({}, card, {
-              name: denom.cardName || denom.name || '礼品卡',
-              image: denom.cardImage || '/assets/images/3x/gift-card-matcha.jpg',
+              name: display.name,
+              image: display.image,
               pendingVerify: card.status === 'ACTIVE'
             });
           });
@@ -90,13 +93,6 @@ Page(
     onLoad(options) {
       // 支持 ?tab=mine 直接打开「我的礼品卡」
       if (options && options.tab === 'mine') this.setData({ activeTab: 'mine' });
-      // 礼品卡面额由后台配置
-      api
-        .fetchGiftCardDenominations()
-        .then(list => {
-          if (Array.isArray(list) && list.length) this.setData({ denominations: list });
-        })
-        .catch(() => null);
       this.loadGiftCardGroups();
       this.loadMyCards();
       const catalog = resolveStoreCatalog();
@@ -122,9 +118,15 @@ Page(
       this.setData({ activeTab: 'buy' });
     },
     handleCard(event) {
-      const { id } = event.currentTarget.dataset;
-      if (!id) return;
-      wx.navigateTo({ url: `/pages/gift-card-purchase/gift-card-purchase?id=${id}` });
+      const { id, groupId, cardName } = event.currentTarget.dataset;
+      if (!id && !cardName) return;
+      const query = [];
+      if (id) query.push(`id=${encodeURIComponent(id)}`);
+      if (groupId) query.push(`groupId=${encodeURIComponent(groupId)}`);
+      if (cardName) query.push(`cardName=${encodeURIComponent(cardName)}`);
+      wx.navigateTo({
+        url: `/pages/gift-card-purchase/gift-card-purchase?${query.join('&')}`
+      });
     },
     handleSearchInput(event) {
       const searchKeyword = event.detail.value;

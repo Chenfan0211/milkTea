@@ -1,5 +1,5 @@
 const { withShare } = require('../../utils/share');
-const { getCoupons } = require('../../utils/coupons');
+const { refreshCouponsFromRemote } = require('../../utils/coupons');
 
 function countCoupons(list) {
   return list.reduce((sum, item) => sum + item.quantity, 0);
@@ -9,11 +9,34 @@ Page(
   withShare({
     data: {
       coupons: [],
-      couponCount: 0
+      couponCount: 0,
+      loading: false,
+      loadError: ''
     },
     onShow() {
-      const list = getCoupons();
-      this.setData({ coupons: list, couponCount: countCoupons(list) });
+      this.loadCoupons();
+    },
+    loadCoupons() {
+      this.setData({ loading: true, loadError: '' });
+      return refreshCouponsFromRemote('UNUSED')
+        .then(list => {
+          const coupons = Array.isArray(list) ? list : [];
+          this.setData({
+            coupons,
+            couponCount: countCoupons(coupons),
+            loading: false,
+            loadError: ''
+          });
+        })
+        .catch(() => {
+          this.setData({
+            loading: false,
+            loadError: '优惠券加载失败，请检查网络后重试'
+          });
+        });
+    },
+    retryLoad() {
+      this.loadCoupons();
     },
     handleSubscribe() {
       wx.showToast({ title: '订阅功能暂未接入', icon: 'none' });

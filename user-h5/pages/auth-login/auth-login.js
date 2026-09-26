@@ -13,8 +13,8 @@ const navigate = require('../../utils/navigate');
  *   未勾选协议时按钮置灰并拦截（授权必须建立在用户知情同意之上）。
  *
  * 来源：
- *   1) 冷启动未注册 / 登录失败：启动页 redirectTo 进来；
- *   2) 已登录未绑手机号：展示绑定引导（由启动页按需带入）。
+ *   1) 受保护操作：由 login-guard 按需跳转进来；
+ *   2) 已登录未绑手机号：由业务操作触发绑定引导。
  *
  * 跳转注意：落点常是 tabBar 页（首页），必须走 utils/navigate，
  * 否则 reLaunch 到 tabBar 页会静默失败、页面停在授权页。
@@ -42,6 +42,8 @@ Page(
       const registerContext = auth.getRegisterContext();
       this.needRegister = Boolean(registerContext && registerContext.registerToken && !auth.isLoggedIn());
       this.registerToken = this.needRegister ? registerContext.registerToken : '';
+      this._phoneAuthorizationReady = false;
+      this._phoneAuthorizationFailed = false;
       this.setData({
         entryMode: this.entryMode,
         needRegister: this.needRegister,
@@ -49,6 +51,8 @@ Page(
           ? '同意后即可完成注册并开始使用'
           : '同意后可下单、领券并同步会员权益'
       });
+      // 提前换一次最新 session_key；用户点击按钮时只允许使用这次刷新的结果。
+      this.preparePhoneAuthorization().catch(() => {});
     },
     onUnload() {
       // 用户中途返回且未完成授权时，清掉待执行动作，避免脏动作残留
@@ -56,6 +60,48 @@ Page(
     },
     toggleAgreement() {
       this.setData({ agreementChecked: !this.data.agreementChecked });
+    },
+    preparePhoneAuthorization() {
+      this._phoneAuthorizationReady = false;
+      this._phoneAuthorizationFailed = false;
+      this._phoneAuthorizationPromise = auth
+        .preparePhoneAuthorization()
+        .then(prepared => {
+          this.applyPreparedAuthorization(prepared);
+          return prepared;
+        })
+        .catch(error => {
+          this._phoneAuthorizationFailed = true;
+          this._phoneAuthorizationError = error;
+          this._phoneAuthorizationPromise = null;
+          throw error;
+        });
+      return this._phoneAuthorizationPromise;
+    },
+    applyPreparedAuthorization(prepared) {
+      const registerContext = (prepared && prepared.registerContext) || null;
+      this.needRegister = Boolean(
+        prepared && prepared.needRegister && registerContext && registerContext.registerToken
+      );
+      this.registerToken = this.needRegister ? registerContext.registerToken : '';
+      this._preparedPhoneAuthorization = prepared || {
+        needRegister: false,
+        registerContext: null
+      };
+      this._phoneAuthorizationReady = true;
+      this.setData({
+        needRegister: this.needRegister,
+        entryTip: this.needRegister
+          ? '同意后即可完成注册并开始使用'
+          : '同意后可下单、领券并同步会员权益'
+      });
+    },
+    resetPhoneAuthorization() {
+      this._phoneAuthorizationReady = false;
+      this._phoneAuthorizationFailed = false;
+      this._phoneAuthorizationError = null;
+      this._preparedPhoneAuthorization = null;
+      this._phoneAuthorizationPromise = null;
     },
 
     /**
@@ -76,17 +122,33 @@ Page(
         guard.toast('已取消授权，可重新点击同意或选择仅浏览');
         return;
       }
-      if (this.data.needRegister) {
-        auth
-          .registerByPhone(this.registerToken, detail.encryptedData, detail.iv)
-          .then(() => this.afterBound())
-          .catch(error => guard.toast((error && error.message) || '注册失败，请重试'));
+      if (!this._phoneAuthorizationReady) {
+        guard.toast(
+          this._phoneAuthorizationFailed
+            ? '登录会话准备失败，请稍后重试'
+            : '正在准备登录，请稍后重试'
+        );
+        if (this._phoneAuthorizationFailed) {
+          this.preparePhoneAuthorization().catch(() => {});
+        }
         return;
       }
-      api
-        .bindPhone(detail.encryptedData, detail.iv)
+      const promise = this.needRegister
+        ? auth.registerByPhone(this.registerToken, detail.encryptedData, detail.iv)
+        : api.bindPhone(detail.encryptedData, detail.iv);
+      return promise
         .then(() => this.afterBound())
-        .catch(error => guard.toast((error && error.message) || '授权失败，请重试'));
+        .catch(error => {
+          if (auth.isSessionInvalidError(error)) {
+            auth.clearSession();
+            auth.clearRegisterContext();
+            this.resetPhoneAuthorization();
+            this.preparePhoneAuthorization().catch(() => {});
+            guard.toast('授权会话已刷新，请再次点击同意');
+            return;
+          }
+          guard.toast((error && error.message) || '授权失败，请重试');
+        });
     },
 
     // ---------- 授权完成：建立登录态并进入目标页 ----------

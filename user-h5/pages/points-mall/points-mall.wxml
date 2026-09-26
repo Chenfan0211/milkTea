@@ -65,7 +65,7 @@
         </view>
       </view>
 
-      <view class="points-grid">
+      <view wx:if="{{filteredProducts.length}}" class="points-grid">
         <view
           wx:for="{{filteredProducts}}"
           wx:key="id"
@@ -86,6 +86,14 @@
           </view>
         </view>
       </view>
+
+      <empty-state
+        wx:else
+        variant="illustration"
+        icon="/assets/images/3x/points-empty.jpg"
+        title="暂无积分商品"
+        description="分类商品更新后会在这里展示"
+      />
 
       <view class="points-safe"></view>
     </view>

@@ -39,7 +39,7 @@ const wxss = fs.readFileSync(`${pageRoot}.wxss`, 'utf8');
 
 assert.ok(wxml.includes('title="等级说明"') && wxml.includes('back="{{true}}"'), '等级说明页必须提供标题与返回');
 assert.ok(
-  wxml.includes('wx:for="{{levels}}"') && wxml.includes('{{item.condition}}') && wxml.includes('{{item.discount}}'),
+  wxml.includes('wx:for="{{levels}}"') && wxml.includes('{{item.condition}}') && wxml.includes('{{item.discountText}}'),
   '等级说明页必须渲染等级、条件与折扣'
 );
 assert.ok(

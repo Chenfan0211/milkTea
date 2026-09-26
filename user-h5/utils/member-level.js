@@ -45,6 +45,7 @@ function normalizeLevels(list) {
     amountTarget: Math.round((Number(item.amountTarget) || 0) / 100),
     condition: item.condition || (Number(item.amountTarget) ? `累计消费满${Math.round(Number(item.amountTarget) / 100)}元` : '注册即得'),
     discount: item.discount || '',
+    discountText: formatDiscountText(item.discount),
     benefits: parseBenefits(item.benefits)
   }));
 }
@@ -111,6 +112,7 @@ function buildLevelMeta(profile) {
     amountTarget: item.amountTarget,
     condition: item.condition,
     discount: item.discount,
+    discountText: item.discountText,
     benefits: item.benefits.map(benefit => Object.assign({}, benefit, { mutedIcon: mutedIconFor(benefit.icon) })),
     isCurrent: index === currentIndex,
     isReached: index <= currentIndex
@@ -144,6 +146,7 @@ function buildLevelMeta(profile) {
     currentLevel: current.level,
     currentName: current.name,
     currentDiscount: current.discount,
+    currentDiscountText: current.discountText,
     currentIndex,
     nextName: next ? next.name : '',
     nextLevel: next ? next.level : '',
@@ -163,32 +166,72 @@ function roundMoney(value, digits = 2) {
   return Math.round(value * factor) / factor;
 }
 
-/** '8折' -> 0.8；已经是 0~1 的小数则原样返回；无法解析时返回 1（不打折）。 */
-function parseDiscount(discountText) {
-  if (discountText == null) return 1;
-  const match = String(discountText).match(/(\d+(?:\.\d+)?)\s*折/);
-  if (match) {
-    const zhe = Number(match[1]);
-    // 折扣应落在 (0, 10] 折区间；超出范围视为脏数据，按不打折兜底。
-    return zhe > 0 && zhe <= 10 ? roundMoney(zhe / 10, 2) : 1;
+/**
+ * 将支持的折扣写法归一化为「支付比例百分比」。
+ * 80 / 80% -> 80；8折 -> 80；历史 0.8 -> 80；无法识别返回 null。
+ */
+function normalizeDiscountPercent(discountText) {
+  if (discountText == null) return null;
+  const text = String(discountText).trim();
+  if (!text) return null;
+
+  const zheMatch = text.match(/([-+]?\d+(?:\.\d+)?)\s*折/);
+  if (zheMatch) {
+    const zhe = Number(zheMatch[1]);
+    return zhe > 0 && zhe <= 10 ? roundMoney(zhe * 10, 2) : null;
   }
-  const num = Number(discountText);
-  return Number.isFinite(num) && num > 0 && num <= 1 ? num : 1;
+
+  const percentMatch = text.match(/([-+]?\d+(?:\.\d+)?)\s*%/);
+  if (percentMatch) {
+    const percent = Number(percentMatch[1]);
+    return percent > 0 && percent <= 100 ? roundMoney(percent, 2) : null;
+  }
+
+  const num = Number(text);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  // 历史小数比例：0.8 表示支付原价的 80%。
+  if (num < 1) return roundMoney(num * 100, 2);
+  // 新规范：1~100 的整数百分比；1 表示 1%，100 表示 100%。
+  if (Number.isInteger(num) && num <= 100) return num;
+  return null;
 }
 
-/** 按等级名称匹配等级对象；未匹配到时返回不打折的「普通」等级。 */
-function getUserLevel(vipLevelName) {
-  const name = String(vipLevelName || '');
-  const level = memberLevels.find(item => item.name === name);
-  return level || { name: '普通', discount: 1, level: '' };
+/** '80' / '8折' -> 0.8；无法解析时返回 1（不打折）。 */
+function parseDiscount(discountText) {
+  const percent = normalizeDiscountPercent(discountText);
+  return percent == null ? 1 : roundMoney(percent / 100, 4);
+}
+
+/** 等级说明展示统一为百分比；无效值显示「无折扣」。 */
+function formatDiscountText(discountText) {
+  const percent = normalizeDiscountPercent(discountText);
+  return percent == null ? '无折扣' : `${percent}%`;
+}
+
+/**
+ * 按「等级代码或等级名称」匹配等级对象；未匹配到时返回不打折的「普通」等级。
+ *
+ * 为什么两种都要认（历史 bug）：
+ *   后端 app_user.vip_level 写入的是等级**代码**（MiniAppAuthService 里 setVipLevel("Lv1")），
+ *   而等级列表里 name 是**名称**（"时光卡"）、level 才是代码（"Lv1"）。
+ *   旧实现只比 name，导致 "Lv1" 永远匹配不到 -> 回退兜底等级 discount=1 -> 会员价恒等于原价，
+ *   表现为「等级显示正常，但会员价从不打折」。
+ *   这里同时接受两种写法：后端无论存代码还是名称都能正确取到折扣。
+ */
+function getUserLevel(vipLevel) {
+  const key = String(vipLevel || '');
+  const level = memberLevels.find(item => item.name === key || item.level === key);
+  return level || { name: '普通', discount: '100', level: '' };
 }
 
 /**
  * 会员价 = 门市价（原价）× 当前用户等级折扣。
- * listPrice 为「元」，vipLevelName 取自用户资料的 vipLevel。
+ *
+ * listPrice 为「元」，取自商品原价（product-card 与 spec-sheet 均以 originalPrice 为基数）；
+ * vipLevel 取自用户资料的 vipLevel，代码（Lv1）或名称（时光卡）均可。
  */
-function calcMemberPrice(listPrice, vipLevelName) {
-  const level = getUserLevel(vipLevelName);
+function calcMemberPrice(listPrice, vipLevel) {
+  const level = getUserLevel(vipLevel);
   const discount = parseDiscount(level.discount);
   return roundMoney(Number(listPrice || 0) * discount);
 }
@@ -201,7 +244,9 @@ module.exports = {
   buildLevelMeta,
   resolveLevelIndex,
   roundMoney,
+  normalizeDiscountPercent,
   parseDiscount,
+  formatDiscountText,
   getUserLevel,
   calcMemberPrice
 };

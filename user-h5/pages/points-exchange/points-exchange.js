@@ -7,11 +7,6 @@ function roundMoney(value) {
   return Math.round(value * 10) / 10;
 }
 
-/** 积分商品对外 id 使用后端 code（与 mock 时代的 id 一致）。 */
-function normalizeId(product) {
-  return String((product && (product.code || product.id)) || "");
-}
-
 Page(
   withShare({
     data: {
@@ -19,17 +14,29 @@ Page(
       quantity: 1,
       insufficient: true,
       stock: 0,
-      maxQuantity: 99
+      maxQuantity: 99,
+      isCoupon: false
     },
     onLoad(options) {
-      // 兑换商品来自后端积分商品列表（按 code 匹配）
-      api
+      return api
         .fetchPointsProducts()
         .then(list => (Array.isArray(list) ? list : []))
         .catch(() => [])
         .then(list => {
-          const productId = options.id || '';
-          const item = list.find(product => normalizeId(product) === productId) || list[0] || {};
+          const productId = String((options && options.id) || '');
+          const item = list.find(product => String(product.id) === productId);
+          if (!item) {
+            this.setData({
+              item: null,
+              quantity: 1,
+              insufficient: true,
+              stock: 0,
+              maxQuantity: 1,
+              isCoupon: false
+            });
+            return;
+          }
+          const isCoupon = item.category === 'coupon';
           const limit = Number(item.purchaseLimit) || 0;
           const stock = Number(item.stock) || 0;
           const points = Number(item.points) || 0;
@@ -38,20 +45,26 @@ Page(
             item: Object.assign({}, item, { points }),
             quantity: 1,
             stock,
-            maxQuantity: limit > 0 ? Math.min(limit, stockCap) : stockCap,
-            insufficient: getPoints() < points
+            maxQuantity: isCoupon ? 1 : (limit > 0 ? Math.min(limit, stockCap) : stockCap),
+            insufficient: getPoints() < points,
+            isCoupon
           });
         });
     },
     refreshInsufficient() {
+      if (!this.data.item) {
+        this.setData({ insufficient: true });
+        return;
+      }
       const cost = roundMoney(this.data.item.points * this.data.quantity);
       this.setData({ insufficient: getPoints() < cost });
     },
     decreaseQuantity() {
-      if (this.data.quantity <= 1) return;
+      if (this.data.isCoupon || this.data.quantity <= 1) return;
       this.setData({ quantity: this.data.quantity - 1 }, () => this.refreshInsufficient());
     },
     increaseQuantity() {
+      if (this.data.isCoupon) return;
       if (this.data.quantity >= this.data.maxQuantity) return;
       this.setData({ quantity: this.data.quantity + 1 }, () => this.refreshInsufficient());
     },
@@ -60,6 +73,10 @@ Page(
     },
 
     doHandleExchange() {
+      if (!this.data.item) {
+        wx.showToast({ title: '商品不存在或已下架', icon: 'none' });
+        return;
+      }
       if (this.data.insufficient) {
         wx.showToast({ title: '时光币不足', icon: 'none' });
         return;
@@ -80,16 +97,20 @@ Page(
     },
     doExchange() {
       const item = this.data.item;
-      const quantity = this.data.quantity;
+      if (!item) {
+        wx.showToast({ title: '商品不存在或已下架', icon: 'none' });
+        return Promise.resolve();
+      }
+      const isCoupon = this.data.isCoupon || item.category === 'coupon';
+      const quantity = isCoupon ? 1 : this.data.quantity;
       const limit = item.purchaseLimit || 0;
       if (limit > 0 && quantity > limit) {
         wx.showToast({ title: `该商品每人限购 ${limit} 件`, icon: 'none' });
-        return;
+        return Promise.resolve();
       }
       // 兑换为服务端写操作：扣减时光币、生成兑换单均以后端为准
-      const isCoupon = item.category === 'coupon';
-      api
-        .exchangePointsProduct(item.id)
+      return api
+        .exchangePointsProduct(item.id, quantity)
         .then(() => {
           this.setData({
             stock: Math.max(0, this.data.stock - quantity),
@@ -108,5 +129,4 @@ Page(
     }
   })
 );
-
 

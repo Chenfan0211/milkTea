@@ -18,7 +18,18 @@
           <image class="exchange-card__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
         </view>
 
-        <view wx:if="{{coupons.length}}" class="coupon-stack">
+        <view wx:if="{{loading}}" class="coupon-state">
+          <text class="coupon-state__title">正在加载优惠券</text>
+          <text class="coupon-state__description">请稍候</text>
+        </view>
+
+        <view wx:elif="{{loadError}}" class="coupon-state coupon-state--error">
+          <text class="coupon-state__title">加载失败</text>
+          <text class="coupon-state__description">{{loadError}}</text>
+          <view class="coupon-state__retry" bindtap="retryLoad" aria-role="button" aria-label="重新加载优惠券">重新加载</view>
+        </view>
+
+        <view wx:elif="{{coupons.length}}" class="coupon-stack">
           <view class="coupon-stack__layer coupon-stack__layer--third"></view>
           <view class="coupon-stack__layer coupon-stack__layer--second"></view>
 

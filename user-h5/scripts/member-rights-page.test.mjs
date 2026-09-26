@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -179,6 +179,11 @@ assert.ok(
 );
 assert.ok(!lv3Benefits.some(text => text.includes('3张')), 'Lv3 不得叠加 Lv2 的 3 张券');
 
+// ===== 会员价必须按等级折扣计算（回归：代码/名称口径不一致导致恒为原价）=====
+// 历史 bug：后端 app_user.vip_level 存的是等级代码（Lv1），
+// 而 getUserLevel 只按 name（时光卡）匹配，永远命中兜底等级 discount=1，
+// 表现为「等级显示正常、会员价却从不打折」。此处同时锁死两种写法。
+const { calcMemberPrice, getUserLevel } = require(path.join(root, 'utils/member-level.js'));
 const { buildLevelMeta, setMemberLevels } = require(path.join(root, 'utils/member-level.js'));
 // 等级数据来自数据库 seed：同步注入后再做成长值判定
 setMemberLevels(memberLevels.map(item => ({
@@ -199,6 +204,21 @@ for (const [profile, expected] of cases) {
   assert.equal(meta.currentName, expected, `实付累计 ${profile.totalSpend} 元应判定为 ${expected}`);
   assert.equal(meta.currentGrowth, Math.floor(profile.totalSpend), '成长值必须等于累计实付金额向下取整');
 }
+// 等级代码与名称都必须能取到正确折扣（不能落到兜底 discount=1）
+assert.equal(getUserLevel('Lv1').name, '时光卡', '传等级代码 Lv1 必须匹配到时光卡');
+assert.equal(getUserLevel('时光卡').name, '时光卡', '传等级名称时光卡同样必须命中');
+assert.equal(getUserLevel('Lv3').name, '挚友卡', '传等级代码 Lv3 必须匹配到挚友卡');
+
+// 会员价 = 原价 × 等级折扣（seed：时光卡8折 / 星享卡7折 / 挚友卡6折）
+assert.equal(calcMemberPrice(18, 'Lv1'), 14.4, 'Lv1(8折) 18 元会员价必须为 14.4');
+assert.equal(calcMemberPrice(18, '时光卡'), 14.4, '按名称传等级时结果必须一致');
+assert.equal(calcMemberPrice(18, 'Lv2'), 12.6, 'Lv2(7折) 必须取到 7 折而非兜底');
+assert.equal(calcMemberPrice(18, 'Lv3'), 10.8, 'Lv3(6折) 必须取到 6 折而非兜底');
+
+// 边界：等级缺失时不得误打折，也不得产生 NaN
+assert.equal(calcMemberPrice(18, ''), 18, '无等级时必须回退原价');
+assert.equal(calcMemberPrice(18, 'Lv9'), 18, '未知等级必须回退原价');
+assert.equal(calcMemberPrice(0, 'Lv1'), 0, '价格为 0 时必须为 0');
 const metaLv2 = buildLevelMeta({ totalSpend: 320 });
 assert.equal(metaLv2.progressTarget, 2000, 'Lv2 进度目标必须为下一档 2000');
 assert.equal(metaLv2.progressLabel, '再消费 1680 元升级', 'Lv2 升级提示必须为金额差');

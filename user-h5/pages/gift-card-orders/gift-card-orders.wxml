@@ -7,11 +7,11 @@
       <input
         class="gift-orders-search__input"
         value="{{searchKeyword}}"
-        placeholder="搜索礼品卡名称或订单号"
+        placeholder="搜索礼品卡名称、卡号或订单号"
         placeholder-class="gift-orders-search__placeholder"
         confirm-type="search"
         bindinput="handleSearchInput"
-        aria-label="搜索礼品卡名称或订单号"
+        aria-label="搜索礼品卡名称、卡号或订单号"
       />
       <view
         wx:if="{{searchKeyword}}"
@@ -41,58 +41,128 @@
 
   <scroll-view class="gift-orders-list" scroll-y show-scrollbar="{{false}}">
     <view class="gift-orders-list__inner">
-      <view
-        wx:for="{{filteredOrders}}"
-        wx:key="id"
-        class="gift-order-card {{item.isCanceled ? 'is-canceled' : ''}}"
-        data-id="{{item.id}}"
-        bindtap="openOrderDetail"
-        aria-role="button"
-        aria-label="{{item.title}}订单"
-      >
-        <view class="gift-order-card__head">
-          <text class="gift-order-card__title ellipsis">{{item.title}}</text>
-          <view class="gift-order-card__status-wrap">
-            <text wx:if="{{item.isPendingPayment}}" class="gift-order-card__countdown">剩余支付 {{item.countdownText}}</text>
-            <text class="gift-order-card__status">{{item.statusText}}</text>
+      <view wx:if="{{loadError}}" class="gift-orders-error">
+        <text class="gift-orders-error__title">加载失败</text>
+        <text class="gift-orders-error__description">{{loadError}}</text>
+        <view
+          class="gift-orders-error__retry"
+          bindtap="retryLoad"
+          aria-role="button"
+          aria-label="重新加载礼品卡数据"
+        >重新加载</view>
+      </view>
+
+      <view wx:if="{{filteredGiftCards.length}}" class="gift-held-section">
+        <view class="gift-section-head">
+          <text class="gift-section-head__title">我的礼品卡</text>
+          <text class="gift-section-head__hint">待核销</text>
+        </view>
+        <view
+          wx:for="{{filteredGiftCards}}"
+          wx:key="id"
+          class="gift-held-card"
+          aria-label="{{item.title}}，卡号{{item.cardNoText}}，待核销"
+        >
+          <image class="gift-held-card__image" src="{{item.coverImage}}" mode="aspectFill" />
+          <view class="gift-held-card__info">
+            <text class="gift-held-card__name ellipsis">{{item.title}}</text>
+            <text class="gift-held-card__no ellipsis">卡号 {{item.cardNoText}}</text>
+            <text wx:if="{{item.orderNo}}" class="gift-held-card__order ellipsis">订单号 {{item.orderNo}}</text>
           </view>
-        </view>
-
-        <view class="gift-order-card__main">
-          <image class="gift-order-card__image" src="{{item.coverImage}}" mode="aspectFill" />
-          <view class="gift-order-card__amount">
-            <text class="gift-order-card__price">{{item.isExchange ? item.amountText + ' 时光币' : '¥' + item.amountText}}</text>
+          <view class="gift-held-card__right">
+            <text class="gift-held-card__amount">¥{{item.amountText}}</text>
+            <text class="gift-held-card__status">待核销</text>
           </view>
-        </view>
-
-        <view class="gift-order-card__info">
-          <text class="gift-order-card__meta">订单号 {{item.orderInfo.orderNo}}</text>
-          <text wx:if="{{item.payTimeText}}" class="gift-order-card__meta">支付时间 {{item.payTimeText}}</text>
-        </view>
-
-        <view wx:if="{{item.isPendingPayment}}" class="gift-order-card__actions">
-          <view
-            class="gift-order-card__action gift-order-card__action--secondary"
-            data-id="{{item.id}}"
-            catchtap="cancelOrder"
-            aria-role="button"
-            aria-label="取消订单"
-          >取消订单</view>
-          <view
-            class="gift-order-card__action gift-order-card__action--primary"
-            data-id="{{item.id}}"
-            catchtap="handlePay"
-            aria-role="button"
-            aria-label="立即支付"
-          >立即支付</view>
         </view>
       </view>
 
-      <view wx:if="{{!filteredOrders.length}}" class="gift-orders-empty">
+      <view wx:if="{{filteredOrders.length}}" class="gift-order-section">
+        <view class="gift-section-head">
+          <text class="gift-section-head__title">购买订单</text>
+          <text class="gift-section-head__hint">{{filteredOrders.length}} 笔</text>
+        </view>
+        <view
+          wx:for="{{filteredOrders}}"
+          wx:key="id"
+          class="gift-order-card {{item.isCanceled ? 'is-canceled' : ''}} {{item.isRefunding ? 'is-refunding' : ''}} {{item.isRefundFailed ? 'is-refund-failed' : ''}}"
+        >
+          <view class="gift-order-card__head">
+            <text class="gift-order-card__title ellipsis">{{item.title}}</text>
+            <view class="gift-order-card__status-wrap">
+              <block wx:if="{{item.isPendingPayment}}">
+                <text wx:if="{{item.countdownText}}" class="gift-order-card__countdown">剩余支付 {{item.countdownText}}</text>
+              </block>
+              <text class="gift-order-card__status">{{item.statusText}}</text>
+            </view>
+          </view>
+
+          <view class="gift-order-card__main">
+            <image class="gift-order-card__image" src="{{item.coverImage}}" mode="aspectFill" />
+            <view class="gift-order-card__amount">
+              <text class="gift-order-card__price">{{item.isExchange ? item.amountText + ' 时光币' : '¥' + item.amountText}}</text>
+            </view>
+          </view>
+
+          <view class="gift-order-card__info">
+            <text class="gift-order-card__meta">订单号 {{item.orderNo}}</text>
+            <text wx:if="{{item.payTimeText}}" class="gift-order-card__meta">支付时间 {{item.payTimeText}}</text>
+          </view>
+
+          <text wx:if="{{item.refundHintText}}" class="gift-order-card__refund-hint">
+            {{item.refundHintText}}
+          </text>
+
+          <view wx:if="{{item.canCancel}}" class="gift-order-card__actions">
+            <view
+              class="gift-order-card__action gift-order-card__action--secondary"
+              data-order-no="{{item.orderNo}}"
+              catchtap="cancelOrder"
+              aria-role="button"
+              aria-label="取消订单"
+            >取消订单</view>
+            <view
+              class="gift-order-card__action gift-order-card__action--primary"
+              data-order-no="{{item.orderNo}}"
+              catchtap="handlePay"
+              aria-role="button"
+              aria-label="继续支付"
+            >继续支付</view>
+          </view>
+
+          <view wx:if="{{item.isRefundFailed}}" class="gift-order-card__actions">
+            <view
+              class="gift-order-card__action gift-order-card__action--secondary"
+              data-order-no="{{item.orderNo}}"
+              catchtap="requestRefund"
+              aria-role="button"
+              aria-label="重试退款"
+            >重试退款</view>
+          </view>
+          <view wx:elif="{{item.canRefund}}" class="gift-order-card__actions">
+            <view
+              class="gift-order-card__action gift-order-card__action--secondary"
+              data-order-no="{{item.orderNo}}"
+              catchtap="requestRefund"
+              aria-role="button"
+              aria-label="申请退款"
+            >申请退款</view>
+          </view>
+        </view>
+      </view>
+
+      <view
+        wx:if="{{loading && !loadError && !filteredGiftCards.length && !filteredOrders.length}}"
+        class="gift-orders-state"
+      >正在加载礼品卡数据...</view>
+
+      <view
+        wx:if="{{!loading && !loadError && !filteredGiftCards.length && !filteredOrders.length}}"
+        class="gift-orders-empty"
+      >
         <empty-state
           icon="/assets/icons/lucide/gift.svg"
           title="暂无礼品卡订单"
-          description="没有符合条件的礼品卡订单"
+          description="没有符合条件的礼品卡或订单"
         />
       </view>
     </view>

@@ -281,7 +281,7 @@ const profileFunctions = readAppConfig('profile_functions') || [];
 const signInRules = readAppConfig('signin_rules') || [];
 const signInRewards = readAppConfig('signin_rewards') || [];
 const pointsSignIn = readAppConfig('points_signin', readSeed('V16__seed_app_data.sql')) || {};
-const { orderCategories, exchangeRecordCategories, pointsCategories, formatOrderAmount } = require('../data/mock.js');
+const { orderCategories, exchangeRecordCategories, formatOrderAmount } = require('../data/mock.js');
 
 // 优惠券：V6 seed
 const marketingSeed = readSeed('V6__seed_marketing.sql');
@@ -298,13 +298,6 @@ const coupons = [...marketingSeed.match(/INSERT INTO coupon \(id, code[\s\S]*?;/
     applicableStoreIds: [],
     applicableProductIds: []
   }));
-
-// 积分商品：V6 + V16
-const pointsProductSql = readSeed('V6__seed_marketing.sql').match(/INSERT INTO points_product \(id, code[\s\S]*?;/)[0]
-  + readSeed('V16__seed_app_data.sql').match(/INSERT INTO points_product \(id, code[\s\S]*?badge_in_image=VALUES\(badge_in_image\);/)[0];
-const pointsProducts = [...pointsProductSql.matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+),/g)]
-  .map(m => ({ id: m[2], name: m[3], image: m[4], points: Number(m[5]), stock: Number(m[6]) }))
-  .filter((item, index, list) => list.findIndex(x => x.id === item.id) === index);
 
 // 礼品卡分组（V16 seed）
 const giftCardGroups = [...new Set((readSeed('V16__seed_app_data.sql')
@@ -387,11 +380,11 @@ assert.ok(
 assert.ok(
   orderDetailWxml.includes("order.orderStatus === 'completed'") &&
     orderDetailWxml.includes('再来一单') &&
-    orderDetailWxml.includes('立即评价') &&
     orderDetailWxml.includes('用餐信息') &&
     orderDetailWxml.includes('订单信息'),
-  '已完成详情必须包含操作按钮、用餐信息和订单信息'
+  '已完成详情必须包含再来一单、用餐信息和订单信息'
 );
+assert.ok(!orderDetailWxml.includes('立即评价'), '订单详情不得包含立即评价入口');
 assert.ok(orderDetailWxml.includes('copy.svg'), '订单详情必须保留复制订单编号图标');
 assert.ok(
   !orderDetailWxml.includes('phone.svg') &&
@@ -506,7 +499,7 @@ assert.ok(
   '优惠券页必须遵守设计系统颜色和字号 token'
 );
 assert.ok(
-  couponPageWxml.includes('wx:if="{{coupons.length}}"') &&
+  couponPageWxml.includes('wx:elif="{{coupons.length}}"') &&
     couponPageWxml.includes('<empty-state') &&
     couponPageWxml.includes('暂无可用优惠券'),
   '优惠券为空时必须展示空状态'
@@ -699,8 +692,8 @@ assert.ok(
   '礼品卡订单页必须包含状态筛选'
 );
 assert.ok(
-  giftOrdersWxml.includes('openOrderDetail') && giftOrdersWxml.includes('data-id="{{item.id}}"'),
-  '礼品卡订单卡片必须携带订单 ID 跳转详情'
+  giftOrdersWxml.includes('data-order-no="{{item.orderNo}}"'),
+  '礼品卡订单必须统一使用 orderNo 完成继续支付、取消和退款'
 );
 assert.ok(
   !giftOrdersWxml.includes('<qrcode') && !giftOrdersWxml.includes('核销码') && !giftOrdersWxml.includes('请向门店出示此二维码核销'),
@@ -756,6 +749,19 @@ assert.ok(
   '积分商品名必须单行省略且商品图完整展示'
 );
 assert.ok(
+  pointsMallJs.includes('fetchPointsCategories') &&
+    pointsMallJs.includes('fetchPointsProducts') &&
+    pointsMallJs.includes('Promise.all'),
+  '积分商城必须并行加载接口分类与商品'
+);
+assert.ok(!pointsMallJs.includes('data/mock'), '积分商城分类不得回退到本地 mock 数据');
+assert.ok(
+  pointsMallWxml.includes('wx:for="{{pointsCategories}}"') &&
+    pointsMallWxml.includes('empty-state') &&
+    pointsMallWxml.includes('filteredProducts.length'),
+  '积分商城必须渲染接口分类，并在分类或商品为空时展示空状态'
+);
+assert.ok(
   pointsMallJs.includes('filterCategory') &&
     pointsMallJs.includes('openProduct') &&
     pointsMallJs.includes('openPointsDetail') &&
@@ -794,18 +800,23 @@ assert.ok(
   pointsExchangeWxml.includes('兑换详情') &&
     pointsExchangeWxml.includes('1/1') &&
     pointsExchangeWxml.includes('quantity') &&
+    pointsExchangeWxml.includes('wx:if="{{!isCoupon}}"') &&
     pointsExchangeWxml.includes('时光币不足'),
-  '兑换详情必须包含商品图、数量步进器和时光币不足按钮'
+  '兑换详情必须包含商品图、普通商品数量步进器、优惠券隐藏规则和时光币不足按钮'
 );
 assert.ok(pointsExchangeWxml.includes('wx:if="{{item.limitText}}"'), '兑换详情限制提示必须允许为空且按条件渲染');
 assert.ok(
-  pointsExchangeJs.includes('decreaseQuantity') &&
+    pointsExchangeJs.includes('decreaseQuantity') &&
     pointsExchangeJs.includes('increaseQuantity') &&
     pointsExchangeJs.includes('handleExchange') &&
+    /String\((?:item|product)\.id\)/.test(pointsExchangeJs) &&
     pointsExchangeJs.includes('getPoints() < points'),
-  '兑换详情必须支持数量调整和积分不足判断'
+  '兑换详情必须按数值 id 定位商品，并支持普通商品数量调整和积分不足判断'
 );
-assert.ok(pointsExchangeJs.includes('exchangePointsProduct'), '兑换必须调用后端接口，禁止本地伪造扣减');
+assert.ok(
+  pointsExchangeJs.includes('exchangePointsProduct(item.id, quantity)'),
+  '兑换必须调用后端接口并传递实际数量，禁止本地伪造扣减'
+);
 assert.ok(
   pointsExchangeWxss.includes('height: 100vh') &&
     pointsExchangeWxss.includes('env(safe-area-inset-bottom)') &&
@@ -841,16 +852,6 @@ assert.ok(
   '兑换记录必须支持状态筛选'
 );
 
-// 时光币余额由后端 app_user.points 提供，本地无初始值可断言
-assert.equal(pointsCategories.length, 3, '积分商城必须包含全部、宠物公益和优惠券三个分类');
-assert.equal(pointsProducts.length, 5, '积分商品表必须包含 V6 的 2 条 + V16 补齐的 3 条');
-assert.ok(
-  pointsProducts.every(item => item.id && item.name && item.image && item.points > 0 && item.stock > 0),
-  '积分商品字段必须完整'
-);
-// 分类与券字段由 V16 回填，校验 seed 中确实写入了这些列
-assert.ok(/ADD COLUMN category\s+VARCHAR/.test(readSeed('V16__seed_app_data.sql')), 'V16 必须为 points_product 增加 category 列');
-assert.ok(!pointsProducts.some(item => item.id === 'points-coupon-3' && item.points <= 0), 'V6 的兑换券商品必须保留有效积分');
 // 时光币流水与兑换记录均为「按用户动态生成」，本地不再有演示数据；
 // 页面改为接口驱动，这里校验页面确实走接口而非本地假数据。
 const pointsDetailSource = fs.readFileSync(path.join(root, 'pages/points-detail/points-detail.js'), 'utf8');
@@ -1145,11 +1146,17 @@ assert.ok(
     confirmJs.includes('storedValuePrice'),
   '确认订单页必须支持切换储值支付并按储值价计算'
 );
+// 储值余额支付改为「服务端扣款」：
+// 页面不得再本地扣余额（nextBalance 必须已移除），否则换设备余额复原、
+// 且可篡改本地存储超支；余额不足由后端返回业务错误、页面展示其文案。
 assert.ok(
-  confirmJs.includes('getUserProfile') &&
-    confirmJs.includes('saveUserProfile') &&
-    confirmJs.includes('余额不足，请先充值'),
-  '储值支付必须扣减余额且余额不足时阻止提交'
+  !confirmJs.includes('nextBalance'),
+  '储值支付不得在本地扣减余额（必须改由服务端原子扣款）'
+);
+assert.ok(
+  confirmJs.includes('payOrderByBalance') &&
+    confirmJs.includes('refreshUserProfileFromRemote'),
+  '储值支付必须调用服务端余额支付接口，并在支付后回读服务端余额'
 );
 // 阶段 C：商品储值价由菜单接口提供，不再内置于 data/mock.js
 assert.ok(
@@ -1197,8 +1204,10 @@ assert.ok(
   '礼品卡页必须实现本地名称搜索与清空'
 );
 assert.ok(
-  giftPageJs.includes('/pages/gift-card-purchase/gift-card-purchase?id='),
-  '礼品卡卡片点击必须跳转购买页并携带卡 ID'
+  giftPageJs.includes('/pages/gift-card-purchase/gift-card-purchase?') &&
+    giftPageJs.includes('groupId=') &&
+    giftPageJs.includes('cardName='),
+  '礼品卡卡片点击必须跳转购买页并携带分组与卡面名称'
 );
 
 assert.ok(appJson.pages.includes('pages/gift-card-purchase/gift-card-purchase'), 'app.json 必须注册礼品卡购买页');
@@ -1225,10 +1234,13 @@ assert.ok(
 );
 assert.ok(
   giftPurchaseWxml.includes('denominations') &&
-    giftPurchaseWxml.includes('minus.svg') &&
-    giftPurchaseWxml.includes('plus.svg') &&
-    giftPurchaseWxml.includes('changeQuantity'),
-  '礼品卡购买页必须提供多档面额及独立数量控件'
+    giftPurchaseWxml.includes('selectDenomination') &&
+    giftPurchaseWxml.includes('aria-role="radio"') &&
+    !giftPurchaseWxml.includes('minus.svg') &&
+    !giftPurchaseWxml.includes('plus.svg') &&
+    giftPurchaseWxml.includes('1 张') &&
+    !giftPurchaseWxml.includes('changeQuantity'),
+  '礼品卡购买页必须单选一档面额并固定购买 1 张'
 );
 assert.ok(
   giftPurchaseWxml.includes('<text class="gift-agreement__text"') &&
@@ -1247,16 +1259,19 @@ assert.ok(
   giftPurchaseWxml.includes('购买礼品') &&
     giftPurchaseWxml.includes('bindtap="handlePay"') &&
     giftPurchaseWxml.includes('totalText') &&
-    giftPurchaseWxml.includes('totalCount'),
-  '礼品卡购买页必须提供合计与直接支付按钮'
+    giftPurchaseWxml.includes('1 张 · 应付售价') &&
+    !giftPurchaseWxml.includes('totalCount'),
+  '礼品卡购买页必须展示固定 1 张应付售价并直接支付'
 );
 assert.ok(
   giftPurchaseJs.includes('handlePay') &&
     giftPurchaseJs.includes('startGiftCardPayment') &&
-    giftPurchaseJs.includes('支付暂未接入') &&
+    giftPurchaseJs.includes('purchaseGiftCard(') &&
+    giftPurchaseJs.includes('requestGiftCardPayment(') &&
+    !giftPurchaseJs.includes('支付暂未接入') &&
     !giftPurchaseJs.includes('/pages/order-confirm/order-confirm') &&
-    giftPurchaseJs.includes('MAX_QUANTITY = 10'),
-  '礼品卡购买页必须直接调用预留支付入口且不得跳转确认订单页'
+    !giftPurchaseJs.includes('MAX_QUANTITY'),
+  '礼品卡购买页必须走真实建单、预支付和订单轮询链路'
 );
 assert.ok(/isAgreed:\s*false/.test(giftPurchaseJs), '礼品卡协议必须默认未勾选');
 assert.ok(
@@ -1459,9 +1474,10 @@ assert.ok(
   !menuWxml.includes('menu-tabs') && !menuWxss.includes('.menu-tabs') && !menuJs.includes('selectMenuTab'),
   '点单页不得保留顶部菜单页签的任意残留（结构/样式/事件）'
 );
+// 栏宽 195rpx：按参考图（1170px 宽 = 750rpx）实测分类栏 304px 换算所得
 assert.ok(
-  /\.category-scroll[\s\S]*?width:\s*182rpx[\s\S]*?background:\s*var\(--page-bg-neutral\)/.test(menuWxss),
-  '分类栏必须使用统一浅灰背景'
+  /\.category-scroll[\s\S]*?width:\s*195rpx[\s\S]*?background:\s*var\(--page-bg-neutral\)/.test(menuWxss),
+  '分类栏必须为 195rpx 且使用统一浅灰背景'
 );
 assert.ok(
   /\.category-item\.is-active\s*\{[\s\S]*?background:\s*#FFFFFF/.test(menuWxss),

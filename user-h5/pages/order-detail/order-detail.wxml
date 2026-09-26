@@ -20,7 +20,6 @@
         </view>
         <view wx:if="{{order.orderStatus === 'completed'}}" class="status-card__actions">
           <view class="status-action status-action--secondary" bindtap="handleReorder" aria-role="button" aria-label="再来一单">再来一单</view>
-          <view class="status-action status-action--primary" bindtap="handleReview" aria-role="button" aria-label="立即评价">立即评价</view>
         </view>
       </view>
 

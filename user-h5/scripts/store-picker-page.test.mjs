@@ -160,6 +160,8 @@ require(path.join(root, 'pages/menu/menu.js'));
 const menuPage = createPage(capturedPage);
 // 门店/菜单改为接口异步加载：等待完成后再断言
 menuPage.onLoad();
+// 真实生命周期里 onShow 必然紧跟 onLoad，且渲染统一由 onShow 的 refreshThenSync 负责
+menuPage.onShow();
 await new Promise(resolve => setTimeout(resolve, 30));
 if (!menuPage.data.storePickerVisible || !menuPage.data.pickerStores.length || menuPage.data.pickerHasCurrentStore) {
   throw new Error('点单页首次无缓存时必须展示门店选择层且不预选门店');

@@ -1,35 +1,65 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { pointsCategories } = require('../../data/mock');
 const { getPoints } = require('../../utils/points');
 const { refreshUserProfileFromRemote } = require('../../utils/user-profile');
 const { resolveStoreCatalog } = require('../../utils/store');
+
+const ALL_CATEGORY = { id: 'all', label: '全部' };
+
+function normalizeCategories(list) {
+  const enabledCategories = (Array.isArray(list) ? list : [])
+    .filter(item => item && (
+      item.enabled === undefined ||
+      item.enabled === true ||
+      Number(item.enabled) === 1
+    ))
+    .map(item => {
+      const id = String(item.code || item.id || '');
+      if (!id || id === 'all') return null;
+      return { id, label: item.name || item.label || id };
+    })
+    .filter(Boolean);
+  return [ALL_CATEGORY].concat(enabledCategories);
+}
+
+function filterProductsByCategory(products, categoryId) {
+  const list = Array.isArray(products) ? products : [];
+  if (categoryId === 'all') return list;
+  return list.filter(item => item && item.category === categoryId);
+}
 
 Page(
   withShare({
     data: {
       pointsBalance: 0,
       signedToday: false,
-      pointsCategories,
+      pointsCategories: [ALL_CATEGORY],
       pointsProducts: [],
       filteredProducts: [],
       activeCategory: 'all',
       currentStore: {}
     },
     onLoad() {
-      // 积分商品从后端拉取
-      api
-        .fetchPointsProducts()
-        .then(list => {
-          if (Array.isArray(list) && list.length) {
-            const filteredProducts = this.data.activeCategory === 'all'
-              ? list
-              : list.filter(item => item.category === this.data.activeCategory);
-            this.setData({ pointsProducts: list, filteredProducts });
-          }
-        })
-        .catch(() => null);
       this.syncStore();
+      const categoriesRequest = api.fetchPointsCategories().catch(() => []);
+      const productsRequest = api.fetchPointsProducts().catch(() => []);
+      return Promise.all([
+        categoriesRequest,
+        productsRequest
+      ])
+        .then(([categories, products]) => {
+          const pointsCategories = normalizeCategories(categories);
+          const list = Array.isArray(products) ? products : [];
+          const activeCategory = pointsCategories.some(item => item.id === this.data.activeCategory)
+            ? this.data.activeCategory
+            : 'all';
+          this.setData({
+            pointsCategories,
+            pointsProducts: list,
+            filteredProducts: filterProductsByCategory(list, activeCategory),
+            activeCategory
+          });
+        });
     },
     onShow() {
       const app = getApp();
@@ -47,10 +77,14 @@ Page(
       this.setData({ currentStore: catalog.currentStore || catalog.stores[0] || {} });
     },
     filterCategory(event) {
-      const { id } = event.currentTarget.dataset;
-      const source = this.data.pointsProducts || [];
-      const filteredProducts = id === 'all' ? source : source.filter(item => item.category === id);
-      this.setData({ activeCategory: id, filteredProducts });
+      const id = String((event.currentTarget.dataset && event.currentTarget.dataset.id) || 'all');
+      const activeCategory = id === 'all' || this.data.pointsCategories.some(item => item.id === id)
+        ? id
+        : 'all';
+      this.setData({
+        activeCategory,
+        filteredProducts: filterProductsByCategory(this.data.pointsProducts, activeCategory)
+      });
     },
     openProduct(event) {
       wx.navigateTo({ url: `/pages/points-exchange/points-exchange?id=${event.currentTarget.dataset.id}` });
@@ -76,4 +110,3 @@ Page(
     }
   })
 );
-

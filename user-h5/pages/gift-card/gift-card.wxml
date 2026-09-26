@@ -69,6 +69,8 @@
               wx:key="id"
               class="gift-grid__item"
               data-id="{{card.id}}"
+              data-group-id="{{card.groupId}}"
+              data-card-name="{{card.name}}"
               bindtap="handleCard"
               aria-role="button"
               aria-label="{{card.name}}"

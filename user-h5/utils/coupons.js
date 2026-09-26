@@ -37,52 +37,65 @@ function writeStorageCoupons(list) {
   if (app && app.globalData) app.globalData.coupons = list;
 }
 
-/** 后端优惠券结构 -> 小程序券包展示结构。 */
+function formatDateTime(value) {
+  if (!value) return '';
+  const text = String(value).replace('T', ' ');
+  return text.length >= 16 ? text.slice(0, 16) : text;
+}
+
+function buildRemoteValidityPeriod(item) {
+  const start = formatDateTime(item.validityStart);
+  const end = formatDateTime(item.validityEnd || item.expireAt);
+  if (start && end) return `${start}~${end}`;
+  if (end) return `有效期至 ${end}`;
+  return '长期有效';
+}
+
+/** 后端用户券结构 -> 小程序券包展示结构。 */
 function normalizeRemoteCoupon(item) {
-  const amount = Math.round((Number(item.amount) || 0) / 100);
-  const threshold = Math.round((Number(item.threshold) || 0) / 100);
+  const source = item || {};
+  const amount = Math.round((Number(source.amount) || 0) / 100);
+  const threshold = Math.round((Number(source.threshold) || 0) / 100);
+  const stableId = source.couponCode || source.code || source.couponId || '';
   return {
-    id: item.code || String(item.id),
-    quantity: Number(item.count) || 1,
-    type: item.type || 'voucher',
+    id: item.id != null ? String(item.id) : String(stableId),
+    couponId: source.couponId,
+    quantity: 1,
+    type: source.type || 'voucher',
     displayType: 'fixed',
     amount,
     condition: threshold ? `满${threshold}元可用` : '不限',
-    title: item.name || '',
-    expiryText: '',
-    brand: item.brand || '五零时光',
-    couponNo: item.code || String(item.id),
-    applicableStoreIds: Array.isArray(item.applicableStoreIds) ? item.applicableStoreIds : [],
-    applicableProductIds: Array.isArray(item.applicableProductIds) ? item.applicableProductIds : [],
+    title: source.name || '',
+    expiryText: source.expireAt ? `${formatDateTime(source.expireAt)} 到期` : '长期有效',
+    brand: source.brand || '五零时光',
+    couponNo: source.couponCode || source.code || String(stableId),
+    applicableStoreIds: Array.isArray(source.applicableStoreIds) ? source.applicableStoreIds : [],
+    applicableProductIds: Array.isArray(source.applicableProductIds) ? source.applicableProductIds : [],
     applicableStores: '查看门店',
     applicableProducts: '查看适用商品',
     channel: '不限制',
-    scenes: item.scenes || '',
-    validityPeriod: '',
-    usageTime: item.usageTime || '',
+    scenes: source.scenes || '',
+    validityPeriod: buildRemoteValidityPeriod(source),
+    usageTime: source.usageTime || '',
     paymentRestriction: '',
-    description: item.description || '',
-    source: item.source || '',
-    expired: Boolean(item.expired),
-    status: item.status || ''
+    description: source.description || '',
+    source: source.source || '',
+    expired: source.usable === false || Boolean(source.expired),
+    usable: source.usable !== false,
+    status: source.status || ''
   };
 }
-
-/** 从后端拉取券包并写入缓存。 */
+/** 从后端拉取券包并写入缓存；失败向上抛出，页面据此展示错误态。 */
 function refreshCouponsFromRemote(status) {
-  return api
-    .fetchUserCoupons(status)
-    .then(list => {
-      if (Array.isArray(list)) {
-        const coupons = list.map(normalizeRemoteCoupon);
-        writeStorageCoupons(coupons);
-        return coupons;
-      }
-      return getCoupons();
-    })
-    .catch(() => getCoupons());
+  return api.fetchUserCoupons(status).then(list => {
+    if (!Array.isArray(list)) {
+      throw new Error('优惠券接口返回格式异常');
+    }
+    const coupons = list.map(normalizeRemoteCoupon);
+    writeStorageCoupons(coupons);
+    return coupons;
+  });
 }
-
 /** 当前券包缓存（只读）。 */
 function getCoupons() {
   return cloneCoupons(readStorageCoupons() || []);

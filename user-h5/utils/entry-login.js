@@ -107,9 +107,15 @@ function ensureEntryLogin(options = {}) {
       .then(() => {
         const state = authState.getAuthState();
         const registerContext = auth.getRegisterContext();
-        // 已注册：校验 token 有效性（/me），401 时清旧 token 重登
+        // 已注册：校验 token 有效性（/me），401 时清旧 token 重登。
+        //
+        // 注意必须用 refreshUserProfileFromRemote() 而非 api.fetchUserProfile()：
+        // 前者会把 /me 的结果写入本地资料缓存，后者只校验 token 有效性、丢弃响应。
+        // 历史 bug：这里原用 api.fetchUserProfile()，导致「启动即登录」这条主路径
+        // 从不写入用户资料 -> profile.points 一直是空壳的 0
+        // -> 「我的」页时光币显示 0（后端明明有值）。见 app_user.points。
         if (state.hasToken) {
-          return api.fetchUserProfile()
+          return refreshUserProfileFromRemote()
             .then(() =>
               finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false })
             )

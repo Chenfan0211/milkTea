@@ -16,73 +16,176 @@
   padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
 }
 
-/* 在线客服 */
-.service-hero {
+/* 联系客服 */
+.service-contact-card {
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.service-contact__head {
   display: flex;
   align-items: center;
-  padding: 32rpx;
-  background: var(--brand-green);
-  border-radius: var(--radius-lg);
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid var(--line-color);
 }
 
-.service-hero__icon {
+.service-contact__head-icon,
+.service-contact__hotline-icon {
+  display: flex;
   flex: none;
-  width: 56rpx;
-  height: 56rpx;
-  margin-right: 20rpx;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-md);
 }
 
-.service-hero__body {
+.service-contact__head-icon {
+  margin-right: 16rpx;
+}
+
+.service-contact__head-image {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.service-contact__heading {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
 }
 
-.service-hero__title {
-  color: var(--card-bg);
+.service-contact__title {
+  color: var(--text-main);
   font-size: var(--font-lg);
   font-weight: 600;
   line-height: 44rpx;
 }
 
-.service-hero__desc {
+.service-contact__hours {
   margin-top: 4rpx;
-  color: var(--card-bg);
+  color: var(--text-secondary);
   font-size: var(--font-sm);
-  line-height: 34rpx;
-  opacity: 0.86;
+  line-height: 32rpx;
 }
 
-.service-hero__note {
-  margin-top: 4rpx;
-  color: var(--card-bg);
-  font-size: var(--font-caption);
-  line-height: 30rpx;
-  opacity: 0.7;
+.service-contact__online {
+  padding-top: 20rpx;
+}
+
+.service-contact__section-title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.service-contact__desc {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
 }
 
 /* 原生客服按钮：重置 button 默认样式，与设计系统一致 */
-.service-hero__button {
-  flex: none;
-  min-width: 168rpx;
-  height: 72rpx;
-  margin: 0 0 0 20rpx;
+.service-contact__button {
+  width: 100%;
+  height: 80rpx;
+  margin: 20rpx 0 0;
   padding: 0 24rpx;
-  color: var(--brand-green);
-  font-size: var(--font-sm);
+  color: var(--card-bg);
+  font-size: var(--font-base);
   font-weight: 600;
-  line-height: 72rpx;
-  background: var(--card-bg);
+  line-height: 80rpx;
+  background: var(--brand-green);
   border: none;
   border-radius: var(--radius-pill);
 }
 
-.service-hero__button::after {
+.service-contact__button::after {
   border: none;
 }
 
-/* 卡片 */
+.service-contact__divider {
+  height: 1rpx;
+  margin: 24rpx 0;
+  background: var(--line-color);
+}
+
+.service-contact__hotline {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.service-contact__hotline-icon {
+  width: 56rpx;
+  height: 56rpx;
+  margin-right: 16rpx;
+}
+
+.service-contact__hotline-image {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.service-contact__hotline-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.service-contact__hotline-label {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.service-contact__hotline-number {
+  margin-top: 4rpx;
+  color: var(--text-main);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  line-height: 48rpx;
+}
+
+.service-contact__hotline-action {
+  flex: none;
+  min-width: 88rpx;
+  height: 48rpx;
+  margin-left: 16rpx;
+  padding: 0 20rpx;
+  color: var(--brand-dark);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 48rpx;
+  text-align: center;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.service-contact__hotline-tip {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+.service-contact__response {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+/* 通用卡片 */
 .service-card {
   margin-top: 20rpx;
   padding: 24rpx;
@@ -111,7 +214,7 @@
   line-height: 40rpx;
 }
 
-/* 行 */
+/* 通用行 */
 .service-row {
   display: flex;
   align-items: center;
@@ -165,7 +268,6 @@
   font-size: var(--font-sm);
   line-height: 36rpx;
 }
-
 /* 常见问题 */
 .faq-item {
   padding: 20rpx 0;

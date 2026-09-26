@@ -10,7 +10,19 @@ const LISTING_STORAGE_KEY = 'milkTea:product-listing';
 // 页面按「无菜单」处理，不再回退本地假数据。
 let menuCatalog = [];
 
-/** 用远端数据刷新菜单镜像（页面 onLoad 时调用） */
+// 菜单镜像的最近一次同步状态，供页面区分「首次加载失败」与「已有镜像的刷新失败」。
+// 前者必须让用户知道（否则页面会一直空着且无从重试），后者保留旧镜像即可。
+let menuSyncState = { loaded: false, error: null, updatedAt: 0 };
+
+/**
+ * 用远端数据刷新菜单镜像（页面每次展示时调用）。
+ *
+ * 约定：
+ *   · 请求成功但返回空数组 -> 不清空镜像。宁可用上一份数据，也不要把页面打空
+ *     （后端瞬时返回空比展示旧菜单更糟：用户会以为门店没商品）。
+ *   · 请求失败 -> 保留旧镜像，但把错误记进 menuSyncState，让页面能区分
+ *     「首次就没拿到」和「只是这次刷新失败」，前者需要提示用户重试。
+ */
 function refreshMenuFromRemote() {
   return api
     .fetchMenu()
@@ -18,11 +30,23 @@ function refreshMenuFromRemote() {
       if (Array.isArray(list) && list.length) {
         menuCatalog = list;
       }
+      menuSyncState = { loaded: true, error: null, updatedAt: Date.now() };
       return menuCatalog;
     })
-    .catch(() => menuCatalog);
+    .catch(error => {
+      menuSyncState = {
+        loaded: menuCatalog.length > 0,
+        error: error || new Error('菜单加载失败'),
+        updatedAt: menuSyncState.updatedAt
+      };
+      return menuCatalog;
+    });
 }
 
+/** 最近一次菜单同步状态（只读），页面据此决定是否需要提示「加载失败」。 */
+function getMenuSyncState() {
+  return menuSyncState;
+}
 /** 直接注入菜单镜像（仅供测试使用）。 */
 function setMenuCatalogForTest(list) {
   menuCatalog = Array.isArray(list) ? list : [];
@@ -235,7 +259,12 @@ function applyListing(storeId, menus) {
 }
 
 // 消费端读取：指定门店的上架菜单；无门店时返回完整菜单。
+//
+// applyListing 结果为空有两种成因，必须区分对待：
+//   1) menuCatalog 本身为空 -> 返回空数组，页面按「无菜单」处理；
+//   2) 有菜单但该门店可售商品为 0 -> 回落完整菜单，避免整页空白。
 function getListedMenuTabs(storeId) {
+  if (!menuCatalog.length) return menuCatalog;
   if (!storeId) return menuCatalog;
   const tabs = applyListing(storeId, menuCatalog);
   return tabs.length ? tabs : menuCatalog;
@@ -251,10 +280,13 @@ function getListedMenuTabs(storeId) {
  *
  * 注意：合并只做「分组扁平化」，不改变分组内商品与分类的从属关系，
  * 因此左侧栏仍按「分组标签 + 其下分类」渲染，选中态逻辑无需调整。
+ *
+ * 契约：恒返回带 groups 数组的对象（无菜单时为 { groups: [] }），
+ * 消费端无需再各自判空，避免 menu.groups[0] 触发 undefined 访问。
  */
 function getMergedMenuTab(storeId) {
   const tabs = getListedMenuTabs(storeId);
-  if (!tabs.length) return null;
+  if (!tabs.length) return { groups: [] };
   const first = tabs[0];
   return Object.assign({}, first, {
     groups: tabs.reduce((acc, tab) => acc.concat(tab.groups || []), [])
@@ -271,6 +303,7 @@ module.exports = {
   LISTING_STORAGE_KEY,
   isPlatformListed,
   refreshMenuFromRemote,
+  getMenuSyncState,
   setMenuCatalogForTest,
   getMenuCatalog,
   applyListing,

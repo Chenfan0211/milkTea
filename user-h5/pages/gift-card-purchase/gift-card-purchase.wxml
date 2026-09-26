@@ -13,35 +13,30 @@
       </view>
 
       <view class="gift-denomination-list">
-        <view wx:for="{{denominations}}" wx:key="id" class="gift-denomination">
+        <view
+          wx:for="{{denominations}}"
+          wx:key="denominationId"
+          class="gift-denomination {{item.selected ? 'is-selected' : ''}}"
+          data-id="{{item.denominationId}}"
+          bindtap="selectDenomination"
+          aria-role="radio"
+          aria-checked="{{item.selected}}"
+          aria-label="选择面值{{item.faceValue}}元礼品卡"
+        >
           <text class="gift-denomination__value">¥{{item.faceValue}}</text>
           <view class="gift-denomination__info">
-            <text class="gift-denomination__price">售价：¥{{item.salePrice}}</text>
-            <text class="gift-denomination__name ellipsis">{{giftCard.name}}</text>
+            <text class="gift-denomination__price">应付售价：¥{{item.salePrice}}</text>
+            <text class="gift-denomination__name ellipsis">{{giftCard.name}} · 1 张</text>
           </view>
-          <view class="gift-quantity">
-            <block wx:if="{{item.quantity > 0}}">
-              <view
-                class="gift-quantity__step gift-quantity__step--minus {{item.quantity === 1 ? 'is-disabled' : ''}}"
-                data-id="{{item.id}}"
-                data-delta="-1"
-                bindtap="changeQuantity"
-                aria-role="button"
-                aria-label="减少{{item.faceValue}}元礼品卡"
-              >
-                <image class="gift-quantity__icon gift-quantity__icon--minus" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
-              </view>
-              <text class="gift-quantity__value">{{item.quantity}}</text>
-            </block>
-            <view
-              class="gift-quantity__step gift-quantity__step--plus {{item.quantity === maxQuantity ? 'is-disabled' : ''}}"
-              data-id="{{item.id}}"
-              data-delta="1"
-              bindtap="changeQuantity"
-              aria-role="button"
-              aria-label="增加{{item.faceValue}}元礼品卡"
-            >
-              <image class="gift-quantity__icon gift-quantity__icon--plus" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+          <view class="gift-denomination__selection">
+            <text class="gift-denomination__quantity">1 张</text>
+            <view class="gift-denomination__radio">
+              <image
+                wx:if="{{item.selected}}"
+                class="gift-denomination__radio-icon"
+                src="/assets/icons/lucide/check.svg"
+                mode="aspectFit"
+              />
             </view>
           </view>
         </view>
@@ -71,10 +66,16 @@
           <text class="gift-purchase-bar__symbol">¥</text>
           <text class="gift-purchase-bar__amount">{{totalText}}</text>
         </view>
-        <text class="gift-purchase-bar__count">共{{totalCount}}份</text>
+        <text class="gift-purchase-bar__count">1 张 · 应付售价 ¥{{totalText}}</text>
       </view>
-      <view class="gift-purchase-bar__button" bindtap="handlePay" aria-role="button" aria-label="购买礼品">
-        <text>购买礼品</text>
+      <view
+        class="gift-purchase-bar__button {{paying ? 'is-disabled' : ''}}"
+        bindtap="handlePay"
+        hover-class="gift-purchase-bar__button--pressed"
+        aria-role="button"
+        aria-label="{{paying ? '支付处理中' : '购买礼品'}}"
+      >
+        <text>{{paying ? '支付处理中' : '购买礼品'}}</text>
       </view>
     </view>
   </view>

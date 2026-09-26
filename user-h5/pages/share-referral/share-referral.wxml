@@ -3,23 +3,6 @@
 
   <scroll-view class="share-referral-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="share-referral-content">
-      <view class="invite-card">
-        <view class="invite-card__head">
-          <image class="invite-card__icon" src="/assets/icons/lucide/share-2.svg" mode="aspectFit" />
-          <view class="invite-card__copy">
-            <text class="invite-card__title">我的专属邀请码</text>
-            <text class="invite-card__code">{{inviteCode}}</text>
-          </view>
-          <view class="invite-card__copy-btn" bindtap="copyCode" aria-role="button" aria-label="复制邀请码">
-            <image class="invite-card__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
-            <text>复制</text>
-          </view>
-        </view>
-        <view class="invite-card__footer">
-          <text class="invite-card__hint">好友通过链接注册并完成首单，双方各得 3 时光币 + 1 张 3 元无门槛券</text>
-        </view>
-      </view>
-
       <view class="progress-card">
         <view class="progress-card__head">
           <text class="progress-card__title">邀请进度</text>
@@ -28,7 +11,7 @@
         <view class="progress-card__track">
           <view class="progress-card__value" style="width: {{invitedCount * 10}}%;"></view>
         </view>
-        <text class="progress-card__hint">累计邀请满 10 人即可升级「时光推荐官」</text>
+        <text class="progress-card__hint">{{upgradeHint}}</text>
       </view>
 
       <view class="reward-card">
@@ -50,8 +33,19 @@
   </scroll-view>
 
   <view class="share-referral-bar">
-    <view class="share-referral-btn" bindtap="invite" hover-class="share-referral-btn--pressed" aria-role="button" aria-label="立即邀请好友">
+    <!--
+      微信小程序里「点击即分享」只能由 button open-type="share" 触发，
+      view + bindtap 无法唤起分享面板（这是平台硬性限制，与客服会话同理）。
+      按钮默认样式（含 ::after 边框）已在 wxss 中重置，不污染设计系统。
+    -->
+    <button
+      class="share-referral-btn"
+      open-type="share"
+      hover-class="share-referral-btn--pressed"
+      aria-role="button"
+      aria-label="邀请好友"
+    >
       <text>立即邀请好友</text>
-    </view>
+    </button>
   </view>
 </view>

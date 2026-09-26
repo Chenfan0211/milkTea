@@ -7,6 +7,13 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const calls = [];
+const storage = {};
+const giftHistoryState = {
+  cards: [],
+  orders: [],
+  denominations: [],
+  denominationCalls: 0
+};
 
 globalThis.getApp = () => ({ globalData: {} });
 
@@ -17,6 +24,15 @@ const remoteCanceled = new Set();
 
 globalThis.wx = {
   showShareMenu() {},
+  getStorageSync(key) {
+    return storage[key] || '';
+  },
+  setStorageSync(key, value) {
+    storage[key] = value;
+  },
+  removeStorageSync(key) {
+    delete storage[key];
+  },
   showLoading() {},
   hideLoading() {},
   showToast(options) {
@@ -52,6 +68,22 @@ globalThis.wx = {
         return remoteCanceled.has(orderNo) ? { ...order, status: 'CANCELED', orderStatus: 'canceled' } : order;
       });
       succeed({ code: 200, data: { records, total: records.length } });
+      return;
+    }
+    if (url.split('?')[0].endsWith('/api/v1/app/gift-cards/denominations')) {
+      giftHistoryState.denominationCalls += 1;
+      succeed({ code: 200, data: giftHistoryState.denominations });
+      return;
+    }
+    if (url.split('?')[0].endsWith('/api/v1/app/gift-cards/orders')) {
+      succeed({
+        code: 200,
+        data: { records: giftHistoryState.orders, total: giftHistoryState.orders.length }
+      });
+      return;
+    }
+    if (url.split('?')[0].endsWith('/api/v1/app/gift-cards')) {
+      succeed({ code: 200, data: giftHistoryState.cards });
       return;
     }
     succeed({ code: 200, data: null });
@@ -289,8 +321,8 @@ assert.ok(
   '礼品卡订单页必须包含待核销筛选'
 );
 assert.ok(
-  giftPage.data.statusTabs.some(tab => tab.id === 'completed' && tab.label === '已核销'),
-  '礼品卡订单页必须包含已核销筛选'
+  giftPage.data.statusTabs.some(tab => tab.id === 'completed' && tab.label === '已完成'),
+  '礼品卡订单页必须包含已完成筛选'
 );
 assert.ok(
   giftPage.data.statusTabs.some(tab => tab.id === 'canceled' && tab.label === '已取消'),
@@ -316,18 +348,18 @@ assert.ok(
   giftWxml.includes('catchtap="cancelOrder"') &&
     giftWxml.includes('catchtap="handlePay"') &&
     giftWxml.includes('取消订单') &&
-    giftWxml.includes('立即支付'),
-  '待支付礼品卡订单必须提供取消和立即支付操作'
+    giftWxml.includes('继续支付'),
+  '待支付礼品卡订单必须提供取消和继续支付操作'
 );
 assert.ok(
   giftWxml.includes('gift-order-card__main') &&
     giftWxml.includes('gift-order-card__info') &&
-    giftWxml.includes('订单号 {{item.orderInfo.orderNo}}') &&
+    giftWxml.includes('订单号 {{item.orderNo}}') &&
     giftWxml.includes('支付时间 {{item.payTimeText}}'),
   '礼品卡订单卡片必须保留订单号与支付时间信息'
 );
 const actionsStart = giftWxml.indexOf('class="gift-order-card__actions"');
-const cardClose = giftWxml.indexOf('</view>', giftWxml.indexOf('aria-label="立即支付"'));
+const cardClose = giftWxml.indexOf('</view>', giftWxml.indexOf('aria-label="继续支付"'));
 assert.ok(
   actionsStart > giftWxml.indexOf('class="gift-order-card__main"') &&
     actionsStart < cardClose,
@@ -418,4 +450,85 @@ assert.ok(
   '订单详情必须复用共享订单取消逻辑'
 );
 
+// 历史礼品卡元数据：卡面下架 / 面额软删后，记录自带字段必须优先于上架面额接口。
+{
+  const { pickGiftCardRecords, resolveGiftCardDisplay } = require(path.join(root, 'utils/gift-card.js'));
+  assert.deepEqual(
+    pickGiftCardRecords({ records: [{ id: 'order-1' }], total: 1 }),
+    [{ id: 'order-1' }],
+    '礼品卡订单必须继续兼容 PageResult.records'
+  );
+  assert.equal(
+    resolveGiftCardDisplay({}, { cardName: '兜底卡名', cardImage: '/fallback.jpg' }).name,
+    '兜底卡名',
+    '卡自带元数据缺失时必须允许面额接口兜底'
+  );
+
+  const historicalCard = {
+    id: 'card-history',
+    denominationId: 'denom-removed',
+    status: 'ACTIVE',
+    cardName: '下架限定卡',
+    cardImage: '/assets/images/3x/gift-card-limited.jpg',
+    groupTitle: '历史卡面',
+    amount: 50000,
+    salePrice: 45000
+  };
+  const staleDenomination = {
+    id: 'denom-removed',
+    cardName: '错误的上架兜底名',
+    cardImage: '/assets/images/3x/gift-card-jasmine.jpg'
+  };
+  giftHistoryState.cards = [historicalCard];
+  giftHistoryState.denominations = [staleDenomination];
+  giftHistoryState.orders = [];
+  const cardDenominationCalls = giftHistoryState.denominationCalls;
+
+  const myCardsRoot = path.join(root, 'pages/gift-card/gift-card');
+  const myCardsDefinition = loadPage(myCardsRoot);
+  const myCardsPage = createPageInstance(myCardsDefinition);
+  myCardsDefinition.loadMyCards.call(myCardsPage);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(myCardsPage.data.myCards[0].name, historicalCard.cardName, '我的卡必须优先使用卡自带 cardName');
+  assert.equal(myCardsPage.data.myCards[0].image, historicalCard.cardImage, '我的卡必须优先使用卡自带 cardImage');
+  assert.equal(giftHistoryState.denominationCalls, cardDenominationCalls, '卡自带完整元数据时不得回落到面额接口');
+
+  giftHistoryState.cards = [];
+  giftHistoryState.orders = [{
+    id: 'gift-order-history',
+    orderNo: 'G-HISTORY',
+    denominationId: staleDenomination.id,
+    amount: historicalCard.amount,
+    payStatus: 'PAID',
+    status: 'CREATED',
+    cardName: historicalCard.cardName,
+    cardImage: historicalCard.cardImage,
+    groupTitle: historicalCard.groupTitle,
+    salePrice: historicalCard.salePrice
+  }];
+  const orderDenominationCalls = giftHistoryState.denominationCalls;
+  const giftOrdersRoot = path.join(root, 'pages/gift-card-orders/gift-card-orders');
+  const giftOrdersDefinition = loadPage(giftOrdersRoot);
+  const giftOrdersPage = createPageInstance(giftOrdersDefinition);
+  giftOrdersDefinition.refresh.call(giftOrdersPage);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(giftOrdersPage.data.allOrders[0].title, historicalCard.cardName, '订单列表必须优先使用 records.cardName');
+  assert.equal(giftOrdersPage.data.allOrders[0].coverImage, historicalCard.cardImage, '订单列表必须优先使用 records.cardImage');
+  assert.equal(giftHistoryState.denominationCalls, orderDenominationCalls, '订单自带完整元数据时不得回落到面额接口');
+
+  giftHistoryState.cards = [historicalCard];
+  storage['milkTea:auth:token'] = 'history-token';
+  storage['milkTea:auth:user'] = { phone: '13612345792' };
+  const profileRoot = path.join(root, 'pages/profile/profile');
+  const profileDefinition = loadPage(profileRoot);
+  const profilePage = createPageInstance(profileDefinition);
+  const profileDenominationCalls = giftHistoryState.denominationCalls;
+  profileDefinition.onShow.call(profilePage);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(profilePage.data.giftCards[0].name, historicalCard.cardName, '我的页历史礼品卡必须优先使用卡自带 cardName');
+  assert.equal(profilePage.data.giftCards[0].image, historicalCard.cardImage, '我的页历史礼品卡必须优先使用卡自带 cardImage');
+  assert.equal(giftHistoryState.denominationCalls, profileDenominationCalls, '我的页卡自带完整元数据时不得回落到面额接口');
+  delete storage['milkTea:auth:token'];
+  delete storage['milkTea:auth:user'];
+}
 console.log('订单分类、待支付倒计时与三类卡片测试通过');

@@ -28,7 +28,12 @@
     </view>
   </view>
 
-  <view class="coupon-row">
+  <!--
+    活动优惠入口：本版暂不上线（用户要求隐藏）。
+    用 wx:if="{{false}}" 而非删除代码，保留活动弹层与渲染结构，
+    后续要恢复时把 false 去掉即可。
+  -->
+  <view wx:if="{{false}}" class="coupon-row">
     <text class="coupon-row__text">{{menuActivity.description}}</text>
     <view class="coupon-row__action" bindtap="openActivitySheet" aria-role="button" aria-label="查看活动优惠">
       <text>点击查看</text>
@@ -62,9 +67,13 @@
       show-scrollbar="{{false}}"
       scroll-into-view="{{scrollIntoView}}"
     >
+      <!--
+        新品广告位：本版暂不上线（用户要求隐藏）。
+        保留 id="product-top"：scrollIntoView 初始锚点依赖它，删掉会导致首屏滚动定位失效。
+      -->
       <list-item id="product-top" class="product-scroll__inner">
-        <text class="ad-title">新品广告标题文字</text>
-        <image class="ad-banner" src="/assets/images/3x/menu-banner.jpg" mode="widthFix" data-label="新品活动" bindtap="showUnavailable" aria-role="button" aria-label="新品活动" />
+        <text wx:if="{{false}}" class="ad-title">新品广告标题文字</text>
+        <image wx:if="{{false}}" class="ad-banner" src="/assets/images/3x/menu-banner.jpg" mode="widthFix" data-label="新品活动" bindtap="showUnavailable" aria-role="button" aria-label="新品活动" />
       </list-item>
 
       <list-item wx:for="{{productRows}}" wx:key="id" id="{{item.id}}">

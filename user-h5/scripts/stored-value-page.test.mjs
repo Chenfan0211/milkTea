@@ -281,4 +281,38 @@ for (const icon of ['gift-brand', 'receipt-brand', 'settings-brand', 'file-searc
 const imagePath = path.join(root, 'assets/images/3x/stored-value-banner.jpg');
 assert.ok(fs.existsSync(imagePath), '缺少 3x 储值卡横幅图');
 
+// ---------- 建单参数位置与模拟入账开关 ----------
+{
+  const apiJs = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');
+  const controllerJava = fs.readFileSync(
+    path.join(root, '../trade-service/src/main/java/com/wuling/trade/pay/storedvalue/StoredValuePayController.java'),
+    'utf8'
+  );
+  const applicationYml = fs.readFileSync(
+    path.join(root, '../trade-service/src/main/resources/application.yml'),
+    'utf8'
+  );
+
+  assert.match(
+    apiJs,
+    /url:\s*`\/api\/v1\/app\/stored-value\/orders\?packageId=\$\{encodeURIComponent\(packageId\)\}`/,
+    '储值建单必须把 packageId 放在 query 参数，后端的 @RequestParam 才能收到'
+  );
+  assert.ok(
+    !/url:\s*'\/api\/v1\/app\/stored-value\/orders',[\s\S]{0,80}data:\s*\{\s*packageId/.test(apiJs),
+    '储值建单不得继续把 packageId 放在 JSON body'
+  );
+  assert.ok(
+    applicationYml.includes('stored-value-demo-enabled: ${STORED_VALUE_DEMO_ENABLED:true}'),
+    '储值模拟入账必须支持 STORED_VALUE_DEMO_ENABLED 且默认开启'
+  );
+  assert.ok(
+    controllerJava.includes('storedValueDemoEnabled') && controllerJava.includes('isMockChannel()'),
+    '模拟入账必须同时受配置开关与 mock 支付通道约束'
+  );
+  assert.ok(
+    controllerJava.includes('markPaid(orderNo, "DEMO-" + orderNo, null, order.getAmount())'),
+    '模拟充值必须复用现有 markPaid 幂等入账端口'
+  );
+}
 console.log('会员储值页路由、数据和交互测试通过');

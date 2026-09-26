@@ -22,7 +22,7 @@
         </view>
         <view class="level-rule-card__row">
           <text class="level-rule-card__label">会员价折扣</text>
-          <text class="level-rule-card__value">{{item.discount}}</text>
+          <text class="level-rule-card__value">{{item.discountText}}</text>
         </view>
 
         <text class="level-rule-card__subtitle">核心权益</text>

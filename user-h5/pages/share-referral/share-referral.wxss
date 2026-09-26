@@ -16,7 +16,6 @@
   padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
 }
 
-.invite-card,
 .progress-card,
 .reward-card,
 .earning-card {
@@ -27,67 +26,6 @@
   box-shadow: var(--shadow-card);
 }
 
-.invite-card__head {
-  display: flex;
-  align-items: center;
-}
-
-.invite-card__icon {
-  flex: none;
-  width: 54rpx;
-  height: 54rpx;
-}
-
-.invite-card__copy {
-  flex: 1;
-  min-width: 0;
-  margin-left: 16rpx;
-}
-
-.invite-card__title {
-  display: block;
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
-}
-
-.invite-card__code {
-  display: block;
-  margin-top: 4rpx;
-  color: var(--brand-green);
-  font-size: var(--font-xl);
-  font-weight: 600;
-  letter-spacing: 4rpx;
-}
-
-.invite-card__copy-btn {
-  display: flex;
-  flex: none;
-  align-items: center;
-  height: 48rpx;
-  padding: 0 20rpx;
-  color: #ffffff;
-  font-size: var(--font-sm);
-  background: var(--brand-green);
-  border-radius: var(--radius-pill);
-}
-
-.invite-card__copy-icon {
-  width: 24rpx;
-  height: 24rpx;
-  margin-right: 4rpx;
-}
-
-.invite-card__footer {
-  margin-top: 16rpx;
-  padding-top: 16rpx;
-  border-top: 1rpx solid var(--line-color);
-}
-
-.invite-card__hint {
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
-  line-height: 36rpx;
-}
 
 .progress-card__head {
   display: flex;
@@ -195,17 +133,36 @@
   border-top: 1rpx solid var(--line-color);
 }
 
+/*
+ * 邀请按钮（原生 button）。
+ *
+ * 为什么用原生 button：微信只允许 button open-type="share" 触发「点击即分享」，
+ * view + bindtap 无法唤起分享面板（平台硬性限制）。
+ *
+ * 为什么按下述方式重置：原生 button 自带 padding / 边框 / ::after 伪元素，
+ * 会与设计系统冲突（这也是规范默认禁用 button 的原因）。
+ * 这里保留设计系统的视觉（80rpx 高 / 品牌绿 / 胶囊圆角），
+ * 只把 button 的默认装饰清零 —— 与 pages/service 的客服按钮同一做法。
+ */
 .share-referral-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 80rpx;
+  padding: 0;
   color: #ffffff;
   font-size: var(--font-md);
   font-weight: 600;
+  line-height: 80rpx;
   background: var(--brand-green);
+  border: none;
   border-radius: var(--radius-pill);
+}
+
+/* 清除 button 默认的 ::after 边框（不重置会在按钮外圈画一条细边） */
+.share-referral-btn::after {
+  border: none;
 }
 
 .share-referral-btn--pressed {

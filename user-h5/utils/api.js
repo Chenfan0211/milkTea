@@ -127,6 +127,23 @@ function payOrder(orderNo, amount, channel) {
 }
 
 /**
+ * 储值余额支付点单订单（同步扣款）。
+ *
+ * 与 payOrder 的区别：
+ * - payOrder 是「向三方发起支付」，返回收银台参数，订单状态不变；
+ * - 本接口是「余额直接扣款」，同步把订单置为已支付，返回订单视图。
+ *
+ * 金额由服务端按订单实付取值，前端不传金额 —— 传了也可被篡改。
+ * 余额不足时后端返回业务错误，前端据此提示用户充值。
+ *
+ * @param {string} orderNo 订单号
+ * @returns {Promise<object>} 支付完成后的订单
+ */
+function payOrderByBalance(orderNo) {
+  return request({ url: `/api/v1/app/orders/${orderNo}/pay-by-balance`, method: 'POST' }).then(unwrap);
+}
+
+/**
  * 支付回调 —— 不供小程序调用。
  *
  * 安全说明：该接口要求 HMAC 签名（orderNo + transactionId + timestamp，
@@ -140,6 +157,16 @@ function payOrder(orderNo, amount, channel) {
 
 function fetchUserProfile() {
   return request({ url: '/api/v1/app/auth/me', method: 'GET' }).then(unwrap);
+}
+
+/** 当前用户邀请注册人数（分享有礼页「已邀请 N 人」） */
+function fetchReferralCount() {
+  return request({ url: '/api/v1/app/auth/referrals/count', method: 'GET' }).then(unwrap);
+}
+
+/** 分享有礼奖励配置（公开接口，金额展示以后台配置为准） */
+function fetchReferralConfig() {
+  return request({ url: '/api/v1/app/referral-config', method: 'GET' }).then(unwrap);
 }
 
 // ============================================================
@@ -182,9 +209,8 @@ function fetchStoredValuePackages() {
  */
 function createStoredValueOrder(packageId) {
   return request({
-    url: '/api/v1/app/stored-value/orders',
-    method: 'POST',
-    data: { packageId }
+    url: `/api/v1/app/stored-value/orders?packageId=${encodeURIComponent(packageId)}`,
+    method: 'POST'
   }).then(unwrap);
 }
 
@@ -233,6 +259,32 @@ function fetchGiftCardOrders(page = 1, size = 20) {
   return request({ url: '/api/v1/app/gift-cards/orders', method: 'GET', data: { page, size } }).then(unwrap);
 }
 
+/** 按订单号查询礼品卡订单，支付结果以此接口返回的 payStatus 为准 */
+function fetchGiftCardOrder(orderNo) {
+  return request({
+    url: `/api/v1/app/gift-cards/orders/${encodeURIComponent(orderNo)}`,
+    method: 'GET'
+  }).then(unwrap);
+}
+
+/** 发起礼品卡微信支付统一下单，返回小程序收银台参数 */
+function prepayGiftCard(orderNo) {
+  return request({
+    url: '/api/v1/app/payments/gift-card/prepay',
+    method: 'POST',
+    data: { orderNo }
+  }).then(unwrap);
+}
+
+/** 申请礼品卡微信原路全额退款 */
+function refundGiftCard(orderNo, reason) {
+  return request({
+    url: '/api/v1/app/payments/gift-card/refund',
+    method: 'POST',
+    data: { orderNo, reason: reason || '用户申请退款' }
+  }).then(unwrap);
+}
+
 /**
  * 核销礼品卡 / 兑换订单（按订单号）。
  *
@@ -248,17 +300,28 @@ function verifyGiftCardOrder(orderNo) {
   }).then(unwrap);
 }
 
-/** 取消礼品卡订单 */
-function cancelGiftCardOrder(orderId) {
-  return request({ url: `/api/v1/app/gift-cards/orders/${orderId}/cancel`, method: 'POST' }).then(unwrap);
+/** 取消未支付礼品卡订单 */
+function cancelGiftCardOrder(orderNo) {
+  return request({
+    url: `/api/v1/app/gift-cards/orders/${encodeURIComponent(orderNo)}/cancel`,
+    method: 'POST'
+  }).then(unwrap);
 }
 
 // ============================================================
 // 积分（时光币）
 // ============================================================
 
-function fetchPointsProducts() {
-  return request({ url: '/api/v1/app/points/products', method: 'GET' }).then(unwrap);
+function fetchPointsCategories() {
+  return request({ url: '/api/v1/app/points/categories', method: 'GET' }).then(unwrap);
+}
+
+function fetchPointsProducts(category) {
+  return request({
+    url: '/api/v1/app/points/products',
+    method: 'GET',
+    data: category ? { category } : {}
+  }).then(unwrap);
 }
 
 function fetchPointsRules() {
@@ -277,11 +340,11 @@ function signIn() {
   return request({ url: '/api/v1/app/points/signin', method: 'POST' }).then(unwrap);
 }
 
-function exchangePointsProduct(productId) {
+function exchangePointsProduct(productId, quantity = 1) {
   return request({
     url: '/api/v1/app/points/exchange',
     method: 'POST',
-    data: { productId }
+    data: { productId, quantity }
   }).then(unwrap);
 }
 
@@ -418,18 +481,6 @@ function fetchWithdrawals() {
 }
 
 // ============================================================
-// 评论
-// ============================================================
-
-function submitComment(orderId, rating, content, images) {
-  return request({
-    url: '/api/v1/app/comments',
-    method: 'POST',
-    data: { orderId, rating, content, images }
-  }).then(unwrap);
-}
-
-// ============================================================
 // 登录（微信）
 // ============================================================
 
@@ -554,7 +605,10 @@ module.exports = {
   fetchOrderDetail,
   cancelOrder,
   payOrder,
+  payOrderByBalance,
   fetchUserProfile,
+  fetchReferralCount,
+  fetchReferralConfig,
   fetchCoupons,
   fetchUserCoupons,
   receiveCoupon,
@@ -567,8 +621,12 @@ module.exports = {
   purchaseGiftCard,
   fetchMyGiftCards,
   fetchGiftCardOrders,
+  fetchGiftCardOrder,
+  prepayGiftCard,
+  refundGiftCard,
   cancelGiftCardOrder,
   verifyGiftCardOrder,
+  fetchPointsCategories,
   fetchPointsProducts,
   fetchPointsRules,
   fetchPointsRecords,
@@ -593,7 +651,6 @@ module.exports = {
   fetchWithdrawRule,
   applyWithdraw,
   fetchWithdrawals,
-  submitComment,
   fetchReverseGeocode,
   fetchStoreDistances
 };

@@ -95,6 +95,47 @@
   height: 28rpx;
 }
 
+.coupon-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320rpx;
+  margin-top: 24rpx;
+  padding: 40rpx 24rpx;
+  text-align: center;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.coupon-state__title {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.coupon-state__description {
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.coupon-state__retry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160rpx;
+  height: 64rpx;
+  margin-top: 24rpx;
+  padding: 0 24rpx;
+  color: var(--card-bg);
+  font-size: var(--font-base);
+  font-weight: 600;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
 .coupon-stack {
   position: relative;
   margin-top: 24rpx;

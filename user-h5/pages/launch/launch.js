@@ -1,16 +1,16 @@
 const { withShare } = require('../../utils/share');
 const entry = require('../../utils/entry-login');
 const navigate = require('../../utils/navigate');
+const referrer = require('../../utils/referrer');
 
 /**
  * 启动页：所有冷启动入口（扫码 / 分享卡片 / 朋友圈 / 图标）的统一收口。
  *
  * 流程：
  *   1) 静默登录（带超时兜底）；
- *   2) 未注册 -> 跳到授权页显示「温馨提示」协议确认（可「拒绝仅浏览」）；
- *   3) 登录失败 / 超时 -> 同样进授权页重试（不允许未登录浏览）；
- *   4) 已登录未绑手机号 -> 按需引导绑定（带 mode=entry 与来源参数）；
- *   5) 否则落到还原后的目标页。
+ *   2) 公开入口始终进入还原后的目标页；
+ *   3) 未注册、登录失败、超时、未绑手机号均不强制跳授权页；
+ *   4) 下单、订单、资料等受保护操作继续由 login-guard 按需拦截。
  *
  * 全程只做路由编排，不做业务；任何异常都必须能落到目标页，绝不卡死。
  * 合规约束：本页绝不程序化调起 getPhoneNumber，只做跳转编排。
@@ -25,44 +25,18 @@ Page(
   withShare({
     onLoad(options) {
       this.entryOptions = options || {};
+      // 邀请分享进入：先落盘邀请人，供后续注册绑定推荐关系。
+      // 越早捕获越好 —— 用户可以拒绝授权、中途退出，之后再进就再也拿不到这个参数了。
+      referrer.captureFromOptions(options);
       this.bootstrap();
     },
     bootstrap() {
       const options = this.entryOptions || {};
-      entry.ensureEntryLogin().then(result => {
-        const state = result && result.state ? result.state : { level: 'anonymous' };
-        const target = entry.resolveEntryTarget(options);
-        // 未注册：后端查无 openid，只下发一次性注册凭证，默认未登录。
-        // 跳授权页展示协议确认；「拒绝仅浏览」仅放行公开内容，交易仍需登录。
-        if (result && result.needsRegister) {
-          this.goAuthPage(target, options);
-          return;
-        }
-        // 已登录：拉取资料成功后才放行；未绑手机号时按需引导绑定。
-        const loggedIn = Boolean(result && result.ok && state.hasToken);
-        if (!loggedIn) {
-          // 登录失败 / 超时：同样进授权页，用户在可在此重试。
-          this.goAuthPage(target, options);
-          return;
-        }
-        const needPrompt = state.level !== 'full' && entry.shouldPromptEntry();
-        if (!needPrompt) {
-          this.goTarget(target);
-          return;
-        }
-        entry.markEntryPrompted();
-        this.goAuthPage(target, options);
-      });
-    },
-    goAuthPage(target, options) {
-      const params = [`target=${encodeURIComponent(target)}`];
-      if (options && options.from) params.push(`from=${encodeURIComponent(String(options.from))}`);
-      if (options && options.query) params.push(`query=${encodeURIComponent(String(options.query))}`);
-      wx.redirectTo({
-        url: `/pages/auth-login/auth-login?${params.join('&')}`,
-        // 授权页打开失败时不能停在启动页
-        fail: () => this.goTarget(target)
-      });
+      const target = entry.resolveEntryTarget(options);
+      entry
+        .ensureEntryLogin()
+        .then(() => this.goTarget(target))
+        .catch(() => this.goTarget(target));
     },
     goTarget(target) {
       navigate.go(target || entry.HOME_PATH, {

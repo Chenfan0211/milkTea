@@ -1,5 +1,6 @@
 const config = require('../config');
 const { request, unwrap } = require('./request');
+const referrer = require('./referrer');
 
 /**
  * 小程序端登录态管理。
@@ -130,6 +131,10 @@ function loginWithCode(code) {
       // 未注册：只保留一次性注册凭证，不建立登录态
       saveRegisterContext({ registerToken: data.registerToken, openId: data.openId || '' });
       clearSession();
+    } else {
+      clearSession();
+      clearRegisterContext();
+      throw new Error('登录服务响应异常，请稍后重试');
     }
     return data;
   });
@@ -144,6 +149,9 @@ function loginWithCode(code) {
  * 进行中的登录 Promise 直接复用，结束后无论成败都清空，允许下次重试。
  */
 let loginPromise = null;
+// 手机号授权前的会话刷新单飞：与静默登录分开，确保即使本地已有 token
+// 也会消费新的 wx code，刷新 Redis session_key 后再提交加密数据。
+let phoneAuthorizationPromise = null;
 
 function ensureLogin(force) {
   const cached = force ? null : getCachedUser();
@@ -171,11 +179,54 @@ function isLoginPending() {
 }
 
 /**
+ * 手机号授权前强制刷新微信会话。
+ *
+ * 不复用 ensureLogin 的本地 token 快路径：旧 token 只能证明用户曾经登录，
+ * 不能证明 Redis 中仍保存着与本次 encryptedData 匹配的 session_key。
+ */
+function preparePhoneAuthorization() {
+  if (phoneAuthorizationPromise) {
+    return phoneAuthorizationPromise;
+  }
+  phoneAuthorizationPromise = wxLogin()
+    .then(code => loginWithCode(code))
+    .then(() => {
+      const registerContext = getRegisterContext();
+      return {
+        needRegister: Boolean(
+          registerContext && registerContext.registerToken && !isLoggedIn()
+        ),
+        registerContext
+      };
+    })
+    .finally(() => {
+      phoneAuthorizationPromise = null;
+    });
+  return phoneAuthorizationPromise;
+}
+
+/** 判断错误是否属于加密数据对应的微信会话已经失效。 */
+function isSessionInvalidError(error) {
+  if (!error) return false;
+  // 401 类业务码即使没有附带固定中文提示，也属于会话已失效。
+  if (error.res && (error.res.code === 8888 || error.res.code === 9999)) return true;
+  const message = typeof error === 'string'
+    ? error
+    : error.message || (error.res && (error.res.message || error.res.msg)) || '';
+  return [
+    '登录状态已失效，请重新登录',
+    '微信数据解密失败',
+    '微信授权已失效，请重新登录'
+  ].some(fragment => String(message).indexOf(fragment) >= 0);
+}
+
+/**
  * 测试用：清空进行中的静默登录单飞 Promise。
  * 生产代码不得调用；仅供 scripts/*.test.mjs 在用例之间复位模块态。
  */
 function __resetForTest() {
   loginPromise = null;
+  phoneAuthorizationPromise = null;
 }
 
 /** 读取用户信息缓存（含时间戳），未过期返回缓存，避免重复请求数据库 */
@@ -235,7 +286,9 @@ function bindPhone(encryptedData, iv) {
   return request({
     url: '/api/v1/app/auth/phone',
     method: 'POST',
-    data: { encryptedData, iv }
+    data: { encryptedData, iv },
+    // encryptedData/iv 已绑定当前微信 session_key，禁止请求层自动重登后原样重试。
+    retryAuth: false
   }).then(res => unwrap(res));
 }
 
@@ -253,12 +306,15 @@ function registerByPhone(registerToken, encryptedData, iv) {
   return request({
     url: '/api/v1/app/auth/register-by-phone',
     method: 'POST',
-    data: { registerToken, encryptedData, iv },
+    // referrerId：邀请分享进入时暂存的邀请人（后端写 app_user.referrer_id）
+    data: { registerToken, encryptedData, iv, referrerId: referrer.getReferrerId() },
     skipAuth: true
   }).then(res => {
     const data = unwrap(res);
     saveSession(data);
     clearRegisterContext();
+    // 推荐关系已随注册提交，清除暂存，避免影响该设备后续的其它注册
+    referrer.clear();
     return data;
   });
 }
@@ -268,12 +324,13 @@ function registerBySms(registerToken, phone, code) {
   return request({
     url: '/api/v1/app/auth/register-by-sms',
     method: 'POST',
-    data: { registerToken, phone, code },
+    data: { registerToken, phone, code, referrerId: referrer.getReferrerId() },
     skipAuth: true
   }).then(res => {
     const data = unwrap(res);
     saveSession(data);
     clearRegisterContext();
+    referrer.clear();
     return data;
   });
 }
@@ -282,6 +339,8 @@ module.exports = {
   TOKEN_KEY,
   USER_KEY,
   isLoginPending,
+  preparePhoneAuthorization,
+  isSessionInvalidError,
   __resetForTest,
   getToken,
   getCachedUser,

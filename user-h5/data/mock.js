@@ -30,13 +30,6 @@ const orderCategories = [
   { id: 'gift-card', label: '礼品卡订单' }
 ];
 
-/** 积分商城分类页签（纯 UI 枚举，商品由接口按 category 过滤）。 */
-const pointsCategories = [
-  { id: 'all', label: '全部' },
-  { id: 'pet', label: '宠物公益专区' },
-  { id: 'coupon', label: '优惠券区' }
-];
-
 /** 兑换记录状态页签（纯 UI 枚举）。 */
 const exchangeRecordCategories = [
   { id: 'all', label: '全部' },
@@ -59,7 +52,6 @@ const storeTypes = [
 module.exports = {
   formatOrderAmount,
   orderCategories,
-  pointsCategories,
   exchangeRecordCategories,
   storeTypes
 };
