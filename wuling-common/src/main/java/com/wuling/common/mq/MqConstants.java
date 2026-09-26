@@ -27,6 +27,12 @@ public final class MqConstants {
     /** 延迟交换机（用于订单超时等延迟场景） */
     public static final String DELAY_EXCHANGE = "wuling.delay.exchange";
 
+    /** 消费失败后的延迟重试交换机 */
+    public static final String RETRY_EXCHANGE = "wuling.retry.exchange";
+
+    /** 消费失败后的延迟重试队列，消息 TTL 到期后回到业务交换机 */
+    public static final String RETRY_QUEUE = "wuling.retry.queue";
+
     // ---------- 业务队列 ----------
 
     /** 订单超时关闭队列（延迟 15 分钟） */
@@ -94,4 +100,7 @@ public final class MqConstants {
 
     /** 消息唯一 ID 头（用于幂等去重） */
     public static final String HEADER_MESSAGE_ID = "x-message-id";
+
+    /** 业务追踪键头 */
+    public static final String HEADER_BIZ_KEY = "biz-key";
 }

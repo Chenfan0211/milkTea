@@ -3,6 +3,7 @@ package com.wuling.common.mq;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -56,6 +57,10 @@ public class RabbitConfig {
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,
                                          MessageConverter messageConverter) {
+        if (connectionFactory instanceof CachingConnectionFactory cachingConnectionFactory) {
+            cachingConnectionFactory.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
+            cachingConnectionFactory.setPublisherReturns(true);
+        }
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(messageConverter);
         // 消息无法路由时返回给发送方（配合 mandatory 使用）
@@ -95,6 +100,30 @@ public class RabbitConfig {
         return ExchangeBuilder.directExchange(MqConstants.DELAY_EXCHANGE).durable(true).build();
     }
 
+    /** 消费失败后的延迟重试交换机。 */
+    @Bean
+    public TopicExchange retryExchange() {
+        return ExchangeBuilder.topicExchange(MqConstants.RETRY_EXCHANGE).durable(true).build();
+    }
+
+    /**
+     * 延迟重试队列。
+     *
+     * <p>消息带 per-message expiration，在队列中等待到期后通过
+     * x-dead-letter-exchange 回到原业务交换机；由于该队列没有设置
+     * x-dead-letter-routing-key，RabbitMQ 会保留原 routingKey。</p>
+     */
+    @Bean
+    public Queue retryQueue() {
+        return QueueBuilder.durable(MqConstants.RETRY_QUEUE)
+                .withArgument("x-dead-letter-exchange", MqConstants.BUSINESS_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    public Binding retryBinding() {
+        return BindingBuilder.bind(retryQueue()).to(retryExchange()).with("#");
+    }
     // ==================== 订单超时（延迟实现） ====================
 
     /**
