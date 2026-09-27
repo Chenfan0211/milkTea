@@ -5,7 +5,6 @@ defineOptions({
 
 import { computed, reactive, ref } from 'vue';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
-import BenefitIconSelect from './BenefitIconSelect.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
@@ -16,7 +15,67 @@ const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
 interface BenefitRow {
   icon: string;
   text: string;
-  count: string;
+  /** 仅「专属优惠券」使用：绑定的优惠券模板 ID */
+  couponId: number | null;
+  /** 仅「专属优惠券」使用：数量（正整数） */
+  count: number | null;
+}
+
+/**
+ * 权益文案 -> 图标（与小程序端 assets/icons/lucide 同名）。
+ *
+ * 图标与文案绑定：图标不再由用户手选，而是按文案自动带出，
+ * 避免「基础折扣」配「皇冠」这类语义错乱的组合。
+ *
+ * 注意：后台在字典 member_benefit 新增权益文案时，必须同步在此补一行映射，
+ * 否则该行图标会为空（界面会给出提示）。
+ */
+const BENEFIT_ICON_BY_TEXT: Record<string, string> = {
+  基础折扣: 'badge-percent',
+  生日月双倍时光币: 'calendar-check',
+  专属会员价: 'badge-japanese-yen',
+  专属优惠券: 'ticket-percent',
+  新品优先体验: 'star',
+  '时光币1.5倍': 'trending-up',
+  生日免费饮品: 'gift'
+};
+
+/** 专属优惠券的文案标识（前端提交文案；后端同时兼容 item_code）。 */
+const MEMBER_COUPON_TEXT = '专属优惠券';
+
+/** 按文案取图标；未配置映射时回退空串，由界面提示补映射。 */
+function iconForBenefit(text: string): string {
+  return BENEFIT_ICON_BY_TEXT[String(text ?? '').trim()] ?? '';
+}
+
+/** 是否为「专属优惠券」权益（只有它需要关联优惠券与数量）。 */
+function isCouponBenefit(text: string): boolean {
+  return String(text ?? '').trim() === MEMBER_COUPON_TEXT;
+}
+
+/**
+ * 图标名 -> 可访问 URL。
+ *
+ * 复用与 BenefitIconSelect 相同的资源来源（src/assets/lucide/，由
+ * scripts/sync-benefit-icons.mjs 从 user-h5 同步）。必须从本工程内引用：
+ * 跨到 user-h5（独立工程）时 Vite 的 ?url 无法生成可访问 URL。
+ */
+const benefitIconModules = import.meta.glob('/src/assets/lucide/*.svg', {
+  eager: true,
+  query: '?url',
+  import: 'default'
+}) as Record<string, string>;
+
+const benefitIconUrlMap = Object.fromEntries(
+  Object.entries(benefitIconModules).map(([path, url]) => [
+    path.split('/').pop()?.replace(/.svg$/, '') ?? '',
+    url
+  ])
+) as Record<string, string>;
+
+/** 按图标名取 URL；未找到时返回空串（界面显示占位）。 */
+function benefitIconUrl(name: string): string {
+  return benefitIconUrlMap[String(name ?? '').trim()] ?? '';
 }
 
 const editorVisible = ref(false);
@@ -36,12 +95,17 @@ const form = reactive({
 
 function toBenefitRow(raw: any): BenefitRow {
   if (typeof raw === 'string') {
-    return { icon: '', text: raw, count: '' };
+    return { icon: iconForBenefit(raw), text: raw, couponId: null, count: null };
   }
+  const text = String(raw?.text ?? '');
+  const rawCouponId = raw?.couponId;
+  const couponId = rawCouponId == null || rawCouponId === '' ? null : Number(rawCouponId);
   return {
-    icon: String(raw?.icon ?? ''),
-    text: String(raw?.text ?? ''),
-    count: raw?.count == null ? '' : String(raw.count)
+    // 图标以文案映射为准；历史数据里的 icon 仅在映射缺失时兜底
+    icon: iconForBenefit(text) || String(raw?.icon ?? ''),
+    text,
+    couponId: Number.isFinite(couponId as number) ? couponId : null,
+    count: raw?.count == null || raw?.count === '' ? null : Number(raw.count)
   };
 }
 
@@ -53,7 +117,7 @@ function parseBenefits(raw: any): BenefitRow[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed.map(toBenefitRow);
     } catch {
-      return [{ icon: '', text: raw.trim(), count: '' }];
+      return [{ icon: iconForBenefit(raw), text: raw.trim(), couponId: null, count: null }];
     }
   }
   return [];
@@ -113,12 +177,27 @@ function benefitOptionsFor(text: string) {
   return options;
 }
 
+/**
+ * 可绑定的优惠券列表（供「专属优惠券」权益选择）。
+ *
+ * 只列出启用中的券；已停用的券不应再被新的等级绑定。
+ */
+const couponOptions = computed(() =>
+  (store.coupons || [])
+    .filter((coupon: any) => coupon && String(coupon.status ?? 'enabled') !== 'disabled')
+    .map((coupon: any) => ({
+      label: String(coupon.name ?? coupon.code ?? coupon.id),
+      value: Number(coupon.id)
+    }))
+    .filter((option: any) => Number.isFinite(option.value))
+);
+
 function resetEditor() {
   form.levelCode = '';
   form.name = '';
   form.amountTarget = null;
   form.discount = null;
-  benefits.value = [{ icon: '', text: '', count: '' }];
+  benefits.value = [{ icon: '', text: '', couponId: null, count: null }];
   editingId.value = null;
   originalDiscount.value = '';
   discountWasInvalid.value = false;
@@ -137,13 +216,13 @@ function openEditor(mode: 'add' | 'edit', row?: any) {
     form.discount = normalizedDiscount;
     discountWasInvalid.value = normalizedDiscount == null && Boolean(originalDiscount.value.trim());
     const parsed = parseBenefits(row.benefits);
-    benefits.value = parsed.length ? parsed : [{ icon: '', text: '', count: '' }];
+    benefits.value = parsed.length ? parsed : [{ icon: '', text: '', couponId: null, count: null }];
   }
   editorVisible.value = true;
 }
 
 function addBenefitRow() {
-  benefits.value.push({ icon: '', text: '', count: '' });
+  benefits.value.push({ icon: '', text: '', couponId: null, count: null });
 }
 
 function removeBenefitRow(index: number) {
@@ -153,11 +232,20 @@ function removeBenefitRow(index: number) {
 function buildBenefits() {
   return benefits.value
     .filter(row => String(row.text ?? '').trim())
-    .map(row => ({
-      icon: String(row.icon ?? '').trim(),
-      text: String(row.text ?? '').trim(),
-      count: String(row.count ?? '').trim()
-    }));
+    .map(row => {
+      const text = String(row.text ?? '').trim();
+      const item: Record<string, unknown> = {
+        // 图标始终由文案推导，保证与文案语义一致
+        icon: iconForBenefit(text) || String(row.icon ?? '').trim(),
+        text
+      };
+      // 只有专属优惠券才写入优惠券与数量，其他权益不落这两个字段
+      if (isCouponBenefit(text)) {
+        if (row.couponId != null) item.couponId = Number(row.couponId);
+        item.count = row.count == null ? '' : String(row.count).trim();
+      }
+      return item;
+    });
 }
 
 async function saveEditor() {
@@ -177,6 +265,28 @@ async function saveEditor() {
   ) {
     window.$message?.warning('折扣请输入 1-100 的整数百分比');
     return;
+  }
+
+  // 权益校验：与后端 CrudService#guardMemberLevel 保持一致，
+  // 前端先拦一遍是为了给出可读提示，避免用户提交后才看到接口报错。
+  const rows = benefits.value.filter(row => String(row.text ?? '').trim());
+  for (const row of rows) {
+    const text = String(row.text ?? '').trim();
+    if (isCouponBenefit(text)) {
+      if (row.couponId == null) {
+        window.$message?.warning('专属优惠券必须绑定优惠券');
+        return;
+      }
+      const count = row.count == null ? NaN : Number(row.count);
+      if (!Number.isInteger(count) || count <= 0) {
+        window.$message?.warning('专属优惠券必须填写数量（正整数）');
+        return;
+      }
+    } else if (row.count != null && String(row.count).trim()) {
+      // 其他权益不允许带数量，避免与后端规则冲突
+      window.$message?.warning('只有专属优惠券才需要填写数量');
+      return;
+    }
   }
 
   let discount = '';
@@ -313,12 +423,21 @@ const config: AdminListConfig = {
             <div class="benefit-editor__head">
               <span>图标</span>
               <span>权益文案</span>
-              <span>数量</span>
+              <span class="benefit-editor__scope-head">优惠券 / 数量</span>
               <span>操作</span>
             </div>
 
             <div v-for="(benefit, index) in benefits" :key="index" class="benefit-editor__row">
-              <BenefitIconSelect v-model="benefit.icon" />
+              <!-- 图标由文案自动带出，只读展示，避免与文案语义错乱 -->
+              <span class="benefit-editor__icon" :title="iconForBenefit(benefit.text) || '未配置图标'">
+                <img
+                  v-if="iconForBenefit(benefit.text)"
+                  :src="benefitIconUrl(iconForBenefit(benefit.text))"
+                  alt=""
+                  draggable="false"
+                />
+                <span v-else class="benefit-editor__icon-empty">—</span>
+              </span>
               <NSelect
                 v-model:value="benefit.text"
                 :options="benefitOptionsFor(benefit.text)"
@@ -326,7 +445,23 @@ const config: AdminListConfig = {
                 filterable
                 clearable
               />
-              <NInput v-model:value="benefit.count" placeholder="可空" />
+              <!-- 只有「专属优惠券」才需要关联优惠券并填写数量 -->
+              <div v-if="isCouponBenefit(benefit.text)" class="benefit-editor__coupon">
+                <NSelect
+                  v-model:value="benefit.couponId"
+                  :options="couponOptions"
+                  placeholder="选择优惠券"
+                  filterable
+                  clearable
+                />
+                <NInputNumber
+                  v-model:value="benefit.count"
+                  :min="1"
+                  :precision="0"
+                  placeholder="数量"
+                />
+              </div>
+              <span v-else class="benefit-editor__empty-cell">—</span>
               <NButton size="small" type="error" quaternary @click="removeBenefitRow(index)">
                 删除
               </NButton>
@@ -338,7 +473,7 @@ const config: AdminListConfig = {
               <NButton size="small" @click="addBenefitRow">新增一条权益</NButton>
             </div>
             <div class="benefit-editor__tip">
-              权益文案来自数据字典 member_benefit；图标和数量可留空。
+              权益文案来自数据字典 member_benefit，图标随文案自动匹配；仅「专属优惠券」需关联优惠券并填写数量。
             </div>
           </div>
         </NFormItem>
@@ -376,7 +511,7 @@ const config: AdminListConfig = {
 .benefit-editor__head,
 .benefit-editor__row {
   display: grid;
-  grid-template-columns: 180px minmax(240px, 1fr) 120px 64px;
+  grid-template-columns: 56px minmax(200px, 1fr) 260px 64px;
   gap: 8px;
   align-items: center;
 }
@@ -398,6 +533,40 @@ const config: AdminListConfig = {
   color: #8b8f86;
   font-size: 13px;
   text-align: center;
+}
+
+.benefit-editor__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.benefit-editor__icon img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
+.benefit-editor__icon-empty {
+  color: #c7cbc2;
+  font-size: 14px;
+}
+
+/* 专属优惠券：优惠券选择 + 数量 */
+.benefit-editor__coupon {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 96px;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 非专属优惠券：该列留空，保持行高一致 */
+.benefit-editor__empty-cell {
+  color: #c7cbc2;
+  font-size: 13px;
 }
 
 .benefit-editor__tip {
