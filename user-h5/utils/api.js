@@ -220,6 +220,18 @@ function fetchStoredValueOrder(orderNo) {
 }
 
 /**
+ * 取消未支付储值订单（用户主动）。
+ *
+ * 后端只允许取消 UNPAID 订单，已支付订单返回业务错误。
+ */
+function cancelStoredValueOrder(orderNo) {
+  return request({
+    url: `/api/v1/app/stored-value/orders/${encodeURIComponent(orderNo)}/cancel`,
+    method: 'POST'
+  }).then(unwrap);
+}
+
+/**
  * 储值支付：发起微信支付统一下单，返回小程序唤起收银台所需参数。
  *
  * @param {string} orderNo 储值订单号
@@ -617,6 +629,7 @@ module.exports = {
   fetchStoredValueOrder,
   prepayStoredValue,
   fetchStoredValueOrders,
+  cancelStoredValueOrder,
   fetchGiftCardDenominations,
   purchaseGiftCard,
   fetchMyGiftCards,

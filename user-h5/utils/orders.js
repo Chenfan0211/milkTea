@@ -685,7 +685,22 @@ function tickOrderCountdowns(now) {
  */
 function cancelOrderById(id) {
   const order = getOrderById(id);
-  if (!order || order.orderStatus !== 'pending_payment') {
+  if (!order) return Promise.resolve(getOrderById(id));
+
+  // 储值订单走储值取消接口；其余（门店/礼品卡）走统一订单取消接口。
+  if (order.category === 'stored-value') {
+    if (order.orderStatus !== 'unpaid') {
+      return Promise.resolve(getOrderById(id));
+    }
+    const orderNo = resolveOrderNo(order, id);
+    if (!orderNo) return Promise.resolve(getOrderById(id));
+    return api
+      .cancelStoredValueOrder(orderNo)
+      .then(() => refreshOrdersFromRemote({ page: 1, size: ORDER_PAGE_SIZE, category: 'stored-value' }))
+      .then(() => getOrderById(id));
+  }
+
+  if (order.orderStatus !== 'pending_payment') {
     return Promise.resolve(getOrderById(id));
   }
   const orderNo = resolveOrderNo(order, id);

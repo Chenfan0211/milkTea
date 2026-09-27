@@ -292,8 +292,8 @@ assert.ok(ordersPage.data.orders.find(order => order.id === giftPendingId).isCan
 
 ordersDefinition.handlePay.call(ordersPage, { currentTarget: { dataset: { id: giftPendingId } } });
 assert.ok(
-  calls.some(call => call.type === 'toast' && call.title === '支付功能暂未接入'),
-  '立即支付必须明确提示暂未接入'
+  calls.some(call => call.type === 'toast' && call.title === '该订单暂不支持此支付方式'),
+  '非储值订单立即支付必须明确提示暂不支持'
 );
 
 orderStore.setOrdersForTest(FIXTURES); // 详情页需要夹具

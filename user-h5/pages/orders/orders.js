@@ -1,8 +1,9 @@
 const { withShare } = require('../../utils/share');
 const { orderCategories } = require('../../data/mock');
+const api = require('../../utils/api');
 const auth = require('../../utils/auth');
 const loginGuard = require('../../utils/login-guard');
-const { cancelOrderById, cancelPaidOrderById, filterOrders, getOrders, refreshOrdersFromRemote, tickOrderCountdowns } = require('../../utils/orders');
+const { cancelOrderById, cancelPaidOrderById, filterOrders, getOrders, refreshOrdersFromRemote, resolveOrderNo, tickOrderCountdowns } = require('../../utils/orders');
 
 const timeTabs = [
   { id: 'today', label: '今日订单' },
@@ -148,8 +149,75 @@ Page(
         }
       });
     },
-    handlePay() {
-      wx.showToast({ title: '支付功能暂未接入', icon: 'none' });
+    /**
+     * 立即支付（当前仅储值订单走此入口；门店订单待接入统一支付）。
+     *
+     * 流程：预支付 -> 唤起收银台 -> 以服务端查单结果为准刷新列表。
+     */
+    handlePay(event) {
+      const { id } = event.currentTarget.dataset;
+      const order = getOrders().find(item => String(item.id) === String(id));
+      if (!order) {
+        wx.showToast({ title: '订单不存在', icon: 'none' });
+        return;
+      }
+      if (order.category !== 'stored-value') {
+        wx.showToast({ title: '该订单暂不支持此支付方式', icon: 'none' });
+        return;
+      }
+      const orderNo = resolveOrderNo(order, id);
+      if (!orderNo) {
+        wx.showToast({ title: '订单号缺失', icon: 'none' });
+        return;
+      }
+      wx.showLoading({ title: '正在支付', mask: true });
+      api
+        .prepayStoredValue(orderNo)
+        .then(result => {
+          if (!result || !result.params) {
+            // mock 通道无真实支付参数：直接查单确认
+            return this.pollStoredValueOrder(orderNo);
+          }
+          return new Promise(resolve => {
+            wx.requestPayment({
+              timeStamp: result.params.timeStamp,
+              nonceStr: result.params.nonceStr,
+              package: result.params.package,
+              signType: result.params.signType,
+              paySign: result.params.paySign,
+              success: () => resolve(this.pollStoredValueOrder(orderNo)),
+              fail: () => resolve(false)
+            });
+          });
+        })
+        .then(paid => {
+          wx.hideLoading();
+          if (paid) {
+            this.loadOrders();
+          } else {
+            wx.showToast({ title: '支付未完成，可稍后继续', icon: 'none' });
+          }
+        })
+        .catch(() => {
+          wx.hideLoading();
+          wx.showToast({ title: '支付失败，请重试', icon: 'none' });
+        });
+    },
+
+    /** 轮询储值订单，以服务端状态为准确认支付结果 */
+    pollStoredValueOrder(orderNo, attempts) {
+      const maxAttempts = 5;
+      const current = attempts || 0;
+      return api
+        .fetchStoredValueOrder(orderNo)
+        .then(order => {
+          if (order && order.payStatus === 'PAID') return true;
+          if (current >= maxAttempts) return false;
+          return new Promise(resolve => {
+            setTimeout(() => resolve(this.pollStoredValueOrder(orderNo, current + 1)), 1500);
+          });
+        })
+        .catch(() => false);
     },
     showUnavailable() {
       wx.showToast({ title: '功能暂未接入', icon: 'none' });
