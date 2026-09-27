@@ -45,7 +45,11 @@ function refreshStoreCatalogFromRemote() {
 function normalizeRemoteStore(item) {
   const cityCode = item.city === '广州市' ? 'guangzhou' : item.city === '深圳市' ? 'shenzhen' : 'changsha';
   return Object.assign({}, item, {
+    // 前端内部标识沿用业务 code（收藏、路由、选店记忆都已依赖它）；
+    // subjectId 单独保留后端数字主键，下单时 storeSubjectId 必须用它，
+    // 否则后端 Long 反序列化失败会返回 500「服务器内部错误」。
     id: item.code || String(item.id),
+    subjectId: item.id != null ? Number(item.id) : null,
     cityCode,
     businessHours: item.businessHours || '10:00-22:00',
     modes: Array.isArray(item.modes) && item.modes.length ? item.modes : ['pickup', 'dinein'],
