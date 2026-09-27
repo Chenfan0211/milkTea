@@ -14,6 +14,9 @@ let orderStore = [];
 const PAYMENT_WINDOW_MINUTES = 15;
 const PAYMENT_WINDOW_SECONDS = PAYMENT_WINDOW_MINUTES * 60;
 
+/** 储值订单封面兜底图（运营素材，位于 3x 高清目录）。 */
+const STORED_VALUE_COVER_IMAGE = "/assets/images/3x/stored-value-banner.jpg";
+
 /** 后端订单状态（英文枚举）-> 前端中文文案。 */
 const STATUS_TEXT_MAP = {
   CREATED: '待支付',
@@ -480,7 +483,9 @@ function formatCountdown(seconds) {
 function decorateOrder(order, now) {
   const isCanceled = order.orderStatus === 'canceled' || order.status === '已取消';
   // 待支付：状态为 pending_payment 即可，倒计时仅用于展示。
-  const isPendingPayment = order.orderStatus === 'pending_payment' && !isCanceled;
+  // 待支付：门店/礼品卡用 pending_payment，储值充值用 unpaid（未支付）。
+  const isStoredValueUnpaid = order.category === 'stored-value' && order.orderStatus === 'unpaid' && !isCanceled;
+  const isPendingPayment = (order.orderStatus === 'pending_payment' || isStoredValueUnpaid) && !isCanceled;
   // 倒计时按「创建时间 + 15 分钟支付时限」推算（后端不下发 remainingSeconds）；
   // 非待支付订单不再推算，避免历史订单拿到无意义的剩余时间。
   const remainingSeconds = isPendingPayment
@@ -542,7 +547,7 @@ function decorateOrder(order, now) {
     // 详情页「用餐信息」分组：用餐方式 + 取餐门店
     mealInfo: buildMealInfo(order),
     title: order.title || order.storeName || firstItem.name || '订单',
-    coverImage: order.coverImage || firstItem.image || '',
+    coverImage: order.coverImage || (order.category === 'stored-value' ? STORED_VALUE_COVER_IMAGE : firstItem.image) || '',
     // 展示用字段：订单时间统一为中文完整格式，原始 orderInfo 保留供排序 / 逻辑使用。
     payTimeText: order.payTime ? formatDateTime(order.payTime) : '',
     createdAtText: order.orderInfo && order.orderInfo.createdAt ? formatDateTime(order.orderInfo.createdAt) : ''
@@ -658,7 +663,9 @@ function tickOrderCountdowns(now) {
   const current = Number.isFinite(Number(now)) ? Number(now) : Date.now();
   orderStore = orderStore.map(order => {
     const normalized = Object.assign({}, order, { timeGroup: order.timeGroup || 'today' });
-    if (normalized.orderStatus !== 'pending_payment') return normalized;
+    const isPending = normalized.orderStatus === 'pending_payment' ||
+      (normalized.category === 'stored-value' && normalized.orderStatus === 'unpaid');
+    if (!isPending) return normalized;
     return Object.assign({}, normalized, {
       remainingSeconds: resolveRemainingSeconds(normalized, current)
     });
