@@ -710,7 +710,9 @@ function renderField(field: FormField) {
   });
 }
 
-watch(() => props.config, loadData, { immediate: true });
+// 首屏加载由 onMounted 负责；这里只监听 config 真实变化，
+// 去掉 immediate:true 避免首屏 loadData 被调用两次（重复请求）。
+watch(() => props.config, loadData);
 
 defineExpose({ reload: loadData });
 </script>

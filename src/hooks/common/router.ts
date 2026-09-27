@@ -1,4 +1,5 @@
 import { useRouter } from 'vue-router';
+import { useAppStore } from '@/store/modules/app';
 import type { RouteLocationRaw } from 'vue-router';
 import type { RouteKey } from '@elegant-router/types';
 import { router as globalRouter } from '@/router';
@@ -37,6 +38,14 @@ export function useRouterPush(inSetup = true) {
   }
 
   function routerPushByKeyWithMetaQuery(key: RouteKey) {
+    // 点左侧菜单时：若目标路由就是当前所在路由，说明用户想「重新加载当前页」。
+    // 此时不重复跳转，而是触发一次整页重建（reloadPage），让列表重新拉取数据。
+    // 页签切换走的是 switchRouteByTab（不经过这里），因此不受影响、仍保留缓存。
+    if (key === (route.value.name as string)) {
+      const appStore = useAppStore();
+      return appStore.reloadPage();
+    }
+
     const allRoutes = router.getRoutes();
     const meta = allRoutes.find(item => item.name === key)?.meta || null;
 
