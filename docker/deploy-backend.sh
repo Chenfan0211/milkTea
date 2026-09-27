@@ -316,12 +316,19 @@ EOF
   $0 status           状态与端口
   $0 verify           冒烟验证
   $0 logs <service>   跟踪日志
+  $0 clean-images     清理已退出容器 + 旧镜像（每个服务只保留最近 1 个版本）
   $0 clean-logs       立即清理过期归档日志（保留 90 天）
   $0 sync-scripts     同步运维脚本到 /opt/wuling/scripts/
   $0 install-log-cron 安装每日日志清理 cron
 
 示例：
   $0 preflight && $0 build && $0 up && $0 verify
+  $0 up && $0 clean-images     # 手动触发一次镜像清理
+
+环境变量：
+  IMAGE_TAG=20260927-120000    指定构建/启动使用的镜像 tag
+  KEEP_VERSIONS=1              保留的历史镜像版本数（up 后自动清理时生效）
+  BUILD_CACHE_MAX_AGE=168     构建缓存保留小时数（0=清空全部可回收缓存）
 USAGE
   ;;
 esac
