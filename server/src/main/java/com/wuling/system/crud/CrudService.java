@@ -57,6 +57,22 @@ public class CrudService {
     private static final String RESOURCE_COUPONS = "coupons";
     private static final String POINTS_CATEGORY_COUPON = "coupon";
 
+    /** 会员等级资源：benefits 为 JSON 列，写入前必须做结构校验。 */
+    private static final String RESOURCE_MEMBER_LEVELS = "memberLevels";
+
+    /**
+     * 「专属优惠券」权益的标识。
+     *
+     * <p>字典 member_benefit 的 item_code 是稳定值（中文名可被后台改名），
+     * 但前端提交的是文案，因此两者都接受，避免改名或改码时校验失效。
+     */
+    private static final String BENEFIT_CODE_MEMBER_COUPON = "member_coupon";
+    private static final String BENEFIT_NAME_MEMBER_COUPON = "专属优惠券";
+
+    /** 权益项允许出现的字段：只认这四个，防止脏字段写进 JSON。 */
+    private static final java.util.Set<String> BENEFIT_ALLOWED_KEYS =
+            java.util.Set.of("text", "icon", "couponId", "count");
+
     /**
      * 「授权中心」资源：roles / grants。
      *
@@ -182,6 +198,7 @@ public class CrudService {
         Map<String, Object> values = filterWritable(def, payload);
         guardSplitRule(def, values, true);
         guardPointsCategoryCreate(def, values);
+        guardMemberLevel(def, values);
         // code 为 NOT NULL 唯一键的表（如 coupon/points_product/stored_value_package 等），
         // 前端表单大多不填 code，直接 insert 会报「Field 'code' doesn't have a default value」。
         // 这里在 code 缺失或为空时自动生成唯一 code，保证新增可用；前端显式传 code 时尊重前端值。
@@ -225,6 +242,7 @@ public class CrudService {
         Map<String, Object> before = getOne(resource, id);
         guardPointsCategoryWrite(def, values, before);
         guardPointsProduct(def, values, before);
+        guardMemberLevel(def, values);
         String sets = String.join(", ", values.keySet().stream().map(c -> c + " = ?").toList());
         List<Object> args = new ArrayList<>(values.values());
         args.add(id);
@@ -562,6 +580,104 @@ public class CrudService {
      * <p>更新接口是部分更新：未提交的字段必须从旧行补齐；显式提交 null 则仍应按 null 校验，
      * 因此这里用 {@code containsKey} 区分“未传”和“传空”。
      */
+    /**
+     * 把 benefits 解析成权益项列表。
+     *
+     * <p>注意：filterWritable 已把 JSON 列序列化为字符串，因此这里主要处理字符串；
+     * 同时兼容已被反序列化的 List（直接调用 service 的单测场景）。
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseBenefitItems(Object raw) {
+        Object value = raw;
+        if (value instanceof String text) {
+            if (!hasText(text)) {
+                return List.of();
+            }
+            try {
+                value = new com.fasterxml.jackson.databind.ObjectMapper().readValue(text, List.class);
+            } catch (Exception e) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "权益格式不正确，应为数组");
+            }
+        }
+        if (!(value instanceof List<?> list)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "权益格式不正确，应为数组");
+        }
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> map)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "权益项格式不正确");
+            }
+            items.add((Map<String, Object>) map);
+        }
+        return items;
+    }
+
+    /**
+     * 会员等级权益校验。
+     *
+     * <p><b>为什么需要</b>：benefits 是 JSON 列，通用 CRUD 不做结构校验，
+     * 前端可以保存出「专属优惠券但没选券 / 没写数量」的脏数据 ——
+     * 小程序端拿到后无法发放优惠券，且没有报错，排查成本极高。
+     *
+     * <p><b>规则</b>：
+     * <ol>
+     *   <li>权益项只允许 text / icon / couponId / count 四个字段；</li>
+     *   <li>text 必填；</li>
+     *   <li>text 为「专属优惠券」时，couponId 与 count 都必填且为正整数；</li>
+     *   <li>其他权益文案不得携带 count（数量只对专属优惠券有意义）。</li>
+     * </ol>
+     */
+    @SuppressWarnings("unchecked")
+    private void guardMemberLevel(CrudRegistry.Resource def, Map<String, Object> values) {
+        if (!RESOURCE_MEMBER_LEVELS.equals(def.resource())) {
+            return;
+        }
+        if (!values.containsKey("benefits")) {
+            return;
+        }
+        Object raw = values.get("benefits");
+        if (raw == null) {
+            return;
+        }
+        List<Map<String, Object>> items = parseBenefitItems(raw);
+
+        for (Map<String, Object> item : items) {
+            if (item == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "权益项不能为空");
+            }
+            for (String key : item.keySet()) {
+                if (!BENEFIT_ALLOWED_KEYS.contains(key)) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST,
+                            "权益存在不支持的字段：" + key);
+                }
+            }
+            String text = textValue(item.get("text"));
+            if (!hasText(text)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "权益文案不能为空");
+            }
+
+            boolean isCoupon = BENEFIT_CODE_MEMBER_COUPON.equalsIgnoreCase(text)
+                    || BENEFIT_NAME_MEMBER_COUPON.equals(text);
+            if (isCoupon) {
+                Long couponId = toLong(item.get("couponId"));
+                if (couponId == null || couponId <= 0) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "专属优惠券必须绑定优惠券");
+                }
+                String count = textValue(item.get("count"));
+                if (!hasText(count)) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "专属优惠券必须填写数量");
+                }
+                Long countValue = toLong(count);
+                if (countValue == null || countValue <= 0) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "专属优惠券数量必须为正整数");
+                }
+            } else if (item.containsKey("count") && hasText(item.get("count"))) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "只有专属优惠券才需要填写数量");
+            }
+        }
+    }
+
     private void guardPointsProduct(CrudRegistry.Resource def,
                                     Map<String, Object> values,
                                     Map<String, Object> before) {
