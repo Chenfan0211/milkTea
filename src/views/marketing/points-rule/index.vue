@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref, watch } from 'vue';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchSigninRule } from '@/service/api/crud';
 
@@ -8,6 +8,8 @@ const store = useAdminStore();
 // 挂载时从后端加载积分获取规则与签到规则
 onMounted(async () => {
   await store.loadRemote('pointsEarningRules');
+  // 行为字典：页面「行为」列只读展示的来源
+  await store.loadRemote('dictEntries');
   try {
     const rule: any = await fetchSigninRule();
     if (rule) {
@@ -52,45 +54,152 @@ async function saveSignRule() {
 }
 
 // ===== 积分获取规则 =====
-const ruleModalVisible = ref(false);
-const ruleMode = ref<'add' | 'edit'>('add');
-const editingRule = ref<any>(null);
-const ruleForm = reactive({ action: '', reward: '', note: '' });
+//
+// 设计口径（2026-09-28）：
+//   · 「行为」来自数据字典 points_action，本页只读、不可增删；
+//   · 「奖励」拆成结构化数字存库（reward_type/value + basis_amount/unit + daily_limit），
+//     供后续按规则发放时光币直接计算，不必解析文本；
+//   · 本页只允许修改奖励信息与说明。
+const REWARD_TYPES = [
+  { label: '按消费比例（每 X 元送 Y 币）', value: 'per-yuan' },
+  { label: '固定值（每次送 Y 币）', value: 'fixed' },
+  { label: '按单位固定值（每人/次送 Y 币）', value: 'fixed-per' },
+  { label: '倍数（Y 倍时光币）', value: 'multiplier' }
+] as const;
 
-function openRuleModal(mode: 'add' | 'edit', row?: any) {
-  ruleMode.value = mode;
+const BASIS_UNITS = [
+  { label: '元', value: 'yuan' },
+  { label: '人', value: 'person' },
+  { label: '次', value: 'time' },
+  { label: '天', value: 'day' }
+] as const;
+
+/** 行为字典（points_action）：key=code，value=展示名 */
+const actionOptions = computed(() =>
+  (store.dictEntries || [])
+    .filter((e: any) => e.dictType === 'points_action' && Number(e.enabled) === 1)
+    .map((e: any) => ({
+      label: String(e.itemName ?? '').trim(),
+      value: String(e.itemCode ?? '').trim(),
+      sort: Number(e.sort) || 0,
+      id: Number(e.id) || 0
+    }))
+    .filter((o: any) => o.value)
+    .sort((a: any, b: any) => a.sort - b.sort || a.id - b.id)
+);
+
+/** code -> 展示名（表格「行为」列只读展示用） */
+const actionLabelOf = (code: string) => {
+  const hit = actionOptions.value.find((o: any) => o.value === code);
+  return hit?.label || code || '';
+};
+
+/** 奖励文案（按结构化数字生成，避免手写文案与数字不一致） */
+function rewardTextOf(row: any): string {
+  const v = row?.rewardValue;
+  if (v == null) return row?.reward || '';
+  switch (row?.rewardType) {
+    case 'per-yuan': {
+      const basisYuan = (Number(row?.basisAmount) || 0) / 100;
+      return `每消费${basisYuan}元 + ${v}币`;
+    }
+    case 'fixed':
+      return `+${v}币`;
+    case 'fixed-per': {
+      const unit = BASIS_UNITS.find(u => u.value === row?.basisUnit)?.label || '';
+      return `+${v}币/${unit}`;
+    }
+    case 'multiplier':
+      return `${v}倍时光币`;
+    default:
+      return row?.reward || '';
+  }
+}
+
+const ruleModalVisible = ref(false);
+const ruleMode = ref<'add' | 'edit'>('edit');
+const editingRule = ref<any>(null);
+const ruleForm = reactive({
+  code: '',
+  action: '',
+  note: '',
+  rewardType: 'fixed' as string,
+  rewardValue: 1 as number | null,
+  basisAmountYuan: 1 as number | null,
+  basisUnit: 'yuan' as string,
+  dailyLimit: null as number | null
+});
+
+/** 是否按消费比例：只有它需要「每 X 元」基准 */
+const isPerYuan = computed(() => ruleForm.rewardType === 'per-yuan');
+
+function openRuleModal(row: any) {
+  ruleMode.value = 'edit';
   editingRule.value = row || null;
+  ruleForm.code = row?.code || '';
   ruleForm.action = row?.action || '';
-  ruleForm.reward = row?.reward || '';
   ruleForm.note = row?.note || '';
+  ruleForm.rewardType = row?.rewardType || 'fixed';
+  ruleForm.rewardValue = row?.rewardValue == null ? 1 : Number(row.rewardValue);
+  ruleForm.basisAmountYuan = row?.basisAmount == null ? 1 : Number(row.basisAmount) / 100;
+  ruleForm.basisUnit = row?.basisUnit || 'yuan';
+  ruleForm.dailyLimit = row?.dailyLimit == null ? null : Number(row.dailyLimit);
   ruleModalVisible.value = true;
 }
 
 async function submitRule() {
-  if (ruleMode.value === 'edit' && editingRule.value) {
-    await store.update('pointsEarningRules', editingRule.value.id, { ...ruleForm }, '营销中心', 'action');
-  } else {
-    await store.add('pointsEarningRules', { ...ruleForm }, '营销中心', 'action');
+  if (!editingRule.value) return;
+  if (ruleForm.rewardValue == null || Number(ruleForm.rewardValue) <= 0) {
+    window.$message?.warning('奖励数值必须为正整数');
+    return;
   }
-  ruleModalVisible.value = false;
-}
+  if (isPerYuan.value && (ruleForm.basisAmountYuan == null || Number(ruleForm.basisAmountYuan) <= 0)) {
+    window.$message?.warning('按消费比例发放时必须填写「每 X 元」');
+    return;
+  }
 
-async function removeRule(row: any) {
-  await store.remove('pointsEarningRules', row.id, '营销中心', 'action');
+  const payload: Record<string, unknown> = {
+    // 行为与编码来自字典，只读，不随表单修改
+    code: ruleForm.code,
+    action: ruleForm.action,
+    note: ruleForm.note,
+    rewardType: ruleForm.rewardType,
+    rewardValue: Number(ruleForm.rewardValue),
+    // 金额基准统一按「分」存库
+    basisAmount: isPerYuan.value ? Math.round(Number(ruleForm.basisAmountYuan) * 100) : null,
+    basisUnit: ruleForm.basisUnit,
+    dailyLimit: ruleForm.dailyLimit == null ? null : Number(ruleForm.dailyLimit)
+  };
+  // 展示文案随数字自动生成，避免两者不一致
+  payload.reward = rewardTextOf({
+    rewardType: payload.rewardType,
+    rewardValue: payload.rewardValue,
+    basisAmount: payload.basisAmount,
+    basisUnit: payload.basisUnit
+  });
+
+  await store.update('pointsEarningRules', editingRule.value.id, payload, '营销中心', 'action');
+  ruleModalVisible.value = false;
+  window.$message?.success('奖励已保存');
 }
 
 const ruleColumns = [
-  { title: '行为', key: 'action', width: 200 },
-  { title: '奖励', key: 'reward', width: 140 },
-  { title: '说明', key: 'note', minWidth: 240 },
+  {
+    title: '行为',
+    key: 'action',
+    width: 220,
+    render: (row: any) => actionLabelOf(row.action)
+  },
+  { title: '奖励', key: 'reward', width: 180, render: (row: any) => rewardTextOf(row) },
+  { title: '每日上限', key: 'dailyLimit', width: 100, render: (row: any) => (row.dailyLimit == null ? '不限' : `${row.dailyLimit} 次`) },
+  { title: '说明', key: 'note', minWidth: 200 },
   {
     title: '操作',
     key: '__actions__',
-    width: 140,
+    width: 90,
     render: (row: any) =>
       h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [
-        h('button', { class: 'rule-btn rule-btn--edit', onClick: () => openRuleModal('edit', row) }, '编辑'),
-        h('button', { class: 'rule-btn rule-btn--del', onClick: () => removeRule(row) }, '删除')
+        h('button', { class: 'rule-btn rule-btn--edit', onClick: () => openRuleModal(row) }, '编辑奖励')
       ])
   }
 ];
@@ -125,26 +234,51 @@ const ruleColumns = [
 
     <NCard :bordered="false" title="积分获取规则">
       <template #header-extra>
-        <NButton size="small" type="primary" @click="openRuleModal('add')">新增规则</NButton>
+        <span class="rule-hint">行为来自数据字典 points_action，本页只可修改奖励</span>
       </template>
       <NDataTable
         :columns="ruleColumns"
         :data="store.pointsEarningRules"
         :bordered="false"
         :row-key="(row: any) => row.id"
-        :scroll-x="780"
+        :scroll-x="900"
       />
     </NCard>
 
     <NModal
       v-model:show="ruleModalVisible"
       preset="card"
-      :title="ruleMode === 'edit' ? '编辑规则' : '新增规则'"
+      title="编辑奖励"
       class="w-480px"
     >
-      <NForm label-placement="left" :label-width="80">
-        <NFormItem label="行为"><NInput v-model:value="ruleForm.action" /></NFormItem>
-        <NFormItem label="奖励"><NInput v-model:value="ruleForm.reward" /></NFormItem>
+      <NForm label-placement="left" :label-width="96">
+        <!-- 行为：来自字典 points_action，只读，不允许在本页修改 -->
+        <NFormItem label="行为">
+          <NInput :value="actionLabelOf(ruleForm.code) || ruleForm.action" readonly />
+        </NFormItem>
+
+        <NFormItem label="奖励类型">
+          <NSelect v-model:value="ruleForm.rewardType" :options="REWARD_TYPES as any" />
+        </NFormItem>
+
+        <NFormItem v-if="isPerYuan" label="每 X 元">
+          <NInputNumber v-model:value="ruleForm.basisAmountYuan" :min="0.01" :precision="2" class="w-160px" />
+          <span class="ml-8px">元</span>
+        </NFormItem>
+
+        <NFormItem :label="ruleForm.rewardType === 'multiplier' ? '倍数' : '奖励'">
+          <NInputNumber v-model:value="ruleForm.rewardValue" :min="1" :precision="0" class="w-160px" />
+          <span class="ml-8px">{{ ruleForm.rewardType === 'multiplier' ? '倍' : '时光币' }}</span>
+        </NFormItem>
+
+        <NFormItem v-if="ruleForm.rewardType === 'fixed-per'" label="计量单位">
+          <NSelect v-model:value="ruleForm.basisUnit" :options="BASIS_UNITS as any" />
+        </NFormItem>
+
+        <NFormItem label="每日上限">
+          <NInputNumber v-model:value="ruleForm.dailyLimit" :min="0" :precision="0" class="w-160px" placeholder="留空表示不限" />
+        </NFormItem>
+
         <NFormItem label="说明"><NInput v-model:value="ruleForm.note" /></NFormItem>
       </NForm>
       <div class="flex flex-wrap justify-end gap-12px">
@@ -183,6 +317,10 @@ const ruleColumns = [
 .rule-btn--edit {
   background: #e8f5e9;
   color: #53882c;
+}
+.rule-hint {
+  color: #8b8f86;
+  font-size: 12px;
 }
 .rule-btn--del {
   background: #fdecea;

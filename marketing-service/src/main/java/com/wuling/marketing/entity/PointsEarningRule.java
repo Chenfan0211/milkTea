@@ -20,6 +20,24 @@ public class PointsEarningRule {
     private String reward;
     private String note;
     private Integer sort;
+
+    /**
+     * 奖励类型：per-yuan / fixed / fixed-per / multiplier。
+     * 结构化存储后，发放时光币的逻辑可直接按类型计算，不必解析文本。
+     */
+    private String rewardType;
+
+    /** 币数（fixed / fixed-per / per-yuan）或倍数（multiplier）。 */
+    private Long rewardValue;
+
+    /** 仅 per-yuan 使用：每 X（单位见 basisUnit），金额单位为分。 */
+    private Long basisAmount;
+
+    /** 计量单位：yuan / person / time / day。 */
+    private String basisUnit;
+
+    /** 每日上限（次/天）；null 表示不限。 */
+    private Integer dailyLimit;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 

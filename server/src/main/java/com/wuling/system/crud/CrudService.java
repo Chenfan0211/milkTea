@@ -60,6 +60,17 @@ public class CrudService {
     /** 会员等级资源：benefits 为 JSON 列，写入前必须做结构校验。 */
     private static final String RESOURCE_MEMBER_LEVELS = "memberLevels";
 
+    /** 积分获取规则资源：奖励拆成结构化数字，写入前必须校验。 */
+    private static final String RESOURCE_POINTS_EARNING_RULES = "pointsEarningRules";
+
+    /** 受支持的奖励类型。 */
+    private static final java.util.Set<String> POINTS_REWARD_TYPES =
+            java.util.Set.of("per-yuan", "fixed", "fixed-per", "multiplier");
+
+    /** 受支持的计量单位。 */
+    private static final java.util.Set<String> POINTS_BASIS_UNITS =
+            java.util.Set.of("yuan", "person", "time", "day");
+
     /**
      * 「专属优惠券」权益的标识。
      *
@@ -199,6 +210,7 @@ public class CrudService {
         guardSplitRule(def, values, true);
         guardPointsCategoryCreate(def, values);
         guardMemberLevel(def, values);
+        guardPointsEarningRule(def, values);
         // code 为 NOT NULL 唯一键的表（如 coupon/points_product/stored_value_package 等），
         // 前端表单大多不填 code，直接 insert 会报「Field 'code' doesn't have a default value」。
         // 这里在 code 缺失或为空时自动生成唯一 code，保证新增可用；前端显式传 code 时尊重前端值。
@@ -243,6 +255,7 @@ public class CrudService {
         guardPointsCategoryWrite(def, values, before);
         guardPointsProduct(def, values, before);
         guardMemberLevel(def, values);
+        guardPointsEarningRule(def, values);
         String sets = String.join(", ", values.keySet().stream().map(c -> c + " = ?").toList());
         List<Object> args = new ArrayList<>(values.values());
         args.add(id);
@@ -580,6 +593,64 @@ public class CrudService {
      * <p>更新接口是部分更新：未提交的字段必须从旧行补齐；显式提交 null 则仍应按 null 校验，
      * 因此这里用 {@code containsKey} 区分“未传”和“传空”。
      */
+    /**
+     * 积分获取规则校验。
+     *
+     * <p><b>为什么需要</b>：reward 原先是一段文本（如 '+3币/人'），数字埋在字符串里，
+     * 无法用于「按规则发放时光币」。V58 拆成结构化数字后，必须保证口径正确，
+     * 否则发放逻辑会按错误数值计算，直接造成时光币多发/少发。
+     *
+     * <p><b>规则</b>：
+     * <ol>
+     *   <li>reward_type 必须是 per-yuan / fixed / fixed-per / multiplier 之一；</li>
+     *   <li>reward_value 必须为正整数（币数或倍数）；</li>
+     *   <li>per-yuan 必须带正数 basis_amount（每 X 分）与 basis_unit；</li>
+     *   <li>multiplier 不得携带 basis_amount（倍数不需要金额基准）；</li>
+     *   <li>daily_limit 允许为空，但不能为负。</li>
+     * </ol>
+     */
+    private void guardPointsEarningRule(CrudRegistry.Resource def, Map<String, Object> values) {
+        if (!RESOURCE_POINTS_EARNING_RULES.equals(def.resource())) {
+            return;
+        }
+        if (!values.containsKey("reward_type") && !values.containsKey("reward_value")) {
+            return;
+        }
+        String type = textValue(values.get("reward_type"));
+        if (!hasText(type) || !POINTS_REWARD_TYPES.contains(type)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "奖励类型不合法，必须是 per-yuan/fixed/fixed-per/multiplier 之一");
+        }
+
+        Long rewardValue = toLong(values.get("reward_value"));
+        if (rewardValue == null || rewardValue <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "奖励数值必须为正整数");
+        }
+
+        if ("per-yuan".equals(type)) {
+            Long basis = toLong(values.get("basis_amount"));
+            if (basis == null || basis <= 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "按消费比例发放时必须填写基准金额（每 X 分）");
+            }
+            String unit = textValue(values.get("basis_unit"));
+            if (hasText(unit) && !POINTS_BASIS_UNITS.contains(unit)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "计量单位不合法");
+            }
+        } else if (values.get("basis_amount") != null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "只有按消费比例发放才需要基准金额");
+        }
+
+        Object limit = values.get("daily_limit");
+        if (limit != null && hasText(limit)) {
+            Long dailyLimit = toLong(limit);
+            if (dailyLimit == null || dailyLimit < 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "每日上限不能为负数");
+            }
+        }
+    }
+
     /**
      * 把 benefits 解析成权益项列表。
      *

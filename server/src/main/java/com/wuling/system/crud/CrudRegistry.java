@@ -118,8 +118,11 @@ public final class CrudRegistry {
                             "description", "category", "status", "purchase_limit", "display_type",
                             "coupon_amount", "coupon_condition", "badge_in_image", "coupon_id"),
                     List.of("code", "name"), "id asc", List.of("category", "status"))),
+            // 积分获取规则：奖励拆成结构化数字（reward_type/value + basis_amount/unit + daily_limit），
+            // 供后续按规则发放时光币；code 与 action 由字典固定，页面只读（见 CrudService#guardPointsEarningRule）。
             Map.entry("pointsEarningRules", new Resource("pointsEarningRules", "points_earning_rule",
-                    List.of("code", "action", "reward", "note", "sort"),
+                    List.of("code", "action", "reward", "note", "sort",
+                            "reward_type", "reward_value", "basis_amount", "basis_unit", "daily_limit"),
                     List.of("code", "action"), "sort asc, id asc")),
             Map.entry("giftCardDenominations", new Resource("giftCardDenominations", "gift_card_denomination",
                     List.of("code", "name", "amount", "status"),

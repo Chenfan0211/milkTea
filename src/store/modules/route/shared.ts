@@ -205,9 +205,19 @@ export function getCacheRouteNames(routes: RouteRecordRaw[]) {
   const cacheNames: LastLevelRouteKey[] = [];
 
   routes.forEach(route => {
-    // only get last two level route, which has component
+    // 缓存「有 component 且非 hideInMenu 的叶子路由」。
+    //
+    // 为什么不用 child.meta?.keepAlive：
+    //   VITE_AUTH_ROUTE_MODE=dynamic 下，业务路由由后端 /route/getUserRoutes 下发，
+    //   sys_menu 表没有 keep_alive 字段，下发的 meta 里没有 keepAlive，
+    //   旧判定会导致业务列表页全部不在缓存名单 -> 切页签时组件被销毁重建
+    //   -> 重新请求且搜索条件被清空。
+    //
+    // 为什么排除 hideInMenu：
+    //   详情页（如 trade_order-detail）是临时打开的，不应长期缓存，
+    //   每次进入都应重新加载最新数据。
     route.children?.forEach(child => {
-      if (child.component && child.meta?.keepAlive) {
+      if (child.component && !child.meta?.hideInMenu) {
         cacheNames.push(child.name as LastLevelRouteKey);
       }
     });
