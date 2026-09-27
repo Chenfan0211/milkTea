@@ -158,8 +158,13 @@ const formFields: FormField[] = [
     key: 'storeType',
     label: '门店类型',
     type: 'select',
+    // 数据源是 sys_dict_item：字段为 itemName（无 name），且该表混存所有字典，
+    // 必须按 dictType='store_type' 过滤，否则会把会员权益/积分行为等无关项也列进下拉。
+    // value 用 itemName：store_profile.store_type 现存的就是中文（如「奶茶/饮品」）。
     options: () =>
-      store.storeTypes.filter((t: any) => t.enabled !== false).map((t: any) => ({ label: t.name, value: t.name })),
+      store.storeTypes
+        .filter((t: any) => t.dictType === 'store_type' && t.enabled !== false)
+        .map((t: any) => ({ label: t.itemName, value: t.itemName })),
     rules: [requiredRule]
   },
   {
@@ -185,8 +190,9 @@ const formFields: FormField[] = [
 const config: AdminListConfig = {
   remoteKey: 'subjects',
   // 「可提现余额」列按 subjectId 从 subjectAccounts 取数，需预加载该资源，否则恒显示 0.00
-  // subjectAccounts：供「可提现余额」列取数；storeTypes：供「门店类型」下拉选项
-  remoteDeps: ['subjectAccounts', 'storeTypes'],
+  // subjectAccounts：供「可提现余额」列取数
+  // storeTypes：供「门店类型」下拉选项；cities：供「城市」下拉选项（缺它会恒为空）
+  remoteDeps: ['subjectAccounts', 'storeTypes', 'cities'],
   title: '门店管理',
   columns,
   searchFields,

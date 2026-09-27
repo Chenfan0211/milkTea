@@ -166,8 +166,11 @@ const formFields: FormField[] = [
     key: 'storeType',
     label: '门店类型',
     type: 'select',
+    // 数据源是 sys_dict_item：字段为 itemName（无 name），且需按 dictType 过滤
     options: () =>
-      store.storeTypes.filter((t: any) => t.enabled !== false).map((t: any) => ({ label: t.name, value: t.name })),
+      store.storeTypes
+        .filter((t: any) => t.dictType === 'store_type' && t.enabled !== false)
+        .map((t: any) => ({ label: t.itemName, value: t.itemName })),
     rules: [requiredRule]
   }
 ];
