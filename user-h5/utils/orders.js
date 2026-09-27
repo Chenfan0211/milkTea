@@ -325,10 +325,19 @@ function refreshOrdersFromRemote(options = {}) {
         if (category === 'gift-card') return normalizeAuxOrder(order, 'gift-card');
         return Object.assign({}, order, { category: order.category || 'store' });
       });
-      const batch = mapped.map(cloneOrder).map(order => Object.assign({}, order, { timeGroup }));
-      const sameScope = order => order.timeGroup === timeGroup &&
-        (category === 'all' || order.category === category);
-      orderStore = append ? orderStore.filter(order => !sameScope(order)).concat(batch) : batch;
+      const batch = mapped.map(cloneOrder).map(order => {
+        const created = (order.orderInfo && order.orderInfo.createdAt) || order.createTime || '';
+        return Object.assign({}, order, { timeGroup: resolveTimeGroup(created) });
+      });
+      // append（翻页）直接追加并按主键/订单号去重；非 append 用当前批次整体替换。
+      // 去重避免同一条订单跨页或跨来源重复出现。
+      orderStore = append
+        ? orderStore.concat(batch).filter((item, index, arr) =>
+            arr.findIndex(x => (x.id != null && String(x.id) === String(item.id)) ||
+              ((x.orderInfo && x.orderInfo.orderNo) && String(x.orderInfo.orderNo) === String((item.orderInfo && item.orderInfo.orderNo)))
+            ) === index
+          )
+        : batch;
       const hasMore = Boolean(records && !Array.isArray(records) && Number(records.total || 0) > page * size);
       return { records: getOrders(), hasMore, page };
     })
@@ -416,17 +425,32 @@ function parseDateTime(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** 判断两个时间是否落在同一个本地日历日。 */
+function isSameLocalDay(left, right) {
+  return left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate();
+}
+
 /**
- * 推算待支付订单的剩余支付秒数。
+ * 由订单创建时间推导「今日 / 历史」归属。
  *
- * 关键：后端 OrderDTO **不下发** remainingSeconds，因此必须由「创建时间 + 支付时限」
- * 推算。若直接依赖 remainingSeconds。缺失时会得到 0，导致倒计时定时器第一帧就把
- * 正常待支付订单误判为「支付超时 -> 已取消」。
+ * 关键（原 bug）：不能信任请求页签把整批订单都标成 today ——
+ * 「全部订单」页签调的是门店订单接口，返回里可能混入昨天甚至更早的订单，
+ * 若直接按请求页签打标，今日列表就会串入其他日期。
+ * 因此统一按本地日历日判断：创建时间与「今天」同一天才算 today，否则 history。
  *
- * @param {Object} order 订单（读 orderInfo.createdAt / createTime / remainingSeconds）
+ * @param {string|Date|number} value 创建时间（createTime / orderInfo.createdAt）
  * @param {number} now 当前时间戳（便于测试注入）
- * @returns {number} 剩余秒数，>= 0；无法解析创建时间时返回 0
+ * @returns {'today'|'history'}
  */
+function resolveTimeGroup(value, now) {
+  const current = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+  const time = parseDateTime(value);
+  if (!time) return 'history';
+  return isSameLocalDay(time, new Date(current)) ? 'today' : 'history';
+}
+
 function resolveRemainingSeconds(order, now) {
   if (!order) return 0;
   const current = Number.isFinite(Number(now)) ? Number(now) : Date.now();
@@ -722,6 +746,7 @@ module.exports = {
   PAYMENT_WINDOW_SECONDS,
   parseDateTime,
   resolveRemainingSeconds,
+  resolveTimeGroup,
   pickRecords,
   normalizeAuxOrder,
   normalizeOrderShape,
