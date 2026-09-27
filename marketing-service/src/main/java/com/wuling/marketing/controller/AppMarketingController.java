@@ -106,6 +106,12 @@ public class AppMarketingController {
         return Result.ok(storedValueService.orderView(CurrentUser.require(), orderNo));
     }
 
+    /** 取消未支付储值订单（用户主动）。 */
+    @PostMapping("/stored-value/orders/{orderNo}/cancel")
+    public Result<StoredValueOrder> cancelStoredValueOrder(@PathVariable String orderNo) {
+        return Result.ok(storedValueService.cancelOrder(CurrentUser.require(), orderNo));
+    }
+
     @GetMapping("/stored-value/orders")
     public Result<PageResult<StoredValueOrder>> storedOrders(
             @RequestParam(defaultValue = "1") long page,

@@ -41,6 +41,10 @@ public class StoredValueOrder {
     @TableField(exist = false)
     private String status;
 
+    /** 储值套餐封面图（非数据库字段）：订单列表卡片展示用，短期固定返回运营素材。 */
+    @TableField(exist = false)
+    private String packageImage;
+
     @TableLogic
     private Integer deleted;
 }

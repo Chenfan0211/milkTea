@@ -65,6 +65,8 @@ public class StoredValueService {
     public static final String PAY_UNPAID = "UNPAID";
     /** 支付状态：已支付 */
     public static final String PAY_PAID = "PAID";
+    /** 支付状态：已取消（用户主动取消未支付订单） */
+    public static final String PAY_CANCELED = "CANCELED";
 
     private final StoredValuePackageMapper packageMapper;
     private final StoredValuePackageCouponMapper packageCouponMapper;
@@ -224,6 +226,45 @@ public class StoredValueService {
     }
 
     /**
+     * 取消未支付储值订单（用户主动）。
+     *
+     * <p>只允许取消 UNPAID 订单；已支付订单不允许取消，已取消订单幂等返回。
+     * 以「pay_status = UNPAID」为条件做原子更新，避免并发重复取消。
+     *
+     * @param userId  当前登录用户
+     * @param orderNo 储值订单号
+     * @return 取消后的订单
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public StoredValueOrder cancelOrder(Long userId, String orderNo) {
+        StoredValueOrder order = requireByOrderNo(orderNo);
+        if (!order.getUserId().equals(userId)) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "储值订单不存在");
+        }
+        if (PAY_CANCELED.equalsIgnoreCase(order.getPayStatus())) {
+            return withDerivedStatus(order);
+        }
+        if (PAY_PAID.equalsIgnoreCase(order.getPayStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "已支付订单不能取消");
+        }
+
+        StoredValueOrder patch = new StoredValueOrder();
+        patch.setId(order.getId());
+        patch.setPayStatus(PAY_CANCELED);
+        int affected = orderMapper.update(patch,
+                new LambdaQueryWrapper<StoredValueOrder>()
+                        .eq(StoredValueOrder::getId, order.getId())
+                        .eq(StoredValueOrder::getPayStatus, PAY_UNPAID));
+        if (affected == 0) {
+            // 已被并发处理过：重查返回最新状态
+            return withDerivedStatus(requireByOrderNo(orderNo));
+        }
+        // 更新成功：直接基于内存对象标记取消状态并返回，避免额外重查
+        order.setPayStatus(PAY_CANCELED);
+        return withDerivedStatus(order);
+    }
+
+    /**
      * 标记订单已支付并给用户入账（由支付回调调用）。
      *
      * <p><b>幂等闸门</b>：以「pay_status = UNPAID」为条件做原子更新。
@@ -316,6 +357,15 @@ public class StoredValueService {
     public void refundToBalance(Long userId, long amount, String bizNo) {
         executeBalanceOperation(userId, amount, bizNo, StoredValueTxn.REFUND,
                 amount, "用户不存在，无法退回储值余额");
+    }
+
+    /**
+     * 查询业务号是否存在成功的扣款资金记录（悬挂单补偿前确认确实扣过款）。
+     */
+    public boolean hasSuccessfulPay(String bizNo) {
+        StoredValueTxn txn = storedValueTxnMapper.selectByBizNoForUpdate(bizNo);
+        return txn != null && StoredValueTxn.PAY.equals(txn.getOperationType())
+                && StoredValueTxn.SUCCESS.equals(txn.getStatus());
     }
 
     private void executeBalanceOperation(Long userId,
@@ -432,7 +482,9 @@ public class StoredValueService {
      */
     private static StoredValueOrder withDerivedStatus(StoredValueOrder order) {
         boolean paid = PAY_PAID.equalsIgnoreCase(order.getPayStatus());
-        order.setStatus(paid ? "COMPLETED" : "CREATED");
+        boolean canceled = PAY_CANCELED.equalsIgnoreCase(order.getPayStatus());
+        order.setStatus(canceled ? "CANCELED" : (paid ? "COMPLETED" : "CREATED"));
+        order.setPackageImage("/assets/images/3x/stored-value-banner.jpg");
         return order;
     }
 
