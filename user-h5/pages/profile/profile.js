@@ -1,5 +1,5 @@
 const { withShare } = require('../../utils/share');
-const { DEFAULT_AVATAR, getUserProfile, maskPhone, saveUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
+const { DEFAULT_AVATAR, getUserProfile, maskPhone, roundMoney, saveUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
 const { getPoints } = require('../../utils/points');
 const { buildLevelMeta, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 const { getCurrentBusinessRole, getPendingRoles, getDashboard } = require('../../utils/roles');
@@ -12,6 +12,14 @@ const { pickGiftCardRecords, resolveGiftCardDisplay } = require('../../utils/gif
 
 const initialProfile = getUserProfile();
 const initialMeta = buildLevelMeta(initialProfile);
+
+/**
+ * 金额展示：储值余额固定 2 位小数（940.2 -> "940.20"）。
+ * value 保持 number 类型（便于断言与计算），display 专供渲染。
+ */
+function formatBalance(value) {
+  return roundMoney(Number(value) || 0).toFixed(2);
+}
 
 function buildRoleFunctions(roleId) {
   if (!roleId) return [];
@@ -37,7 +45,7 @@ Page(
       giftCards: [],
       stats: [
         { id: 'coupon', label: '优惠券', value: initialProfile.couponCount },
-        { id: 'balance', label: '储值余额', value: initialProfile.balance },
+        { id: 'balance', label: '储值余额', value: initialProfile.balance, display: formatBalance(initialProfile.balance) },
         { id: 'points', label: '时光币', value: initialProfile.points },
         { id: 'gift', label: '礼品卡', value: 0 }
       ],
@@ -68,7 +76,7 @@ Page(
       const pendingRoles = getPendingRoles();
       const stats = this.data.stats.map(item => {
         if (item.id === 'points') return Object.assign({}, item, { value: points });
-        if (item.id === 'balance') return Object.assign({}, item, { value: userProfile.balance });
+        if (item.id === 'balance') return Object.assign({}, item, { value: userProfile.balance, display: formatBalance(userProfile.balance) });
         if (item.id === 'coupon') return Object.assign({}, item, { value: userProfile.couponCount });
         if (item.id === 'gift')
           return Object.assign({}, item, { value: userProfile.giftCards.length });
@@ -119,7 +127,7 @@ Page(
                 // 资产字段以远端为准（远端缺失时保留本地值，不覆盖成 0）
                 points: Number.isFinite(Number(remote.points)) ? Number(remote.points) : userProfile.points,
                 balance: Number.isFinite(Number(remote.balance))
-                  ? Math.round((Number(remote.balance) || 0) / 100)
+                  ? roundMoney((Number(remote.balance) || 0) / 100)
                   : userProfile.balance,
                 vipLevel: remote.vipLevel || userProfile.vipLevel,
                 region: userProfile.region

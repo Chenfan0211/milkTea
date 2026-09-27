@@ -35,4 +35,19 @@ public interface AppUserMapper extends BaseMapper<AppUser> {
     @Update("update app_user set balance = balance + #{delta}, update_time = now() "
             + "where id = #{userId} and deleted = 0 and balance + #{delta} >= 0")
     int addBalance(@Param("userId") Long userId, @Param("delta") long delta);
+
+    /**
+     * 原子累加累计消费金额（分），会员成长值。
+     *
+     * @param delta 增量（正数），仅用于点单消费累加
+     * @return 1=成功；0=用户不存在
+     */
+    @Update("update app_user set total_spend = total_spend + #{delta}, update_time = now() "
+            + "where id = #{userId} and deleted = 0")
+    int addTotalSpend(@Param("userId") Long userId, @Param("delta") long delta);
+
+    /** 读取累计消费（分）；用户不存在返回 null。 */
+    @org.apache.ibatis.annotations.Select(
+            "select total_spend from app_user where id = #{userId} and deleted = 0")
+    Long getTotalSpend(@Param("userId") Long userId);
 }

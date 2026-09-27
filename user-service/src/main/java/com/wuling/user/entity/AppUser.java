@@ -25,6 +25,8 @@ public class AppUser {
     private String vipLevel;
     private Long points;
     private Long balance;
+    /** 累计消费金额（分），会员成长值。 */
+    private Long totalSpend;
     private String businessRole;
     private Long boundSubjectId;
     private Long referrerId;

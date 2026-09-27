@@ -89,7 +89,7 @@
         aria-role="button"
         aria-label="{{item.label}}"
       >
-        <text class="stats__value">{{item.value}}</text>
+        <text class="stats__value">{{item.display || item.value}}</text>
         <text class="stats__label">{{item.label}}</text>
       </view>
     </view>

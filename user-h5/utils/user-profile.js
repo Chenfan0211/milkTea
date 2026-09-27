@@ -14,6 +14,16 @@ const PROFILE_STORAGE_KEY = 'milkTea:user-profile';
 /** 默认头像：用户未授权微信头像或地址失效时的兜底，避免头像区空白。 */
 const DEFAULT_AVATAR = '/assets/images/3x/profile-avatar.jpg';
 
+/**
+ * 金额工具：保留 2 位小数（元）。
+ * 储值余额等金额必须保留分位，禁止用 Math.round 取整（历史 bug：940.20 -> 940）。
+ */
+function roundMoney(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num * 100) / 100;
+}
+
 const EMPTY_PROFILE = {
   nickname: '',
   phone: '',
@@ -44,12 +54,14 @@ function normalizeRemoteProfile(user) {
     avatar: user.avatar || DEFAULT_AVATAR,
     vipLevel: user.vipLevel || '',
     nextLevel: '',
-    totalSpend: 0,
+    // totalSpend 后端为「分」，前端按「元」展示（成长值 = 累计消费，1 元 = 1 成长值）
+    totalSpend: roundMoney((Number(user.totalSpend) || 0) / 100),
     couponCount: 0,
-    // balance 后端为「分」，页面按「元」展示
-    balance: Math.round((Number(user.balance) || 0) / 100),
+    // balance 后端为「分」，前端按「元」展示（保留 2 位小数，禁止 Math.round 取整丢分）
+    balance: roundMoney((Number(user.balance) || 0) / 100),
     points: Number(user.points) || 0,
-    growth: 0,
+    // 成长值 = 累计消费（元）
+    growth: roundMoney((Number(user.totalSpend) || 0) / 100),
     giftCards: []
   };
 }
@@ -133,6 +145,7 @@ function getDaysInMonth(year, month) {
 
 module.exports = {
   DEFAULT_AVATAR,
+  roundMoney,
   PROFILE_STORAGE_KEY,
   EMPTY_PROFILE,
   formatBirthday,

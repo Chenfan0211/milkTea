@@ -150,6 +150,25 @@ assert.equal(
   '未拉取资料时我的页余额统计必须为 0'
 );
 
+// 余额金额必须保留 2 位小数展示（历史 bug：Math.round 取整，940.20 显示成 940）。
+{
+  const { roundMoney, normalizeRemoteProfile } = require(path.join(root, 'utils/user-profile.js'));
+  assert.equal(roundMoney(940.2), 940.2, 'roundMoney 必须保留分位');
+  assert.equal(roundMoney(940.205), 940.21, 'roundMoney 必须四舍五入到 2 位');
+  // 94020 分 -> 940.2 元（不得被取整为 940）
+  const normalized = normalizeRemoteProfile({ nickName: 'u', balance: 94020 });
+  assert.equal(normalized.balance, 940.2, '余额换算必须保留分位，不得 Math.round 取整');
+  assert.equal(normalized.balance.toFixed(2), '940.20', '余额展示必须补足 2 位小数');
+}
+assert.ok(
+  fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8').includes('{{item.display || item.value}}'),
+  '我的页统计必须优先渲染格式化后的 display（余额 2 位小数）'
+);
+assert.ok(
+  /formatBalance\(value\)\s*\{[\s\S]*?toFixed\(2\)/.test(fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8')),
+  '我的页余额必须用 toFixed(2) 格式化展示'
+);
+
 const wxml = fs.readFileSync(`${pageRoot}.wxml`, 'utf8');
 const profileDataJs = fs.readFileSync(`${pageRoot}.js`, 'utf8');
 assert.ok(

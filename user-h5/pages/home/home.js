@@ -61,8 +61,13 @@ Page(
     },
     selectOrderMode(event) {
       const { mode } = event.currentTarget.dataset;
-      getApp().globalData.orderMode = mode;
-      wx.switchTab({ url: '/pages/menu/menu' });
+      loginGuard.requireLogin(
+        () => {
+          getApp().globalData.orderMode = mode;
+          wx.switchTab({ url: '/pages/menu/menu' });
+        },
+        { reason: '登录后即可点单' }
+      );
     },
     openJoinApply() {
       wx.navigateTo({ url: '/packageRole/role-apply/role-apply' });
@@ -70,11 +75,17 @@ Page(
     handleShortcut(event) {
       const { id, label } = event.currentTarget.dataset;
       if (id === 'stored-value') {
-        wx.navigateTo({ url: '/pages/stored-value/stored-value' });
+        loginGuard.requireLogin(
+          () => { wx.navigateTo({ url: '/pages/stored-value/stored-value' }); },
+          { reason: '登录后即可储值' }
+        );
         return;
       }
       if (id === 'points-mall') {
-        wx.navigateTo({ url: '/pages/points-mall/points-mall' });
+        loginGuard.requireLogin(
+          () => { wx.navigateTo({ url: '/pages/points-mall/points-mall' }); },
+          { reason: '登录后即可兑换时光币好礼' }
+        );
         return;
       }
       this.showUnavailable({ currentTarget: { dataset: { label } } });

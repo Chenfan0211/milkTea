@@ -200,6 +200,25 @@ assert.ok(
   joinCardRule.includes('height: 200rpx') && joinCardRule.includes('margin: 6rpx 20rpx 0'),
   '加入我们卡片必须恢复参考图位置和完整横幅高度'
 );
+
+// 首页跳转类入口必须走 requireLogin（用户要求：按钮不隐藏，但点跳转要授权登录）。
+// 例外：加盟合作入口不拦（获客），但 role-apply 的提交已用 requirePhone 拦截。
+assert.ok(
+  homeJs.includes('selectOrderMode(event)') && /selectOrderMode[\s\S]*?requireLogin/.test(homeJs),
+  '堂食/自提入口必须走 requireLogin'
+);
+assert.ok(
+  /handleShortcut[\s\S]*?stored-value[\s\S]*?requireLogin/.test(homeJs),
+  '储值快捷入口必须走 requireLogin'
+);
+assert.ok(
+  /handleShortcut[\s\S]*?points-mall[\s\S]*?requireLogin/.test(homeJs),
+  '积分商城快捷入口必须走 requireLogin'
+);
+assert.ok(
+  /openJoinApply\(\)\s*\{\s*wx\.navigateTo\(\{ url: '\/packageRole\/role-apply\/role-apply' \}\)/.test(homeJs),
+  '加盟合作入口不得要求登录（提交时由 role-apply 拦截）'
+);
 const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
 const profileWxss = fs.readFileSync(path.join(root, 'pages/profile/profile.wxss'), 'utf8');
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');

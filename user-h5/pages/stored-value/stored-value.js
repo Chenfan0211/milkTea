@@ -1,7 +1,7 @@
 const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { getUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
+const { getUserProfile, refreshUserProfileFromRemote, roundMoney } = require('../../utils/user-profile');
 const {
   MAX_STORED_VALUE_QUANTITY,
   buildStoredValueSummary,
@@ -86,7 +86,7 @@ Page(
       this.updateSummary(quantity);
     },
     syncBalance() {
-      this.setData({ balanceText: String(getUserProfile().balance || 0) });
+      this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
     },
     syncStore() {
       this.setData({ currentStore: getDisplayStore() });
