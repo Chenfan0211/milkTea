@@ -501,10 +501,12 @@ function decorateOrder(order, now) {
   // 状态卡的标题 / 说明：详情页顶部用它渲染，缺失会导致顶部状态区整块空白
   const statusKey = isCanceled
     ? 'canceled'
-    : isPendingPayment
-      ? 'pending_payment'
-      : resolveInternalOrderStatus(order.category, order.orderStatus)
-        || '';
+    : isStoredValueUnpaid
+      ? 'unpaid'
+      : isPendingPayment
+        ? 'pending_payment'
+        : resolveInternalOrderStatus(order.category, order.orderStatus)
+          || '';
   const statusMeta = STATUS_META[statusKey] || { title: '', note: '' };
   // 取消订单的说明按「待支付取消 / 已支付取消」区分，退款提示更准确
   const cancelNote =
@@ -523,12 +525,12 @@ function decorateOrder(order, now) {
     isCanceled,
     cancelType,
     statusText:
-      isPendingPayment
-        ? '待支付'
-        : isCanceled
-          ? '已取消'
-          : order.orderStatus === 'unpaid'
-            ? '未支付'
+      order.orderStatus === 'unpaid'
+        ? '未支付'
+        : isPendingPayment
+          ? '待支付'
+          : isCanceled
+            ? '已取消'
             : order.orderStatus === 'paid'
               ? '已支付'
               : order.status || (ORDER_STATUS_TEXT[order.category] || {})[order.orderStatus] || '',

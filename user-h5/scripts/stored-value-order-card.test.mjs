@@ -32,7 +32,7 @@ assert.equal(unpaid.coverImage, '/assets/images/3x/stored-value-banner.jpg', '�
 assert.equal(unpaid.isPendingPayment, true, '未支付储值订单必须判定为待支付（显示倒计时和按钮）');
 assert.ok(unpaid.countdownText && /^\d{2}:\d{2}$/.test(unpaid.countdownText), '倒计时必须为 mm:ss 格式');
 assert.ok(unpaid.remainingSeconds > 0, '未支付储值订单必须有剩余支付秒数');
-assert.equal(unpaid.statusText, '待支付', '未支付储值订单状态文案应为待支付');
+assert.equal(unpaid.statusText, '未支付', '未支付储值订单状态文案应为未支付（业务约定）');
 
 // 已支付储值订单：不得显示倒计时和取消/支付按钮
 const paid = orders.decorateOrder(
