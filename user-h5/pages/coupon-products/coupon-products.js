@@ -63,7 +63,8 @@ Page(
         .then(list => (Array.isArray(list) ? list : []))
         .catch(() => [])
         .then(list => {
-          const coupon = list.find(item => (item.code || item.id) === options.couponId);
+          // couponId 是券模板数字 id；与 coupon-stores 保持同一匹配口径。
+          const coupon = list.find(item => String(item.id) === String(options.couponId));
           this.setData({
             storeName: store.name || '适用门店',
             products: resolveProducts(coupon, store.id)

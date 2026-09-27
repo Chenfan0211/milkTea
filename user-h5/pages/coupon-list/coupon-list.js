@@ -66,12 +66,12 @@ Page(
       wx.showToast({ title: '兑换优惠券暂未接入', icon: 'none' });
     },
     handleViewStores(event) {
-      const { id } = event.currentTarget.dataset;
-      wx.navigateTo({ url: `/pages/coupon-stores/coupon-stores?couponId=${id}` });
+      const { couponId } = event.currentTarget.dataset;
+      wx.navigateTo({ url: `/pages/coupon-stores/coupon-stores?couponId=${couponId}` });
     },
     handleViewProducts(event) {
-      const { id } = event.currentTarget.dataset;
-      wx.navigateTo({ url: `/pages/coupon-stores/coupon-stores?couponId=${id}&next=products` });
+      const { couponId } = event.currentTarget.dataset;
+      wx.navigateTo({ url: `/pages/coupon-stores/coupon-stores?couponId=${couponId}&next=products` });
     },
     handleHistory() {
       wx.showToast({ title: '历史优惠券暂未接入', icon: 'none' });

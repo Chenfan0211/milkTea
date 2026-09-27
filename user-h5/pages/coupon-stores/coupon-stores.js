@@ -3,12 +3,17 @@ const api = require('../../utils/api');
 const { getFavoriteStoreIds, resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store');
 
 function resolveStores(couponId, activeStores, couponList) {
-  const coupon = (couponList || []).find(item => item.id === couponId);
+  // couponId 传的是券模板数字 id；统一按字符串比较，兼容路由参数为字符串。
+  const coupon = (couponList || []).find(item => String(item.id) === String(couponId));
   const applicableStoreIds = coupon && Array.isArray(coupon.applicableStoreIds) ? coupon.applicableStoreIds : [];
 
   if (!applicableStoreIds.length) return activeStores.map(store => Object.assign({}, store));
 
-  const applicableStores = activeStores.filter(store => applicableStoreIds.indexOf(store.id) !== -1);
+  // 后端 applicableStoreIds 是数字 subjectId，前端门店 id 是业务 code，
+  // 必须按 store.subjectId 过滤，否则限定门店的券会错误地展示全部门店。
+  const applicableStores = activeStores.filter(store =>
+    applicableStoreIds.some(id => String(id) === String(store.subjectId))
+  );
   return (applicableStores.length ? applicableStores : activeStores).map(store => Object.assign({}, store));
 }
 

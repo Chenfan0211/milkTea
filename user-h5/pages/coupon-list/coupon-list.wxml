@@ -76,14 +76,14 @@
                 </view>
               </view>
               <view class="rule-row"><text class="rule-row__label">适用品牌：</text><text class="rule-row__value">{{item.brand}}</text></view>
-              <view class="rule-row rule-row--link" data-id="{{item.id}}" bindtap="handleViewStores" aria-role="button" aria-label="查看适用门店">
+              <view class="rule-row rule-row--link" data-coupon-id="{{item.couponId}}" bindtap="handleViewStores" aria-role="button" aria-label="查看适用门店">
                 <text class="rule-row__label">适用门店：</text>
                 <view class="rule-row__link-wrap">
                   <text class="rule-row__link">{{item.applicableStores}}</text>
                   <image class="rule-row__chevron" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
                 </view>
               </view>
-              <view class="rule-row rule-row--link" data-id="{{item.id}}" bindtap="handleViewProducts" aria-role="button" aria-label="查看适用商品">
+              <view class="rule-row rule-row--link" data-coupon-id="{{item.couponId}}" bindtap="handleViewProducts" aria-role="button" aria-label="查看适用商品">
                 <text class="rule-row__label">门店商品：</text>
                 <view class="rule-row__link-wrap">
                   <text class="rule-row__link">{{item.applicableProducts}}</text>

@@ -135,8 +135,10 @@ function isCouponUsable(coupon, items, store, orderMode, amountBeforeCouponFen) 
   if (!isSceneMatched(coupon.scenes, orderMode)) return false;
   if (couponThresholdFen(coupon) > amountBeforeCouponFen) return false;
 
+  // 券的适用门店是后端数字 subjectId，而前端门店 id 是业务 code，
+  // 因此必须用 store.subjectId 比对，否则限定门店的券会永远匹配不上。
   const storeIds = Array.isArray(coupon.applicableStoreIds) ? coupon.applicableStoreIds : [];
-  if (storeIds.length && !storeIds.some(id => sameId(id, store && store.id))) return false;
+  if (storeIds.length && !storeIds.some(id => sameId(id, store && store.subjectId))) return false;
 
   const productIds = Array.isArray(coupon.applicableProductIds) ? coupon.applicableProductIds : [];
   if (productIds.length) {
