@@ -122,7 +122,7 @@ public final class CrudRegistry {
             // 供后续按规则发放时光币；code 与 action 由字典固定，页面只读（见 CrudService#guardPointsEarningRule）。
             Map.entry("pointsEarningRules", new Resource("pointsEarningRules", "points_earning_rule",
                     List.of("code", "action", "reward", "note", "sort",
-                            "reward_type", "reward_value", "basis_amount", "basis_unit", "daily_limit"),
+                            "reward_type", "reward_value", "basis_amount", "basis_unit", "daily_limit", "enabled"),
                     List.of("code", "action"), "sort asc, id asc")),
             Map.entry("giftCardDenominations", new Resource("giftCardDenominations", "gift_card_denomination",
                     List.of("code", "name", "amount", "status"),

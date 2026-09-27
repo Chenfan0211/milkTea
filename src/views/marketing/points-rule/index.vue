@@ -183,6 +183,13 @@ async function submitRule() {
   window.$message?.success('奖励已保存');
 }
 
+/** 切换启用/停用：只有启用的规则才对小程序端生效并展示。 */
+async function toggleEnabled(row: any) {
+  const next = row.enabled === 1 || row.enabled === true ? 0 : 1;
+  await store.update('pointsEarningRules', row.id, { enabled: next }, '营销中心', 'action');
+  window.$message?.success(next === 1 ? '已启用' : '已停用');
+}
+
 const ruleColumns = [
   {
     title: '行为',
@@ -192,15 +199,35 @@ const ruleColumns = [
   },
   { title: '奖励', key: 'reward', width: 180, render: (row: any) => rewardTextOf(row) },
   { title: '每日上限', key: 'dailyLimit', width: 100, render: (row: any) => (row.dailyLimit == null ? '不限' : `${row.dailyLimit} 次`) },
+  {
+    title: '状态',
+    key: 'enabled',
+    width: 90,
+    render: (row: any) => {
+      const enabled = row.enabled === 1 || row.enabled === true;
+      return h(
+        'span',
+        { class: enabled ? 'rule-status rule-status--on' : 'rule-status rule-status--off' },
+        enabled ? '启用' : '停用'
+      );
+    }
+  },
   { title: '说明', key: 'note', minWidth: 200 },
   {
     title: '操作',
     key: '__actions__',
     width: 90,
-    render: (row: any) =>
-      h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [
-        h('button', { class: 'rule-btn rule-btn--edit', onClick: () => openRuleModal(row) }, '编辑奖励')
-      ])
+    render: (row: any) => {
+      const enabled = row.enabled === 1 || row.enabled === true;
+      return h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [
+        h('button', { class: 'rule-btn rule-btn--edit', onClick: () => openRuleModal(row) }, '编辑奖励'),
+        h(
+          'button',
+          { class: enabled ? 'rule-btn rule-btn--off' : 'rule-btn rule-btn--on', onClick: () => toggleEnabled(row) },
+          enabled ? '停用' : '启用'
+        )
+      ]);
+    }
   }
 ];
 </script>
@@ -241,7 +268,7 @@ const ruleColumns = [
         :data="store.pointsEarningRules"
         :bordered="false"
         :row-key="(row: any) => row.id"
-        :scroll-x="900"
+        :scroll-x="1000"
       />
     </NCard>
 
@@ -313,6 +340,28 @@ const ruleColumns = [
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
+}
+.rule-status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.rule-status--on {
+  background: #e8f5e9;
+  color: #53882c;
+}
+.rule-status--off {
+  background: #f5f5f5;
+  color: #8b8f86;
+}
+.rule-btn--on {
+  background: #e8f5e9;
+  color: #53882c;
+}
+.rule-btn--off {
+  background: #fdecea;
+  color: #e65a5a;
 }
 .rule-btn--edit {
   background: #e8f5e9;

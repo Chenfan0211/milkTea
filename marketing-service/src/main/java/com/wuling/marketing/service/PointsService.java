@@ -113,6 +113,20 @@ public class PointsService {
                 .orderByAsc(PointsEarningRule::getSort).orderByAsc(PointsEarningRule::getId));
     }
 
+    /**
+     * 小程序端展示用的启用规则。
+     *
+     * <p><b>为什么与 {@link #earningRules()} 分开</b>：
+     * 小程序只应看到 enabled=1 的规则；停用规则不生效也不展示。
+     * 而后台管理页需要看到全部规则（含停用），否则无法把停用规则重新启用。
+     * 因此这里按 enabled=1 过滤，避免停用规则泄漏到 App 端。
+     */
+    public List<PointsEarningRule> enabledEarningRules() {
+        return pointsEarningRuleMapper.selectList(new LambdaQueryWrapper<PointsEarningRule>()
+                .eq(PointsEarningRule::getEnabled, 1)
+                .orderByAsc(PointsEarningRule::getSort).orderByAsc(PointsEarningRule::getId));
+    }
+
     public List<PointsRecord> records(Long userId) {
         return pointsRecordMapper.selectList(new LambdaQueryWrapper<PointsRecord>()
                 .eq(PointsRecord::getUserId, userId)

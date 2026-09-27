@@ -196,7 +196,8 @@ public class AppMarketingController {
 
     @GetMapping("/points/rules")
     public Result<List<PointsEarningRule>> pointsRules() {
-        return Result.ok(pointsService.earningRules());
+        // 小程序端只展示启用的规则；停用规则不生效
+        return Result.ok(pointsService.enabledEarningRules());
     }
 
     @GetMapping("/points/records")

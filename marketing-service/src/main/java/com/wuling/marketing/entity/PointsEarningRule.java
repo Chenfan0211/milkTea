@@ -38,6 +38,12 @@ public class PointsEarningRule {
 
     /** 每日上限（次/天）；null 表示不限。 */
     private Integer dailyLimit;
+
+    /**
+     * 启用状态：1=启用，0=停用。
+     * 只有启用的规则才对小程序端生效并展示；停用规则仍保留在后台供重新启用。
+     */
+    private Integer enabled;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
