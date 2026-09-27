@@ -20,6 +20,7 @@ globalThis.wx = {
   hideLoading() {},
   navigateBack() {},
   navigateTo() {},
+  redirectTo() {},
   getStorageSync(key) {
     return storage[key] || '';
   },

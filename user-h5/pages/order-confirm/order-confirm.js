@@ -223,6 +223,9 @@ Page(
       const store =
         catalog.stores.find(item => item.id === pending.storeId) || catalog.currentStore || catalog.stores[0];
       const orderMode = pending.orderMode || app.globalData.orderMode || 'pickup';
+      // 缓存本次结算来源与条目 id，供支付成功后清空购物车（避免 pendingOrder 被后端订单覆盖丢失）
+      this.settledFromCart = pending.fromCart === true;
+      this.settledCartIds = (pending.items || []).map(item => item.id);
       this.applyOrder(pending.items, store, orderMode);
       this.loadCoupons();
     },
@@ -446,9 +449,10 @@ Page(
           const app = getApp();
           wx.hideLoading();
           app.globalData.pendingOrder = order;
+          this.markSettledCart();
           wx.showToast({ title: '下单成功', icon: 'success' });
           setTimeout(() => {
-            wx.navigateTo({ url: '/pages/order-detail/order-detail?orderNo=' + order.orderNo });
+            wx.redirectTo({ url: '/pages/pay-success/pay-success?orderNo=' + order.orderNo });
           }, 800);
         })
         .catch(error => {
@@ -478,15 +482,26 @@ Page(
         .then(paid => {
           wx.hideLoading();
           this.refreshProfileFromServer();
+          this.markSettledCart();
           wx.showToast({ title: '储值支付成功', icon: 'success' });
           setTimeout(() => {
-            wx.navigateTo({ url: '/pages/order-detail/order-detail?orderNo=' + paid.orderNo });
+            wx.redirectTo({ url: '/pages/pay-success/pay-success?orderNo=' + paid.orderNo });
           }, 800);
         })
         .catch(error => {
           wx.hideLoading();
           wx.showToast({ title: (error && error.message) || '支付失败', icon: 'none' });
         });
+    },
+
+    /**
+     * 支付成功后，若本次订单来自购物车结算，则标记需要移除的购物车条目，
+     * 由点单页 onShow 消费。立即购买（fromCart=false）不写标记。
+     */
+    markSettledCart() {
+      const app = getApp();
+      if (!this.settledFromCart) return;
+      app.globalData.settledCartIds = this.settledCartIds || [];
     },
 
     /**
@@ -505,3 +520,4 @@ Page(
     }
   })
 );
+

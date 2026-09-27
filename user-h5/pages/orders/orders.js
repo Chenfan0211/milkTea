@@ -136,7 +136,13 @@ Page(
         success: ({ confirm }) => {
           if (!confirm) return;
           wx.showLoading({ title: '取消中', mask: true });
-          cancelPaidOrderById(id)
+          let task;
+          try {
+            task = cancelPaidOrderById(id);
+          } catch (error) {
+            task = Promise.reject(error);
+          }
+          Promise.resolve(task)
             .then(() => {
               wx.hideLoading();
               this.refreshOrders();

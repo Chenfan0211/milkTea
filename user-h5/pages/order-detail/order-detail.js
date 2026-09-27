@@ -22,7 +22,9 @@ Page(
      * 旧实现会直接提示「订单不存在」并返回，表现为详情页没数据。
      */
     onLoad(options) {
-      const orderId = options && options.id ? options.id : '';
+      const opts = options || {};
+      // 兼容两种入口：列表/详情用主键 id，下单成功后跳转用 orderNo
+      const orderId = opts.id || opts.orderNo || '';
       this.setData({ orderId });
       const local = getOrderById(orderId);
       if (local) this.setData({ order: local });
@@ -93,7 +95,14 @@ Page(
         success: ({ confirm }) => {
           if (!confirm) return;
           wx.showLoading({ title: '取消中', mask: true });
-          cancelPaidOrderById(id)
+          // 同步异常也要兜住，且无论成败都必须关闭 loading（保守兼容，不用 finally）
+          let task;
+          try {
+            task = cancelPaidOrderById(id);
+          } catch (error) {
+            task = Promise.reject(error);
+          }
+          Promise.resolve(task)
             .then(() => {
               wx.hideLoading();
               const order = getOrderById(id);
@@ -160,3 +169,5 @@ Page(
     }
   })
 );
+
+

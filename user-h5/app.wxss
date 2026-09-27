@@ -54,6 +54,9 @@ page {
   --shadow-float: 0 12rpx 30rpx rgba(0, 0, 0, 0.22);
   /* 尺寸 */
   --tabbar-height: 112rpx;
+  /* 购物车浮条高度：与 components/cart-bar/cart-bar.wxss 的 .cart-bar-dock height 一致，
+     点单页底部留白依赖该值，改一处即可同步生效 */
+  --cart-bar-height: 114rpx;
   /* 自定义导航栏高度：与 navigation-bar.js 中「胶囊按钮上下留白 + 按钮高度」的口径一致 */
   --nav-bar-height: 88rpx;
   --page-gutter: 20rpx;

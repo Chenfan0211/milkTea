@@ -31,7 +31,8 @@
     "pages/store-map/store-map",
     "pages/member-rights/member-rights",
     "pages/member-level-rules/member-level-rules",
-    "pages/share-referral/share-referral"
+    "pages/share-referral/share-referral",
+    "pages/pay-success/pay-success"
   ],
   "subpackages": [
     {
@@ -68,7 +69,6 @@
   "requiredPrivateInfos": [
     "getLocation"
   ],
-
   "window": {
     "navigationBarTextStyle": "black",
     "navigationStyle": "custom",

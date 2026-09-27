@@ -1848,6 +1848,35 @@ assert.ok(
   '规格弹层必须支持编辑模式初始化和状态回填'
 );
 assert.ok(/\.spec-sheet__panel\s*\{[\s\S]*?height:\s*88vh/.test(specSheetWxss), '规格弹层必须使用约 88vh 高度');
+/*
+ * 历史 bug：.spec-sheet__scroll 曾写死 height: calc(88vh - 200rpx - safe) 去「猜」
+ * 底部操作栏高度，而 .spec-sheet__action 是 flex:none 由内容撑开，两者口径从未对齐，
+ * 差值全部变成底部空白 —— edit 模式没有商品大图、内容短，空白尤其明显。
+ * 现在滚动区必须用 flex:1 吃掉剩余高度，禁止再写死高度去猜操作栏。
+ */
+const specScrollRule = specSheetWxss.match(/\.spec-sheet__scroll\s*\{([\s\S]*?)\}/)?.[1] || '';
+assert.ok(
+  /flex:\s*1/.test(specScrollRule) && /min-height:\s*0/.test(specScrollRule),
+  '规格弹层滚动区必须用 flex:1 + min-height:0 自适应剩余高度'
+);
+assert.ok(
+  !/height:\s*calc\(88vh/.test(specScrollRule),
+  '规格弹层滚动区不得写死高度猜测底部操作栏高度，否则底部会残留空白'
+);
+assert.ok(
+  !/--spec-action-height|200rpx/.test(specScrollRule),
+  '规格弹层滚动区不得依赖写死的操作栏高度常量'
+);
+/*
+ * 历史 bug（第二层）：scroll-view 用 flex:1 拿走剩余高度后，内部 .spec-sheet__content
+ * 仍是 height:auto，内容短（edit 模式无商品大图）时撑不满，底部残留大片空白。
+ * 内容区必须 min-height:100%，取「内容自然高度」与「滚动区可视高度」的较大值。
+ */
+const specContentRule = specSheetWxss.match(/\.spec-sheet__content\s*\{([\s\S]*?)\}/)?.[1] || '';
+assert.ok(
+  /min-height:\s*100%/.test(specContentRule),
+  '规格弹层内容区必须 min-height:100% 撑满滚动区，避免 edit 模式底部空白'
+);
 assert.ok(
   /var\(--brand-green\)/.test(specSheetWxss) && !/#53882C/.test(specSheetWxss),
   '规格弹层必须使用设计系统颜色 token'

@@ -45,7 +45,23 @@ function mergeEditedCartItem(items, editedId, payload) {
   return mergedItems;
 }
 
+/**
+ * 从购物车中移除本次已结算的条目（按条目 id 匹配，保留其余商品）。
+ *
+ * @param {Array} cartItems 购物车条目
+ * @param {Array<string|number>} settledIds 本次已结算的条目 id 列表
+ * @returns {Array} 移除后新的购物车条目（浅拷贝，不修改原数组）
+ */
+function removeCartItems(cartItems, settledIds) {
+  const items = Array.isArray(cartItems) ? cartItems : [];
+  const ids = new Set((settledIds || []).map(String));
+  if (!ids.size) return items.map(item => Object.assign({}, item));
+  return items.filter(item => !ids.has(String(item.id))).map(item => Object.assign({}, item));
+}
+
 module.exports = {
   buildCartId,
-  mergeEditedCartItem
+  mergeEditedCartItem,
+  removeCartItems
 };
+

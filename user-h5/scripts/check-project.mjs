@@ -38,7 +38,8 @@ const expectedPages = [
   'pages/store-map/store-map',
   'pages/member-rights/member-rights',
   'pages/member-level-rules/member-level-rules',
-  'pages/share-referral/share-referral'
+  'pages/share-referral/share-referral',
+  'pages/pay-success/pay-success'
 ];
 const SUBPACKAGE_ROOT = 'packageRole';
 const expectedSubPageNames = [
@@ -447,4 +448,5 @@ if (errors.length) {
 console.log(
   `项目结构校验通过: ${expectedPages.length + expectedSubPages.length} 个页面、${tabBarPages.length} 个 Tab，Lucide 图标与本地资源完整。`
 );
+
 

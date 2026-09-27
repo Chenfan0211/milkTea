@@ -91,8 +91,16 @@ function createOrder(payload) {
 }
 
 /** 我的订单（分页）：后端返回 PageResult { records, current, size, total } */
-function fetchOrders(page = 1, size = 20) {
-  return request({ url: '/api/v1/app/orders', method: 'GET', data: { page, size } }).then(unwrap);
+/**
+ * 我的订单（分页）：后端返回 PageResult { records, current, size, total }。
+ * 支持可选的 startTime / endTime 下单时间范围（yyyy-MM-dd HH:mm:ss），
+ * 供「今日订单 / 历史订单」页签按自然日口径过滤，避免跨午夜误判。
+ */
+function fetchOrders(page = 1, size = 20, options = {}) {
+  const data = { page, size };
+  if (options.startTime) data.startTime = options.startTime;
+  if (options.endTime) data.endTime = options.endTime;
+  return request({ url: '/api/v1/app/orders', method: 'GET', data }).then(unwrap);
 }
 
 /** 订单详情 */
@@ -667,3 +675,4 @@ module.exports = {
   fetchReverseGeocode,
   fetchStoreDistances
 };
+

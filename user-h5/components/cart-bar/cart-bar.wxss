@@ -4,7 +4,9 @@
   bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
   left: 0;
   z-index: 1200;
-  height: 114rpx;
+  /* 高度口径与 app.wxss 的 --cart-bar-height 保持一致，
+     点单页 product-scroll.has-cart 的底部留白依赖该值 */
+  height: var(--cart-bar-height);
   background: var(--card-bg);
 }
 

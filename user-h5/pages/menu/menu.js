@@ -8,7 +8,7 @@ const {
   getMenuCatalog,
   getMenuSyncState
 } = require('../../utils/product-listing');
-const { buildCartId, mergeEditedCartItem } = require('../../utils/cart');
+const { buildCartId, mergeEditedCartItem, removeCartItems } = require('../../utils/cart');
 const { buildStoreMarkers } = require('../../utils/store-markers');
 const { normalizeSpecProduct } = require('../../utils/spec-sheet');
 const { refreshMemberLevelsFromRemote } = require('../../utils/member-level');
@@ -278,6 +278,7 @@ Page(
       this.setTabBarHidden(false);
       // 清掉一次性来源标记：门店层开合已由 catalog 状态决定，不再依赖它分支
       this.returningFrom = '';
+      this.consumeSettledCart();
       this.refreshThenSync().then(() => this.notifyMenuLoadFailure());
     },
     /** 点击当前 Tab（已在点单页）时同样走统一入口，保证每次点进来都刷新。 */
@@ -666,7 +667,8 @@ Page(
           }
         ],
         storeId: this.data.currentStore.id,
-        orderMode: this.data.orderMode
+        orderMode: this.data.orderMode,
+        fromCart: false
       };
       wx.navigateTo({ url: '/pages/order-confirm/order-confirm' });
     },
@@ -732,6 +734,25 @@ Page(
     handleCartInfo() {
       wx.showToast({ title: '优惠说明暂未接入', icon: 'none' });
     },
+    /**
+     * 消费下单成功留下的结算标记：只移除本次已结算的购物车条目，
+     * 未选中商品与「立即购买」路径不受影响。标记为一次性，消费后即清空。
+     */
+    consumeSettledCart() {
+      const app = getApp();
+      const settledIds = app.globalData.settledCartIds;
+      if (!settledIds || !settledIds.length) return;
+      app.globalData.settledCartIds = null;
+      const cartItems = removeCartItems(this.data.cartItems, settledIds);
+      const summary = summarizeCart(cartItems);
+      this.setData({
+        cartItems,
+        cartCount: summary.count,
+        cartTotal: summary.total,
+        cartVisible: cartItems.length > 0,
+        hasUnlistedInCart: cartItems.some(item => item.selected && item.listed === false)
+      });
+    },
     handleCheckout() {
       const selectedItems = this.data.cartItems.filter(item => item.selected);
       if (!summarizeCart(this.data.cartItems).count) {
@@ -746,7 +767,8 @@ Page(
       getApp().globalData.pendingOrder = {
         items: selectedItems,
         storeId: this.data.currentStore.id,
-        orderMode: this.data.orderMode
+        orderMode: this.data.orderMode,
+        fromCart: true
       };
       wx.navigateTo({ url: '/pages/order-confirm/order-confirm' });
     },
@@ -773,3 +795,7 @@ Page(
     }
   })
 );
+
+
+
+

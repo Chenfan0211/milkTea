@@ -175,7 +175,11 @@ assert.ok(
   wxml.includes('chevron-right-brand.svg') && wxml.includes('rotate-ccw-white.svg'),
   '个人资料页图标必须使用 Lucide 矢量图'
 );
-assert.ok(!wxml.includes('<button'), '个人资料页不得使用原生 button');
+// 平台限制例外：getPhoneNumber 授权必须由原生 <button> 承载（同 login-sheet / auth-login），
+// 因此仅允许唯一一个用于手机号授权的原生 button，其余交互仍必须用 view + bindtap。
+const nativeButtonCount = (wxml.match(/<button/g) || []).length;
+assert.equal(nativeButtonCount, 1, '个人资料页仅允许 1 个原生 button（手机号授权），其余交互不得使用');
+assert.ok(wxml.includes('open-type="getPhoneNumber"'), '个人资料页唯一原生 button 必须用于手机号授权');
 assert.ok(
   wxss.includes('var(--brand-green)') &&
     wxss.includes('var(--line-color)') &&

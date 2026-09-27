@@ -69,6 +69,9 @@ public class StoredValueService {
     /** 支付状态：已取消（用户主动取消未支付订单） */
     public static final String PAY_CANCELED = "CANCELED";
 
+    /** 储值订单支付时限（分钟）：与小程序端 orders.js PAYMENT_WINDOW_MINUTES 保持一致。 */
+    public static final long PAYMENT_WINDOW_MINUTES = 15;
+
     private final StoredValuePackageMapper packageMapper;
     private final StoredValuePackageCouponMapper packageCouponMapper;
     private final StoredValueOrderMapper orderMapper;
@@ -494,6 +497,45 @@ public class StoredValueService {
                 .map(StoredValueService::withDerivedStatus)
                 .toList();
         return PageResult.of(records, page.getCurrent(), page.getSize(), page.getTotal());
+    }
+
+    /**
+     * 超时未支付储值订单批量关单（P0 兜底扫描，供定时任务调用）。
+     *
+     * <p>只关闭「pay_status = UNPAID 且创建时间超过 15 分钟」的订单；
+     * 已支付 / 已取消订单一律不动。以 pay_status = UNPAID 为条件做原子更新，
+     * 并发安全，与 {@link #cancelOrder} 的语义一致。
+     *
+     * @param limit 单批最大处理条数
+     * @return 本次实际关闭的订单数
+     */
+    public int closeExpiredUnpaid(int limit) {
+        LocalDateTime deadline = LocalDateTime.now().minusMinutes(PAYMENT_WINDOW_MINUTES);
+        List<StoredValueOrder> expired = orderMapper.selectList(
+                new LambdaQueryWrapper<StoredValueOrder>()
+                        .eq(StoredValueOrder::getPayStatus, PAY_UNPAID)
+                        .lt(StoredValueOrder::getCreateTime, deadline)
+                        .last("limit " + Math.max(1, limit)));
+        if (expired.isEmpty()) {
+            return 0;
+        }
+        int closed = 0;
+        for (StoredValueOrder order : expired) {
+            StoredValueOrder patch = new StoredValueOrder();
+            patch.setId(order.getId());
+            patch.setPayStatus(PAY_CANCELED);
+            int affected = orderMapper.update(patch,
+                    new LambdaQueryWrapper<StoredValueOrder>()
+                            .eq(StoredValueOrder::getId, order.getId())
+                            .eq(StoredValueOrder::getPayStatus, PAY_UNPAID));
+            if (affected > 0) {
+                closed++;
+            }
+        }
+        if (closed > 0) {
+            log.warn("储值订单超时关单 sweep closed={} deadline={}", closed, deadline);
+        }
+        return closed;
     }
 
     /** 单个订单视图（供小程序支付后主动查单） */

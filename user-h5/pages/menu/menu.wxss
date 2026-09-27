@@ -256,11 +256,12 @@
 
 /*
  * 购物车栏可见时，底部还有 cart-bar 叠在 TabBar 之上，
- * 需要把留白追加到「TabBar + 购物车栏」的高度，避免两个浮层同时遮挡。
- * 280rpx 为已登记豁免值（与 cart-bar 组件高度口径一致）。
+ * 需要把留白追加到「TabBar + 购物车栏 + 视觉留白」的高度，避免两个浮层同时遮挡。
+ * 口径 = --cart-bar-height(114) + 32rpx 留白，与 cart-bar 组件实际高度一致，
+ * 不再使用写死的近似值（历史 bug：曾写 280rpx，比真实浮层高约 166rpx，导致列表底部出现大片空白）。
  */
 .product-scroll.has-cart {
-  padding-bottom: calc(280rpx + var(--tabbar-height) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--cart-bar-height) + 32rpx + var(--tabbar-height) + env(safe-area-inset-bottom));
 }
 
 .product-scroll__inner {

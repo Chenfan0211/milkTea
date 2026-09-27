@@ -25,6 +25,11 @@
   background: rgba(0, 0, 0, 0.46);
 }
 
+/*
+ * 底部登录面板：贴屏幕底 + 只做上圆角（避免脱离底边后四角圆角呈「椭圆胶囊」观感）。
+ * 底部内边距含 --tabbar-height：自定义 TabBar 是框架独立渲染层，其层叠不受页面 z-index 控制，
+ * 必须靠留白把它让开，否则最下方的协议区会被 TabBar 盖住。
+ */
 .login-sheet__panel {
   position: absolute;
   right: 0;
@@ -32,10 +37,20 @@
   left: 0;
   display: flex;
   flex-direction: column;
-  padding: 40rpx 24rpx calc(32rpx + env(safe-area-inset-bottom));
+  padding: 40rpx 32rpx calc(var(--tabbar-height) + 32rpx + env(safe-area-inset-bottom));
   background: var(--card-bg);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: var(--shadow-card);
+  /* 88rpx 为面板顶部与屏幕顶部之间的最小呼吸留白，保证面板不顶满整屏 */
+  max-height: calc(100vh - 88rpx - env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+/* 内容滚动容器：面板限高后，内容超出时内部滚动，保证协议区始终可见 */
+.login-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* 品牌区：绿色圆形 logo + 标题 + 副标题 */
@@ -48,8 +63,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 96rpx;
-  height: 96rpx;
+  width: 88rpx;
+  height: 88rpx;
   background: var(--brand-green);
   border-radius: var(--radius-pill);
 }
@@ -82,19 +97,31 @@
   margin-top: 40rpx;
 }
 
+/*
+ * 原生 <button> 在微信用「内置样式」参与布局，其固有宽度会抵抗 width:100%，
+ * 导致主按钮比跳过按钮（普通 view）窄。这里改用容器 flex + 按钮 flex:1 撑满，
+ * 与 pages/auth-login 原生授权按钮的可用写法保持一致。
+ */
+.login-sheet__primary-wrap {
+  display: flex;
+  width: 100%;
+}
+
 /* 主按钮：实心绿胶囊 */
 .login-sheet__primary {
   display: flex;
+  flex: 1;
+  box-sizing: border-box;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 80rpx;
+  min-width: 0;
+  height: 88rpx;
   margin: 0;
   padding: 0;
   color: var(--card-bg);
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   font-weight: 600;
-  line-height: 80rpx;
+  line-height: 1;
   background: var(--brand-green);
   border: none;
   border-radius: var(--radius-pill);
@@ -106,7 +133,7 @@
 
 .login-sheet__primary-text {
   color: var(--card-bg);
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   font-weight: 600;
 }
 
@@ -116,10 +143,10 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 80rpx;
+  height: 88rpx;
   margin-top: 20rpx;
   color: var(--brand-green);
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   font-weight: 600;
   background: var(--card-bg);
   border: 2rpx solid var(--brand-green);
@@ -130,7 +157,7 @@
 .login-sheet__consent {
   display: flex;
   align-items: flex-start;
-  margin-top: 40rpx;
+  margin-top: 32rpx;
 }
 
 .login-sheet__box {

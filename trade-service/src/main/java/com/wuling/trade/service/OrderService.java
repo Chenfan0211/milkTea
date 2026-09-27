@@ -301,12 +301,20 @@ public class OrderService {
      * 我的订单（分页）：在数据库层按 userId 过滤。
      * 原实现是「取全表前 N 条再内存过滤」，会导致分页结果失真（前 N 条都属于他人时自己看不到订单）。
      */
-    public PageResult<OrderDTO> pageOrdersByUser(Long userId, long current, long size) {
-        Page<Order> page = orderMapper.selectPage(
-                new Page<>(current, size),
-                new LambdaQueryWrapper<Order>()
-                        .eq(Order::getUserId, userId)
-                        .orderByDesc(Order::getId));
+    public PageResult<OrderDTO> pageOrdersByUser(Long userId, long current, long size,
+                                                 String startTime, String endTime) {
+        LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .orderByDesc(Order::getId);
+        // 下单时间范围过滤（前端传 yyyy-MM-dd HH:mm:ss；endTime 用 < 保证左闭右开）。
+        // 小程序「今日订单 / 历史订单」页签据此按自然日口径分页，避免跨午夜误判。
+        if (StringUtils.hasText(startTime)) {
+            query.ge(Order::getCreateTime, startTime);
+        }
+        if (StringUtils.hasText(endTime)) {
+            query.lt(Order::getCreateTime, endTime);
+        }
+        Page<Order> page = orderMapper.selectPage(new Page<>(current, size), query);
         List<OrderDTO> records = page.getRecords().stream()
                 .map(o -> toDTO(o, loadItems(o.getId())))
                 .toList();
@@ -674,3 +682,4 @@ public class OrderService {
         return time == null ? null : time.format(FMT);
     }
 }
+

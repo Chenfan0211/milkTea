@@ -1,0 +1,38 @@
+<view class="pay-success-page">
+  <navigation-bar title="支付结果" back="{{false}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="pay-success-scroll" scroll-y>
+    <view class="pay-success__inner">
+      <view class="result-card">
+        <image class="result-card__icon" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
+        <text class="result-card__title">支付成功</text>
+        <text class="result-card__note">订单已提交，请留意取餐提醒</text>
+
+        <view class="result-card__info">
+          <view class="info-row">
+            <text class="info-row__label">订单编号</text>
+            <view class="info-row__value-wrap" bindtap="copyOrderNo" aria-role="button" aria-label="复制订单编号">
+              <text class="info-row__value">{{orderNo}}</text>
+              <image class="info-row__copy" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+            </view>
+          </view>
+          <view class="info-row">
+            <text class="info-row__label">支付金额</text>
+            <text class="info-row__amount">¥{{amountText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="result-actions">
+        <view class="result-action result-action--primary" bindtap="viewOrders" aria-role="button" aria-label="查看订单">
+          <text>查看订单</text>
+        </view>
+        <view class="result-action result-action--secondary" bindtap="backHome" aria-role="button" aria-label="返回首页">
+          <text>返回首页</text>
+        </view>
+      </view>
+
+      <view class="pay-success__safe"></view>
+    </view>
+  </scroll-view>
+</view>

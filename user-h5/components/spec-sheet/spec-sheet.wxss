@@ -53,8 +53,13 @@
   height: 34rpx;
 }
 
+/* 滚动区吃掉 panel 内除底部操作栏外的全部剩余高度。
+   不再写死「88vh - 200rpx」去猜操作栏高度：action 是 flex:none 由内容撑开，
+   两者口径一旦不一致，底部就会残留空白（edit 模式内容短时尤其明显）。
+   min-height:0 是 flex 滚动容器的必要项，否则内容会撑破父级而不产生滚动。 */
 .spec-sheet__scroll {
-  height: calc(88vh - 200rpx - env(safe-area-inset-bottom));
+  flex: 1;
+  min-height: 0;
 }
 
 .spec-sheet__hero {
@@ -88,7 +93,12 @@
   line-height: 28rpx;
 }
 
+/* 让内容区至少撑满滚动容器：scroll-view 是 flex:1 拿走剩余高度，但内部内容
+   height:auto 不会自动填满，内容短（edit 模式无商品大图）时底部就会残留空白。
+   min-height:100% 取「内容自然高度」与「滚动区可视高度」的较大值：
+   内容短 → 撑满无空白；内容长 → 正常滚动，行为不变。 */
 .spec-sheet__content {
+  min-height: 100%;
   padding: 0 var(--page-gutter) 40rpx;
 }
 
@@ -99,17 +109,21 @@
 
 .spec-sheet__name {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-main);
   font-size: var(--font-xl);
   font-weight: 600;
   line-height: 54rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spec-sheet__name--edit {
+  flex: none;
+  width: 100%;
   padding-right: 152rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .spec-sheet__title-row {

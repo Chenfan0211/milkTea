@@ -185,6 +185,18 @@ Page(
     /** 打开授权弹层（供 login-guard 调用） */
 
 
+    /**
+     * 用户卡片点击分流：
+     *   · 未登录 → 弹登录层（个人资料需登录态才能取数，直接跳会空白）
+     *   · 已登录 → 跳个人资料页
+     */
+    handleUserCardTap() {
+      if (this.data.authStateLevel === 'anonymous') {
+        this.openLogin();
+        return;
+      }
+      this.openProfileData();
+    },
     /** 未登录时的登录入口：页内唤起登录弹层（不跳独立授权页） */
     openLogin() {
       this.setData({ loginSheetVisible: true });
@@ -215,6 +227,11 @@ Page(
     /** 绑定手机号入口 */
     handleBindPhone() {
       loginGuard.requirePhone(null, { reason: '绑定手机号后可下单与领取优惠券' });
+    },
+
+    /** 点击卡片手机号：走手机号授权（更换/绑定），复用 handleBindPhone 的 requirePhone 链路 */
+    handlePhoneTap() {
+      this.handleBindPhone();
     },
     /** 静默登录失败后，用户点击提示条重试 */
     handleRetryLogin() {

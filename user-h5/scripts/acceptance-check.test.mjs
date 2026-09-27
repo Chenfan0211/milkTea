@@ -202,6 +202,7 @@ assert.ok(
 );
 const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
 const profileWxss = fs.readFileSync(path.join(root, 'pages/profile/profile.wxss'), 'utf8');
+const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
 const profileHeroRule = profileWxss.match(/\.profile-hero\s*\{([\s\S]*?)\}/)?.[1] || '';
 const profileScrollRule = profileWxss.match(/\.profile-scroll\s*\{([\s\S]*?)\}/)?.[1] || '';
 const profileContentRule = profileWxss.match(/\.profile-content\s*\{([\s\S]*?)\}/)?.[1] || '';
@@ -227,6 +228,32 @@ assert.ok(
   '我的页不得锁住原生纵向滚动'
 );
 
+
+// 用户卡片点击分流：头像/昵称 → 个人资料（未登录仍弹登录层）；成长值进度条 → 会员权益。
+assert.ok(
+  profileWxml.includes('bindtap="handleUserCardTap"'),
+  '我的页用户卡片必须绑定 handleUserCardTap（跳个人资料，未登录则弹登录层）'
+);
+assert.ok(
+  !/user-card__identity"\s+bindtap="openLogin"/.test(profileWxml) &&
+    !/user-card__avatar"[^>]*bindtap="openLogin"/.test(profileWxml),
+  '我的页用户卡片不得直接绑定 openLogin，必须经 handleUserCardTap 分流'
+);
+assert.ok(
+  profileWxml.includes('class="progress" bindtap="openMemberRights"'),
+  '我的页成长值进度条必须跳转会员权益'
+);
+// 手机号必须独立点击（catchtap 阻止冒泡），点它才走手机号授权，不触发整卡跳转。
+assert.ok(
+  profileWxml.includes('class="user-card__phone-row" catchtap="handlePhoneTap"'),
+  '我的页手机号必须是独立点击区（catchtap 阻止冒泡到卡片）'
+);
+assert.ok(
+  profileJs.includes('handleUserCardTap()') &&
+    profileJs.includes('handlePhoneTap()') &&
+    profileJs.includes('/pages/member-rights/member-rights'),
+  '我的页必须实现卡片分流、手机号授权与会员权益跳转'
+);
 const homeScrollTag = (homeWxml.match(/<scroll-view[^>]*>/) || [''])[0];
 const profileScrollTag = (profileWxml.match(/<scroll-view[^>]*>/) || [''])[0];
 const scrollSignature = tag =>

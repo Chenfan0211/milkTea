@@ -138,6 +138,7 @@
   white-space: nowrap;
 }
 
+/* 原生 <button> 承载 getPhoneNumber，需清掉框架默认背景/边框/行高 */
 .profile-form__outline-button {
   display: flex;
   flex: none;
@@ -145,11 +146,19 @@
   justify-content: center;
   width: 120rpx;
   height: 64rpx;
-  margin-left: 16rpx;
+  margin: 0 0 0 16rpx;
+  padding: 0;
   color: var(--brand-green);
   font-size: var(--font-base);
+  font-weight: 400;
+  line-height: 1;
+  background: transparent;
   border: 2rpx solid var(--brand-green);
   border-radius: var(--radius-sm);
+}
+
+.profile-form__outline-button::after {
+  border: none;
 }
 
 .profile-form__copy {

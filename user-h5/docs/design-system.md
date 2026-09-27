@@ -262,6 +262,10 @@ onShow() {
 - 主按钮：`var(--brand-green)` 底 + `#FFFFFF` 字 + `var(--radius-pill)`，高度 `80rpx`（大）或 `48rpx`（小）。
 - 次按钮：`var(--card-bg)` 底 + `1rpx` `var(--line-color)` 描边 + `var(--text-main)` 字。
 - 统一用 `<view>` + `bindtap` 实现，禁止使用原生 `<button>`：其默认样式与 `::after` 边框会污染设计。
+- **唯一例外**：`open-type="getPhoneNumber"` 的手机号授权必须由原生 `<button>` 承载（平台限制）。
+  此类按钮必须：清掉默认样式（`margin/padding/line-height/background`）+ 重置 `::after` 边框，
+  且同一页面/组件内只允许存在用于该授权的原生 button。现有实现见 `components/login-sheet`、
+  `pages/auth-login`、`pages/profile-data` 的「更换手机号」。
 
 ### 状态标签与角标
 

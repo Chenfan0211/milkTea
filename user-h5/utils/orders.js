@@ -138,7 +138,7 @@ function buildMealInfo(order) {
 const INTERNAL_ORDER_STATUS = {
   store: ['pending_payment', 'pending_verify', 'completed', 'canceled'],
   'gift-card': ['pending_payment', 'pending_verify', 'completed', 'canceled'],
-  'stored-value': ['unpaid', 'paid']
+  'stored-value': ['unpaid', 'paid', 'canceled']
 };
 
 function resolveInternalOrderStatus(category, value) {
@@ -178,6 +178,9 @@ function resolveOrderStatus(raw, category, payStatus) {
   const value = normalizeOrderStatusValue(raw);
 
   if (categoryKey === 'stored-value') {
+    // 先识别取消态，再按支付状态二分（历史 bug：CANCELED 被 isPaidStatus=false 误判为 unpaid）
+    // CANCELED 可能在 rawStatus(value) 或 payStatus 里，两者都要识别
+    if (value === 'CANCELED' || value === '已取消' || normalizeOrderStatusValue(payStatus) === 'CANCELED') return 'canceled';
     return isPaidStatus(payStatus || value) ? 'paid' : 'unpaid';
   }
 
@@ -723,11 +726,16 @@ function cancelOrderById(id) {
  */
 function cancelPaidOrderById(id) {
   const order = getOrderById(id);
-  if (!order || order.orderStatus !== 'pending_verify' || order.category !== 'store') {
-    return Promise.resolve(getOrderById(id));
+  if (!order) {
+    return Promise.reject(new Error('订单不存在，无法取消'));
+  }
+  if (order.orderStatus !== 'pending_verify' || order.category !== 'store') {
+    return Promise.reject(new Error('该订单当前状态不可取消'));
   }
   const orderNo = resolveOrderNo(order, id);
-  if (!orderNo) return Promise.resolve(getOrderById(id));
+  if (!orderNo) {
+    return Promise.reject(new Error('订单号缺失，无法取消'));
+  }
   return api
     .cancelOrder(orderNo)
     .then(() => refreshOrdersFromRemote({ page: 1, size: ORDER_PAGE_SIZE }))
@@ -776,6 +784,7 @@ module.exports = {
   normalizeOrderShape,
   addGiftCardOrder,
   cancelOrderById,
+  cancelPaidOrderById,
   decorateOrder,
   filterOrders,
   formatCountdown,

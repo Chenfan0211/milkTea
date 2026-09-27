@@ -286,6 +286,30 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
     /bottom:\s*calc\(var\(--tabbar-height\)/.test(cartBarWxss),
     'cart-bar 必须固定在 TabBar 之上，底部留白口径需与之一致'
   );
+
+  /*
+   * 历史 bug：has-cart 留白曾写死 280rpx，而真实浮层只有
+   * cart-bar(114) + TabBar(112) = 226rpx，多出的约 166rpx 表现为
+   * 商品列表底部一大片空白（最后一个分类标题与 cart-bar 之间）。
+   * 现在口径收敛到唯一来源 --cart-bar-height，因此这里校验「变量存在且被两侧引用」，
+   * 高度值不再各自写死，避免再次发散。
+   */
+  const cartBarHeightVar = Number((appWxss.match(/--cart-bar-height:\s*(\d+)rpx/) || [])[1]);
+  assert.ok(cartBarHeightVar > 0, '必须能在 app.wxss 定义 --cart-bar-height 作为唯一高度来源');
+  const cartBarDockRule = cartBarWxss.match(/\.cart-bar-dock\s*\{([\s\S]*?)\}/)?.[1] || '';
+  assert.ok(
+    /height:\s*var\(--cart-bar-height\)/.test(cartBarDockRule),
+    'cart-bar 浮条高度必须引用 --cart-bar-height，不得与留白口径各写一份'
+  );
+  assert.ok(
+    /var\(--cart-bar-height\)/.test(cartScrollRule),
+    '有购物车时底部留白必须引用 --cart-bar-height，不得写死近似值导致底部大片空白'
+  );
+  const hasCartPadding = (cartScrollRule.match(/padding-bottom:\s*calc\(([^)]*)\)/) || [])[1] || '';
+  assert.ok(
+    !/\d{3,}rpx/.test(hasCartPadding),
+    `has-cart 留白不得写死三位数像素值（当前：${hasCartPadding.trim()}），必须来自高度变量`
+  );
 }
 
 // ---------- 9. storePickerVisible 必须双向显式赋值 ----------
@@ -536,15 +560,17 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
   );
 
   assert.ok(giftOrdersJs.includes('fetchGiftCardOrders'), '礼品卡页必须加载购买订单');
-  assert.ok(giftOrdersJs.includes('fetchMyGiftCards'), '礼品卡页必须加载 ACTIVE 持有卡');
-  assert.ok(giftOrdersJs.includes("status === 'ACTIVE'"), '礼品卡页只能展示未核销的 ACTIVE 持有卡');
-  assert.ok(giftOrdersJs.includes('filteredGiftCards'), '礼品卡页必须提供持有卡过滤结果');
-  assert.ok(giftOrdersJs.includes('filterGiftCards'), '礼品卡页必须支持按卡名和卡号搜索持有卡');
+  assert.ok(giftOrdersJs.includes('fetchMyGiftCards'), '礼品卡页必须加载持有卡（仅用于合并卡号）');
+  assert.ok(giftOrdersJs.includes('mergeCardNoIntoOrders'), '礼品卡页必须按订单主键合并卡号，避免重复渲染');
+  assert.ok(!giftOrdersJs.includes('filteredGiftCards'), '礼品卡页不得再维护独立的持有卡过滤结果');
+  assert.ok(!giftOrdersJs.includes('filterGiftCards'), '礼品卡页不得再保留独立的持有卡搜索函数');
   assert.ok(giftOrdersJs.includes('loadError'), '礼品卡页必须记录接口失败状态');
   assert.ok(giftOrdersJs.includes('retryLoad'), '礼品卡页必须提供失败重试方法');
-  assert.ok(giftOrdersWxml.includes('我的礼品卡'), '礼品卡页必须新增持有卡分区');
+  assert.ok(!giftOrdersWxml.includes('我的礼品卡'), '礼品卡页不得再展示「我的礼品卡」独立分区（去重）');
+  assert.ok(giftOrdersWxml.includes('卡号 {{item.cardNo}}'), '订单卡必须展示合并后的卡号');
   assert.ok(giftOrdersWxml.includes('bindtap="retryLoad"'), '礼品卡页失败态必须绑定重试入口');
   assert.ok(!/名称或订单号/.test(giftOrdersWxml), '搜索占位文案必须同时提示卡名、卡号和订单号');
 }
 
 console.log('点单页空菜单健壮性、分类标签、onShow 统一刷新、底部留白、分类栏几何、隐藏入口、下单安全口径、clientAmount 单位、确认页金额口径与资产字段合并回写回归测试通过');
+

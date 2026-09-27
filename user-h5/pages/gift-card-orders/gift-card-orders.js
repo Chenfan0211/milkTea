@@ -31,25 +31,10 @@ function filterGiftCardOrders(orders, keyword, statusId) {
     if (!normalized) return true;
     const title = String(order.title || '').toLowerCase();
     const orderNo = String(order.orderNo || '').toLowerCase();
-    return title.indexOf(normalized) !== -1 || orderNo.indexOf(normalized) !== -1;
-  });
-}
-
-function matchGiftCardStatus(statusId) {
-  return statusId === 'all' || statusId === 'pending_verify';
-}
-
-function filterGiftCards(cards, keyword, statusId) {
-  if (!matchGiftCardStatus(statusId)) return [];
-  const normalized = String(keyword || '').trim().toLowerCase();
-  return cards.filter(card => {
-    if (!normalized) return true;
-    const title = String(card.title || '').toLowerCase();
-    const cardNo = String(card.cardNo || '').toLowerCase();
-    const orderNo = String(card.orderNo || '').toLowerCase();
+    const cardNo = String(order.cardNo || '').toLowerCase();
     return title.indexOf(normalized) !== -1
-      || cardNo.indexOf(normalized) !== -1
-      || orderNo.indexOf(normalized) !== -1;
+      || orderNo.indexOf(normalized) !== -1
+      || cardNo.indexOf(normalized) !== -1;
   });
 }
 
@@ -125,21 +110,20 @@ function decorate(order) {
   });
 }
 
-function decorateGiftCard(card) {
-  const display = resolveGiftCardDisplay(card);
-  const amount = Number(card.amount) || Number(card.salePrice) || 0;
-  return Object.assign({}, card, {
-    id: card.id,
-    cardNo: card.cardNo || '',
-    cardNoText: card.cardNo || card.orderNo || '卡号待同步',
-    title: display.name,
-    coverImage: display.image,
-    amountText: (amount / 100).toFixed(2),
-    statusText: '待核销',
-    orderNo: card.orderNo || ''
+/**
+ * 把「订单主键 -> 卡号」映射合并进订单列表。
+ * 订单接口不下发卡号，卡号来自「我的礼品卡」（fetchMyGiftCards 返回含 orderId 与 cardNo），
+ * 仅用于展示，不独立渲染卡区块，避免同一笔购买重复出现。
+ */
+function mergeCardNoIntoOrders(orders, cards) {
+  const map = new Map();
+  (cards || []).forEach(card => {
+    if (card && card.orderId != null) map.set(String(card.orderId), card.cardNo || '');
   });
+  return (orders || []).map(order => Object.assign({}, order, {
+    cardNo: map.get(String(order.id)) || order.cardNo || ''
+  }));
 }
-
 function toRecordList(source) {
   return pickGiftCardRecords(source);
 }
@@ -151,9 +135,8 @@ Page(
       activeStatus: 'all',
       searchKeyword: '',
       allOrders: [],
-      allGiftCards: [],
+      allCards: [],
       filteredOrders: [],
-      filteredGiftCards: [],
       loading: false,
       loadError: '',
       payingOrderNo: '',
@@ -177,24 +160,24 @@ Page(
             .map(order => decorate(order))
         }))
         .catch(() => ({ ok: false, records: null }));
-      const giftCardsTask = api.fetchMyGiftCards()
+      // 卡号仅用于按订单主键合并展示，不独立渲染卡区块。
+      const cardsTask = api.fetchMyGiftCards()
         .then(result => ({
           ok: true,
           records: toRecordList(result)
-            .filter(card => card.status === 'ACTIVE')
-            .map(card => decorateGiftCard(card))
         }))
         .catch(() => ({ ok: false, records: null }));
 
-      return Promise.all([ordersTask, giftCardsTask]).then(([ordersResult, giftCardsResult]) => {
-        const allOrders = ordersResult.ok ? ordersResult.records : this.data.allOrders;
-        const allGiftCards = giftCardsResult.ok ? giftCardsResult.records : this.data.allGiftCards;
-        const loadError = !ordersResult.ok || !giftCardsResult.ok
+      return Promise.all([ordersTask, cardsTask]).then(([ordersResult, cardsResult]) => {
+        const orders = ordersResult.ok ? ordersResult.records : this.data.allOrders;
+        const cards = cardsResult.ok ? cardsResult.records : this.data.allCards;
+        const allOrders = mergeCardNoIntoOrders(orders, cards);
+        const loadError = !ordersResult.ok || !cardsResult.ok
           ? '部分礼品卡数据加载失败，请重试'
           : '';
         this.setData({
           allOrders,
-          allGiftCards,
+          allCards: cards,
           loading: false,
           loadError
         }, () => this.applyFilter());
@@ -215,7 +198,6 @@ Page(
     },
     applyFilter() {
       this.setData({
-        filteredGiftCards: filterGiftCards(this.data.allGiftCards, this.data.searchKeyword, this.data.activeStatus),
         filteredOrders: filterGiftCardOrders(this.data.allOrders, this.data.searchKeyword, this.data.activeStatus)
       });
     },

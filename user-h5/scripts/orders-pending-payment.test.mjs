@@ -169,7 +169,7 @@ const FIXTURES = [
   const ordersJs = fs.readFileSync(path.join(root, 'utils/orders.js'), 'utf8');
   const pageJs = fs.readFileSync(path.join(root, 'pages/orders/orders.js'), 'utf8');
   assert.ok(
-    /function fetchOrders\(page = 1, size = 20\)/.test(apiJs) &&
+    /function fetchOrders\(page = 1, size = 20, options = \{\}\)/.test(apiJs) &&
       /function fetchStoredValueOrders\(page = 1, size = 20\)/.test(apiJs) &&
       /function fetchGiftCardOrders\(page = 1, size = 20\)/.test(apiJs),
     '三个订单接口必须统一支持 page/size 且默认 20 条'
@@ -213,6 +213,17 @@ const FIXTURES = [
   assert.equal(gift.orderStatus, 'pending_payment', '未支付礼品卡订单必须归一为待支付');
 }
 
+// 储值订单取消后必须显示「已取消」（原 bug：pay_status=CANCELED 被归一成 unpaid，界面恒为未支付）
+{
+  const { normalizeAuxOrder } = require(path.join(root, 'utils/orders.js'));
+  const canceledStored = normalizeAuxOrder({ id: 901, orderNo: 'CZ202609272359003004', amount: 20000, payStatus: 'CANCELED', createTime: '2026-09-27 23:59:00' }, 'stored-value');
+  assert.equal(canceledStored.orderStatus, 'canceled', '储值取消订单的 orderStatus 必须归一为 canceled，而非 unpaid');
+  orderStore.setOrdersForTest([canceledStored]);
+  const decoratedCanceled = orderStore.getOrderById('901');
+  assert.equal(decoratedCanceled.statusText, '已取消', '储值取消订单必须显示「已取消」');
+  assert.equal(decoratedCanceled.isCanceled, true, '储值取消订单必须标记 isCanceled');
+  assert.equal(decoratedCanceled.isPendingPayment, false, '储值取消订单不得再判定为待支付');
+}
 // 后端字段映射：totalAmount（分）-> amountText（元）
 {
   orderStore.setOrdersForTest([makeOrder({ id: 'order-money', totalAmount: 2000, discountAmount: 500 })]);
@@ -449,6 +460,24 @@ assert.ok(
   detailJs.includes('utils/orders') && detailJs.includes('cancelOrderById'),
   '订单详情必须复用共享订单取消逻辑'
 );
+
+// 取消已支付订单：cancelPaidOrderById 必须被导出（历史 bug：函数有定义但漏导出，
+// 详情页/列表页调用 undefined 抛「n is not a function」，且 loading 永久卡在「取消中」）。
+{
+  const ordersModule = require(path.join(root, 'utils/orders.js'));
+  assert.equal(
+    typeof ordersModule.cancelPaidOrderById,
+    'function',
+    'cancelPaidOrderById 必须导出，否则取消已支付订单会崩溃'
+  );
+  // 条件不满足时不得静默成功，必须 reject 给出明确原因
+  const badId = '__no_such_order__';
+  assert.rejects(
+    ordersModule.cancelPaidOrderById(badId),
+    /订单不存在|无法取消/,
+    '取消不存在的订单必须 reject 并提示原因，而非静默返回'
+  );
+}
 
 // 历史礼品卡元数据：卡面下架 / 面额软删后，记录自带字段必须优先于上架面额接口。
 {

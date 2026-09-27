@@ -379,11 +379,17 @@
   font-size: var(--font-sm);
   text-align: center;
 }
+/* 手机号独立点击区：catchtap 阻止冒泡，点它才走手机号授权，不触发整卡跳转 */
+.user-card__phone-row {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
 .user-card__phone {
   display: block;
-  margin-top: 8rpx;
-  font-size: var(--font-sm);
   color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .user-card__phone--bind {

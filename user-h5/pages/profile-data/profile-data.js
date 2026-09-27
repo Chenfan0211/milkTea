@@ -1,6 +1,7 @@
 const { withShare } = require('../../utils/share');
 const regions = require('../../data/regions');
 const api = require('../../utils/api');
+const auth = require('../../utils/auth');
 const { clearSession } = require('../../utils/auth');
 const {
   DEFAULT_AVATAR,
@@ -9,6 +10,7 @@ const {
   getDefaultBirthday,
   getUserProfile,
   maskPhone,
+  refreshUserProfileFromRemote,
   saveUserProfile
 } = require('../../utils/user-profile');
 
@@ -158,8 +160,52 @@ Page(
         }
       });
     },
-    handlePhoneChange() {
-      wx.showToast({ title: '手机号更换暂未接入', icon: 'none' });
+    /**
+     * 更换手机号：原生 getPhoneNumber 授权后提交后端。
+     * 与 components/login-sheet 同一套口径：
+     *   · 未注册用户走 registerByPhone（需 registerContext.registerToken）
+     *   · 已登录用户走 api.bindPhone
+     *   · session_key 失效时清会话并提示用户重新点击授权
+     * 授权前必须先 `preparePhoneAuthorization()` 刷新会话，否则 encryptedData
+     * 会绑定到过期 session_key（与 login-sheet 的 attached 预刷新同理）。
+     */
+    handlePhoneChange(event) {
+      const detail = (event && event.detail) || {};
+      if (!detail.encryptedData || !detail.iv) {
+        wx.showToast({ title: '已取消授权', icon: 'none' });
+        return;
+      }
+      wx.showLoading({ title: '更换中', mask: true });
+      return auth
+        .preparePhoneAuthorization()
+        .then(prepared => {
+          const registerContext = (prepared && prepared.registerContext) || null;
+          const needRegister = Boolean(
+            prepared && prepared.needRegister && registerContext && registerContext.registerToken
+          );
+          return needRegister
+            ? auth.registerByPhone(registerContext.registerToken, detail.encryptedData, detail.iv)
+            : api.bindPhone(detail.encryptedData, detail.iv);
+        })
+        .then(() => refreshUserProfileFromRemote())
+        .then(profile => {
+          const nextPhone = (profile && profile.phone) || '';
+          saveUserProfile(Object.assign({}, getUserProfile(), { phone: nextPhone }));
+          this.setData({ phone: nextPhone, phoneMasked: maskPhone(nextPhone) });
+          wx.hideLoading();
+          wx.showToast({ title: '手机号已更新', icon: 'success' });
+        })
+        .catch(error => {
+          wx.hideLoading();
+          if (auth.isSessionInvalidError(error)) {
+            // encryptedData/iv 已绑定旧 session_key，必须丢弃并要求用户重新点击授权
+            clearSession();
+            auth.clearRegisterContext();
+            wx.showToast({ title: '授权会话已刷新，请再次点击同意', icon: 'none' });
+            return;
+          }
+          wx.showToast({ title: (error && error.message) || '手机号更新失败', icon: 'none' });
+        });
     },
     openBirthdayPicker() {
       if (this.data.birthdayLocked) {

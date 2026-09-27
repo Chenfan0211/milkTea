@@ -16,8 +16,8 @@
     <view class="profile-content">
       <view class="profile-card user-card">
         <view class="user-card__main">
-          <image class="user-card__avatar" src="{{defaultAvatar}}" mode="aspectFill" bindtap="openLogin" aria-role="button" aria-label="登录" />
-          <view class="user-card__identity" bindtap="openLogin" aria-role="button" aria-label="登录后查看个人资料">
+          <image class="user-card__avatar" src="{{defaultAvatar}}" mode="aspectFill" bindtap="handleUserCardTap" aria-role="button" aria-label="个人资料" />
+          <view class="user-card__identity" bindtap="handleUserCardTap" aria-role="button" aria-label="个人资料">
             <!-- 未登录：只展示登录引导，不渲染任何昵称 / 手机号 / 等级 -->
             <block wx:if="{{authStateLevel === 'anonymous'}}">
               <text class="user-card__name">点击登录</text>
@@ -25,7 +25,7 @@
             </block>
             <block wx:else>
               <text class="user-card__name">{{userProfile.nickname || '微信用户'}}</text>
-              <text wx:if="{{authStateLevel === 'full' && phoneMasked}}" class="user-card__phone">{{phoneMasked}}</text>
+              <view wx:if="{{authStateLevel === 'full' && phoneMasked}}" class="user-card__phone-row" catchtap="handlePhoneTap" aria-role="button" aria-label="更换手机号"><text class="user-card__phone">{{phoneMasked}}</text></view>
               <text wx:elif="{{authStateLevel === 'authorized'}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
               <view class="user-card__badges">
                 <text class="user-card__vip">{{userProfile.vipLevel}}</text>

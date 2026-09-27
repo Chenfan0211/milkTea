@@ -55,12 +55,14 @@ public class AppOrderController {
         return Result.ok(orderService.createOrder(request));
     }
 
-    /** 我的订单（分页，默认 20 条/页；用户取自 JWT） */
+    /** 我的订单（分页，默认 20 条/页；用户取自 JWT；可选下单时间范围过滤） */
     @GetMapping("/orders")
     public Result<PageResult<OrderDTO>> list(
             @RequestParam(defaultValue = "1") long page,
-            @RequestParam(defaultValue = "20") long size) {
-        return Result.ok(orderService.pageOrdersByUser(CurrentUser.require(), page, size));
+            @RequestParam(defaultValue = "20") long size,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime) {
+        return Result.ok(orderService.pageOrdersByUser(CurrentUser.require(), page, size, startTime, endTime));
     }
 
     /** 订单详情：校验归属，禁止查看他人订单 */
@@ -207,4 +209,5 @@ public class AppOrderController {
         return Result.ok(dto);
     }
 }
+
 
