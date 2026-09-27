@@ -65,9 +65,9 @@ app:
       biz: ${REDIS_DB_BIZ:3}
   # 订单超时关单兜底扫描（P0：不依赖 MQ 的最终兜底，每分钟扫一次超 15 分钟未支付的 CREATED 订单）
   order-timeout-scan:
-    enabled: 
-    cron: 
-    batch-size: 
+    enabled: true
+    cron: "0 * * * * ?"
+    batch-size: 200
   mq:
     order-timeout-ms: ${MQ_ORDER_TIMEOUT_MS:900000}
     max-retry: ${MQ_MAX_RETRY:3}

@@ -58,9 +58,9 @@ logging:
 app:
   # 储值订单超时关单兜底扫描（P0：储值订单原本无超时关单机制，每分钟扫一次超 15 分钟未支付）
   stored-value-timeout-scan:
-    enabled: 
-    cron: 
-    batch-size: 
+    enabled: true
+    cron: "0 * * * * ?"
+    batch-size: 200
   # 事务内事件 outbox 扫描发布器（储值/优惠券/分账/冲正等最终一致事件）
   outbox:
     enabled: ${OUTBOX_ENABLED:true}
