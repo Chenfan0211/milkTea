@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.marketing.dto.internal.CouponLockRequest;
 import com.wuling.marketing.dto.UserCouponView;
 import com.wuling.marketing.entity.AuditLog;
 import com.wuling.marketing.entity.Coupon;
@@ -142,6 +143,10 @@ public class CouponService {
         view.setValidityStart(coupon.getValidityStart());
         view.setValidityEnd(coupon.getValidityEnd());
         view.setValidityDays(coupon.getValidityDays());
+        // 适用范围：库里是 JSON 字符串，解析成数字数组下发。
+        // 空数组表示不限制，前端据此判定是否需按门店/商品过滤。
+        view.setApplicableStoreIds(parseLongList(coupon.getApplicableStoreIds()));
+        view.setApplicableProductIds(parseLongList(coupon.getApplicableProductIds()));
         return view;
     }
 
@@ -294,7 +299,7 @@ public class CouponService {
     /** 锁券（下单占用），返回可抵扣金额（分）。 */
     @Transactional(rollbackFor = Exception.class)
     public long lock(Long userId, Long userCouponId, Long orderId, long orderAmount) {
-        return lock(userId, userCouponId, String.valueOf(orderId), null, List.of(), null, orderAmount);
+        return lock(userId, userCouponId, String.valueOf(orderId), null, List.of(), null, orderAmount, null);
     }
 
     /** 内部 HTTP 契约锁券入口。 */
@@ -306,10 +311,40 @@ public class CouponService {
                                           List<Long> productIds,
                                           String scene,
                                           Long orderAmount) {
+        return lockByOrderNo(userId, userCouponId, orderNo, storeSubjectId, productIds,
+                null, scene, orderAmount, null);
+    }
+
+    /** 锁券入口；items 优先用于计算仅适用商品行净额。 */
+    @Transactional(rollbackFor = Exception.class)
+    public CouponLockResult lockByOrderNo(Long userId,
+                                          Long userCouponId,
+                                          String orderNo,
+                                          Long storeSubjectId,
+                                          List<Long> productIds,
+                                          List<CouponLockRequest.CouponItemAmount> items,
+                                          String scene,
+                                          Long orderAmount,
+                                          Long applicableAmount) {
         long amount = orderAmount == null ? -1L : orderAmount;
-        long discount = lock(userId, userCouponId, orderNo, storeSubjectId, productIds, scene, amount);
+        long discount = lock(userId, userCouponId, orderNo, storeSubjectId, productIds,
+                items, scene, amount, applicableAmount);
         UserCoupon uc = userCouponMapper.selectByIdForUpdate(userCouponId);
         return new CouponLockResult(userCouponId, uc == null ? null : uc.getCouponId(), discount);
+    }
+
+    /** 内部 HTTP 契约锁券入口，applicableAmount 为仅适用商品行净额。 */
+    @Transactional(rollbackFor = Exception.class)
+    public CouponLockResult lockByOrderNo(Long userId,
+                                          Long userCouponId,
+                                          String orderNo,
+                                          Long storeSubjectId,
+                                          List<Long> productIds,
+                                          String scene,
+                                          Long orderAmount,
+                                          Long applicableAmount) {
+        return lockByOrderNo(userId, userCouponId, orderNo, storeSubjectId, productIds,
+                null, scene, orderAmount, applicableAmount);
     }
 
     /** 锁券核心：行锁 + 条件更新，重复同订单调用幂等，其他订单锁定拒绝。 */
@@ -321,6 +356,35 @@ public class CouponService {
                      List<Long> productIds,
                      String scene,
                      long orderAmount) {
+        return lock(userId, userCouponId, orderNo, storeSubjectId, productIds,
+                null, scene, orderAmount, null);
+    }
+
+    /** 旧调用兼容入口。 */
+    @Transactional(rollbackFor = Exception.class)
+    public long lock(Long userId,
+                     Long userCouponId,
+                     String orderNo,
+                     Long storeSubjectId,
+                     List<Long> productIds,
+                     String scene,
+                     long orderAmount,
+                     Long applicableAmount) {
+        return lock(userId, userCouponId, orderNo, storeSubjectId, productIds,
+                null, scene, orderAmount, applicableAmount);
+    }
+
+    /** 锁券核心：逐商品行净额优先，旧调用继续使用订单金额。 */
+    @Transactional(rollbackFor = Exception.class)
+    public long lock(Long userId,
+                     Long userCouponId,
+                     String orderNo,
+                     Long storeSubjectId,
+                     List<Long> productIds,
+                     List<CouponLockRequest.CouponItemAmount> items,
+                     String scene,
+                     long orderAmount,
+                     Long applicableAmount) {
         if (userId == null || userCouponId == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "缺少 userId 或 userCouponId");
         }
@@ -337,7 +401,32 @@ public class CouponService {
             throw new BusinessException(ResultCode.NOT_FOUND, "优惠券模板不存在");
         }
 
-        long discount = calculateDiscount(coupon, uc, orderAmount, storeSubjectId, productIds, scene);
+        List<Long> applicableProducts = parseLongList(coupon.getApplicableProductIds());
+        long effectiveAmount = applicableAmount == null ? orderAmount : applicableAmount;
+        if (items != null && !items.isEmpty()) {
+            for (CouponLockRequest.CouponItemAmount item : items) {
+                if (item != null && item.getAmount() != null && item.getAmount() < 0) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "商品行金额不能为负数");
+                }
+            }
+            effectiveAmount = items.stream()
+                    .filter(item -> item != null
+                            && item.getProductId() != null
+                            && item.getAmount() != null)
+                    .filter(item -> applicableProducts.isEmpty()
+                            || applicableProducts.contains(item.getProductId()))
+                    .mapToLong(CouponLockRequest.CouponItemAmount::getAmount)
+                    .sum();
+        }
+        if (effectiveAmount < 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "适用商品金额不能为负数");
+        }
+        if (effectiveAmount > orderAmount) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "适用商品金额不能超过订单金额");
+        }
+
+        long discount = calculateDiscount(coupon, uc, effectiveAmount, storeSubjectId,
+                productIds, items, scene);
         if (LOCKED.equals(uc.getStatus())) {
             if (orderId == (uc.getLockOrderId() == null ? Long.MIN_VALUE : uc.getLockOrderId())) {
                 return discount;
@@ -363,6 +452,7 @@ public class CouponService {
                                    long orderAmount,
                                    Long storeSubjectId,
                                    List<Long> productIds,
+                                   List<CouponLockRequest.CouponItemAmount> items,
                                    String scene) {
         LocalDateTime now = LocalDateTime.now();
         CouponValidity validity = resolveValidity(holder, coupon, now);
@@ -372,7 +462,7 @@ public class CouponService {
         if (!storeMatches(coupon.getApplicableStoreIds(), storeSubjectId)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不适用于当前门店");
         }
-        if (!productMatches(coupon.getApplicableProductIds(), productIds)) {
+        if (!productMatches(coupon.getApplicableProductIds(), productIds, items)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券不适用于当前商品");
         }
         if (!sceneMatches(coupon.getScenes(), scene)) {
@@ -504,10 +594,19 @@ public class CouponService {
         return values.isEmpty() || (storeSubjectId != null && values.contains(storeSubjectId));
     }
 
-    private boolean productMatches(String raw, List<Long> productIds) {
+    private boolean productMatches(String raw,
+                                   List<Long> productIds,
+                                   List<CouponLockRequest.CouponItemAmount> items) {
         List<Long> applicable = parseLongList(raw);
         if (applicable.isEmpty()) {
             return true;
+        }
+        if (items != null && !items.isEmpty()) {
+            return items.stream()
+                    .filter(Objects::nonNull)
+                    .map(CouponLockRequest.CouponItemAmount::getProductId)
+                    .filter(Objects::nonNull)
+                    .anyMatch(applicable::contains);
         }
         if (productIds == null || productIds.isEmpty()) {
             return false;
@@ -517,8 +616,11 @@ public class CouponService {
 
     private boolean sceneMatches(String raw, String scene) {
         List<String> configured = parseStringList(raw);
-        if (configured.isEmpty() || scene == null || scene.isBlank()) {
+        if (configured.isEmpty()) {
             return true;
+        }
+        if (scene == null || scene.isBlank()) {
+            return false;
         }
         String requested = normalizeScene(scene);
         return configured.stream().map(this::normalizeScene).anyMatch(requested::equals);
@@ -540,7 +642,7 @@ public class CouponService {
         }
         String[] parts = raw.trim().split("~");
         if (parts.length != 2) {
-            return true;
+            return false;
         }
         try {
             LocalTime start = parseTime(parts[0]);
