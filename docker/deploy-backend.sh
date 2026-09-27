@@ -23,6 +23,8 @@ APP_ROOT=/opt/wuling/app
 BUILD_ROOT=/opt/wuling/build
 COMPOSE_FILE=$BUILD_ROOT/docker-compose.prod.yml
 IMAGE_TAG="${IMAGE_TAG:-$(date +%Y%m%d-%H%M%S)}"
+# 保留的历史版本数（默认 1：保留最新 1 个旧版本用于回滚）
+KEEP_VERSIONS="${KEEP_VERSIONS:-1}"
 
 # 服务名 -> jar 相对路径（与 Maven 构建产物一致）
 declare -A JARS=(
@@ -115,6 +117,20 @@ build() {
   echo "$IMAGE_TAG" > "$BUILD_ROOT/.last-image-tag"
 }
 
+# ---------- 清理旧容器与旧镜像 ----------
+# 只保留最近 KEEP_VERSIONS 个版本（默认 1），并清理已退出的应用容器。
+# 安全护栏见 scripts/clean-containers.sh（不动中间件、不动数据卷）。
+clean_images() {
+  local script="/opt/wuling/scripts/clean-containers.sh"
+  if [ ! -f "$script" ]; then
+    warn "缺少 $script，跳过镜像清理（请先 $0 sync-scripts）"
+    return 0
+  fi
+  log "清理旧容器与旧镜像（保留最近 ${KEEP_VERSIONS:-1} 个版本）"
+  # 清理失败不应让整个部署失败：镜像清理是运维优化，不是上线必要条件
+  bash "$script" || warn "镜像清理未完全成功，请手动检查：$script"
+}
+
 # ---------- 启动 ----------
 up() {
   cd "$BUILD_ROOT"
@@ -122,6 +138,9 @@ up() {
   log "启动服务（镜像 tag=$IMAGE_TAG）"
   compose up -d --no-build
   wait_healthy
+  # 健康后再清理：确保新版本已稳定接管，旧镜像才可安全删除。
+  # 保留最近 1 个历史版本，便于出问题时快速回滚。
+  clean_images
 }
 
 # ---------- 等待健康 ----------
@@ -191,7 +210,7 @@ sync_scripts() {
   if [ "$n" -gt 0 ]; then
     log "已同步 $n 个运维脚本到 $DST"
     # 校验关键脚本已就位（缺了日志清理会导致日志无限增长）
-    for need in clean-logs.sh alert-check.sh; do
+    for need in clean-logs.sh alert-check.sh clean-containers.sh; do
       [ -f "$DST/$need" ] || warn "缺少运维脚本 $DST/$need（日志清理/告警检查可能未生效）"
     done
   else
@@ -273,6 +292,7 @@ case "${1:-}" in
   restart)   down; up ;;
   status)    status ;;
   verify)    verify ;;
+  clean-images) clean_images ;;
   clean-logs) CLEAN_SCRIPT=/opt/wuling/scripts/clean-logs.sh
               [ -f "$CLEAN_SCRIPT" ] && bash "$CLEAN_SCRIPT" || { err "缺少 $CLEAN_SCRIPT（请先同步 scripts/ 到服务器）"; exit 1; } ;;
   sync-scripts) sync_scripts ;;
