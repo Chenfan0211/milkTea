@@ -114,6 +114,22 @@ public class MqProducer {
                 routingKey, messageId, bizKey);
     }
 
+    /**
+     * 以原始字节发送消息体（outbox 场景：payload 已是 JSON 文本，
+     * 需要作为消息体原样发送，不能被 Jackson 再次转成 base64）。
+     */
+    public void sendRawBodyWithId(String routingKey, byte[] body, String messageId, String bizKey) {
+        org.springframework.amqp.core.MessageProperties props = new org.springframework.amqp.core.MessageProperties();
+        props.setContentType("application/json");
+        org.springframework.amqp.core.Message message = new org.springframework.amqp.core.Message(body, props);
+        prepareMessage(message, routingKey, messageId, bizKey);
+        CorrelationData correlationData = new CorrelationData(messageId);
+        rabbitTemplate.send(MqConstants.BUSINESS_EXCHANGE, routingKey, message, correlationData);
+        waitForConfirm(correlationData, MqConstants.BUSINESS_EXCHANGE, routingKey, messageId);
+        log.info("MQ 发送原始消息体 exchange={} routingKey={} messageId={} bizKey={}",
+                MqConstants.BUSINESS_EXCHANGE, routingKey, messageId, bizKey);
+    }
+
     private Message prepareMessage(Message message, String routingKey, String messageId, String bizKey) {
         message.getMessageProperties().setMessageId(messageId);
         message.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);

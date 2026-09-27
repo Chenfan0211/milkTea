@@ -409,54 +409,44 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
 // 若前端开始提交价格/等级，就等于把计价权交给了客户端 —— 可被改包篡改。
 {
   const confirmJs = fs.readFileSync(path.join(root, 'pages/order-confirm/order-confirm.js'), 'utf8');
-  const payloadMatch = confirmJs.match(/\.createOrder\(\{([\s\S]*?)\}\)/);
-  assert.ok(payloadMatch, '必须能定位到下单请求体');
+  const payloadMatch = confirmJs.match(/buildOrderPayload\(\)\s*\{([\s\S]*?)\n    \},/);
+  assert.ok(payloadMatch, '必须能定位到统一的下单请求体构造函数');
   const payload = payloadMatch[1];
 
-  // clientAmount 允许携带（用户确认：前端传值做交叉校验），
-  // 但它是「校验输入」而非「成交价」——后端一律自己算，见第 14 节断言。
+  // clientAmount/clientPaidAmount 允许携带（交叉校验），但都是校验输入，不是客户端成交价。
   assert.ok(
     !/vipLevel/.test(payload),
     '下单请求体不得携带 vipLevel（等级由后端查库，前端传入可被改包提升）'
   );
-  // 唯一允许的价格类字段是 clientAmount（校验用）；
-  // 除此之外不得出现任何成交价字段（后端会自行重算，见第 14 节）。
-
-  // 只应包含：门店、用餐方式、商品明细
   assert.ok(/storeSubjectId/.test(payload), '下单请求体必须包含门店');
   assert.ok(/mealType/.test(payload), '下单请求体必须包含用餐方式');
   assert.ok(/items/.test(payload), '下单请求体必须包含商品明细');
+  assert.ok(/payChannel/.test(payload), '下单请求体必须包含支付渠道');
+  assert.ok(/userCouponId/.test(payload), '下单请求体必须包含用户券 ID');
+  assert.ok(/clientPaidAmount/.test(payload), '下单请求体必须包含最终实付校验金额');
 }
 
 // ---------- 14. clientAmount 必须是「分」，且不得由前端决定成交价 ----------
 {
   const confirmJs = fs.readFileSync(path.join(root, 'pages/order-confirm/order-confirm.js'), 'utf8');
 
-  assert.ok(/clientAmount/.test(confirmJs), '下单必须带 clientAmount 供后端交叉校验');
-
-  // 单位：前端购物车价格是「元」（normalizeSpecProduct 已除 100），
-  // 而后端 clientAmount 语义是「分」。漏乘 100 会让校验恒为 false，
-  // 表现是「校验永远不通过」但金额仍正确 —— 静默失效，很难发现。
-  // 注意：只断言「toFen 存在」是不够的 —— 定义了却没用（直接传元值）
-  // 同样会让校验恒不通过。必须断言 clientAmount 的赋值表达式里真的调用了 toFen。
-  const assignMatch = confirmJs.match(/const clientAmount\s*=\s*([\s\S]*?);/);
-  assert.ok(assignMatch, '必须能定位 clientAmount 的赋值表达式');
-  assert.ok(
-    /toFen\(/.test(assignMatch[1]),
-    'clientAmount 赋值必须调用 toFen() 转成「分」；直接传「元」会让后端校验恒不通过'
-  );
+  assert.ok(/clientAmount\s*:/.test(confirmJs), '下单必须带 clientAmount 供后端交叉校验');
+  assert.ok(/clientPaidAmount\s*:/.test(confirmJs), '下单必须带最终实付校验金额');
   assert.ok(
     /function toFen\(/.test(confirmJs) && /Math\.round\(Number\(yuan \|\| 0\) \* 100\)/.test(confirmJs),
     'toFen 必须按「元 × 100」并四舍五入换算为分'
   );
-
-  // 储值支付有额外立减，与后端「会员价」口径不同，传金额必然判为不一致
   assert.ok(
-    /paymentMethod === 'stored-value' \? null/.test(confirmJs),
+    /memberTotalFen/.test(confirmJs),
+    'clientAmount 必须使用已经换算为分的会员价总额'
+  );
+
+  // 储值支付有额外立减，clientAmount 传 null；最终实付用 clientPaidAmount 校验。
+  assert.ok(
+    /clientAmount:\s*storedValuePay\s*\?\s*null/.test(confirmJs),
     '储值支付时不得传 clientAmount（口径与后端会员价不同，会恒判不一致）'
   );
 
-  // clientAmount 只用于校验：不得据此决定提交金额
   assert.ok(
     !/paidAmount\s*:/.test(confirmJs) && !/totalAmount\s*:/.test(confirmJs),
     '前端不得提交成交金额，金额必须由后端计算'
@@ -468,17 +458,17 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
 // （未打折），导致「列表 ¥14.4 → 确认页 ¥15.9 → 实收 ¥14.4」的金额跳变。
 {
   const confirmJs = fs.readFileSync(path.join(root, 'pages/order-confirm/order-confirm.js'), 'utf8');
-  const summarizeBody = confirmJs.match(/function summarize\(items, paymentMethod\)\s*\{([\s\S]*?)\n\}/);
-  assert.ok(summarizeBody, '必须能定位到 summarize 函数体');
-  const body = summarizeBody[1];
+  const priceBody = confirmJs.match(/function calculateOrder\(items, paymentMethod, coupon\)\s*\{([\s\S]*?)\n\}/);
+  assert.ok(priceBody, '必须能定位到服务端同口径计价函数体');
+  const body = priceBody[1];
 
   assert.ok(
     /calcMemberPrice\(/.test(body),
-    'summarize 必须调用 calcMemberPrice 计算会员价，不得直接用 item.price（会漏掉折扣）'
+    '计价函数必须调用 calcMemberPrice 计算会员价，不得直接用 item.price（会漏掉折扣）'
   );
   assert.ok(
     /originalPrice\s*\|\|\s*item\.price/.test(body),
-    'summarize 必须以商品原价（originalPrice）为打折基数，与卡片/弹层/后端一致'
+    '计价函数必须以商品原价（originalPrice）为打折基数，与卡片/弹层/后端一致'
   );
   assert.ok(
     /calcMemberPrice\s*=\s*require/.test(confirmJs.replace(/\n\s*/g, ' ')) ||

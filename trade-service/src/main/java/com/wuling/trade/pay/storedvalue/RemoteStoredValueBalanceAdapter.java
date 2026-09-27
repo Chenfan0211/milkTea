@@ -53,6 +53,13 @@ public class RemoteStoredValueBalanceAdapter implements StoredValueBalancePort {
 
     @Override
     @SuppressWarnings("unchecked")
+    public boolean hasSuccessfulPay(String bizNo) {
+        Map<String, Object> body = get("/internal/stored-value-orders/balance/pay-exists", bizNo);
+        return body != null && Boolean.TRUE.equals(body.get("exists"));
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
     public void refund(Long userId, long amount, String bizNo) {
         Map<String, Object> body = post("/internal/stored-value-orders/balance/refund", userId, amount, bizNo);
         if (body == null || !Boolean.TRUE.equals(body.get("success"))) {
@@ -64,6 +71,19 @@ public class RemoteStoredValueBalanceAdapter implements StoredValueBalancePort {
                     "储值余额退回失败：" + (reason == null ? "请稍后重试" : reason));
         }
         log.info("储值余额退回成功 userId={} amount={} bizNo={}", userId, amount, bizNo);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> get(String uri, String bizNo) {
+        try {
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path(uri).queryParam("bizNo", bizNo).build())
+                    .retrieve()
+                    .body(Map.class);
+        } catch (Exception e) {
+            log.error("查询储值资金记录失败 uri={} bizNo={} err={}", uri, bizNo, e.getMessage());
+            throw new BusinessException(ResultCode.ERROR, "储值余额服务暂不可用，请稍后重试");
+        }
     }
 
     @SuppressWarnings("unchecked")

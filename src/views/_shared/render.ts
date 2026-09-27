@@ -200,6 +200,20 @@ export function renderMoney(key: string) {
   return (row: any) => formatFen(row[key] as number | null);
 }
 
+/**
+ * 把日期范围搜索值（[yyyy-MM-dd, yyyy-MM-dd] 或 undefined）拆成
+ * 后端可用的 [startTime, endTime]（含边界补齐）。
+ * startTime = 起始日 00:00:00；endTime = 结束日 23:59:59（供后端 < 比较）。
+ */
+export function toTimeRange(value?: unknown): [string | undefined, string | undefined] {
+  if (!Array.isArray(value) || value.length !== 2) {
+    return [undefined, undefined];
+  }
+  const start = value[0] ? String(value[0]) + ' 00:00:00' : undefined;
+  const end = value[1] ? String(value[1]) + ' 23:59:59' : undefined;
+  return [start, end];
+}
+
 export function notReady(action?: string) {
   const prefix = action ? `${action}：` : '';
   window.$message?.info(`${prefix}后端接口未接入，当前为演示数据`);

@@ -54,7 +54,7 @@ public class LedgerService {
     public static final String BUCKET_FROZEN = "FROZEN";
 
     private static final Set<String> FLOW_TYPES = Set.of(
-            "INCOME", "WITHDRAW", "REFUND", "FREEZE", "UNFREEZE");
+            "INCOME", "WITHDRAW", "REFUND", "FREEZE", "UNFREEZE", "ADJUST");
     private static final Set<String> FUNDED_SETTLEMENT_STATUSES = Set.of(
             SETTLE_SETTLEABLE, SETTLE_SETTLED, "FROZEN");
 
@@ -208,8 +208,12 @@ public class LedgerService {
         snapshot.setPlatformCommission(amount.platformCommission());
         snapshot.setPlatformBonus(amount.platformBonus());
         long sum = amount.platform() + amount.store() + amount.channel() + amount.investor() + amount.supplier();
-        snapshot.setTotalCheck(sum == paidAmount ? "一致" : "不一致");
-        snapshot.setStatus(sum == paidAmount ? "valid" : "invalid");
+        if (sum != paidAmount) {
+            throw new IllegalStateException("分账守恒校验失败 orderNo=" + orderNo
+                    + " expected=" + paidAmount + " actual=" + sum);
+        }
+        snapshot.setTotalCheck("一致");
+        snapshot.setStatus("valid");
         // 并发安全（第 0 期加固）：上面的「先查」只是快路径，真正的防重依赖
         // split_snapshot 唯一索引 uk_split_snapshot_order(order_id)。
         // 两笔并发核销同一订单时，后到者在此抛 DuplicateKeyException，
@@ -226,13 +230,13 @@ public class LedgerService {
             throw e;
         }
 
-        // 各方待结算台账（按明细汇总，供应商可多主体）
+        // 各方待结算台账（按明细汇总，供应商可多主体）。
+        // 平台单独走 recordPlatformSettled（拆「分佣/剩余」两条流水），不进 credits。
         Map<Long, Long> credits = new LinkedHashMap<>();
         Long platformSubjectId = platformSubjectId();
-        putIfPositive(credits, platformSubjectId, amount.platform());
-        putIfPositive(credits, storeSubjectId, amount.store());
-        putIfPositive(credits, channelSubjectId, amount.channel());
-        putIfPositive(credits, investorSubjectId, amount.investor());
+        putIfNonZero(credits, storeSubjectId, amount.store());
+        putIfNonZero(credits, channelSubjectId, amount.channel());
+        putIfNonZero(credits, investorSubjectId, amount.investor());
 
         // 供应商按明细分别归集到各自主体（成本单价 × 件数，与快照 supplierAmount 同口径）
         if (items != null) {
@@ -243,7 +247,7 @@ public class LedgerService {
                 long unitCost = item.costPrice() == null ? 0L : item.costPrice();
                 Integer qty = item.quantity();
                 long share = unitCost * (qty == null || qty <= 0 ? 1L : qty);
-                putIfPositive(credits, item.supplierSubjectId(), share);
+                putIfNonZero(credits, item.supplierSubjectId(), share);
             }
         }
 
@@ -253,6 +257,9 @@ public class LedgerService {
         for (Map.Entry<Long, Long> entry : orderedCredits) {
             recordSettled(snapshot, entry.getKey(), entry.getValue());
         }
+        // 平台方：拆「平台分佣」与「平台剩余」两条流水（合计 = platformAmount，守恒不变）。
+        recordPlatformSettled(snapshot, platformSubjectId, amount.platform(),
+                amount.platformCommission(), amount.platformBonus());
         log.info("split done orderNo={} paid={} platform={} store={} channel={} investor={} supplier={}",
                 orderNo, paidAmount, amount.platform(), amount.store(), amount.channel(),
                 amount.investor(), amount.supplier());
@@ -269,6 +276,9 @@ public class LedgerService {
     }
     /** 新订单核销即结算：台账置 SETTLED，同事务写入可用余额及完整流水。 */
     private void recordSettled(SplitSnapshot snapshot, Long subjectId, long amount) {
+        if (amount == 0L) {
+            return;
+        }
         SubjectQueryPort.SubjectView subject = subjectQueryPort.findById(subjectId);
         SettlementRecord record = new SettlementRecord();
         record.setRecordNo(nextNo("SR"));
@@ -282,7 +292,7 @@ public class LedgerService {
 
         post(new Posting(subjectId,
                 subject == null ? null : subject.getSubjectType(),
-                "INCOME",
+                amount > 0L ? "INCOME" : "ADJUST",
                 amount,
                 BUCKET_AVAILABLE,
                 snapshot.getOrderId(),
@@ -292,6 +302,72 @@ public class LedgerService {
                 snapshot.getOrderNo(),
                 SETTLE_SETTLED,
                 "订单核销分账入账"));
+    }
+
+    /**
+     * 平台方分账入账：拆「平台分佣」与「平台剩余」两条流水。
+     *
+     * <p>数据库 split_snapshot 已区分 platformCommission（分佣）与 platformBonus（剩余），
+     * 但 fund_flow 原先只落一条平台总额，导致流水页无法区分两部分收入。
+     * 这里拆成两条 INCOME 流水，合计仍等于平台总额，守恒不变；
+     * 结算记录也按两部分各写一条，便于对账逐方核对。
+     *
+     * <p>当剩余（bonus）为 0 时不落空流水，避免产生无意义的 0 元记录。
+     */
+    private void recordPlatformSettled(SplitSnapshot snapshot, Long platformSubjectId,
+                                       long platformAmount, long commission, long bonus) {
+        if (platformSubjectId == null || platformAmount == 0L) {
+            return;
+        }
+        SubjectQueryPort.SubjectView subject = subjectQueryPort.findById(platformSubjectId);
+        String roleType = subject == null ? null : subject.getSubjectType();
+        if (platformAmount < 0L) {
+            // 平台承担差额：落一条负向 ADJUST 流水，保持「平台剩余」语义不变（负数即承担）。
+            recordSettledPart(snapshot, platformSubjectId, roleType, platformAmount, "平台承担差额");
+            return;
+        }
+        // 平台收入为正：拆「平台分佣」与「平台剩余」两条 INCOME 流水。
+        long commissionPart = Math.max(0L, commission);
+        long bonusPart = platformAmount - commissionPart;
+        if (bonusPart < 0L) {
+            bonusPart = 0L;
+        }
+        if (commissionPart > 0L) {
+            recordSettledPart(snapshot, platformSubjectId, roleType, commissionPart, "平台分佣");
+        }
+        if (bonusPart > 0L) {
+            recordSettledPart(snapshot, platformSubjectId, roleType, bonusPart, "平台剩余");
+        }
+    }
+
+    /** 按给定主体、金额与备注写一条结算记录 + 一条流水。 */
+    private void recordSettledPart(SplitSnapshot snapshot, Long subjectId, String roleType,
+                                   long amount, String remarkSuffix) {
+        if (amount == 0L) {
+            return;
+        }
+        SettlementRecord record = new SettlementRecord();
+        record.setRecordNo(nextNo("SR"));
+        record.setSubjectId(subjectId);
+        record.setSnapshotId(snapshot.getId());
+        record.setOrderId(snapshot.getOrderId());
+        record.setAmount(amount);
+        record.setStatus(SETTLE_SETTLED);
+        record.setSettleDate(LocalDate.now());
+        settlementRecordMapper.insert(record);
+
+        post(new Posting(subjectId,
+                roleType,
+                amount > 0L ? "INCOME" : "ADJUST",
+                amount,
+                BUCKET_AVAILABLE,
+                snapshot.getOrderId(),
+                snapshot.getOrderNo(),
+                record.getId(),
+                "ORDER",
+                snapshot.getOrderNo(),
+                SETTLE_SETTLED,
+                "订单核销分账入账（" + remarkSuffix + "）"));
     }
 
     /** 兼容历史任务：旧 PENDING -> SETTLEABLE（计入可用余额）。 */
@@ -357,28 +433,33 @@ public class LedgerService {
     }
 
     private void reverseInTransaction(Long orderId, String orderNo, String refundNo) {
-        List<SettlementRecord> records = settlementRecordMapper.selectList(new LambdaQueryWrapper<SettlementRecord>()
-                .eq(SettlementRecord::getOrderId, orderId)
-                .orderByAsc(SettlementRecord::getSubjectId, SettlementRecord::getId));
+        List<SettlementRecord> records = settlementRecordMapper.selectByOrderIdForUpdate(orderId);
         for (SettlementRecord record : records) {
             if (SETTLE_CANCELED.equals(record.getStatus())) {
                 continue;
             }
             if (SETTLE_PENDING.equals(record.getStatus())) {
                 // 历史待结算尚未进入任何余额桶，只取消，不伪造退款流水。
+                if (settlementRecordMapper.updateStatusIfCurrent(
+                        record.getId(), SETTLE_PENDING, SETTLE_CANCELED) != 1) {
+                    throw new IllegalStateException("结算记录状态流转失败 recordId=" + record.getId());
+                }
                 record.setStatus(SETTLE_CANCELED);
-                settlementRecordMapper.updateById(record);
                 continue;
             }
             if (!FUNDED_SETTLEMENT_STATUSES.contains(record.getStatus())) {
                 throw new IllegalStateException("未知结算状态，无法退款冲正: " + record.getStatus());
             }
+            if (record.getAmount() == null || record.getAmount() == 0L) {
+                throw new IllegalStateException("结算金额非法，无法退款冲正 recordId=" + record.getId());
+            }
 
+            long settlementAmount = record.getAmount();
             SubjectAccount account = ensureAccount(record.getSubjectId());
             post(new Posting(record.getSubjectId(),
                     account.getRoleType(),
-                    "REFUND",
-                    -Math.abs(record.getAmount()),
+                    settlementAmount > 0L ? "REFUND" : "ADJUST",
+                    -settlementAmount,
                     BUCKET_AVAILABLE,
                     orderId,
                     orderNo,
@@ -386,12 +467,14 @@ public class LedgerService {
                     "REFUND",
                     refundNo,
                     SETTLE_SETTLED,
-                    "退款成功，按结算记录扣回可用余额"));
+                    settlementAmount > 0L ? "退款成功，按结算记录扣回可用余额" : "退款成功，冲回平台承担的负分账"));
+            if (settlementRecordMapper.updateStatusIfCurrent(
+                    record.getId(), record.getStatus(), SETTLE_CANCELED) != 1) {
+                throw new IllegalStateException("结算记录已被并发冲正 recordId=" + record.getId());
+            }
             record.setStatus(SETTLE_CANCELED);
-            settlementRecordMapper.updateById(record);
         }
     }
-
     /** 后台手动冻结；业务号 MF 前缀，流水关联 MANUAL。 */
     @Transactional(rollbackFor = Exception.class)
     public void manualFreeze(Long subjectId, long amount) {
@@ -467,7 +550,7 @@ public class LedgerService {
         long snapshotChange;
 
         switch (posting.type()) {
-            case "INCOME", "REFUND" -> {
+            case "INCOME", "REFUND", "ADJUST" -> {
                 availableDelta = posting.changeAmount();
                 snapshotBefore = availableBefore;
                 snapshotChange = posting.changeAmount();
@@ -537,7 +620,8 @@ public class LedgerService {
         String type = posting.type();
         String bucket = posting.balanceBucket();
         long change = posting.changeAmount();
-        if (("INCOME".equals(type) || "REFUND".equals(type)) && !BUCKET_AVAILABLE.equals(bucket)) {
+        if (("INCOME".equals(type) || "REFUND".equals(type) || "ADJUST".equals(type))
+                && !BUCKET_AVAILABLE.equals(bucket)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, type + " 必须作用于可用余额");
         }
         if (("FREEZE".equals(type) || "UNFREEZE".equals(type) || "WITHDRAW".equals(type))
@@ -632,8 +716,8 @@ public class LedgerService {
         return splitSnapshotMapper.selectOrderIdByNo(orderNo);
     }
 
-    private void putIfPositive(Map<Long, Long> map, Long subjectId, long amount) {
-        if (subjectId != null && amount > 0) {
+    private void putIfNonZero(Map<Long, Long> map, Long subjectId, long amount) {
+        if (subjectId != null && amount != 0L) {
             map.merge(subjectId, amount, Long::sum);
         }
     }

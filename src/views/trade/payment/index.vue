@@ -8,7 +8,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney, renderPayChannel } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderPayChannel, renderDateTime, toTimeRange } from '@/views/_shared/render';
 import { retryAdminPayment } from '@/service/api/trade';
 
 const store = useAdminStore();
@@ -29,6 +29,8 @@ const columns: DataTableColumns<any> = [
   { title: '流水订单号', key: 'transactionId', width: 190, render: (row: any) => row.transactionId || '—' },
   { title: '金额(元)', key: 'amount', width: 110, align: 'right', render: renderMoney('amount') },
   { title: '支付渠道', key: 'channel', width: 110, render: renderPayChannel('channel') },
+  { title: '创建时间', key: 'createTime', width: 170, render: renderDateTime('createTime') },
+  { title: '支付时间', key: 'callbackTime', width: 170, render: renderDateTime('callbackTime') },
   {
     title: '三方状态',
     key: 'thirdStatus',
@@ -58,6 +60,7 @@ const searchFields: SearchField[] = [
   { key: 'orderNo', label: '订单号', placeholder: '系统订单号 / 储值单号' },
   // 流水订单号：三方订单号（transaction_id）
   { key: 'tradeNo', label: '流水订单号', placeholder: '三方订单号' },
+  { key: 'callbackTime', label: '支付时间', type: 'daterange' },
   {
     key: 'standardStatus',
     label: '状态',
@@ -110,7 +113,10 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.queryRemote('payments', search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => {
+    const [startTime, endTime] = toTimeRange(search?.callbackTime);
+    return store.queryRemote('payments', { ...search, startTime, endTime }, page, pageSize);
+  }
 };
 </script>
 

@@ -152,7 +152,7 @@ public final class CrudRegistry {
                     List.of("order_no", "payment_no"), "id desc")),
             Map.entry("verifies", new Resource("verifies", "verify_record",
                     List.of("result"),
-                    List.of("order_no", "verify_code"), "id desc")),
+                    List.of("order_no", "verify_code"), "id desc", List.of("create_time"))),
 
             // ---------- 财务 ----------
             Map.entry("fundPool", new Resource("fundPool", "fund_pool",

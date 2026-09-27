@@ -39,8 +39,10 @@ public class CouponInternalController {
                     request.getOrderNo(),
                     request.getStoreSubjectId(),
                     request.getProductIds(),
+                    request.getItems(),
                     request.getScene(),
-                    request.getOrderAmount());
+                    request.getOrderAmount(),
+                    request.getApplicableAmount());
             return CouponLockResponse.success(result.userCouponId(), result.couponId(), result.discountAmount());
         } catch (BusinessException e) {
             return CouponLockResponse.failure(e.getMessage());

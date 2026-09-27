@@ -47,7 +47,7 @@ public class OutboxService {
     }
 
     /**
-     * 在调用方本地事务中登记事件。
+     * 在调用方本地事务中登记事件，默认立即可发布。
      *
      * <p>这里故意使用 MANDATORY：如果调用方没有事务，直接失败，
      * 避免出现业务数据已提交而 outbox 事件单独提交的窗口。</p>
@@ -59,6 +59,21 @@ public class OutboxService {
                           String routingKey,
                           String bizKey,
                           Object payload) {
+        return enqueue(aggregateType, aggregateId, eventType, routingKey, bizKey,
+                payload, Instant.now(clock));
+    }
+
+    /**
+     * 在调用方本地事务中登记事件，并指定最早可发布时间。
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String enqueue(String aggregateType,
+                          String aggregateId,
+                          String eventType,
+                          String routingKey,
+                          String bizKey,
+                          Object payload,
+                          Instant availableAt) {
         String eventId = UUID.randomUUID().toString();
         String payloadJson;
         try {
@@ -69,19 +84,28 @@ public class OutboxService {
         Instant now = Instant.now(clock);
         EventOutboxEntity event = EventOutboxEntity.newEvent(
                 eventId, aggregateType, aggregateId, eventType, routingKey,
-                bizKey, payloadJson, now);
+                bizKey, payloadJson, availableAt, now);
         mapper.insert(event);
         return eventId;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<EventOutboxEntity> claimBatch(String workerId, Instant now) {
-        return claimBatch(workerId, now, properties.getBatchSize());
+        return claimBatch(workerId, now, properties.getBatchSize(), properties.getLockTimeoutMs());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<EventOutboxEntity> claimBatch(String workerId, Instant now, int batchSize) {
-        return mapper.claimBatch(workerId, now, batchSize);
+        return claimBatch(workerId, now, batchSize, properties.getLockTimeoutMs());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public List<EventOutboxEntity> claimBatch(String workerId,
+                                              Instant now,
+                                              int batchSize,
+                                              long lockTimeoutMs) {
+        Instant staleBefore = now.minusMillis(Math.max(0L, lockTimeoutMs));
+        return mapper.claimBatch(workerId, now, batchSize, staleBefore);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

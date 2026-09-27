@@ -5,8 +5,9 @@ import com.wuling.trade.dto.OrderDTO;
 import com.wuling.trade.mapper.OrderItemMapper;
 import com.wuling.trade.mapper.OrderMapper;
 import com.wuling.trade.port.MemberLevelPort;
+import com.wuling.trade.port.CouponPort;
 import com.wuling.trade.port.ProductQueryPort;
-import com.wuling.common.mq.MqProducer;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * 下单会员价端到端测试（第 15 期）。
@@ -131,17 +133,11 @@ class MemberPricingOrderTest {
         OrderMapper orderMapper = stubMapper(OrderMapper.class, insertedOrders, 1000L);
         OrderItemMapper itemMapper = stubMapper(OrderItemMapper.class, new ArrayList<>(), 2000L);
 
-        // MqProducer 为下单必经依赖；测试只关心计价，这里用子类覆写发送方法，
-        // 避免真实连 MQ（本地无 Broker 会导致下单链路抛异常）。
-        MqProducer noopMq = new MqProducer(null) {
-            @Override
-            public void sendDelay(String routingKey, Object payload, String bizKey) {
-                // 测试中不投递超时消息
-            }
-        };
-
+        // OutboxService 为下单必经依赖；测试只关心计价，mock 掉即可，
+        // 避免真实连库（本地无数据源会导致下单链路抛异常）。
         orderService = new OrderService(
-                orderMapper, itemMapper, new StubProductPort(), orderNo -> null, noopMq,
+                orderMapper, itemMapper, new StubProductPort(), orderNo -> null,
+                mock(CouponPort.class), mock(OutboxService.class),
                 new MemberPricingService(memberPort));
     }
 

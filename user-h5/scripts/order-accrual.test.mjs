@@ -87,7 +87,16 @@ saveUserProfile({ totalSpend: 0, points: 0, balance: 999 });
 apiCalls.length = 0;
 const page = createPage();
 page.data.store = { id: 101 };
-page.data.items = [{ productId: 'classic-001', price: 12.9, originalPrice: 12.9, storedValuePrice: 0, quantity: 2, name: '测试饮品' }];
+page.data.items = [{
+  productId: 'classic-001',
+  price: 12.9,
+  originalPrice: 12.9,
+  storedValuePrice: 11.9,
+  storedValueDiscount: 1,
+  quantity: 2,
+  name: '测试饮品'
+}];
+page.data.selectedCoupon = { id: '9', title: '测试优惠券', amountFen: 300, thresholdFen: 0 };
 page.data.paymentMethod = 'stored-value';
 definition.submitWithStoredValue.call(page);
 
@@ -103,6 +112,10 @@ assert.equal(
   null,
   '储值支付有额外立减，与后端会员价口径不同，不得传 clientAmount'
 );
+assert.equal(placeOrder.payload.payChannel, 'STORED_VALUE', '储值支付必须传 STORED_VALUE');
+assert.equal(placeOrder.payload.userCouponId, 9, '选择的用户券 ID 必须传给后端');
+assert.equal(placeOrder.payload.clientPaidAmount, 2080, 'clientPaidAmount 必须是优惠券抵扣后的最终实付分');
+assert.equal(placeOrder.payload.storeSubjectId, 101, '下单必须使用当前门店主体');
 
 // 等异步链路（createOrder -> payOrderByBalance -> fetchUserProfile）跑完
 await new Promise(resolve => setTimeout(resolve, 0));
@@ -129,6 +142,10 @@ assert.ok(
 assert.ok(
   source.includes('payOrderByBalance'),
   '页面必须调用服务端余额支付接口'
+);
+assert.ok(
+  !source.includes('prepay') && !source.includes('requestPayment'),
+  '储值余额支付不得调用微信预支付接口'
 );
 
 console.log('储值余额支付走后端（建单 + 服务端扣款 + 状态回读）测试通过');

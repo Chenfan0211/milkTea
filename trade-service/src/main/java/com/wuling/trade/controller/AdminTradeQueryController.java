@@ -50,7 +50,9 @@ public class AdminTradeQueryController {
                                                             @RequestParam(defaultValue = "10") long size,
                                                             @RequestParam(required = false) String orderNo,
                                                             @RequestParam(required = false) String tradeNo,
-                                                            @RequestParam(required = false) String standardStatus) {
+                                                            @RequestParam(required = false) String standardStatus,
+                                                            @RequestParam(required = false) String startTime,
+                                                            @RequestParam(required = false) String endTime) {
         StringBuilder where = new StringBuilder(" where deleted = 0");
         List<Object> args = new ArrayList<>();
         if (orderNo != null && !orderNo.isBlank()) {
@@ -67,6 +69,15 @@ public class AdminTradeQueryController {
         if (standardStatus != null && !standardStatus.isBlank()) {
             where.append(" and standard_status = ?");
             args.add(standardStatus);
+        }
+        // 支付时间范围过滤（callback_time 即支付完成时间）
+        if (startTime != null && !startTime.isBlank()) {
+            where.append(" and callback_time >= ?");
+            args.add(startTime);
+        }
+        if (endTime != null && !endTime.isBlank()) {
+            where.append(" and callback_time < ?");
+            args.add(endTime);
         }
         // 单行字面量：字段一致性检查靠正则从 SQL 里提取列名，
         // 多段拼接的字符串会提取不到（见 DedicatedEndpointConsistencyTest）。
@@ -103,7 +114,9 @@ public class AdminTradeQueryController {
     public Result<PageResult<Map<String, Object>>> refunds(@RequestParam(defaultValue = "1") long current,
                                                            @RequestParam(defaultValue = "10") long size,
                                                            @RequestParam(required = false) String orderNo,
-                                                           @RequestParam(required = false) String status) {
+                                                           @RequestParam(required = false) String status,
+                                                           @RequestParam(required = false) String startTime,
+                                                           @RequestParam(required = false) String endTime) {
         // 关联订单取门店 + order_item 聚合商品摘要（单行字面量，满足字段一致性检查）
         StringBuilder where = new StringBuilder(" where r.deleted = 0");
         List<Object> list = new ArrayList<>();
@@ -115,6 +128,15 @@ public class AdminTradeQueryController {
             where.append(" and r.status = ?");
             list.add(status);
         }
+        // 申请时间范围过滤
+        if (startTime != null && !startTime.isBlank()) {
+            where.append(" and r.apply_time >= ?");
+            list.add(startTime);
+        }
+        if (endTime != null && !endTime.isBlank()) {
+            where.append(" and r.apply_time < ?");
+            list.add(endTime);
+        }
         String whereClause = where.toString();
 
         Long total = jdbcTemplate.queryForObject(
@@ -125,7 +147,7 @@ public class AdminTradeQueryController {
         pageArgs.add(Math.max(0, (current - 1) * size));
 
         List<Map<String, Object>> records = jdbcTemplate.queryForList(
-                "select r.id, r.refund_no, r.order_no, r.amount, r.status, r.reason, r.third_refund_no, r.apply_time, r.complete_time, o.store_subject_id, s.name as store,"
+                "select r.id, r.refund_no, r.order_no, r.amount, r.status, r.reason, r.third_refund_no, r.apply_time, r.complete_time, o.store_subject_id, o.pay_time, s.name as store,"
                         + " (select group_concat(concat(oi.product_name, ' x', oi.quantity) separator ', ')"
                         + "  from order_item oi where oi.order_id = o.id and oi.deleted = 0) as summary"
                         + " from refund r"
@@ -188,7 +210,9 @@ public class AdminTradeQueryController {
                                                               @RequestParam(defaultValue = "10") long size,
                                                               @RequestParam(required = false) String search,
                                                               @RequestParam(required = false) String type,
-                                                              @RequestParam(required = false) Long storeSubjectId) {
+                                                              @RequestParam(required = false) Long storeSubjectId,
+                                                              @RequestParam(required = false) String startTime,
+                                                              @RequestParam(required = false) String endTime) {
         boolean onlyOrder = type != null && "order".equalsIgnoreCase(type);
         boolean onlyExchange = type != null && "exchange".equalsIgnoreCase(type);
         boolean includeOrder = !onlyExchange;
@@ -206,6 +230,14 @@ public class AdminTradeQueryController {
             orderArgs.add("%" + search + "%");
             orderArgs.add("%" + search + "%");
         }
+        if (startTime != null && !startTime.isBlank()) {
+            orderWhere.append(" and o.create_time >= ?");
+            orderArgs.add(startTime);
+        }
+        if (endTime != null && !endTime.isBlank()) {
+            orderWhere.append(" and o.create_time < ?");
+            orderArgs.add(endTime);
+        }
 
         StringBuilder exchangeWhere = new StringBuilder(" where e.deleted = 0 and e.status = 'PENDING'");
         List<Object> exchangeArgs = new ArrayList<>();
@@ -213,6 +245,14 @@ public class AdminTradeQueryController {
             exchangeWhere.append(" and (e.pickup_code like ? or e.exchange_no like ?)");
             exchangeArgs.add("%" + search + "%");
             exchangeArgs.add("%" + search + "%");
+        }
+        if (startTime != null && !startTime.isBlank()) {
+            exchangeWhere.append(" and e.create_time >= ?");
+            exchangeArgs.add(startTime);
+        }
+        if (endTime != null && !endTime.isBlank()) {
+            exchangeWhere.append(" and e.create_time < ?");
+            exchangeArgs.add(endTime);
         }
 
         long total = 0L;
@@ -242,7 +282,7 @@ public class AdminTradeQueryController {
         if (includeOrder) {
             unionSql.append("select o.id as source_id, 'order' as row_type, o.order_no as order_no,")
                     .append(" o.store_subject_id as store_subject_id, o.pickup_code as pickup_code,")
-                    .append(" o.paid_amount as paid_amount, null as points, o.create_time as create_time,")
+                    .append(" o.paid_amount as paid_amount, null as points, o.create_time as create_time, o.pay_time as pay_time,")
                     .append(" (select group_concat(concat(product_name, ' x', quantity) separator ', ')")
                     .append("  from order_item where order_id = o.id and deleted = 0) as summary,")
                     .append(" (select group_concat(spec_snapshot separator ', ')")
@@ -255,7 +295,7 @@ public class AdminTradeQueryController {
         if (includeExchange) {
             unionSql.append("select e.id as source_id, 'exchange' as row_type, e.exchange_no as order_no,")
                     .append(" null as store_subject_id, e.pickup_code as pickup_code,")
-                    .append(" 0 as paid_amount, e.points as points, e.create_time as create_time,")
+                    .append(" 0 as paid_amount, e.points as points, e.create_time as create_time, null as pay_time,")
                     .append(" p.name as summary, null as specs")
                     .append(" from exchange_order e")
                     .append(" left join points_product p on p.id = e.points_product_id")
@@ -288,6 +328,7 @@ public class AdminTradeQueryController {
         row.put("points", "exchange".equals(rowType) ? source.get("points") : null);
         row.put("storeSubjectId", "exchange".equals(rowType) ? null : source.get("store_subject_id"));
         row.put("createTime", source.get("create_time"));
+        row.put("payTime", source.get("pay_time"));
         return row;
     }
     /** 取单号后 4 位作为兜底取餐码（历史数据修复回显用） */

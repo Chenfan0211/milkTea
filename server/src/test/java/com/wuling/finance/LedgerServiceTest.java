@@ -73,6 +73,7 @@ class LedgerServiceTest {
                 .thenReturn(new SimpleTransactionStatus());
         when(subjectAccountMapper.updateById(any(SubjectAccount.class))).thenReturn(1);
         when(settlementRecordMapper.updateById(any(SettlementRecord.class))).thenReturn(1);
+        when(settlementRecordMapper.updateStatusIfCurrent(anyLong(), any(), any())).thenReturn(1);
         when(fundFlowMapper.insert(any(FundFlow.class))).thenReturn(1);
 
         ledgerService = new LedgerService(
@@ -212,9 +213,12 @@ class LedgerServiceTest {
             Long subjectId = invocation.getArgument(0);
             return subject(subjectId, subjectId == 1L ? "PLATFORM" : "STORE");
         });
-        when(subjectAccountMapper.selectOne(any())).thenReturn(platformAccount, storeAccount);
-        when(subjectAccountMapper.selectBySubjectIdForUpdate(anyLong()))
-                .thenReturn(platformAccount, storeAccount);
+        // ensureAccount 的 selectOne 只需非 null（真正加锁用 selectBySubjectIdForUpdate）
+        when(subjectAccountMapper.selectOne(any())).thenReturn(platformAccount);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(anyLong())).thenAnswer(invocation -> {
+            Long subjectId = invocation.getArgument(0);
+            return subjectId == 1L ? platformAccount : storeAccount;
+        });
 
         AtomicReference<SplitSnapshot> storedSnapshot = new AtomicReference<>();
         when(splitSnapshotMapper.selectOne(any())).thenAnswer(invocation -> storedSnapshot.get());
@@ -258,8 +262,10 @@ class LedgerServiceTest {
             assertTrue(record.getAmount() > 0L);
             assertEquals(LocalDate.now(), record.getSettleDate());
         }
-        assertEquals(8_000L, records.get(0).getAmount());
-        assertEquals(2_000L, records.get(1).getAmount());
+        SettlementRecord platformRec = records.stream().filter(r -> r.getSubjectId() == 1L).findFirst().orElseThrow();
+        SettlementRecord storeRec = records.stream().filter(r -> r.getSubjectId() == 2L).findFirst().orElseThrow();
+        assertEquals(8_000L, platformRec.getAmount());
+        assertEquals(2_000L, storeRec.getAmount());
 
         ArgumentCaptor<FundFlow> flowCaptor = ArgumentCaptor.forClass(FundFlow.class);
         verify(fundFlowMapper, times(2)).insert(flowCaptor.capture());
@@ -291,7 +297,7 @@ class LedgerServiceTest {
         SubjectAccount account = account(31L, 201L, "STORE", 800L, 0L);
 
         when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
-        when(settlementRecordMapper.selectList(any())).thenReturn(List.of(record));
+        when(settlementRecordMapper.selectByOrderIdForUpdate(anyLong())).thenReturn(List.of(record));
         stubSingleAccount(account);
 
         ledgerService.reverseForOrder(orderNo, refundNo);
@@ -324,7 +330,7 @@ class LedgerServiceTest {
         SettlementRecord record = settlementRecord(702L, 202L, orderId, 600L, LedgerService.SETTLE_PENDING);
 
         when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
-        when(settlementRecordMapper.selectList(any())).thenReturn(List.of(record));
+        when(settlementRecordMapper.selectByOrderIdForUpdate(anyLong())).thenReturn(List.of(record));
 
         ledgerService.reverseForOrder(orderNo, "REFUND-PENDING-1");
 
@@ -343,7 +349,7 @@ class LedgerServiceTest {
         SubjectAccount account = account(32L, 203L, "STORE", 300L, 0L);
 
         when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
-        when(settlementRecordMapper.selectList(any())).thenReturn(List.of(record));
+        when(settlementRecordMapper.selectByOrderIdForUpdate(anyLong())).thenReturn(List.of(record));
         stubSingleAccount(account);
 
         ledgerService.reverseForOrder(orderNo, refundNo);
@@ -361,6 +367,151 @@ class LedgerServiceTest {
                 eq(200L));
     }
 
+    @Test
+    void executeSplitPlatformAbsorbsNegativeDifferenceAndFourTablesStayConsistent() {
+        long orderId = 9_400L;
+        String orderNo = "ORDER-COUPON-NEG";
+        SplitRule rule = new SplitRule();
+        rule.setStoreRatio(0);
+        rule.setChannelRatio(0);
+        rule.setInvestorRatio(0);
+
+        SubjectAccount platformAccount = account(41L, 1L, "PLATFORM", 5_000L, 0L);
+        SubjectAccount supplierAccount = account(42L, 3L, "SUPPLIER", 0L, 0L);
+
+        when(splitRuleMapper.selectOne(any())).thenReturn(rule);
+        when(subjectQueryPort.findFirstByType("PLATFORM")).thenReturn(1L);
+        when(subjectQueryPort.findInvestorOfStore(2L)).thenReturn(null);
+        when(subjectQueryPort.findById(anyLong())).thenAnswer(invocation -> {
+            long id = ((Number) invocation.getArgument(0)).longValue();
+            return subject(id, id == 1L ? "PLATFORM" : "SUPPLIER");
+        });
+        // ensureAccount 的 selectOne 只需非 null（真正加锁用 selectBySubjectIdForUpdate）
+        when(subjectAccountMapper.selectOne(any())).thenReturn(platformAccount);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(anyLong())).thenAnswer(invocation -> {
+            Long subjectId = invocation.getArgument(0);
+            return subjectId == 1L ? platformAccount : supplierAccount;
+        });
+
+        AtomicReference<SplitSnapshot> storedSnapshot = new AtomicReference<>();
+        when(splitSnapshotMapper.selectOne(any())).thenAnswer(invocation -> storedSnapshot.get());
+        doAnswer(invocation -> {
+            SplitSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(601L);
+            storedSnapshot.set(snapshot);
+            return 1;
+        }).when(splitSnapshotMapper).insert(any(SplitSnapshot.class));
+
+        AtomicLong settlementId = new AtomicLong(800L);
+        doAnswer(invocation -> {
+            SettlementRecord record = invocation.getArgument(0);
+            record.setId(settlementId.incrementAndGet());
+            return 1;
+        }).when(settlementRecordMapper).insert(any(SettlementRecord.class));
+
+        SplitSnapshot snapshot = ledgerService.executeSplit(
+                orderId, orderNo, 1_000L, 1, 2L, null, null, 0L,
+                List.of(new SplitCalculator.LineItem(3L, 1_000L, 0L, 2_000L, 1)));
+
+        assertEquals(1_000L, snapshot.getPlatformAmount()
+                + snapshot.getStoreAmount() + snapshot.getChannelAmount()
+                + snapshot.getInvestorAmount() + snapshot.getSupplierAmount());
+        assertEquals(-1_000L, snapshot.getPlatformAmount(), "优惠券成本不足部分由平台承担");
+        assertEquals(2_000L, snapshot.getSupplierAmount());
+        assertEquals("一致", snapshot.getTotalCheck());
+
+        assertEquals(4_000L, platformAccount.getAvailableBalance());
+        assertEquals(2_000L, supplierAccount.getAvailableBalance());
+
+        ArgumentCaptor<SettlementRecord> recordCaptor = ArgumentCaptor.forClass(SettlementRecord.class);
+        verify(settlementRecordMapper, times(2)).insert(recordCaptor.capture());
+        SettlementRecord platformRecord = recordCaptor.getAllValues().stream()
+                .filter(record -> record.getSubjectId() == 1L)
+                .findFirst().orElseThrow();
+        SettlementRecord supplierRecord = recordCaptor.getAllValues().stream()
+                .filter(record -> record.getSubjectId() == 3L)
+                .findFirst().orElseThrow();
+        assertEquals(-1_000L, platformRecord.getAmount());
+        assertEquals(2_000L, supplierRecord.getAmount());
+
+        ArgumentCaptor<FundFlow> flowCaptor = ArgumentCaptor.forClass(FundFlow.class);
+        verify(fundFlowMapper, times(2)).insert(flowCaptor.capture());
+        FundFlow platformFlow = flowCaptor.getAllValues().stream()
+                .filter(flow -> flow.getSubjectId() == 1L)
+                .findFirst().orElseThrow();
+        FundFlow supplierFlow = flowCaptor.getAllValues().stream()
+                .filter(flow -> flow.getSubjectId() == 3L)
+                .findFirst().orElseThrow();
+        assertEquals("ADJUST", platformFlow.getType());
+        assertEquals(-1_000L, platformFlow.getChangeAmount());
+        assertEquals(platformRecord.getId(), platformFlow.getSettlementRecordId());
+        assertEquals("INCOME", supplierFlow.getType());
+        assertEquals(2_000L, supplierFlow.getChangeAmount());
+        assertEquals(supplierRecord.getId(), supplierFlow.getSettlementRecordId());
+    }
+
+    @Test
+    void reverseIsIdempotentWhenTheSameOrderIsConsumedAgain() {
+        String orderNo = "ORDER-REFUND-DUP";
+        String refundNo = "REFUND-DUP";
+        long orderId = 9_401L;
+        SettlementRecord record = settlementRecord(801L, 201L, orderId, 500L, LedgerService.SETTLE_SETTLED);
+        SubjectAccount account = account(43L, 201L, "STORE", 800L, 0L);
+
+        when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
+        when(settlementRecordMapper.selectByOrderIdForUpdate(orderId)).thenReturn(List.of(record));
+        stubSingleAccount(account);
+
+        ledgerService.reverseForOrder(orderNo, refundNo);
+        ledgerService.reverseForOrder(orderNo, refundNo);
+
+        assertEquals(300L, account.getAvailableBalance());
+        assertEquals(LedgerService.SETTLE_CANCELED, record.getStatus());
+        verify(subjectAccountMapper, times(1)).updateById(account);
+        verify(fundFlowMapper, times(1)).insert(any(FundFlow.class));
+        verify(settlementRecordMapper, times(1)).updateStatusIfCurrent(
+                record.getId(), LedgerService.SETTLE_SETTLED, LedgerService.SETTLE_CANCELED);
+    }
+
+    @Test
+    void reverseNegativePlatformRecordRestoresPlatformBalanceWithAdjustFlow() {
+        String orderNo = "ORDER-REFUND-NEG";
+        String refundNo = "REFUND-NEG";
+        long orderId = 9_402L;
+        SettlementRecord record = settlementRecord(802L, 1L, orderId, -1_000L, LedgerService.SETTLE_SETTLED);
+        SubjectAccount account = account(44L, 1L, "PLATFORM", 4_000L, 0L);
+
+        when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
+        when(settlementRecordMapper.selectByOrderIdForUpdate(orderId)).thenReturn(List.of(record));
+        stubSingleAccount(account);
+
+        ledgerService.reverseForOrder(orderNo, refundNo);
+
+        assertEquals(5_000L, account.getAvailableBalance());
+        assertEquals(LedgerService.SETTLE_CANCELED, record.getStatus());
+        ArgumentCaptor<FundFlow> captor = ArgumentCaptor.forClass(FundFlow.class);
+        verify(fundFlowMapper).insert(captor.capture());
+        FundFlow flow = captor.getValue();
+        assertEquals("ADJUST", flow.getType());
+        assertEquals("in", flow.getDirection());
+        assertEquals(1_000L, flow.getChangeAmount());
+        assertEquals(4_000L, flow.getBalanceBefore());
+        assertEquals(5_000L, flow.getBalanceAfter());
+    }
+
+    @Test
+    void reverseUnknownSettlementStatusFailsWithoutWritingFundFlow() {
+        String orderNo = "ORDER-REFUND-UNKNOWN";
+        long orderId = 9_403L;
+        SettlementRecord record = settlementRecord(803L, 201L, orderId, 500L, "UNKNOWN");
+
+        when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
+        when(settlementRecordMapper.selectByOrderIdForUpdate(orderId)).thenReturn(List.of(record));
+
+        assertThrows(IllegalStateException.class, () -> ledgerService.reverseForOrder(orderNo, "REFUND-UNKNOWN"));
+        verify(fundFlowMapper, never()).insert(any(FundFlow.class));
+        verify(subjectAccountMapper, never()).updateById(any(SubjectAccount.class));
+    }
     private LedgerService.Posting posting(long subjectId, String type, long changeAmount, String bucket) {
         return new LedgerService.Posting(
                 subjectId,

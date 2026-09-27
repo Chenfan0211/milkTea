@@ -62,6 +62,16 @@ const columns: DataTableColumns<any> = [
     render: (row: any) => textOrMissing(row.orderNo || row.bizNo)
   },
   {
+    title: '商品明细',
+    key: 'itemSummary',
+    minWidth: 180,
+    render: (row: any) => {
+      const summary = row.itemSummary || '';
+      const spec = row.itemSpec ? `（${row.itemSpec}）` : '' ;
+      return summary ? summary + spec : '—';
+    }
+  },
+  {
     title: '余额口径',
     key: 'balanceBucketName',
     width: 100,
@@ -129,6 +139,7 @@ const searchFields: SearchField[] = [
 
 const config: AdminListConfig = {
   title: '资金流水',
+  refreshOnEnter: false,
   // 「经营方」筛选下拉与列表列都按 subjectId 解析名称，需预加载 subjects / subjectAccounts
   remoteDeps: ['subjects', 'subjectAccounts'],
   initialSearch: route.query.subjectId ? { subjectId: String(route.query.subjectId) } : {},

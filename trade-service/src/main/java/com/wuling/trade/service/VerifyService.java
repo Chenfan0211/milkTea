@@ -17,7 +17,7 @@ import com.wuling.trade.port.ProductQueryPort;
 
 import com.wuling.common.mq.MqConstants;
 import com.wuling.common.mq.event.OrderVerifiedEvent;
-import com.wuling.common.mq.MqProducer;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.mapper.OrderMapper;
 import com.wuling.trade.mapper.VerifyRecordMapper;
 import org.slf4j.Logger;
@@ -48,22 +48,22 @@ public class VerifyService {
 
     /** 第 6 期：商品查询改走端口 */
     private final ProductQueryPort productQueryPort;
-    /** 通过 MQ 通知 marketing 服务核销兑换单（第 5 期解耦） */
-    private final MqProducer mqProducer;
+    /** 当前事务内写 outbox，由扫描器可靠投递核销事件。 */
+    private final OutboxService outboxService;
 
     public VerifyService(OrderMapper orderMapper,
                          OrderItemMapper orderItemMapper,
                          VerifyRecordMapper verifyRecordMapper,
                          OrderService orderService,
                          ProductQueryPort productQueryPort,
-                         MqProducer mqProducer) {
+                         OutboxService outboxService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.verifyRecordMapper = verifyRecordMapper;
         this.orderService = orderService;
 
         this.productQueryPort = productQueryPort;
-        this.mqProducer = mqProducer;
+        this.outboxService = outboxService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -158,7 +158,13 @@ public class VerifyService {
         event.setFirstProductId(firstProductId);
         event.setPlatformCommission(0L);
         event.setLines(lineItems);
-        mqProducer.send(MqConstants.FINANCE_SPLIT_ROUTING_KEY, event, order.getOrderNo());
+        outboxService.enqueue(
+                "ORDER",
+                order.getOrderNo(),
+                "ORDER_VERIFIED_SPLIT",
+                MqConstants.FINANCE_SPLIT_ROUTING_KEY,
+                order.getOrderNo(),
+                event);
 
         // 积分兑换产生的自提码核销后回收，保持兑换单状态一致（由兑换单维度处理）
 
@@ -181,12 +187,6 @@ public class VerifyService {
     private VerifyResult verifyExchange(VerifyRequest request) {
         String code = request.getCode().trim();
 
-        // 第 5 期解耦：不再直接调用 marketing 的 PointsService，
-        // 改为发布「兑换核销」事件，由 marketing 服务消费并更新兑换单状态。
-        // 幂等由消费端的 MqIdempotent 保证（重复投递不会重复核销）。
-        mqProducer.send(MqConstants.EXCHANGE_VERIFY_ROUTING_KEY,
-                java.util.Map.of("pickupCode", code), code);
-
         VerifyRecord record = new VerifyRecord();
         record.setVerifyCode(code);
         record.setOrderNo(code);
@@ -195,6 +195,15 @@ public class VerifyService {
         record.setDevice(request.getDevice());
         record.setResult("success");
         verifyRecordMapper.insert(record);
+
+        // 核销记录与 outbox 消息同事务提交，保证外部消费者看到的事件都有本地核销凭证。
+        outboxService.enqueue(
+                "EXCHANGE_ORDER",
+                code,
+                "EXCHANGE_VERIFIED",
+                MqConstants.EXCHANGE_VERIFY_ROUTING_KEY,
+                code,
+                java.util.Map.of("pickupCode", code));
 
         VerifyResult result = new VerifyResult();
         result.setSuccess(true);

@@ -6,6 +6,7 @@ import com.wuling.common.exception.BusinessException;
 import com.wuling.common.mq.MqConstants;
 import com.wuling.common.mq.MqProducer;
 import com.wuling.common.mq.event.OrderVerifiedEvent;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.dto.VerifyRequest;
 import com.wuling.trade.entity.Order;
 import com.wuling.trade.entity.OrderItem;
@@ -16,6 +17,7 @@ import com.wuling.trade.mapper.VerifyRecordMapper;
 import com.wuling.trade.port.ProductQueryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,7 +42,7 @@ class VerifyServiceStatusTest {
     private OrderItemMapper orderItemMapper;
     private VerifyRecordMapper verifyRecordMapper;
     private OrderService orderService;
-    private MqProducer mqProducer;
+    private OutboxService outboxService;
     private VerifyService service;
 
     @BeforeEach
@@ -49,14 +51,14 @@ class VerifyServiceStatusTest {
         orderItemMapper = mock(OrderItemMapper.class);
         verifyRecordMapper = mock(VerifyRecordMapper.class);
         orderService = mock(OrderService.class);
-        mqProducer = mock(MqProducer.class);
+        outboxService = mock(OutboxService.class);
         service = new VerifyService(
                 orderMapper,
                 orderItemMapper,
                 verifyRecordMapper,
                 orderService,
                 mock(ProductQueryPort.class),
-                mqProducer);
+                outboxService);
     }
 
     @Test
@@ -70,12 +72,42 @@ class VerifyServiceStatusTest {
         assertTrue(result.isSuccess());
         verify(orderService).markVerified(eq(order), any(LocalDateTime.class));
         verify(verifyRecordMapper).insert(any(VerifyRecord.class));
-        verify(mqProducer).send(
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService).enqueue(
+                eq("ORDER"),
+                eq(ORDER_NO),
+                eq("ORDER_VERIFIED_SPLIT"),
                 eq(MqConstants.FINANCE_SPLIT_ROUTING_KEY),
-                any(OrderVerifiedEvent.class),
-                eq(ORDER_NO));
+                eq(ORDER_NO),
+                payload.capture());
+        OrderVerifiedEvent event = (OrderVerifiedEvent) payload.getValue();
+        assertEquals(ORDER_NO, event.getOrderNo());
+        assertEquals(1000L, event.getPaidAmount());
     }
 
+    @Test
+    void exchangeVerificationEnqueuesOutboxEventAfterRecordInsert() {
+        VerifyRequest request = request();
+        request.setType("EXCHANGE");
+        request.setCode("EX-20260927");
+
+        VerifyService.VerifyResult result = service.verify(request);
+
+        assertTrue(result.isSuccess());
+        verify(verifyRecordMapper).insert(any(VerifyRecord.class));
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService).enqueue(
+                eq("EXCHANGE_ORDER"),
+                eq("EX-20260927"),
+                eq("EXCHANGE_VERIFIED"),
+                eq(MqConstants.EXCHANGE_VERIFY_ROUTING_KEY),
+                eq("EX-20260927"),
+                payload.capture());
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> event = (java.util.Map<String, Object>) payload.getValue();
+        assertEquals("EX-20260927", event.get("pickupCode"));
+        verifyNoInteractions(orderMapper, orderItemMapper, orderService);
+    }
     @Test
     void refundPendingOrderCannotBeVerified() {
         assertRejected(order(OrderService.STATUS_PAID, "PENDING"));
@@ -102,8 +134,7 @@ class VerifyServiceStatusTest {
         BusinessException ex = assertThrows(BusinessException.class, () -> service.verify(request()));
 
         assertEquals(ResultCode.BAD_REQUEST, ex.getCode());
-        verifyNoInteractions(orderService, orderItemMapper, verifyRecordMapper, mqProducer);
-        verify(mqProducer, never()).send(any(), any(), any());
+        verifyNoInteractions(orderService, orderItemMapper, verifyRecordMapper, outboxService);
     }
 
     private VerifyRequest request() {

@@ -13,15 +13,8 @@ import org.springframework.stereotype.Component;
 /**
  * 退款冲正消费者（第 6 期新增）。
  *
- * <p>背景：trade 退款成功后需冲正 finance 的待结算台账。
- * 为解除 trade -> finance 的编译期依赖，改为事件驱动。
- *
- * <p>本消费者负责按结算记录冲正资金；若任一账户余额不足，
- * LedgerService 会整批回滚并独立写入对账异常。
- *
- * <p>幂等：{@code reverseForOrder} 会把记录置为 CANCELED，
- * 重复消费时查不到待结算记录，自然无副作用；
- * 另有 {@code MqIdempotent} 按 messageId 去重。
+ * <p>幂等分三层：Broker messageId、按订单派生的稳定 messageId，以及
+ * {@code settlement_record} 行锁 + 条件状态更新。任何一层都不能替代数据库最终防线。
  */
 @Component
 public class OrderRefundedReverseConsumer extends AbstractMqConsumer {
@@ -35,19 +28,14 @@ public class OrderRefundedReverseConsumer extends AbstractMqConsumer {
 
     @RabbitListener(queues = MqConstants.FINANCE_REVERSE_QUEUE)
     public void onOrderRefunded(Message message, Channel channel) {
+        FinanceMqEventReader.ensureStableMessageId(message, objectMapper, "REVERSE");
         consume(message, channel, msg -> {
-            OrderRefundedEvent event = objectMapper.readValue(msg.getBody(), OrderRefundedEvent.class);
+            OrderRefundedEvent event = FinanceMqEventReader.read(objectMapper, msg, OrderRefundedEvent.class);
             if (event.getOrderNo() == null) {
-                log.warn("退款冲正事件缺少 orderNo，已忽略");
-                return;
+                throw new IllegalArgumentException("退款冲正事件缺少 orderNo");
             }
-            try {
-                ledgerService.reverseForOrder(event.getOrderNo(), event.getRefundNo());
-                log.info("退款冲正完成 orderNo={} refundNo={}", event.getOrderNo(), event.getRefundNo());
-            } catch (IllegalStateException e) {
-                log.error("退款冲正遇到未知结算状态，需人工核对 orderNo={} refundNo={} msg={}",
-                        event.getOrderNo(), event.getRefundNo(), e.getMessage());
-            }
+            ledgerService.reverseForOrder(event.getOrderNo(), event.getRefundNo());
+            log.info("退款冲正完成 orderNo={} refundNo={}", event.getOrderNo(), event.getRefundNo());
         });
     }
 }

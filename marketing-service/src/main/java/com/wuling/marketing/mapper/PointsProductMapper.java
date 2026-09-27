@@ -8,11 +8,6 @@ import org.apache.ibatis.annotations.Update;
 
 public interface PointsProductMapper extends BaseMapper<PointsProduct> {
 
-    /** 原子扣减 1 件积分商品库存；新兑换逻辑应传 quantity。 */
-    @Update("update points_product set stock = stock - 1, update_time = now() "
-            + "where id = #{productId} and stock > 0 and status = 'enabled' and deleted = 0")
-    int deductStock(@Param("productId") Long productId);
-
     /**
      * 原子扣减指定数量库存。
      *

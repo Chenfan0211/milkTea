@@ -4,7 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wuling.common.api.PageResult;
 import com.wuling.common.mq.MqConstants;
-import com.wuling.common.mq.MqProducer;
+import com.wuling.common.mq.event.CouponEvent;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 
@@ -16,6 +17,7 @@ import com.wuling.trade.pricing.MemberPriceCheck;
 import com.wuling.trade.pricing.MemberPricingService;
 import com.wuling.trade.port.ProductQueryPort;
 import com.wuling.trade.port.SplitSnapshotQueryPort;
+import com.wuling.trade.port.CouponPort;
 import com.wuling.trade.dto.CreateOrderRequest;
 import com.wuling.trade.dto.OrderDTO;
 import com.wuling.trade.entity.Order;
@@ -26,8 +28,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -49,6 +54,8 @@ public class OrderService {
     public static final String STATUS_PAID = "PAID";
     public static final String STATUS_COMPLETED = "COMPLETED";
     public static final String STATUS_CANCELED = "CANCELED";
+    public static final String PAY_CHANNEL_WXPAY = "WXPAY";
+    public static final String PAY_CHANNEL_STORED_VALUE = "STORED_VALUE";
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
@@ -63,8 +70,11 @@ public class OrderService {
      */
     private final SplitSnapshotQueryPort splitSnapshotQueryPort;
 
+    /** 优惠券同步锁券端口；支付后的消费、取消/超时释放走可靠事件。 */
+    private final CouponPort couponPort;
 
-    private final MqProducer mqProducer;
+
+    private final OutboxService outboxService;
 
     /**
      * 会员价计算与校验（第 15 期）。
@@ -78,13 +88,15 @@ public class OrderService {
                         OrderItemMapper orderItemMapper,
                         ProductQueryPort productQueryPort,
                         SplitSnapshotQueryPort splitSnapshotQueryPort,
-                        MqProducer mqProducer,
+                        CouponPort couponPort,
+                        OutboxService outboxService,
                         MemberPricingService memberPricingService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.productQueryPort = productQueryPort;
         this.splitSnapshotQueryPort = splitSnapshotQueryPort;
-        this.mqProducer = mqProducer;
+        this.couponPort = couponPort;
+        this.outboxService = outboxService;
         this.memberPricingService = memberPricingService;
     }
 
@@ -102,8 +114,14 @@ public class OrderService {
         // 会员等级：以服务端记录为准，客户端传入值仅作交叉校验（见 MemberPricingService）
         String levelCode = memberPricingService.resolveLevelCode(request.getUserId(), request.getVipLevel());
 
+        String payChannel = normalizePayChannel(request.getPayChannel());
+        boolean storedValuePay = PAY_CHANNEL_STORED_VALUE.equals(payChannel);
+
         long total = 0L;
         long original = 0L;
+        long storedValueDiscount = 0L;
+        List<Long> productIds = new ArrayList<>();
+        List<CouponPort.ItemAmount> itemAmounts = new ArrayList<>();
         List<OrderItem> items = new ArrayList<>();
 
         for (CreateOrderRequest.Item reqItem : request.getItems()) {
@@ -130,6 +148,18 @@ public class OrderService {
             long unitPrice = memberPricingService.memberPrice(listPrice, levelCode);
             long originalPrice = listPrice;
 
+            // 储值立减按「会员价后的单件金额」扣减，不改变订单明细的会员单价快照。
+            long lineDiscount = 0L;
+            if (storedValuePay) {
+                long reducePerUnit = product.getStoredValuePrice() == null
+                        ? 0L : Math.max(0L, product.getStoredValuePrice());
+                lineDiscount = Math.min(unitPrice, reducePerUnit) * quantity;
+                storedValueDiscount += lineDiscount;
+            }
+            // 锁券用的逐商品行净额（储值立减后），用于营销侧按适用商品计算门槛与上限
+            itemAmounts.add(new CouponPort.ItemAmount(product.getId(),
+                    Math.max(0L, unitPrice * quantity - lineDiscount)));
+
             OrderItem item = new OrderItem();
             item.setProductId(product.getProductId());
             item.setProductName(product.getName());
@@ -143,7 +173,10 @@ public class OrderService {
 
             total += unitPrice * quantity;
             original += originalPrice * quantity;
+            productIds.add(product.getId());
         }
+
+        long amountBeforeCoupon = Math.max(0L, total - storedValueDiscount);
 
         Order order = new Order();
         order.setOrderNo(nextOrderNo());
@@ -153,10 +186,12 @@ public class OrderService {
         order.setMealType(request.getMealType());
         order.setStatus(STATUS_CREATED);
         order.setPayStatus("UNPAID");
-        order.setTotalAmount(total);
+        order.setPayChannel(payChannel);
+        order.setTotalAmount(amountBeforeCoupon);
         order.setOriginalAmount(original);
-        order.setDiscountAmount(Math.max(0L, original - total));
-        order.setPaidAmount(total);
+        order.setDiscountAmount(Math.max(0L, original - amountBeforeCoupon));
+        order.setPaidAmount(amountBeforeCoupon);
+        order.setStoredValueDiscount(storedValueDiscount);
         order.setCouponDiscount(0L);
         order.setPointsUsed(0L);
         order.setPointsEarned(0L);
@@ -168,34 +203,86 @@ public class OrderService {
             orderItemMapper.insert(item);
         }
 
+        long couponDiscount = 0L;
+        boolean couponLocked = false;
+        try {
+            if (request.getUserCouponId() != null) {
+                CouponPort.LockResult locked = couponPort.lock(
+                        request.getUserId(), request.getUserCouponId(), order.getOrderNo(),
+                        request.getStoreSubjectId(), productIds, itemAmounts,
+                        sceneOf(request.getMealType()), amountBeforeCoupon);
+                couponLocked = true;
+                couponDiscount = Math.max(0L, Math.min(locked.discountAmount(), amountBeforeCoupon));
+
+                Order pricePatch = new Order();
+                pricePatch.setId(order.getId());
+                pricePatch.setCouponId(request.getUserCouponId());
+                pricePatch.setCouponDiscount(couponDiscount);
+                pricePatch.setPaidAmount(amountBeforeCoupon - couponDiscount);
+                pricePatch.setDiscountAmount(Math.max(0L, original - pricePatch.getPaidAmount()));
+                orderMapper.updateById(pricePatch);
+
+                order.setCouponId(request.getUserCouponId());
+                order.setCouponDiscount(couponDiscount);
+                order.setPaidAmount(pricePatch.getPaidAmount());
+                order.setDiscountAmount(pricePatch.getDiscountAmount());
+
+                // 事务提交阶段若失败（乐观锁/约束等），同步补偿释放锁券，
+                // 避免「券被锁住但订单没生成」的悬挂券。
+                TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronization() {
+                            @Override
+                            public void afterCompletion(int status) {
+                                if (status == STATUS_ROLLED_BACK) {
+                                    couponPort.releaseAfterLockFailure(order.getOrderNo());
+                                }
+                            }
+                        });
+            }
+        } catch (RuntimeException e) {
+            if (couponLocked) {
+                couponPort.releaseAfterLockFailure(order.getOrderNo());
+            }
+            throw e;
+        }
+
         // 关键业务日志：下单成功（金额为「分」，便于对账核对）
         log.info("订单创建成功 orderNo={} userId={} storeSubjectId={} items={} 实付={}分 应付={}分 等级={}",
                 order.getOrderNo(), order.getUserId(), order.getStoreSubjectId(),
                 items.size(), order.getPaidAmount(), order.getTotalAmount(), levelCode);
 
-        // 发送延迟消息：15 分钟未支付则自动关闭（MQ 基础设施示例用法）
-        try {
-            mqProducer.sendDelay(MqConstants.ORDER_TIMEOUT_ROUTING_KEY, order.getOrderNo(), order.getOrderNo());
-        } catch (Exception e) {
-            // MQ 不可用不应阻塞下单，记录日志由补偿任务兜底
-            log.warn("订单超时消息发送失败 orderNo={} err={}", order.getOrderNo(), e.getMessage());
-        }
+        // 订单超时关单事件：与订单同事务写入 outbox，由扫描器可靠投递。
+        // availableAt = now + 15 分钟，扫描器到期后才发布到 ORDER_TIMEOUT 队列。
+        outboxService.enqueue("order", order.getOrderNo(), "ORDER_TIMEOUT",
+                MqConstants.ORDER_TIMEOUT_ROUTING_KEY, order.getOrderNo(),
+                order.getOrderNo(), Instant.now().plusSeconds(15 * 60L));
 
         // 把「客户端算的价对不对」带回给前端：金额以服务端为准，
         // 但前端需要知道自己是否口径漂移，否则会长期「显示一个价、实收另一个价」。
         MemberPriceCheck check = memberPricingService.verify(request.getClientAmount(), total);
         OrderDTO dto = toDTO(order, items);
-        dto.setPriceCheck(toPriceCheckDTO(check));
+        dto.setPriceCheck(toPriceCheckDTO(check, request.getClientPaidAmount(), order.getPaidAmount()));
         return dto;
     }
 
     /** 校验结果 -> 响应 DTO（响应层不直接暴露 pricing 包的类型，避免耦合到接口契约）。 */
-    private static OrderDTO.PriceCheck toPriceCheckDTO(MemberPriceCheck check) {
+    private static OrderDTO.PriceCheck toPriceCheckDTO(MemberPriceCheck check,
+                                                        Long clientPaidAmount,
+                                                        Long serverPaidAmount) {
         OrderDTO.PriceCheck dto = new OrderDTO.PriceCheck();
         dto.setClientAmount(check.clientAmount());
         dto.setServerAmount(check.serverAmount());
         dto.setCorrect(check.correct());
         dto.setReason(check.reason());
+        dto.setClientPaidAmount(clientPaidAmount);
+        if (clientPaidAmount == null) {
+            dto.setPaidAmountCorrect(null);
+        } else if (clientPaidAmount.equals(serverPaidAmount)) {
+            dto.setPaidAmountCorrect(true);
+        } else {
+            dto.setPaidAmountCorrect(false);
+            dto.setPaidAmountReason("客户端实付金额与服务端不一致");
+        }
         return dto;
     }
 
@@ -226,7 +313,8 @@ public class OrderService {
         return PageResult.of(records, page.getCurrent(), page.getSize(), page.getTotal());
     }
 
-    public PageResult<OrderDTO> pageOrders(long current, long size, String status, String search, Long storeSubjectId) {
+    public PageResult<OrderDTO> pageOrders(long current, long size, String status, String search, Long storeSubjectId,
+                                          String startTime, String endTime) {
         LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>().orderByDesc(Order::getId);
         if (StringUtils.hasText(status)) {
             query.eq(Order::getStatus, status);
@@ -237,6 +325,13 @@ public class OrderService {
         }
         if (StringUtils.hasText(search)) {
             query.and(w -> w.like(Order::getOrderNo, search).or().like(Order::getPickupCode, search));
+        }
+        // 下单时间范围过滤（前端传 yyyy-MM-dd HH:mm:ss；endTime 用 < 保证左闭右开）
+        if (StringUtils.hasText(startTime)) {
+            query.ge(Order::getCreateTime, startTime);
+        }
+        if (StringUtils.hasText(endTime)) {
+            query.lt(Order::getCreateTime, endTime);
         }
         Page<Order> page = orderMapper.selectPage(new Page<>(current, size), query);
         List<OrderDTO> records = page.getRecords().stream()
@@ -349,6 +444,34 @@ public class OrderService {
         return bound;
     }
 
+    private static String normalizePayChannel(String payChannel) {
+        if (!StringUtils.hasText(payChannel)) {
+            return PAY_CHANNEL_WXPAY;
+        }
+        String normalized = payChannel.trim().toUpperCase();
+        if (!PAY_CHANNEL_WXPAY.equals(normalized) && !PAY_CHANNEL_STORED_VALUE.equals(normalized)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "不支持的支付渠道: " + payChannel);
+        }
+        return normalized;
+    }
+
+    private static String sceneOf(String mealType) {
+        return "dinein".equalsIgnoreCase(mealType) ? "dinein" : "pickup";
+    }
+
+    /** 写优惠券 RELEASE outbox：与订单关闭/取消同事务，marketing 异步释放锁券。 */
+    private void enqueueCouponRelease(Order order, String reason) {
+        CouponEvent event = new CouponEvent();
+        event.setAction(CouponEvent.ACTION_RELEASE);
+        event.setUserId(order.getUserId());
+        event.setUserCouponId(order.getCouponId());
+        event.setOrderNo(order.getOrderNo());
+        event.setReason(reason);
+        outboxService.enqueue("coupon", String.valueOf(order.getCouponId()),
+                "COUPON_RELEASE", MqConstants.COUPON_EVENT_ROUTING_KEY,
+                order.getOrderNo(), event);
+    }
+
     private List<OrderItem> loadItems(Long orderId) {
         return orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
                 .eq(OrderItem::getOrderId, orderId)
@@ -393,7 +516,11 @@ public class OrderService {
         patch.setId(order.getId());
         patch.setStatus(STATUS_CANCELED);
         patch.setRemark("超时未支付，系统自动关闭");
-        return orderMapper.updateById(patch) > 0;
+        boolean updated = orderMapper.updateById(patch) > 0;
+        if (updated && order.getCouponId() != null) {
+            enqueueCouponRelease(order, "超时未支付关闭");
+        }
+        return updated;
     }
 
 
@@ -436,6 +563,9 @@ public class OrderService {
         patch.setRemark("用户主动取消");
         orderMapper.updateById(patch);
         order.setStatus(STATUS_CANCELED);
+        if (order.getCouponId() != null) {
+            enqueueCouponRelease(order, "用户主动取消");
+        }
         return toDTO(order, loadItems(order.getId()));
     }
 
@@ -462,10 +592,12 @@ public class OrderService {
         dto.setMealType(order.getMealType());
         dto.setStatus(order.getStatus());
         dto.setPayStatus(order.getPayStatus());
-        // 核销码口径：只有「已支付待核销」的订单才下发取餐码。
-        // 待支付尚未生成；已核销/已完成/已取消/已退款即使库里有历史值也不再对外暴露，
-        // 保证后台与小程序任一出口的核销码展示口径一致。
-        dto.setPickupCode(STATUS_PAID.equals(order.getStatus()) ? order.getPickupCode() : null);
+        dto.setPayChannel(order.getPayChannel());
+        // 核销码口径：已支付（待核销）与已完成（已核销）的订单都下发取餐码，
+        // 便于后台回查历史取餐码；待支付尚未生成、已取消/已退款不再对外暴露。
+        boolean showPickupCode = STATUS_PAID.equals(order.getStatus())
+                || STATUS_COMPLETED.equals(order.getStatus());
+        dto.setPickupCode(showPickupCode ? order.getPickupCode() : null);
         // 门店订单固定来源分类，供小程序订单页页签过滤
         dto.setCategory("store");
         dto.setTotalAmount(order.getTotalAmount());
@@ -473,6 +605,8 @@ public class OrderService {
         dto.setDiscountAmount(order.getDiscountAmount());
         dto.setPaidAmount(order.getPaidAmount());
         dto.setCouponDiscount(order.getCouponDiscount());
+        dto.setCouponId(order.getCouponId());
+        dto.setStoredValueDiscount(order.getStoredValueDiscount());
         dto.setRefundStatus(order.getRefundStatus());
         dto.setCreateTime(fmt(order.getCreateTime()));
         dto.setPayTime(fmt(order.getPayTime()));

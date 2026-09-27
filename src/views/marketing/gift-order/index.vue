@@ -7,10 +7,8 @@ defineOptions({
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
-import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
-
-const store = useAdminStore();
+import { renderTag, statusMap, renderDateTime, renderMoney } from '@/views/_shared/render';
+import { fetchAdminGiftCardOrders } from '@/service/api/crud';
 
 const statusMapDef = statusMap({
   CREATED: ['待支付', 'warning'],
@@ -22,9 +20,9 @@ const statusMapDef = statusMap({
 const columns: DataTableColumns<any> = [
   { title: '订单号', key: 'orderNo', width: 145 },
   { title: '卡种', key: 'cardName', width: 140 },
-  { title: '面额(元)', key: 'faceValue', width: 88, align: 'right' },
+  { title: '面额(元)', key: 'faceValue', width: 88, align: 'right', render: renderMoney('faceValue') },
   { title: '数量', key: 'quantity', width: 70, align: 'right' },
-  { title: '金额(元)', key: 'amount', width: 88, align: 'right' },
+  { title: '金额(元)', key: 'amount', width: 88, align: 'right', render: renderMoney('amount') },
   { title: '购买人', key: 'buyer', width: 120 },
   { title: '状态', key: 'status', width: 88, render: renderTag('status', statusMapDef) },
   { title: '创建时间', key: 'createTime', width: 170, render: renderDateTime('createTime') }
@@ -48,12 +46,20 @@ const searchFields: SearchField[] = [
 
 const config: AdminListConfig = {
   title: '礼品卡订单',
-  remoteKey: 'giftCardOrders',
   columns,
   searchFields,
   toolbar: [],
   rowActions: [],
-  loadData: async ({ page, pageSize, search }) => store.queryRemote('giftCardOrders', search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => {
+    const res = await fetchAdminGiftCardOrders({
+      current: page,
+      size: pageSize,
+      orderNo: search.orderNo,
+      buyer: search.buyer,
+      status: search.status
+    });
+    return { data: res.records ?? [], total: res.total ?? 0 };
+  }
 };
 </script>
 

@@ -46,18 +46,35 @@ class BalancePayIntentServiceTest {
                 (InvocationHandler) (proxy, method, args) -> switch (method.getName()) {
                     case "insert" -> {
                         BalancePayIntent intent = (BalancePayIntent) args[0];
+                        boolean dup = store.values().stream()
+                                .anyMatch(i -> intent.getOrderNo().equals(i.getOrderNo()));
+                        if (dup) {
+                            throw new org.springframework.dao.DuplicateKeyException("dup");
+                        }
                         long id = idGen.incrementAndGet();
                         intent.setId(id);
                         store.put(id, intent);
                         yield 1;
                     }
                     case "selectOne" -> {
-                        // 简化：按 orderNo 从内存查（测试里只有这一个查询维度）
                         String orderNo = extractOrderNo(args);
                         yield orderNo == null ? null
                                 : store.values().stream()
                                         .filter(i -> orderNo.equals(i.getOrderNo()))
                                         .findFirst().orElse(null);
+                    }
+                    case "update" -> {
+                        // markDone / markCompensated 走条件更新（patch + Wrapper）
+                        BalancePayIntent patch = (BalancePayIntent) args[0];
+                        String orderNo = extractOrderNo(args);
+                        int n = 0;
+                        for (BalancePayIntent cur : store.values()) {
+                            if (orderNo != null && orderNo.equals(cur.getOrderNo())) {
+                                if (patch.getStatus() != null) cur.setStatus(patch.getStatus());
+                                n++;
+                            }
+                        }
+                        yield n;
                     }
                     case "updateById" -> {
                         BalancePayIntent patch = (BalancePayIntent) args[0];

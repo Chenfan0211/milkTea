@@ -4,15 +4,19 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.common.mq.MqConstants;
-import com.wuling.common.mq.MqProducer;
+import com.wuling.common.mq.event.CouponEvent;
 import com.wuling.common.mq.event.OrderRefundedEvent;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.dto.OrderDTO;
 import com.wuling.trade.entity.Order;
 import com.wuling.trade.entity.OrderItem;
+import com.wuling.trade.entity.Payment;
 import com.wuling.trade.entity.Refund;
 import com.wuling.trade.mapper.OrderItemMapper;
 import com.wuling.trade.mapper.OrderMapper;
+import com.wuling.trade.mapper.PaymentMapper;
 import com.wuling.trade.mapper.RefundMapper;
+import com.wuling.trade.pay.storedvalue.StoredValueBalancePort;
 import com.wuling.trade.port.SettlementQueryPort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,25 +59,31 @@ public class RefundService {
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final RefundMapper refundMapper;
+    private final PaymentMapper paymentMapper;
     private final SettlementQueryPort settlementQueryPort;
     private final OrderService orderService;
     private final PaymentGatewayResolver gatewayResolver;
-    private final MqProducer mqProducer;
+    private final OutboxService outboxService;
+    private final StoredValueBalancePort storedValueBalancePort;
 
     public RefundService(OrderMapper orderMapper,
                          OrderItemMapper orderItemMapper,
                          RefundMapper refundMapper,
+                         PaymentMapper paymentMapper,
                          SettlementQueryPort settlementQueryPort,
                          OrderService orderService,
                          PaymentGatewayResolver gatewayResolver,
-                         MqProducer mqProducer) {
+                         OutboxService outboxService,
+                         StoredValueBalancePort storedValueBalancePort) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.refundMapper = refundMapper;
+        this.paymentMapper = paymentMapper;
         this.settlementQueryPort = settlementQueryPort;
         this.orderService = orderService;
         this.gatewayResolver = gatewayResolver;
-        this.mqProducer = mqProducer;
+        this.outboxService = outboxService;
+        this.storedValueBalancePort = storedValueBalancePort;
     }
 
     /**
@@ -112,6 +122,23 @@ public class RefundService {
      * 调用支付通道发起退款；同步失败置 FAILED（订单保持退款前状态，可重试）。
      */
     private void applyToGateway(Refund refund) {
+        Payment payment = paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
+                .eq(Payment::getOrderNo, refund.getOrderNo())
+                .eq(Payment::getStandardStatus, "PAID")
+                .orderByDesc(Payment::getId)
+                .last("limit 1"));
+        if (payment != null && PaymentService.isStoredValueChannel(payment.getChannel())) {
+            Order order = orderMapper.selectById(refund.getOrderId());
+            if (order == null) {
+                throw new BusinessException(ResultCode.NOT_FOUND, "原订单不存在");
+            }
+            // 稳定业务号按订单维度生成：即使退款单重试/响应丢失，营销侧也只回冲一次。
+            storedValueBalancePort.refund(order.getUserId(), refund.getAmount(),
+                    "REFUND:" + refund.getOrderNo());
+            markSuccess(refund);
+            return;
+        }
+
         PaymentGateway.RefundApplyResult result = gatewayResolver.active()
                 .refund(refund.getOrderNo(), refund.getRefundNo(), refund.getAmount(), refund.getReason());
 
@@ -207,7 +234,27 @@ public class RefundService {
                 event.setOrderNo(order.getOrderNo());
                 event.setRefundAmount(refund.getAmount());
                 event.setRefundNo(refund.getRefundNo());
-                mqProducer.send(MqConstants.FINANCE_REVERSE_ROUTING_KEY, event, order.getOrderNo());
+                outboxService.enqueue(
+                        "ORDER",
+                        order.getOrderNo(),
+                        "ORDER_REFUNDED",
+                        MqConstants.FINANCE_REVERSE_ROUTING_KEY,
+                        order.getOrderNo(),
+                        event);
+            }
+            if (order.getCouponId() != null) {
+                CouponEvent event = new CouponEvent();
+                event.setAction(CouponEvent.ACTION_RESTORE_REFUND);
+                event.setUserId(order.getUserId());
+                event.setUserCouponId(order.getCouponId());
+                event.setOrderNo(order.getOrderNo());
+                outboxService.enqueue(
+                        "ORDER",
+                        order.getOrderNo(),
+                        "COUPON_RESTORE_REFUND",
+                        MqConstants.COUPON_EVENT_ROUTING_KEY,
+                        order.getOrderNo(),
+                        event);
             }
         }
     }

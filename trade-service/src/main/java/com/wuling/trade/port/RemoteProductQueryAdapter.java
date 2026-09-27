@@ -72,6 +72,7 @@ public class RemoteProductQueryAdapter implements ProductQueryPort {
             view.setSupplierSubjectId(asLong(body.get("supplierSubjectId")));
             view.setPlatformCommission(asLong(body.get("platformCommission")));
             view.setCostPrice(asLong(body.get("costPrice")));
+            view.setStoredValuePrice(asLong(body.get("storedValuePrice")));
             return view;
         } catch (Exception e) {
             log.error("远程查询商品失败 productId={} err={}", productId, e.getMessage());

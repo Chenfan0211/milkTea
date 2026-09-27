@@ -69,19 +69,26 @@ public class EventOutboxMapper {
     /**
      * 使用 SELECT ... FOR UPDATE SKIP LOCKED 在数据库中原子认领一批事件。
      *
-     * <p>调用方必须处于事务中；方法返回前记录已经被更新为 PUBLISHING，
-     * 因此其他扫描实例不会重复认领。</p>
+     * <p>除到期的 NEW 事件外，也会回收 locked_at 早于 staleBefore 的 PUBLISHING
+     * 记录，用于处理发布进程崩溃后未及时回写状态的情况。后续 UPDATE 仍携带
+     * 完整可认领条件；若并发实例已先完成认领，则不会把候选记录误报为成功。</p>
      */
-    public List<EventOutboxEntity> claimBatch(String workerId, Instant now, int batchSize) {
+    public List<EventOutboxEntity> claimBatch(String workerId,
+                                              Instant now,
+                                              int batchSize,
+                                              Instant staleBefore) {
+        Objects.requireNonNull(staleBefore, "staleBefore");
         if (batchSize <= 0) {
             return List.of();
         }
         String selectSql = "SELECT " + COLUMNS + " FROM event_outbox "
-                + "WHERE status = 'NEW' AND available_at <= ? "
-                + "AND (next_retry_at IS NULL OR next_retry_at <= ?) "
+                + "WHERE ((status = 'NEW' AND available_at <= ? "
+                + "AND (next_retry_at IS NULL OR next_retry_at <= ?)) "
+                + "OR (status = 'PUBLISHING' AND locked_at IS NOT NULL AND locked_at <= ?)) "
                 + "ORDER BY id LIMIT ? FOR UPDATE SKIP LOCKED";
         List<EventOutboxEntity> candidates = jdbcTemplate.query(
-                selectSql, ROW_MAPPER, Timestamp.from(now), Timestamp.from(now), batchSize);
+                selectSql, ROW_MAPPER,
+                Timestamp.from(now), Timestamp.from(now), Timestamp.from(staleBefore), batchSize);
         if (candidates.isEmpty()) {
             return List.of();
         }
@@ -90,25 +97,49 @@ public class EventOutboxMapper {
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         String updateSql = "UPDATE event_outbox SET status='PUBLISHING',locked_by=?, "
                 + "locked_at = ?, update_time = ?, last_error = NULL "
-                + "WHERE status = 'NEW' AND id IN (" + placeholders + ")";
-        List<Object> args = new ArrayList<>(3 + ids.size());
+                + "WHERE id IN (" + placeholders + ") AND ("
+                + "(status = 'NEW' AND available_at <= ? "
+                + "AND (next_retry_at IS NULL OR next_retry_at <= ?)) "
+                + "OR (status = 'PUBLISHING' AND locked_at IS NOT NULL AND locked_at <= ?))";
+        List<Object> args = new ArrayList<>(6 + ids.size());
         args.add(workerId);
         args.add(Timestamp.from(now));
         args.add(Timestamp.from(now));
         args.addAll(ids);
-        jdbcTemplate.update(updateSql, args.toArray());
-
-        List<EventOutboxEntity> claimed = new ArrayList<>(candidates.size());
-        for (EventOutboxEntity candidate : candidates) {
-            claimed.add(new EventOutboxEntity(
-                    candidate.id(), candidate.eventId(), candidate.aggregateType(),
-                    candidate.aggregateId(), candidate.eventType(), candidate.routingKey(),
-                    candidate.bizKey(), candidate.payload(), OutboxStatus.PUBLISHING,
-                    candidate.retryCount(), candidate.nextRetryAt(), workerId, now,
-                    candidate.lastError(), candidate.availableAt(), candidate.createTime(),
-                    now, candidate.sentAt()));
+        args.add(Timestamp.from(now));
+        args.add(Timestamp.from(now));
+        args.add(Timestamp.from(staleBefore));
+        int updated = jdbcTemplate.update(updateSql, args.toArray());
+        if (updated == 0) {
+            return List.of();
         }
-        return claimed;
+        if (updated == candidates.size()) {
+            return candidates.stream()
+                    .map(candidate -> claimed(candidate, workerId, now))
+                    .toList();
+        }
+        return claimedRows(ids, workerId);
+    }
+
+    private List<EventOutboxEntity> claimedRows(List<Long> ids, String workerId) {
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql = "SELECT " + COLUMNS + " FROM event_outbox "
+                + "WHERE status = 'PUBLISHING' AND locked_by = ? "
+                + "AND id IN (" + placeholders + ") ORDER BY id";
+        List<Object> args = new ArrayList<>(1 + ids.size());
+        args.add(workerId);
+        args.addAll(ids);
+        return jdbcTemplate.query(sql, ROW_MAPPER, args.toArray());
+    }
+
+    private static EventOutboxEntity claimed(EventOutboxEntity candidate, String workerId, Instant now) {
+        return new EventOutboxEntity(
+                candidate.id(), candidate.eventId(), candidate.aggregateType(),
+                candidate.aggregateId(), candidate.eventType(), candidate.routingKey(),
+                candidate.bizKey(), candidate.payload(), OutboxStatus.PUBLISHING,
+                candidate.retryCount(), candidate.nextRetryAt(), workerId, now,
+                null, candidate.availableAt(), candidate.createTime(),
+                now, candidate.sentAt());
     }
 
     /**
@@ -161,6 +192,27 @@ public class EventOutboxMapper {
                 Timestamp.from(now),
                 id,
                 workerId);
+    }
+
+    /** 统计 event_outbox 中各异常状态的数量（供监控告警使用）。 */
+    public OutboxHealth health(Instant now, long staleNewMs, long stalePublishingMs) {
+        Long failed = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM event_outbox WHERE status = 'FAILED'", Long.class);
+        Long staleNew = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM event_outbox WHERE status = 'NEW' AND available_at <= ?",
+                Long.class, Timestamp.from(now.minusMillis(staleNewMs)));
+        Long stalePublishing = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM event_outbox WHERE status = 'PUBLISHING' "
+                        + "AND locked_at IS NOT NULL AND locked_at <= ?",
+                Long.class, Timestamp.from(now.minusMillis(stalePublishingMs)));
+        return new OutboxHealth(
+                failed == null ? 0 : failed,
+                staleNew == null ? 0 : staleNew,
+                stalePublishing == null ? 0 : stalePublishing);
+    }
+
+    /** event_outbox 健康快照（各异常状态计数）。 */
+    public record OutboxHealth(long failedCount, long staleNewCount, long stalePublishingCount) {
     }
 
     private static EventOutboxEntity mapRow(ResultSet rs) throws SQLException {

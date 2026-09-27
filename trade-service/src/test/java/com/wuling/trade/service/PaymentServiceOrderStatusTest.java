@@ -50,7 +50,7 @@ class PaymentServiceOrderStatusTest {
                 mock(StoredValueOrderPort.class),
                 mock(StoredValueBalancePort.class),
                 mock(BalancePayIntentService.class),
-                mock(com.wuling.common.mq.MqProducer.class),
+                mock(com.wuling.common.outbox.OutboxService.class),
                 mock(GiftCardOrderPort.class));
         when(orderItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
     }

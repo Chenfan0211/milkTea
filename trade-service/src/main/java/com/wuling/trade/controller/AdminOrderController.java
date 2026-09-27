@@ -26,8 +26,10 @@ public class AdminOrderController {
                                                @RequestParam(defaultValue = "10") long size,
                                                @RequestParam(required = false) String status,
                                                @RequestParam(required = false) String search,
-                                               @RequestParam(required = false) Long storeSubjectId) {
-        return Result.ok(orderService.pageOrders(current, size, status, search, storeSubjectId));
+                                               @RequestParam(required = false) Long storeSubjectId,
+                                               @RequestParam(required = false) String startTime,
+                                               @RequestParam(required = false) String endTime) {
+        return Result.ok(orderService.pageOrders(current, size, status, search, storeSubjectId, startTime, endTime));
     }
 
     /** 后台：订单详情（含商品明细 items） */

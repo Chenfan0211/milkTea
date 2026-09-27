@@ -1036,7 +1036,7 @@ assert.ok(
     confirmWxml.includes('goods-row__actual'),
   '商品行必须包含图、名称、规格、数量与双价'
 );
-assert.ok(confirmWxml.includes('优惠券') && confirmWxml.includes('暂无可用优惠券'), '确认订单页必须包含优惠券行');
+assert.ok(confirmWxml.includes('优惠券') && confirmWxml.includes('couponText'), '确认订单页必须展示动态优惠券状态');
 assert.ok(confirmWxml.includes('共优惠') && confirmWxml.includes('合计'), '确认订单页必须包含优惠与合计汇总');
 assert.ok(
   confirmWxml.includes('当前订单可获得') &&
@@ -1792,13 +1792,27 @@ assert.ok(
 assert.ok(!menuJs.includes('规格编辑暂未接入'), '购物车编辑不得继续显示暂未接入提示');
 assert.ok(
   specSheetWxml.includes('product.specDetail.imageDisclaimer') &&
-    specSheetWxml.includes('product.specDetail.priceLabel') &&
+    specSheetWxml.includes('spec-sheet__title-row') &&
+    specSheetWxml.includes('product.specDetail.tag') &&
     specSheetWxml.includes('主要原料') &&
     specSheetWxml.includes('展开') &&
     specSheetWxml.includes('收起') &&
     specSheetWxml.includes('立即购买') &&
     specSheetWxml.includes('加入购物车'),
   '规格弹层必须保留参考图的完整信息结构'
+);
+// 商品名同行承载标签，且不得再出现「小程序价 ¥xx起」起始价行
+assert.ok(
+  !specSheetWxml.includes('spec-sheet__promo-row') &&
+    !specSheetWxml.includes('product.specDetail.priceLabel') &&
+    !specSheetWxml.includes('product.specDetail.startPrice'),
+  '规格弹层必须移除起始价行（小程序价 ¥xx起）'
+);
+// 立即购买必须直连结算页，且只带当前选中的这一件商品
+assert.ok(
+  !menuJs.includes('立即购买暂未接入') &&
+    /handleSpecBuy\(event\)\s*\{[\s\S]*?globalData\.pendingOrder[\s\S]*?\/pages\/order-confirm\/order-confirm/.test(menuJs),
+  '立即购买必须直接跳转确认订单页'
 );
 assert.ok(
   specSheetWxml.includes('确定修改') &&

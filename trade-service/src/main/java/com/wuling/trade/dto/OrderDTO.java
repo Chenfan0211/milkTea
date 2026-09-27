@@ -17,6 +17,8 @@ public class OrderDTO {
     private String mealType;
     private String status;
     private String payStatus;
+    /** 支付渠道：WXPAY / STORED_VALUE。 */
+    private String payChannel;
     private String pickupCode;
     /** 订单来源分类：store / stored-value / gift-card，供小程序订单页页签过滤 */
     private String category;
@@ -26,6 +28,10 @@ public class OrderDTO {
     private Long paidAmount;
     /** 优惠券抵扣金额（分） */
     private Long couponDiscount;
+    /** 用户优惠券 ID（单笔订单最多一张）。 */
+    private Long couponId;
+    /** 储值余额支付立减金额（分）。 */
+    private Long storedValueDiscount;
     private String refundStatus;
     private String createTime;
     private String payTime;
@@ -55,6 +61,12 @@ public class OrderDTO {
         private Boolean correct;
         /** 不一致的原因，便于前端提示与排查；一致时为 null */
         private String reason;
+        /** 客户端提交的最终实付金额（分）；未提交时为 null */
+        private Long clientPaidAmount;
+        /** 客户端实付金额是否与服务端一致 */
+        private Boolean paidAmountCorrect;
+        /** 实付金额不一致原因；一致时为 null */
+        private String paidAmountReason;
     }
 
     /**

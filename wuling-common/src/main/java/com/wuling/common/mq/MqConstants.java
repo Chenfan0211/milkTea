@@ -86,6 +86,15 @@ public final class MqConstants {
     public static final String FINANCE_REVERSE_QUEUE = "wuling.finance.reverse.queue";
     public static final String FINANCE_REVERSE_ROUTING_KEY = "wuling.finance.reverse";
 
+    /**
+      优惠券状态事件（trade 发布，marketing 消费）。
+
+      payload 至少包含 action、userId、userCouponId、orderNo，payload 类型见 CouponEvent。
+      消费者按 action 调用既有 CouponService 幂等状态流转，资金与订单主链不通过 MQ 变更。
+    */
+    public static final String COUPON_EVENT_QUEUE = "wuling.coupon.event.queue";
+    public static final String COUPON_EVENT_ROUTING_KEY = "wuling.coupon.event";
+
     // ---------- 死信队列（每个业务队列一个 DLQ） ----------
 
     public static final String ORDER_TIMEOUT_DLQ = ORDER_TIMEOUT_QUEUE + ".dlq";
@@ -94,6 +103,7 @@ public final class MqConstants {
     public static final String EXCHANGE_VERIFY_DLQ = EXCHANGE_VERIFY_QUEUE + ".dlq";
     public static final String FINANCE_SPLIT_DLQ = FINANCE_SPLIT_QUEUE + ".dlq";
     public static final String FINANCE_REVERSE_DLQ = FINANCE_REVERSE_QUEUE + ".dlq";
+    public static final String COUPON_EVENT_DLQ = COUPON_EVENT_QUEUE + ".dlq";
 
     /** 消息重试头（记录已重试次数，由消费者更新） */
     public static final String HEADER_RETRY_COUNT = "x-retry-count";

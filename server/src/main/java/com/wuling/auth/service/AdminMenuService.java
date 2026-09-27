@@ -57,6 +57,22 @@ public class AdminMenuService {
     }
 
     /**
+     * 取「公共菜单」——登录后所有人都应具备的基础路由，当前仅 home（首页）。
+     *
+     * <p><b>为什么单独取而不走角色关联</b>：首页是登录后的落地页，属于基础能力，
+     * 不应受业务菜单权限影响。此前 home 只随 R_OPERATION 的排除法回填，
+     * 财务/审计角色拿不到 home 路由，登录后跳 /home 被前端 not-found 捕获 → 404。
+     * 这里显式取 home 行，由 {@code /route/getUserRoutes} 无条件拼进返回结果，
+     * 从根上避免「新角色忘了配 home 就进不去后台」。
+     */
+    public List<Map<String, Object>> commonMenus() {
+        return jdbcTemplate.queryForList(
+                        "select id, parent_id, code, name, path, component, icon, order_num, type, feature_flag "
+                                + "from sys_menu where deleted = 0 and code = 'home'")
+                .stream().map(this::camelize).toList();
+    }
+
+    /**
      * 取菜单 id 的扁平集合（用于判断某账号是否有权访问某个路由 code）。
      *
      * <p>用途：{@code /route/isRouteExist} 的权限判定，避免前端直接敲 URL 绕过菜单。

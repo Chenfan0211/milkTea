@@ -8,7 +8,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney, renderDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderDateTime, toTimeRange } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -31,11 +31,14 @@ const columns: DataTableColumns<any> = [
       })
     )
   },
-  { title: '申请时间', key: 'applyTime', render: renderDateTime('applyTime'), width: 150 }
+  { title: '申请时间', key: 'applyTime', render: renderDateTime('applyTime'), width: 150 },
+  { title: '支付时间', key: 'payTime', render: renderDateTime('payTime'), width: 170 },
+  { title: '完成时间', key: 'completeTime', render: renderDateTime('completeTime'), width: 170 }
 ];
 
 const searchFields: SearchField[] = [
   { key: 'orderNo', label: '订单号', placeholder: '原订单号' },
+  { key: 'applyTime', label: '申请时间', type: 'daterange' },
   {
     // 等值过滤（eq_ 前缀）：状态列用 LIKE 会误匹配（如 SUCCESS 命中 FAILED 之外），
     // 后端 refunds 专用接口按 status 精确过滤
@@ -68,7 +71,10 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.queryRemote('refunds', search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => {
+    const [startTime, endTime] = toTimeRange(search?.applyTime);
+    return store.queryRemote('refunds', { ...search, startTime, endTime }, page, pageSize);
+  }
 };
 </script>
 

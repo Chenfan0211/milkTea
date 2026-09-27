@@ -5,7 +5,8 @@ import com.wuling.common.alert.AlertChannel;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.common.mq.MqConstants;
-import com.wuling.common.mq.MqProducer;
+import com.wuling.common.mq.event.CouponEvent;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.common.mq.event.OrderPaidEvent;
 import com.wuling.trade.dto.OrderDTO;
 import com.wuling.trade.dto.PayRequest;
@@ -26,8 +27,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -88,7 +87,7 @@ public class PaymentService {
      * 一旦同步调用失败就会把「用户已付款」的回调拖失败，微信会持续重推。
      * 改由事件驱动：trade 只负责声明「付成功了」，发奖交给 marketing 异步重试。
      */
-    private final MqProducer mqProducer;
+    private final OutboxService outboxService;
 
     public PaymentService(OrderService orderService,
                           PaymentMapper paymentMapper,
@@ -98,7 +97,7 @@ public class PaymentService {
                           StoredValueOrderPort storedValueOrderPort,
                           StoredValueBalancePort storedValueBalancePort,
                           BalancePayIntentService balancePayIntentService,
-                          MqProducer mqProducer,
+                          OutboxService outboxService,
                           GiftCardOrderPort giftCardOrderPort) {
         this.orderService = orderService;
         this.paymentMapper = paymentMapper;
@@ -108,7 +107,7 @@ public class PaymentService {
         this.storedValueOrderPort = storedValueOrderPort;
         this.storedValueBalancePort = storedValueBalancePort;
         this.balancePayIntentService = balancePayIntentService;
-        this.mqProducer = mqProducer;
+        this.outboxService = outboxService;
         this.giftCardOrderPort = giftCardOrderPort;
     }
 
@@ -126,6 +125,9 @@ public class PaymentService {
         }
         if (!order.getPaidAmount().equals(request.getAmount())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "支付金额与订单金额不一致");
+        }
+        if (isStoredValueChannel(order.getPayChannel())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "储值余额订单请走余额支付，不发起第三方支付");
         }
 
         Payment payment = new Payment();
@@ -176,6 +178,9 @@ public class PaymentService {
         // 服务端二次校验金额，不信任前端传入
         if (!order.getPaidAmount().equals(amountFen)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "支付金额与订单金额不一致");
+        }
+        if (isStoredValueChannel(order.getPayChannel())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "储值余额订单请走余额支付，不发起第三方支付");
         }
 
         String channel = gatewayResolver.activeChannel();
@@ -587,7 +592,7 @@ public class PaymentService {
      * @return 支付完成后的订单视图
      */
     @Transactional(rollbackFor = Exception.class)
-    public OrderDTO payWithStoredValue(String orderNo, Long userId, long amountFen) {
+    public OrderDTO payWithStoredValue(String orderNo, Long userId) {
         Order order = orderService.lockForUpdate(orderNo);
         if (OrderService.STATUS_PAID.equals(order.getStatus())
                 || OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
@@ -599,17 +604,20 @@ public class PaymentService {
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权支付该订单");
         }
-        // 服务端二次校验金额，不信任前端传入
-        if (!order.getPaidAmount().equals(amountFen)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "支付金额与订单金额不一致");
+        // 储值订单必须走余额支付，不能落到微信/Mock 网关
+        if (!isStoredValueChannel(order.getPayChannel())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该订单支付渠道不是储值余额，请走对应支付通道");
         }
+        // 金额以服务端持久化实付额为准，不接受前端传入
+        long amountFen = order.getPaidAmount();
 
         // 扣款前登记支付意图（REQUIRES_NEW 独立提交）：即便下面主事务回滚，
         // 意图记录仍在，补偿任务据此发现「已扣款但订单未支付」并回冲余额。
         balancePayIntentService.register(orderNo, userId, amountFen);
 
+        // 稳定资金业务号：扣款 PAY:<orderNo>，保证幂等
         StoredValueBalancePort.DeductResult deduct =
-                storedValueBalancePort.deduct(userId, amountFen, orderNo);
+                storedValueBalancePort.deduct(userId, amountFen, "PAY:" + orderNo);
         if (!deduct.success()) {
             // 余额不足等业务性失败：抛出让事务回滚，前端展示可读原因。
             // 意图仍为 PENDING，但既然没有扣到款，补偿任务判定为「无悬挂」即可
@@ -681,6 +689,9 @@ public class PaymentService {
         if (isDuplicatePaymentCallback(order)) {
             log.info("duplicate callback ignored, orderNo={}", orderNo);
             return orderService.toDTO(order, loadItems(order.getId()));
+        }
+        if (isStoredValueChannel(order.getPayChannel())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "储值余额订单不可通过第三方支付回调入账");
         }
         if (!OrderService.STATUS_CREATED.equals(order.getStatus())) {
             // 典型场景：订单已被 MQ 超时关闭，但用户实际已付款 —— 需人工介入退款
@@ -761,33 +772,35 @@ public class PaymentService {
      * <p><b>异常语义</b>：发奖链路任何异常都只记日志，绝不向上抛 ——
      * 抛异常会让「用户已付款」的回调失败并被微信持续重推。
      */
+    /**
+     * 在支付本地事务内写支付成功 outbox（以及与优惠券消费同事务）。
+     *
+     * <p>不再使用 afterCommit + 直接 send：outbox 与订单/支付单同事务提交，
+     * 由扫描器在 Broker ACK 后才标记 SENT，保证「支付成功事件」绝不早于
+     * 支付事务提交、也绝不丢失（失败会重试）。</p>
+     */
     private void publishOrderPaid(Order order, String channel) {
         if (order == null || order.getOrderNo() == null || order.getUserId() == null) {
             return;
         }
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            doPublishOrderPaid(order, channel);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                doPublishOrderPaid(order, channel);
-            }
-        });
-    }
+        OrderPaidEvent event = new OrderPaidEvent();
+        event.setOrderId(order.getId());
+        event.setOrderNo(order.getOrderNo());
+        event.setUserId(order.getUserId());
+        event.setPaidAmount(order.getPaidAmount());
+        event.setChannel(channel);
+        outboxService.enqueue("order", order.getOrderNo(), "ORDER_PAID",
+                MqConstants.PAYMENT_SUCCESS_ROUTING_KEY, order.getOrderNo(), event);
 
-    private void doPublishOrderPaid(Order order, String channel) {
-        try {
-            OrderPaidEvent event = new OrderPaidEvent();
-            event.setOrderId(order.getId());
-            event.setOrderNo(order.getOrderNo());
-            event.setUserId(order.getUserId());
-            event.setPaidAmount(order.getPaidAmount());
-            event.setChannel(channel);
-            mqProducer.send(MqConstants.PAYMENT_SUCCESS_ROUTING_KEY, event, order.getOrderNo());
-        } catch (Exception e) {
-            log.error("支付成功事件发布失败（不影响支付结果） orderNo={} err={}",
-                    order.getOrderNo(), e.getMessage());
+        // 使用了优惠券则同事务写 CONSUME 事件
+        if (order.getCouponId() != null) {
+            CouponEvent couponEvent = new CouponEvent();
+            couponEvent.setAction(CouponEvent.ACTION_CONSUME);
+            couponEvent.setUserId(order.getUserId());
+            couponEvent.setUserCouponId(order.getCouponId());
+            couponEvent.setOrderNo(order.getOrderNo());
+            outboxService.enqueue("coupon", String.valueOf(order.getCouponId()),
+                    "COUPON_CONSUME", MqConstants.COUPON_EVENT_ROUTING_KEY,
+                    order.getOrderNo(), couponEvent);
         }
     }}

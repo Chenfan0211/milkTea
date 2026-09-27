@@ -41,20 +41,26 @@ public class CrudController {
         params.remove("current");
         params.remove("size");
 
-        // 约定：以 eq_ 前缀的参数视为「等值过滤」，其余为「模糊搜索」。
-        // 例：?eq_subjectType=STORE -> where subject_type = 'STORE'
-        //     ?name=张三            -> where name like '%张三%'
-        // 等值列仍受 CrudRegistry 的 filterable 白名单约束。
+        // 约定：以 eq_ 前缀的参数视为「等值过滤」，ge_/lt_ 为「范围过滤」，其余为「模糊搜索」。
+        // 例：?eq_subjectType=STORE      -> where subject_type = 'STORE'
+        //     ?ge_createTime=2026-01-01  -> where create_time >= '2026-01-01'
+        //     ?lt_createTime=2026-02-01  -> where create_time <  '2026-02-01'
+        //     ?name=张三                 -> where name like '%张三%'
+        // 等值/范围列仍受 CrudRegistry 的 filterable 白名单约束。
         Map<String, String> search = new java.util.LinkedHashMap<>();
         Map<String, String> filters = new java.util.LinkedHashMap<>();
+        Map<String, String> ranges = new java.util.LinkedHashMap<>();
         for (Map.Entry<String, String> entry : params.entrySet()) {
-            if (entry.getKey().startsWith("eq_")) {
-                filters.put(entry.getKey().substring(3), entry.getValue());
+            String key = entry.getKey();
+            if (key.startsWith("eq_")) {
+                filters.put(key.substring(3), entry.getValue());
+            } else if (key.startsWith("ge_") || key.startsWith("lt_")) {
+                ranges.put(key, entry.getValue());
             } else {
-                search.put(entry.getKey(), entry.getValue());
+                search.put(key, entry.getValue());
             }
         }
-        return Result.ok(crudService.page(resource, current, size, search, filters));
+        return Result.ok(crudService.page(resource, current, size, search, filters, ranges));
     }
 
     @GetMapping("/{resource}/{id}")

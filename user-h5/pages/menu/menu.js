@@ -635,8 +635,40 @@ Page(
       });
       wx.showToast({ title: '已加入购物车', icon: 'none' });
     },
-    handleSpecBuy() {
-      wx.showToast({ title: '立即购买暂未接入', icon: 'none' });
+    // 立即购买：不复用购物车，只把当前选中的这一件塞进 pendingOrder 后直连结算页。
+    handleSpecBuy(event) {
+      const { product, selectedOptions, quantity, unitPrice, originalPrice, storedValuePrice, storedValueDiscount, specText } = event.detail;
+      if (!this.data.currentStore) {
+        wx.showToast({ title: '请先选择门店', icon: 'none' });
+        return;
+      }
+      const options = selectedOptions || [];
+      const selectedOptionIds = options.map(option => option.id);
+      this.setTabBarHidden(false);
+      this.setData({ specVisible: false });
+      this.returningFrom = 'order';
+      getApp().globalData.pendingOrder = {
+        items: [
+          {
+            id: buildCartId(product.id, selectedOptionIds),
+            productId: product.id,
+            selectedOptionIds,
+            name: product.name,
+            spec: specText,
+            price: unitPrice,
+            originalPrice,
+            storedValuePrice: storedValuePrice || 0,
+            storedValueDiscount: storedValueDiscount || 0,
+            quantity,
+            selected: true,
+            listed: true,
+            image: product.image
+          }
+        ],
+        storeId: this.data.currentStore.id,
+        orderMode: this.data.orderMode
+      };
+      wx.navigateTo({ url: '/pages/order-confirm/order-confirm' });
     },
     handleSpecFavorite(event) {
       wx.showToast({ title: event.detail.favorite ? '已收藏' : '已取消收藏', icon: 'none' });

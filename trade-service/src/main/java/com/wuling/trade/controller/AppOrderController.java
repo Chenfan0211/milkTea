@@ -141,7 +141,7 @@ public class AppOrderController {
             throw new com.wuling.common.exception.BusinessException(
                     com.wuling.common.api.ResultCode.FORBIDDEN, "无权支付该订单");
         }
-        OrderDTO paid = paymentService.payWithStoredValue(orderNo, userId, order.getPaidAmount());
+        OrderDTO paid = paymentService.payWithStoredValue(orderNo, userId);
         auditLog.record(String.valueOf(userId), "PAY", "STORED_VALUE", orderNo,
                 "通道=STORED_VALUE 金额=" + order.getPaidAmount(), null);
         return Result.ok(paid);

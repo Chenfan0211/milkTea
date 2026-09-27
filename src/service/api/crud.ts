@@ -275,12 +275,40 @@ export async function saveStoredValueCoupons(packageId: number, coupons: any[]):
   return unwrap<void>(res);
 }
 
-/** 保存某储值套餐的使用说明（JSON 列，需专用接口序列化） */
-export async function saveStoredValueUsage(packageId: number, paragraphs: string[]): Promise<void> {
+/** 读取全局储值使用说明（所有套餐共用，存 app_config.stored_value_usage） */
+export async function fetchStoredValueUsage(): Promise<string[]> {
+  const res = await request<string[]>({
+    url: '/api/v1/admin/marketing/config/stored-value/usage',
+    method: 'get'
+  });
+  return unwrap<string[]>(res);
+}
+
+/** 保存全局储值使用说明（所有套餐共用一份） */
+export async function saveStoredValueUsageGlobal(paragraphs: string[]): Promise<void> {
   const res = await request<void>({
-    url: `/api/v1/admin/marketing/config/stored-value/${packageId}/usage`,
+    url: '/api/v1/admin/marketing/config/stored-value/usage',
     method: 'put',
     data: paragraphs
+  });
+  return unwrap<void>(res);
+}
+
+/** 储值套餐上架 / 下架（仅上架在小程序端展示） */
+export async function setStoredValuePackageStatus(id: number, enabled: boolean): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/marketing/config/stored-value/${id}/status`,
+    method: 'post',
+    params: { enabled }
+  });
+  return unwrap<void>(res);
+}
+
+/** 删除储值套餐（仅「已下架」可删，后端强校验） */
+export async function deleteStoredValuePackage(id: number): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/marketing/config/stored-value/${id}`,
+    method: 'delete'
   });
   return unwrap<void>(res);
 }
@@ -418,7 +446,29 @@ export async function uploadGiftCardImage(file: File): Promise<GiftImageUploadRe
 }
 
 
+/** 礼品卡订单列表（联表补齐卡种/面额/购买人，金额单位为分） */
+export async function fetchAdminGiftCardOrders(params?: Record<string, any>): Promise<CrudPage> {
+  const res = await request<CrudPage>({
+    url: '/api/v1/admin/marketing/gift-card-orders',
+    method: 'get',
+    params
+  });
+  return unwrap<CrudPage>(res);
+}
+
+/** 兑换记录列表（联表补齐用户昵称/商品名称，时光币为整数点数） */
+export async function fetchAdminExchangeRecords(params?: Record<string, any>): Promise<CrudPage> {
+  const res = await request<CrudPage>({
+    url: '/api/v1/admin/marketing/exchange-orders',
+    method: 'get',
+    params
+  });
+  return unwrap<CrudPage>(res);
+}
+
 // ---------------- 财务查询 ----------------
+
+
 
 export async function fetchFinancePool(): Promise<any[]> {
   const res = await request<any[]>({ url: '/api/v1/admin/finance/pool', method: 'get' });

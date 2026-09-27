@@ -208,6 +208,21 @@ public class RabbitConfig {
                 .with(MqConstants.FINANCE_REVERSE_ROUTING_KEY);
     }
 
+    /** 优惠券状态事件队列：trade 发布，marketing 消费。 */
+    @Bean
+    public Queue couponEventQueue() {
+        return QueueBuilder.durable(MqConstants.COUPON_EVENT_QUEUE)
+                .withArgument("x-dead-letter-exchange", MqConstants.DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", MqConstants.COUPON_EVENT_DLQ)
+                .build();
+    }
+
+    @Bean
+    public Binding couponEventBinding() {
+        return BindingBuilder.bind(couponEventQueue()).to(businessExchange())
+                .with(MqConstants.COUPON_EVENT_ROUTING_KEY);
+    }
+
     /** 兑换核销队列（第 5 期）：trade 发布，marketing 消费 */
     @Bean
     public Queue exchangeVerifyQueue() {
@@ -310,5 +325,16 @@ public class RabbitConfig {
     public Binding exchangeVerifyDlqBinding() {
         return BindingBuilder.bind(exchangeVerifyDlq()).to(dlxExchange())
                 .with(MqConstants.EXCHANGE_VERIFY_DLQ);
+    }
+
+    @Bean
+    public Queue couponEventDlq() {
+        return QueueBuilder.durable(MqConstants.COUPON_EVENT_DLQ).build();
+    }
+
+    @Bean
+    public Binding couponEventDlqBinding() {
+        return BindingBuilder.bind(couponEventDlq()).to(dlxExchange())
+                .with(MqConstants.COUPON_EVENT_DLQ);
     }
 }

@@ -29,14 +29,14 @@ class OutboxScannerJobTest {
         Instant now = Instant.parse("2026-09-27T10:00:00Z");
         EventOutboxEntity first = entity(1L, "E-1", 0, now);
         EventOutboxEntity second = entity(2L, "E-2", 0, now);
-        when(service.claimBatch(anyString(), eq(now))).thenReturn(List.of(first, second));
+        when(service.claimBatch("worker-1", now, 10, 30_000L)).thenReturn(List.of(first, second));
         OutboxScannerJob job = new OutboxScannerJob(
                 service, producer, properties, Runnable::run, Clock.fixed(now, ZoneOffset.UTC), "worker-1");
 
         job.scanOnce();
 
-        verify(producer).sendWithId("wuling.payment.success", "{}".getBytes(), "E-1", "O-1");
-        verify(producer).sendWithId("wuling.payment.success", "{}".getBytes(), "E-2", "O-2");
+        verify(producer).sendRawBodyWithId("wuling.payment.success", "{}".getBytes(), "E-1", "O-1");
+        verify(producer).sendRawBodyWithId("wuling.payment.success", "{}".getBytes(), "E-2", "O-2");
         verify(service).markSent(List.of(1L, 2L), "worker-1");
         verify(service, never()).markRetry(any(), anyString(), any(Integer.class), any(), anyString());
     }
@@ -48,9 +48,9 @@ class OutboxScannerJobTest {
         OutboxProperties properties = properties();
         Instant now = Instant.parse("2026-09-27T10:00:00Z");
         EventOutboxEntity event = entity(3L, "E-3", 1, now);
-        when(service.claimBatch(anyString(), eq(now))).thenReturn(List.of(event));
+        when(service.claimBatch("worker-1", now, 10, 30_000L)).thenReturn(List.of(event));
         doThrow(new AmqpException("broker unavailable")).when(producer)
-                .sendWithId(anyString(), any(), anyString(), anyString());
+                .sendRawBodyWithId(anyString(), any(), anyString(), anyString());
         OutboxScannerJob job = new OutboxScannerJob(
                 service, producer, properties, Runnable::run, Clock.fixed(now, ZoneOffset.UTC), "worker-1");
 
@@ -69,9 +69,9 @@ class OutboxScannerJobTest {
         properties.setMaxRetries(2);
         Instant now = Instant.parse("2026-09-27T10:00:00Z");
         EventOutboxEntity event = entity(4L, "E-4", 1, now);
-        when(service.claimBatch(anyString(), eq(now))).thenReturn(List.of(event));
+        when(service.claimBatch("worker-1", now, 10, 30_000L)).thenReturn(List.of(event));
         doThrow(new AmqpException("still failing")).when(producer)
-                .sendWithId(anyString(), any(), anyString(), anyString());
+                .sendRawBodyWithId(anyString(), any(), anyString(), anyString());
         OutboxScannerJob job = new OutboxScannerJob(
                 service, producer, properties, Runnable::run, Clock.fixed(now, ZoneOffset.UTC), "worker-1");
 
@@ -83,6 +83,8 @@ class OutboxScannerJobTest {
 
     private OutboxProperties properties() {
         OutboxProperties properties = new OutboxProperties();
+        properties.setBatchSize(10);
+        properties.setLockTimeoutMs(30_000);
         properties.setMaxRetries(5);
         properties.setInitialRetryDelayMs(100);
         properties.setMaxRetryDelayMs(5_000);

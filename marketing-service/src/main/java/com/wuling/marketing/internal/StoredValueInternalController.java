@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -144,6 +146,15 @@ public class StoredValueInternalController {
                     userId, amount, bizNo, e.getMessage());
             return Map.of("success", false, "message", e.getMessage());
         }
+    }
+
+    /**
+     * 查询业务号是否存在成功的扣款资金记录（trade 悬挂单补偿前确认）。
+     */
+    @GetMapping("/balance/pay-exists")
+    public Map<String, Object> payExists(@RequestParam("bizNo") String bizNo) {
+        boolean exists = StringUtils.hasText(bizNo) && storedValueService.hasSuccessfulPay(bizNo);
+        return Map.of("exists", exists);
     }
 
     private String asString(Object v) {

@@ -457,10 +457,17 @@ const columns = computed(() => {
 });
 
 // 列总宽（超出容器时表格内部横向滚动，不撑破页面）
+//
+// 说明：不能给 scrollX 设 1200 上限。若视口宽于 1200 而列宽总和更大，
+// 表格会把所有列压缩塞进 1200px，导致右侧列（如取餐码、操作）被遮挡且无横向滚动条。
+// 这里如实累加「固定 width 列」+「minWidth 弹性列的最小宽度」，
+// 视口够宽则自然铺满，不够宽则出现横向滚动条，用户可左右滑动查看。
 const scrollX = computed(() => {
-  // 仅固定 width 列计入横向滚动；minWidth 弹性列由表格自动分配，避免超屏
   const fixed = columns.value.reduce((sum: number, col: any) => sum + (col.width ?? 0), 0);
-  return Math.min(fixed, 1200);
+  const flexible = columns.value
+    .filter((col: any) => col.minWidth && !col.width)
+    .reduce((sum: number, col: any) => sum + Number(col.minWidth || 0), 0);
+  return fixed + flexible;
 });
 
 const adminStore = useAdminStore();
@@ -503,6 +510,29 @@ async function loadData() {
   } finally {
     loading.value = false;
   }
+}
+
+// 日期范围搜索：search[field.key] 存 [startStr, endStr]（yyyy-MM-dd）
+// 这里提供与 NDatePicker（时间戳毫秒）之间的转换。
+function dateRangeValue(key: string): [number, number] | null {
+  const v = search[key];
+  if (!Array.isArray(v) || v.length !== 2) return null;
+  const toTs = (s: string) => (s ? new Date(s + 'T00:00:00').getTime() : null);
+  const a = toTs(v[0]);
+  const b = toTs(v[1]);
+  return a && b ? [a, b] : null;
+}
+function updateDateRange(key: string, v: [number, number] | null) {
+  if (!v || v.length !== 2) {
+    search[key] = undefined;
+    return;
+  }
+  const p = (n: number) => String(n).padStart(2, '0');
+  const fmt = (t: number) => {
+    const d = new Date(t);
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+  search[key] = [fmt(v[0]), fmt(v[1])];
 }
 
 function handleSearch() {
@@ -748,6 +778,13 @@ defineExpose({ reload: loadData });
               :placeholder="field.placeholder"
               clearable
               @keyup.enter="handleSearch"
+            />
+            <NDatePicker
+              v-else-if="field.type === 'daterange'"
+              type="daterange"
+              :value="dateRangeValue(field.key)"
+              clearable
+              @update:value="(v: any) => updateDateRange(field.key, v)"
             />
             <NSelect
               v-else

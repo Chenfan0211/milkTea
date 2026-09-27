@@ -66,7 +66,7 @@
             <text class="coupon-row__tag">券</text>
             <text class="coupon-row__label">优惠券</text>
             <view class="coupon-row__value">
-              <text class="coupon-row__placeholder">暂无可用优惠券</text>
+              <text class="coupon-row__placeholder {{selectedCoupon ? 'is-selected' : ''}}">{{couponText}}</text>
               <image class="coupon-row__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
             </view>
           </view>
@@ -104,15 +104,6 @@
           <text class="point-card__text">当前订单可获得{{pointCount}}时光币</text>
         </view>
 
-        <view class="disclaimer-card">
-          <text class="disclaimer-card__en">PRODUCT DISCLAIMER</text>
-          <text class="disclaimer-card__title">免责声明</text>
-          <view class="disclaimer-card__box">
-            <text class="disclaimer-card__text">奶茶属于定制饮品，一旦开始制作或制作完成就无法退款，下单前建议您认真核实门店及饮品信息，避免下错单，谢谢您的理解</text>
-            <image class="disclaimer-card__image" src="/assets/images/3x/menu-product.jpg" mode="aspectFit" />
-          </view>
-        </view>
-
         <view class="form-card">
           <view class="form-row">
             <text class="form-row__label">预留电话</text>
@@ -136,6 +127,15 @@
               placeholder-class="form-row__placeholder"
               bindinput="handleRemarkInput"
             />
+          </view>
+        </view>
+
+        <view class="disclaimer-card">
+          <text class="disclaimer-card__en">PRODUCT DISCLAIMER</text>
+          <text class="disclaimer-card__title">免责声明</text>
+          <view class="disclaimer-card__box">
+            <text class="disclaimer-card__text">奶茶属于定制饮品，一旦开始制作或制作完成就无法退款，下单前建议您认真核实门店及饮品信息，避免下错单，谢谢您的理解</text>
+            <image class="disclaimer-card__image" src="/assets/images/3x/menu-product.jpg" mode="aspectFit" />
           </view>
         </view>
       <view class="confirm-safe"></view>

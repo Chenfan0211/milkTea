@@ -49,6 +49,19 @@ public class CreateOrderRequest {
      */
     private Long clientAmount;
 
+    /**
+     * 支付渠道：WXPAY（默认）或 STORED_VALUE。
+     *
+     * <p>只有储值余额支付才参与储值立减；渠道由服务端再次校验并落库。
+     */
+    private String payChannel;
+
+    /** 使用的用户优惠券 ID；单笔订单最多一张，传 null 表示不使用优惠券。 */
+    private Long userCouponId;
+
+    /** 客户端计算的最终实付额（分），仅用于交叉校验，不参与服务端计价。 */
+    private Long clientPaidAmount;
+
     @NotEmpty(message = "订单明细不能为空")
     @Valid
     private List<Item> items;

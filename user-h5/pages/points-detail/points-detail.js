@@ -13,7 +13,8 @@ const SOURCE_LABELS = {
 function normalizeRecord(record) {
   if (!record || typeof record !== 'object') return null;
   if (record.title && record.date) {
-    return Object.assign({}, record, { date: formatDateTime(record.date), amount: String(record.amount) });
+    const amount = record.amount == null ? '' : String(record.amount);
+    return Object.assign({}, record, { date: formatDateTime(record.date), amount, isNegative: amount.startsWith('-') });
   }
   const amountValue = Number(record.amount) || 0;
   const source = String(record.source || '');
@@ -23,6 +24,7 @@ function normalizeRecord(record) {
     title: remark || SOURCE_LABELS[source] || '时光币变动',
     date: formatDateTime(record.createTime),
     amount: (amountValue > 0 ? '+' : '') + amountValue,
+    isNegative: amountValue < 0,
     source: SOURCE_LABELS[source] || remark || source || '时光币'
   };
 }

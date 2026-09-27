@@ -92,7 +92,8 @@ public class CrudService {
     }
 
     public PageResult<Map<String, Object>> page(String resource, long current, long size,
-                                              Map<String, String> search, Map<String, String> filters) {
+                                              Map<String, String> search, Map<String, String> filters,
+                                              Map<String, String> ranges) {
         CrudRegistry.Resource def = require(resource);
         // SQL 安全：表名与排序子句经 SqlGuard 强制校验（标识符无法参数化，只能白名单约束）
         String table = SqlGuard.ident(def.table());
@@ -129,6 +130,24 @@ public class CrudService {
                     continue;
                 }
                 where.append(" and ").append(column).append(" = ?");
+                args.add(value.trim());
+            }
+        }
+
+        // 范围过滤：ge_ 前缀 -> >=，lt_ 前缀 -> <（左闭右开），列受 filterable 白名单约束。
+        if (ranges != null) {
+            for (Map.Entry<String, String> entry : ranges.entrySet()) {
+                String value = entry.getValue();
+                if (!StringUtils.hasText(value)) {
+                    continue;
+                }
+                String key = entry.getKey();
+                boolean isGe = key.startsWith("ge_");
+                String column = camelToSnake(key.substring(3));
+                if (!def.filterable().contains(column)) {
+                    continue;
+                }
+                where.append(" and ").append(column).append(isGe ? " >= ?" : " < ?");
                 args.add(value.trim());
             }
         }

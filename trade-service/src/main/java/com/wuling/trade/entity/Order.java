@@ -22,6 +22,8 @@ public class Order {
     private LocalDateTime pickupTime;
     private String status;
     private String payStatus;
+    /** 支付渠道：WXPAY / STORED_VALUE。 */
+    private String payChannel;
     private String pickupCode;
     private Long totalAmount;
     private Long originalAmount;
@@ -29,6 +31,8 @@ public class Order {
     private Long paidAmount;
     private Long couponId;
     private Long couponDiscount;
+    /** 使用储值余额支付时产生的立减金额（分）。 */
+    private Long storedValueDiscount;
     private Long pointsUsed;
     private Long pointsEarned;
     private String refundStatus;

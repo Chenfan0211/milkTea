@@ -93,6 +93,9 @@ class DedicatedEndpointConsistencyTest {
             "trade-service/src/main/java/com/wuling/trade/controller/AdminTradeQueryController.java",
             // 后台订单列表 / 详情（含商品明细 items 与分账快照 split）
             "trade-service/src/main/java/com/wuling/trade/controller/AdminOrderController.java",
+            // 礼品卡订单 / 兑换记录：联表补齐卡种/面额/购买人/商品等展示字段
+            "marketing-service/src/main/java/com/wuling/marketing/controller/AdminMarketingController.java",
+            "marketing-service/src/main/java/com/wuling/marketing/service/GiftCardAdminService.java",
             // 订单 DTO：字段以它为准（OrderDTO / OrderDTO.Split / OrderDTO.Item）
             "trade-service/src/main/java/com/wuling/trade/dto/OrderDTO.java",
             // 授权中心（2026-09-25 RBAC 重构）：账号 / 角色菜单 / 角色与授权查询
@@ -153,7 +156,11 @@ class DedicatedEndpointConsistencyTest {
             // 读本地派生字段，不参与「直读列」严格校验。
             "src/views/finance/snapshot/index.vue",
             "src/views/review/role/index.vue",
-            "src/views/trade/verify/index.vue"
+            "src/views/trade/verify/index.vue",
+            // 兑换记录 / 礼品卡订单：走 AdminMarketingController 专用接口
+            // （exchange-orders / gift-card-orders 联表补齐展示字段）
+            "src/views/marketing/exchange/index.vue",
+            "src/views/marketing/gift-order/index.vue"
     );
 
     /** 后端行字段名 -> 是否可用（含 SQL select 出来的列，做 camel/snake 双向匹配）。 */

@@ -100,6 +100,60 @@ class CouponServiceInternalTest {
     }
 
     @Test
+    @DisplayName("usage_time 格式非法时拒绝锁券")
+    void malformedUsageTimeRejected() {
+        Coupon coupon = validCoupon(LocalDateTime.now());
+        coupon.setUsageTime("10:00-22:00");
+        UserCoupon holder = holder(31L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(31L)).thenReturn(holder);
+        when(couponMapper.selectById(20L)).thenReturn(coupon);
+
+        assertThrows(BusinessException.class,
+                () -> service.lock(9L, 31L, "123", null, List.of(1L), "dinein", 1000L));
+        verify(userCouponMapper, never()).lockUnused(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("错误门店、场景、使用时段和过期券均拒绝锁券")
+    void invalidRulesRejected() {
+        LocalDateTime now = LocalDateTime.now();
+
+        Coupon wrongStore = validCoupon(now);
+        wrongStore.setApplicableStoreIds("[101]");
+        UserCoupon storeHolder = holder(27L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(27L)).thenReturn(storeHolder);
+        when(couponMapper.selectById(20L)).thenReturn(wrongStore);
+        assertThrows(BusinessException.class,
+                () -> service.lock(9L, 27L, "123", 102L, List.of(1L), "dinein", 1000L));
+
+        Coupon wrongScene = validCoupon(now);
+        wrongScene.setScenes("堂食(门店就餐)");
+        UserCoupon sceneHolder = holder(28L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(28L)).thenReturn(sceneHolder);
+        when(couponMapper.selectById(20L)).thenReturn(wrongScene);
+        assertThrows(BusinessException.class,
+                () -> service.lock(9L, 28L, "123", null, List.of(1L), "pickup", 1000L));
+
+        Coupon outsideTime = validCoupon(now);
+        outsideTime.setUsageTime(now.minusMinutes(3).format(TIME) + "~" + now.minusMinutes(2).format(TIME));
+        UserCoupon timeHolder = holder(29L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(29L)).thenReturn(timeHolder);
+        when(couponMapper.selectById(20L)).thenReturn(outsideTime);
+        assertThrows(BusinessException.class,
+                () -> service.lock(9L, 29L, "123", null, List.of(1L), "dinein", 1000L));
+
+        Coupon expired = validCoupon(now);
+        expired.setValidityEnd(now.minusMinutes(1));
+        UserCoupon expiredHolder = holder(30L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(30L)).thenReturn(expiredHolder);
+        when(couponMapper.selectById(20L)).thenReturn(expired);
+        assertThrows(BusinessException.class,
+                () -> service.lock(9L, 30L, "123", null, List.of(1L), "dinein", 1000L));
+
+        verify(userCouponMapper, never()).lockUnused(anyLong(), anyLong());
+    }
+
+    @Test
     @DisplayName("门槛不满足时不发生状态更新")
     void thresholdRejected() {
         Coupon coupon = validCoupon(LocalDateTime.now());
@@ -110,6 +164,51 @@ class CouponServiceInternalTest {
 
         assertThrows(BusinessException.class,
                 () -> service.lock(9L, 13L, "123", null, List.of(), "dinein", 999L));
+        verify(userCouponMapper, never()).lockUnused(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("门槛和抵扣上限使用仅适用商品行净额")
+    void applicableAmountDrivesThresholdAndDiscountCap() {
+        Coupon coupon = validCoupon(LocalDateTime.now());
+        coupon.setThreshold(1000L);
+        coupon.setAmount(500L);
+        UserCoupon holder = holder(21L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(21L)).thenReturn(holder);
+        when(couponMapper.selectById(20L)).thenReturn(coupon);
+        when(userCouponMapper.lockUnused(21L, 123L)).thenReturn(1);
+
+        long discount = service.lock(9L, 21L, "123", null, List.of(1L, 2L), "dinein", 3000L, 1200L);
+
+        assertEquals(500L, discount);
+        verify(userCouponMapper).lockUnused(21L, 123L);
+    }
+
+    @Test
+    @DisplayName("仅适用商品行净额低于门槛时拒绝锁券")
+    void applicableAmountBelowThresholdRejected() {
+        Coupon coupon = validCoupon(LocalDateTime.now());
+        coupon.setThreshold(1000L);
+        UserCoupon holder = holder(22L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(22L)).thenReturn(holder);
+        when(couponMapper.selectById(20L)).thenReturn(coupon);
+
+        assertThrows(BusinessException.class,
+                () -> service.lock(9L, 22L, "123", null, List.of(1L, 2L), "dinein", 3000L, 999L));
+        verify(userCouponMapper, never()).lockUnused(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("存在场景限制时请求场景为空不得绕过校验")
+    void blankSceneCannotBypassRestriction() {
+        Coupon coupon = validCoupon(LocalDateTime.now());
+        coupon.setScenes("dinein");
+        UserCoupon holder = holder(23L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(23L)).thenReturn(holder);
+        when(couponMapper.selectById(20L)).thenReturn(coupon);
+
+        assertThrows(BusinessException.class,
+                () -> service.lock(9L, 23L, "123", null, List.of(1L), null, 1000L));
         verify(userCouponMapper, never()).lockUnused(anyLong(), anyLong());
     }
 
@@ -219,6 +318,42 @@ class CouponServiceInternalTest {
         assertThrows(BusinessException.class,
                 () -> service.restoreAfterRefund(9L, 19L, "123"));
         verify(userCouponMapper, never()).restoreAfterRefund(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("退款恢复时券已过期则置 EXPIRED")
+    void restoreExpiredCouponMarksExpired() {
+        Coupon coupon = validCoupon(LocalDateTime.now());
+        coupon.setValidityEnd(LocalDateTime.now().minusMinutes(1));
+        UserCoupon used = holder(24L, 9L, 20L, CouponService.USED, 123L);
+        when(userCouponMapper.selectByIdForUpdate(24L)).thenReturn(used);
+        when(couponMapper.selectById(20L)).thenReturn(coupon);
+        when(userCouponMapper.restoreAfterRefund(24L, CouponService.EXPIRED)).thenReturn(1);
+
+        String status = service.restoreAfterRefund(9L, 24L, "123");
+
+        assertEquals(CouponService.EXPIRED, status);
+        verify(userCouponMapper).restoreAfterRefund(24L, CouponService.EXPIRED);
+    }
+
+    @Test
+    @DisplayName("同模板已持新券时原券置 EXPIRED 并写审计，重复恢复不重复审计")
+    void restoreConflictIsIdempotent() {
+        Coupon coupon = validCoupon(LocalDateTime.now());
+        UserCoupon used = holder(25L, 9L, 20L, CouponService.USED, 123L);
+        UserCoupon expired = holder(25L, 9L, 20L, CouponService.EXPIRED, 123L);
+        UserCoupon another = holder(26L, 9L, 20L, CouponService.UNUSED, null);
+        when(userCouponMapper.selectByIdForUpdate(25L)).thenReturn(used, expired);
+        when(couponMapper.selectById(20L)).thenReturn(coupon);
+        when(userCouponMapper.selectList(any(Wrapper.class))).thenReturn(List.of(used, another));
+        when(auditLogMapper.insert(any(AuditLog.class))).thenReturn(1);
+        when(userCouponMapper.restoreAfterRefund(25L, CouponService.EXPIRED)).thenReturn(1);
+
+        assertEquals(CouponService.EXPIRED, service.restoreAfterRefund(9L, 25L, "123"));
+        assertEquals(CouponService.EXPIRED, service.restoreAfterRefund(9L, 25L, "123"));
+
+        verify(auditLogMapper, times(1)).insert(any(AuditLog.class));
+        verify(userCouponMapper, times(1)).restoreAfterRefund(25L, CouponService.EXPIRED);
     }
 
     private Coupon validCoupon(LocalDateTime now) {

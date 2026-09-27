@@ -68,7 +68,9 @@ const storedValuePackages = packageRows.map(row => ({
       amount: couponAmounts[link.couponId],
       quantity: Number(link.count) || 2,
       description: '储值赠送-' + couponAmounts[link.couponId] + '元代金券'
-    }))
+    })),
+  // 使用说明改为「全局共用一份」，由后端随套餐 DTO 下发（app_config.stored_value_usage）
+  usageParagraphs: ['1、本储值套餐包含：储值金额及对应赠送优惠券（满9.9可使用）。', '最终解释权归五零时光所有。']
 }));
 assert.deepEqual(
   storedValuePackages.filter(item => item.id === 'stored-value-100').map(item => ({
@@ -93,8 +95,16 @@ assert.deepEqual(
   [4, 4],
   '赠送券数量必须按套餐份数倍增（V6 seed 每份 2 张）'
 );
-assert.ok(summary.usageParagraphs[0].includes('储值金额200元'), '使用说明首个段落必须使用当前总金额');
-assert.ok(summary.usageParagraphs[0].includes('4张'), '使用说明必须使用当前赠送券数量');
+// 使用说明改为全局共用一份（后台 app_config 配置），不再按金额/券数动态拼接
+assert.deepEqual(
+  summary.usageParagraphs,
+  storedValuePackages[0].usageParagraphs,
+  '使用说明必须直接采用套餐 DTO 下发的全局说明'
+);
+assert.ok(
+  summary.usageParagraphs.length > 0 && summary.usageParagraphs[0].includes('储值套餐包含'),
+  '使用说明必须来自后端全局配置，而非前端硬编码'
+);
 
 let pageDefinition;
 globalThis.Page = definition => {

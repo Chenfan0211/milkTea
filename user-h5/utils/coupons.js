@@ -54,8 +54,10 @@ function buildRemoteValidityPeriod(item) {
 /** 后端用户券结构 -> 小程序券包展示结构。 */
 function normalizeRemoteCoupon(item) {
   const source = item || {};
-  const amount = Math.round((Number(source.amount) || 0) / 100);
-  const threshold = Math.round((Number(source.threshold) || 0) / 100);
+  const amountFen = Number(source.amount) || 0;
+  const thresholdFen = Number(source.threshold) || 0;
+  const amount = Math.round(amountFen / 100);
+  const threshold = Math.round(thresholdFen / 100);
   const stableId = source.couponCode || source.code || source.couponId || '';
   return {
     id: item.id != null ? String(item.id) : String(stableId),
@@ -64,7 +66,9 @@ function normalizeRemoteCoupon(item) {
     type: source.type || 'voucher',
     displayType: 'fixed',
     amount,
-    condition: threshold ? `满${threshold}元可用` : '不限',
+    amountFen,
+    thresholdFen,
+    condition: thresholdFen ? `满${thresholdFen / 100}元可用` : '不限',
     title: source.name || '',
     expiryText: source.expireAt ? `${formatDateTime(source.expireAt)} 到期` : '长期有效',
     brand: source.brand || '五零时光',
@@ -75,6 +79,9 @@ function normalizeRemoteCoupon(item) {
     applicableProducts: '查看适用商品',
     channel: '不限制',
     scenes: source.scenes || '',
+    validityStart: source.validityStart || '',
+    validityEnd: source.validityEnd || '',
+    expireAt: source.expireAt || '',
     validityPeriod: buildRemoteValidityPeriod(source),
     usageTime: source.usageTime || '',
     paymentRestriction: '',

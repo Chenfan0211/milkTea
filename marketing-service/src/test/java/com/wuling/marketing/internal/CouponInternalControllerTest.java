@@ -38,7 +38,9 @@ class CouponInternalControllerTest {
         request.setProductIds(List.of(1L));
         request.setScene("dinein");
         request.setOrderAmount(1200L);
-        when(couponService.lockByOrderNo(9L, 10L, "WX202609271234567890", 101L, List.of(1L), "dinein", 1200L))
+        request.setApplicableAmount(1000L);
+        when(couponService.lockByOrderNo(
+                9L, 10L, "WX202609271234567890", 101L, List.of(1L), null, "dinein", 1200L, 1000L))
                 .thenReturn(new CouponService.CouponLockResult(10L, 20L, 300L));
 
         CouponLockResponse response = controller.lock(request);
@@ -53,7 +55,7 @@ class CouponInternalControllerTest {
     @DisplayName("业务失败返回 HTTP 200 语义的 success=false 和 message")
     void lockBusinessFailureReturnsFailureBody() {
         CouponLockRequest request = new CouponLockRequest();
-        when(couponService.lockByOrderNo(9L, 10L, "123", null, null, null, null))
+        when(couponService.lockByOrderNo(9L, 10L, "123", null, null, null, null, null, null))
                 .thenThrow(new BusinessException(ResultCode.BAD_REQUEST, "订单金额未达到优惠券使用门槛"));
         request.setUserId(9L);
         request.setUserCouponId(10L);

@@ -20,15 +20,9 @@
       </view>
 
       <view class="spec-sheet__content {{mode === 'edit' ? 'spec-sheet__content--edit' : ''}}">
-        <text class="spec-sheet__name {{mode === 'edit' ? 'spec-sheet__name--edit' : ''}}">{{product.name}}</text>
-
-        <view wx:if="{{mode !== 'edit'}}" class="spec-sheet__promo-row">
-          <!-- 本版本暂不展示促销文案（promotionText），后续恢复时取消注释 -->
-          <!-- <text class="spec-sheet__promo">{{product.specDetail.promotionText}}</text> -->
-          <text class="spec-sheet__price-label">{{product.specDetail.priceLabel}}</text>
-          <text class="spec-sheet__price-symbol">¥</text>
-          <text class="spec-sheet__start-price">{{product.specDetail.startPrice}}起</text>
-          <text class="spec-sheet__feature-tag">{{product.specDetail.tag}}</text>
+        <view class="spec-sheet__title-row">
+          <text class="spec-sheet__name {{mode === 'edit' ? 'spec-sheet__name--edit' : ''}}">{{product.name}}</text>
+          <text wx:if="{{mode !== 'edit'}}" class="spec-sheet__feature-tag">{{product.specDetail.tag}}</text>
         </view>
 
         <text class="spec-sheet__description">{{product.specDetail.description}}</text>

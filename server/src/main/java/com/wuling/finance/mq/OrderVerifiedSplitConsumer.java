@@ -25,12 +25,8 @@ import java.util.List;
  *   <li>trade 侧核销记录与订单状态已先落库，门店据此放行，不阻塞；</li>
  *   <li>本消费者异步执行分账，失败自动重试，超限转死信队列；</li>
  *   <li><b>双保险幂等</b>：{@code MqIdempotent} 按 messageId 去重，
- *       且 {@code LedgerService.executeSplit} 自身对同一 orderId 幂等
- *       （已存在快照则直接复用）。</li>
+ *       且 {@code LedgerService.executeSplit} 自身对同一 orderId 幂等。</li>
  * </ul>
- *
- * <p>遗漏兜底：若消息最终进入死信队列，需由对账任务发现
- * 「已核销但无分账快照」的订单并补记（见 docs 关于对账的说明）。
  */
 @Component
 public class OrderVerifiedSplitConsumer extends AbstractMqConsumer {
@@ -44,11 +40,11 @@ public class OrderVerifiedSplitConsumer extends AbstractMqConsumer {
 
     @RabbitListener(queues = MqConstants.FINANCE_SPLIT_QUEUE)
     public void onOrderVerified(Message message, Channel channel) {
+        FinanceMqEventReader.ensureStableMessageId(message, objectMapper, "SPLIT");
         consume(message, channel, msg -> {
-            OrderVerifiedEvent event = objectMapper.readValue(msg.getBody(), OrderVerifiedEvent.class);
+            OrderVerifiedEvent event = FinanceMqEventReader.read(objectMapper, msg, OrderVerifiedEvent.class);
             if (event.getOrderId() == null || event.getOrderNo() == null) {
-                log.warn("分账事件缺少必要字段，已忽略");
-                return;
+                throw new IllegalArgumentException("分账事件缺少必要字段 orderId/orderNo");
             }
             // quantity 必须透传：成本价与平台提成都是单价（分/件），
             // 丢了件数会把多件订单的成本与提成算成 1 件，平台剩余被高估。

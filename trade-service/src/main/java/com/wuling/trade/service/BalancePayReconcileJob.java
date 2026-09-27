@@ -95,9 +95,19 @@ public class BalancePayReconcileJob {
                     done++;
                     continue;
                 }
-                // 悬挂单：退回余额并标记已回冲
+                // 悬挂单：只有确认确实存在成功扣款（PAY:<orderNo>）才退余额，
+                // 否则说明扣款压根没成功（余额不足等），只标记 COMPENSATED，绝不退款。
+                if (!storedValueBalancePort.hasSuccessfulPay("PAY:" + intent.getOrderNo())) {
+                    intentMapper.update(updateStatus(intent.getId(), BalancePayIntent.STATUS_COMPENSATED),
+                            new LambdaQueryWrapper<BalancePayIntent>()
+                                    .eq(BalancePayIntent::getId, intent.getId())
+                                    .eq(BalancePayIntent::getStatus, BalancePayIntent.STATUS_PENDING));
+                    compensated++;
+                    log.warn("余额支付无成功扣款记录，仅标记补偿 orderNo={}", intent.getOrderNo());
+                    continue;
+                }
                 try {
-                    storedValueBalancePort.refund(intent.getUserId(), intent.getAmount(), intent.getOrderNo());
+                    storedValueBalancePort.refund(intent.getUserId(), intent.getAmount(), "COMP:" + intent.getOrderNo());
                     intentMapper.update(updateStatus(intent.getId(), BalancePayIntent.STATUS_COMPENSATED),
                             new LambdaQueryWrapper<BalancePayIntent>()
                                     .eq(BalancePayIntent::getId, intent.getId())

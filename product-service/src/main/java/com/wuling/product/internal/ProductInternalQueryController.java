@@ -69,6 +69,7 @@ public class ProductInternalQueryController {
         // 平台提成与成本价：供 trade 核销分账时按商品明细分摊（每件一份）
         result.put("platformCommission", product.getPlatformCommission());
         result.put("costPrice", product.getCostPrice());
+        result.put("storedValuePrice", product.getStoredValuePrice());
         return result;
     }
 

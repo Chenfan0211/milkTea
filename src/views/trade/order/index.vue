@@ -12,7 +12,7 @@ import type { DetailGroup } from '@/views/_shared/detail-types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchSubjectStores } from '@/service/api/subject';
-import { renderTag, statusMap, renderMoney, renderDateTime, formatFen, formatDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderDateTime, formatFen, formatDateTime, toTimeRange } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -110,15 +110,24 @@ const splitDetail = computed(() => {
     split.platformShare != null;
 
   if (snapshotComplete) {
+    const commission = Number(split.platformCommission) || 0;
+    const platformTotal = Number(split.platformShare) || 0;
+    const platformBonus = Math.max(0, platformTotal - commission);
     return {
       paid,
+      originalAmount: Number(row.originalAmount) || 0,
+      discountAmount: Number(row.discountAmount) || 0,
+      couponDiscount: Number(row.couponDiscount) || 0,
+      storedValueDiscount: Number(row.storedValueDiscount) || 0,
+      memberDiscount: Math.max(0, (Number(row.originalAmount) || 0) - (Number(row.totalAmount) || 0) - (Number(row.storedValueDiscount) || 0)),
       itemCount: Number(split.itemCount) || itemCount,
       costTotal: Number(split.costTotal) || costTotal,
       storeShare: Number(split.storeShare) || 0,
       channelShare: Number(split.channelShare) || 0,
       investorShare: Number(split.investorShare) || 0,
-      commission: Number(split.platformCommission) || 0,
-      platformShare: Number(split.platformShare) || 0,
+      commission,
+      platformBonus,
+      platformTotal,
       base: Number(split.base) || 0,
       fromSnapshot: true
     };
@@ -140,20 +149,26 @@ const splitDetail = computed(() => {
 
   return {
     paid,
+    originalAmount: Number(row.originalAmount) || 0,
+    discountAmount: Number(row.discountAmount) || 0,
+    couponDiscount: Number(row.couponDiscount) || 0,
+    storedValueDiscount: Number(row.storedValueDiscount) || 0,
+    memberDiscount: Math.max(0, (Number(row.originalAmount) || 0) - (Number(row.totalAmount) || 0) - (Number(row.storedValueDiscount) || 0)),
     itemCount,
     costTotal,
     storeShare,
     channelShare,
     investorShare,
     commission,
-    platformShare,
+    platformBonus: Math.max(0, platformShare - commission),
+    platformTotal: platformShare,
     base,
     fromSnapshot: false
   };
 });
 
 const columns: DataTableColumns<any> = [
-  { title: '订单号', key: 'orderNo', width: 160 },
+  { title: '订单号', key: 'orderNo', width: 220, ellipsis: { tooltip: true } },
   { title: '门店', key: 'store', width: 130 },
   { title: '用户', key: 'user', width: 110 },
   { title: '商品摘要', key: 'summary', minWidth: 160 },
@@ -169,6 +184,8 @@ const columns: DataTableColumns<any> = [
     width: 90,
     render: (row: any) => ({ dinein: '堂食', DINEIN: '堂食', DINE_IN: '堂食', pickup: '自取', PICKUP: '自取', takeout: '自取', TAKEOUT: '自取' } as Record<string, string>)[row.mealType] ?? row.mealType ?? '—'
   },
+  { title: '应付金额(元)', key: 'originalAmount', width: 120, align: 'right', render: renderMoney('originalAmount') },
+  { title: '优惠金额(元)', key: 'discountAmount', width: 110, align: 'right', render: (row: any) => '-' + formatFen(row.discountAmount) },
   { title: '实付金额(元)', key: 'paidAmount', width: 120, align: 'right', render: renderMoney('paidAmount') },
   {
     title: '订单状态',
@@ -187,12 +204,17 @@ const columns: DataTableColumns<any> = [
   {
     title: '取餐码',
     key: 'pickupCode',
-    width: 100,
-    // 业务口径：核销码只在「已支付待核销」阶段有效
-    // （待支付未生成、已核销/已完成已失效、已取消/已退款不展示）
-    render: (row: any) => (row.status === 'PAID' ? row.pickupCode || '—' : '—')
+    width: 150,
+    // 关闭省略号截断：取餐码约 20 位，100px 会被省略号遮挡，必须完整展示
+    ellipsis: false,
+    // 业务口径：已支付（待核销）与已完成（已核销）订单都展示取餐码，
+    // 与后端 OrderService.toDTO 的 showPickupCode 口径一致；
+    // 待支付未生成、已取消/已退款不展示。
+    render: (row: any) => (row.status === 'PAID' || row.status === 'COMPLETED' ? row.pickupCode || '—' : '—')
   },
-  { title: '创建时间', key: 'createTime', width: 170, render: renderDateTime('createTime') }
+  { title: '创建时间', key: 'createTime', width: 170, render: renderDateTime('createTime') },
+  { title: '支付时间', key: 'payTime', width: 170, render: renderDateTime('payTime') },
+  { title: '核销时间', key: 'verifyTime', width: 170, render: renderDateTime('verifyTime') }
 ];
 
 const searchFields: SearchField[] = [
@@ -215,7 +237,8 @@ const searchFields: SearchField[] = [
       { label: '已完成', value: 'COMPLETED' },
       { label: '已取消', value: 'CANCELED' }
     ]
-  }
+  },
+  { key: 'createTime', label: '下单时间', type: 'daterange' }
 ];
 
 // ---------- 订单详情弹层字段（原 /trade/order-detail 页面口径，改为弹层展示） ----------
@@ -264,7 +287,7 @@ const detailGroups: DetailGroup[] = [
       { label: '用餐方式', render: (r: any) => mealTypeLabel(r.mealType) },
       { label: '退款状态', render: (r: any) => refundStatusLabel(r.refundStatus) },
       // 与列表口径一致：核销码仅已支付待核销订单展示
-      { label: '取餐码', render: (r: any) => (r.status === 'PAID' ? r.pickupCode || '—' : '—') },
+      { label: '取餐码', render: (r: any) => (r.status === 'PAID' || r.status === 'COMPLETED' ? r.pickupCode || '—' : '—') },
       { label: '下单时间', render: (r: any) => formatDateTime(r.createTime) },
       { label: '支付时间', render: (r: any) => formatDateTime(r.payTime) },
       { label: '核销时间', render: (r: any) => formatDateTime(r.verifyTime) },
@@ -319,14 +342,18 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) =>
-    store.loadAdminOrders({
+  loadData: async ({ page, pageSize, search }) => {
+    const [startTime, endTime] = toTimeRange(search?.createTime);
+    return store.loadAdminOrders({
       current: page,
       size: pageSize,
       search: search?.orderNo,
       status: search?.status,
-      storeSubjectId: search?.storeSubjectId
-    })
+      storeSubjectId: search?.storeSubjectId,
+      startTime,
+      endTime
+    });
+  }
 };
 </script>
 
@@ -338,6 +365,26 @@ const config: AdminListConfig = {
   <NModal v-model:show="splitVisible" preset="card" title="分账明细" class="w-560px">
     <div v-if="splitRow && splitDetail" class="split-modal">
       <div class="split-order-no">订单号：{{ splitRow.orderNo }}</div>
+      <div class="split-line">
+        <span>应付金额</span>
+        <span>¥{{ yuan(splitDetail.originalAmount) }}</span>
+      </div>
+      <div class="split-line">
+        <span>优惠金额（总优惠）</span>
+        <span>-¥{{ yuan(splitDetail.discountAmount) }}</span>
+      </div>
+      <div class="split-line split-line--sub">
+        <span>　其中会员等级折扣</span>
+        <span>-¥{{ yuan(splitDetail.memberDiscount) }}</span>
+      </div>
+      <div class="split-line split-line--sub">
+        <span>　其中储值立减</span>
+        <span>-¥{{ yuan(splitDetail.storedValueDiscount) }}</span>
+      </div>
+      <div class="split-line split-line--sub">
+        <span>　其中优惠券</span>
+        <span>-¥{{ yuan(splitDetail.couponDiscount) }}</span>
+      </div>
       <div class="split-line">
         <span>实付金额</span>
         <span>¥{{ yuan(splitDetail.paid) }}</span>
@@ -355,19 +402,23 @@ const config: AdminListConfig = {
         <span>¥{{ yuan(splitDetail.channelShare) }}</span>
       </div>
       <div class="split-line">
-        <span>平台提成（每件×{{ splitDetail.itemCount }}件，已从平台剩余中扣除）</span>
-        <span>-¥{{ yuan(splitDetail.commission) }}</span>
+        <span>平台提成（分佣）</span>
+        <span>¥{{ yuan(splitDetail.commission) }}</span>
       </div>
       <div class="split-line">
         <span>投资人（{{ splitDetail.base > 0 ? '基础×比例%' : '基础为负' }}）</span>
         <span>¥{{ yuan(splitDetail.investorShare) }}</span>
       </div>
+      <div class="split-line">
+        <span>平台剩余</span>
+        <span>¥{{ yuan(splitDetail.platformBonus) }}</span>
+      </div>
       <div class="split-line split-line--total">
-        <span>平台（剩余）</span>
-        <span>¥{{ yuan(splitDetail.platformShare) }}</span>
+        <span>平台合计</span>
+        <span>¥{{ yuan(splitDetail.platformTotal) }}</span>
       </div>
       <div class="mt-16px text-12px color-#9B9B96">
-        公式：平台剩余 = 实付 − 成本合计(成本单价×件数) − 门店(每件×件数) − 资源方(每件×件数) − 投资人(基础×比例%)
+        公式：平台合计 = 平台提成 + 平台剩余；平台剩余 = 实付 − 成本合计 − 门店 − 资源方 − 投资人 − 平台提成
       </div>
       <div v-if="!splitDetail.fromSnapshot" class="mt-4px text-12px color-#9B9B96">
         该订单尚未核销，暂无分账快照，以上为按当前分账规则试算的结果。
@@ -395,6 +446,11 @@ const config: AdminListConfig = {
   padding: 8px 0;
   border-bottom: 1px solid #f0f0f0;
   font-size: 14px;
+}
+.split-line--sub {
+  padding-left: 20px;
+  font-size: 13px;
+  color: #9B9B96;
 }
 .split-line--total {
   font-weight: 600;

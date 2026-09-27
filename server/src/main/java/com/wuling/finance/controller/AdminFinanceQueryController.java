@@ -61,7 +61,7 @@ public class AdminFinanceQueryController {
         String normalizedType = normalizeFlowType(type);
 
         String from = " from fund_flow f"
-                + " left join biz_subject s on s.id = f.subject_id and s.deleted = 0"
+                + " left join biz_subject s on s.id = f.subject_id"
                 + " left join subject_account a on a.id = f.account_id"
                 + " left join orders o on o.id = f.order_id";
         StringBuilder where = new StringBuilder(" where f.deleted = 0");
@@ -114,7 +114,7 @@ public class AdminFinanceQueryController {
                 + " coalesce(f.role_type, a.role_type) as role_type,"
                 + " f.account_id,"
                 + " case when s.name is null then null"
-                + "      else concat(s.name, '-', case coalesce(f.role_type, a.role_type)"
+                + "      else concat(s.name, if(s.deleted = 1, '(已删除)', ''), '-', case coalesce(f.role_type, a.role_type)"
                 + "          when 'PLATFORM' then '平台账户'"
                 + "          when 'STORE' then '门店账户'"
                 + "          when 'CHANNEL' then '资源方账户'"
@@ -144,8 +144,18 @@ public class AdminFinanceQueryController {
                 + " f.create_time";
         List<Map<String, Object>> records = jdbcTemplate.queryForList(
                 select + from + where + " order by f.id desc limit ? offset ?", pageArgs.toArray());
+        // 为每条订单流水补充商品明细摘要与规格，便于流水页直接展示（无需前端二次请求）。
+        List<Map<String, Object>> enriched = records.stream().map(row -> {
+            Map<String, Object> camel = camelize(row);
+            Object orderId = camel.get("orderId");
+            if (orderId != null) {
+                camel.put("itemSummary", summarizeOrderItems(orderId));
+                camel.put("itemSpec", summarizeOrderSpecs(orderId));
+            }
+            return camel;
+        }).toList();
         return Result.ok(PageResult.of(
-                records.stream().map(this::camelize).toList(),
+                enriched,
                 pageCurrent,
                 pageSize,
                 total == null ? 0L : total));
@@ -205,6 +215,27 @@ public class AdminFinanceQueryController {
                 sb.append("、");
             }
             sb.append(it.get("product_name")).append(" x").append(it.get("quantity"));
+        }
+        return sb.toString();
+    }
+
+    /** 聚合订单规格快照（去重，无规格时返回空串，前端兜底显示「无规格」）。 */
+    private String summarizeOrderSpecs(Object orderId) {
+        if (orderId == null) {
+            return "";
+        }
+        List<Map<String, Object>> items = jdbcTemplate.queryForList(
+                "select distinct spec_snapshot from order_item where order_id = ? and deleted = 0 and spec_snapshot is not null and spec_snapshot <> ''",
+                ((Number) orderId).longValue());
+        if (items.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (Map<String, Object> it : items) {
+            if (sb.length() > 0) {
+                sb.append("、");
+            }
+            sb.append(it.get("spec_snapshot"));
         }
         return sb.toString();
     }

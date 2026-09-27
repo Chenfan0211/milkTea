@@ -10,7 +10,7 @@ import type { DetailGroup } from '@/views/_shared/detail-types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchAdminVerifyDetail } from '@/service/api/trade';
-import { renderTag, statusMap, renderDateTime, formatDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime, formatDateTime, toTimeRange } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -36,6 +36,7 @@ const columns: DataTableColumns<any> = [
 ];
 const searchFields: SearchField[] = [
   { key: 'orderNo', label: '订单号', placeholder: '订单号' },
+  { key: 'verifyTime', label: '核销时间', type: 'daterange' },
   {
     key: 'type',
     label: '核销类型',
@@ -97,7 +98,14 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.queryRemote('verifies', search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => {
+    const [start, end] = toTimeRange(search?.verifyTime);
+    const params: Record<string, any> = { ...search };
+    delete params.verifyTime;
+    if (start) params.ge_createTime = start;
+    if (end) params.lt_createTime = end;
+    return store.queryRemote('verifies', params, page, pageSize);
+  }
 };
 </script>
 

@@ -337,6 +337,10 @@
   font-size: var(--font-sm);
 }
 
+.coupon-row__placeholder.is-selected {
+  color: var(--brand-green);
+}
+
 .coupon-row__arrow {
   width: 26rpx;
   height: 26rpx;

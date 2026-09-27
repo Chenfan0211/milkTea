@@ -48,6 +48,14 @@ public interface StoredValueBalancePort {
     DeductResult deduct(Long userId, long amount, String bizNo);
 
     /**
+     * 查询业务号是否存在成功的扣款资金记录（悬挂单补偿前确认确实扣过款）。
+     *
+     * @param bizNo 稳定业务号（PAY:&lt;orderNo&gt;）
+     * @return true 表示存在 SUCCESS 的扣款记录
+     */
+    boolean hasSuccessfulPay(String bizNo);
+
+    /**
      * 把余额支付的金额原路退回储值余额。
      *
      * <p><b>仅用于「余额支付的订单」退款/取消</b>：

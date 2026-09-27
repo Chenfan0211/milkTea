@@ -3,8 +3,8 @@ package com.wuling.common.outbox;
 import com.wuling.common.mq.MqProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -54,10 +54,10 @@ public class OutboxScannerJob {
     public OutboxScannerJob(OutboxService service,
                             MqProducer producer,
                             OutboxProperties properties,
-                            ObjectProvider<Executor> executorProvider,
+                            @Qualifier("applicationTaskExecutor") Executor executor,
                             @Value("${spring.application.name:unknown}") String applicationName,
                             @Value("${app.outbox.worker-id:}") String configuredWorkerId) {
-        this(service, producer, properties, executorProvider.getIfAvailable(ForkJoinPool::commonPool),
+        this(service, producer, properties, executor,
                 Clock.systemUTC(), workerId(configuredWorkerId, applicationName));
     }
 
@@ -69,7 +69,8 @@ public class OutboxScannerJob {
     /** 单次扫描，便于测试和运维手动触发。 */
     public void scanOnce() {
         Instant now = Instant.now(clock);
-        List<EventOutboxEntity> events = service.claimBatch(workerId, now);
+        List<EventOutboxEntity> events = service.claimBatch(
+                workerId, now, properties.getBatchSize(), properties.getLockTimeoutMs());
         if (events == null || events.isEmpty()) {
             return;
         }
@@ -108,7 +109,7 @@ public class OutboxScannerJob {
     }
 
     private void publish(EventOutboxEntity event) {
-        producer.sendWithId(
+        producer.sendRawBodyWithId(
                 event.routingKey(),
                 event.payload().getBytes(StandardCharsets.UTF_8),
                 event.eventId(),

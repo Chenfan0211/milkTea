@@ -61,12 +61,12 @@ class PaymentServiceGiftCardTest {
         storedValueOrderPort = mock(StoredValueOrderPort.class);
         StoredValueBalancePort storedValueBalancePort = mock(StoredValueBalancePort.class);
         BalancePayIntentService balancePayIntentService = mock(BalancePayIntentService.class);
-        MqProducer mqProducer = mock(MqProducer.class);
+        com.wuling.common.outbox.OutboxService outboxService = mock(com.wuling.common.outbox.OutboxService.class);
         giftCardOrderPort = mock(GiftCardOrderPort.class);
         service = new PaymentService(
                 orderService, paymentMapper, orderItemMapper, gatewayResolver, alertChannel,
                 storedValueOrderPort, storedValueBalancePort, balancePayIntentService,
-                mqProducer, giftCardOrderPort);
+                outboxService, giftCardOrderPort);
     }
 
     @Test

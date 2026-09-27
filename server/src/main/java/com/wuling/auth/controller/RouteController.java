@@ -67,10 +67,18 @@ public class RouteController {
         List<Map<String, Object>> menus = menuService.menusOf(userId);
         List<Map<String, Object>> routes = buildRouteTree(menus);
 
+        // 首页（home）是登录落地页，属基础能力，不受业务菜单权限影响：
+        // 始终把 home 路由拼进返回结果，保证前端一定注册 /home，
+        // 否则财务/审计等未配 home 的角色登录后会落到 not-found（404）。
+        boolean hasHome = routes.stream().anyMatch(r -> HOME.equals(str(r.get("name"))));
+        if (!hasHome) {
+            for (Map<String, Object> homeMenu : menuService.commonMenus()) {
+                routes.add(0, toRoute(homeMenu));
+            }
+        }
+
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("routes", routes);
-        // 首页兜底：账号若没有 home 菜单权限，仍以 home 作为落点（前端路由本身存在），
-        // 避免出现「登录后无处可去」的白屏。
         data.put("home", HOME);
         return Result.ok(data);
     }
@@ -90,6 +98,11 @@ public class RouteController {
         }
         if (routeName == null || routeName.isBlank()) {
             return Result.ok(false);
+        }
+        // home 是登录落地页，对所有账号都存在（与 getUserRoutes 的兜底保持一致），
+        // 否则前端直接访问 /home 会被「路由存在性检查」判为不存在而跳 403。
+        if (HOME.equals(routeName)) {
+            return Result.ok(true);
         }
         boolean exists = menuService.menuCodesOf(userId).contains(routeName);
         return Result.ok(exists);

@@ -9,7 +9,7 @@ import type { AdminListConfig } from '@/views/_shared/types';
 import type { SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderMoney, renderTag, statusMap } from '@/views/_shared/render';
+import { renderMoney, renderTag, statusMap, renderDateTime, toTimeRange } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const verifyTypeMap = statusMap({ order: ['订单', 'success'], exchange: ['兑换', 'warning'] });
@@ -25,12 +25,15 @@ const columns: DataTableColumns<any> = [
     width: 120,
     align: 'right',
     render: row => (row.type === 'exchange' ? `${row.points || 0} 时光币` : renderMoney('amount')(row))
-  }
+  },
+  { title: '下单时间', key: 'createTime', width: 170, render: renderDateTime('createTime') },
+  { title: '支付时间', key: 'payTime', width: 170, render: renderDateTime('payTime') }
 ];
 const searchFields: SearchField[] = [
   // 后端 verify-pool 只有一个 search 参数（同时匹配取餐码/订单号/兑换单号），
   // 这里合并成一项，避免「填了取餐码又填了订单号」时语义冲突。
   { key: 'search', label: '取餐码/单号', placeholder: '取餐码 / 订单号' },
+  { key: 'createTime', label: '下单时间', type: 'daterange' },
   {
     key: 'type',
     label: '类型',
@@ -59,7 +62,10 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => store.queryRemote('verifyPool', search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => {
+    const [startTime, endTime] = toTimeRange(search?.createTime);
+    return store.queryRemote('verifyPool', { ...search, startTime, endTime }, page, pageSize);
+  }
 };
 </script>
 

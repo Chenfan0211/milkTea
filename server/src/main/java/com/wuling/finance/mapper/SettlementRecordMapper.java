@@ -4,8 +4,29 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.wuling.finance.entity.SettlementRecord;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import java.util.List;
 
 public interface SettlementRecordMapper extends BaseMapper<SettlementRecord> {
+
+    /**
+     * 按订单锁定全部结算记录，供退款冲正串行执行。
+     *
+     * <p>退款消息可能由 Broker 重复投递，Redis 幂等键也可能因缺失或过期失效。
+     * 冲正必须在数据库层按订单加行锁，并在写入流水前通过条件状态更新抢占记录。
+     */
+    @Select("select * from settlement_record "
+            + "where order_id = #{orderId} and deleted = 0 "
+            + "order by subject_id, id for update")
+    List<SettlementRecord> selectByOrderIdForUpdate(@Param("orderId") Long orderId);
+
+    /** 仅当状态仍为 expectedStatus 时流转，防止并发重复冲正。 */
+    @Update("update settlement_record set status = #{targetStatus}, update_time = now() "
+            + "where id = #{id} and status = #{expectedStatus} and deleted = 0")
+    int updateStatusIfCurrent(@Param("id") Long id,
+                              @Param("expectedStatus") String expectedStatus,
+                              @Param("targetStatus") String targetStatus);
 
     @Select("select coalesce(sum(amount),0) from settlement_record where subject_id = #{subjectId} "
             + "and status = 'PENDING' and deleted = 0")

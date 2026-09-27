@@ -67,6 +67,8 @@ public interface ProductQueryPort {
         private Long platformCommission;
         /** 成本价（分），供应商分账按商品成本直给 */
         private Long costPrice;
+        /** 储值余额支付时的单件立减金额（分） */
+        private Long storedValuePrice;
 
         public Long getId() {
             return id;
@@ -146,6 +148,14 @@ public interface ProductQueryPort {
 
         public void setCostPrice(Long costPrice) {
             this.costPrice = costPrice;
+        }
+
+        public Long getStoredValuePrice() {
+            return storedValuePrice;
+        }
+
+        public void setStoredValuePrice(Long storedValuePrice) {
+            this.storedValuePrice = storedValuePrice;
         }
     }
 }

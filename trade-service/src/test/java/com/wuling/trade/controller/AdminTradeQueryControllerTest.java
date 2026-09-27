@@ -43,7 +43,7 @@ class AdminTradeQueryControllerTest {
         when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(List.of());
 
         Result<PageResult<Map<String, Object>>> result =
-                controller.verifyPool(2, 10, null, null, null);
+                controller.verifyPool(2, 10, null, null, null, null, null);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForList(sqlCaptor.capture(), eq(10L), eq(10L));
@@ -58,7 +58,7 @@ class AdminTradeQueryControllerTest {
         when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(List.of());
 
         Result<PageResult<Map<String, Object>>> result =
-                controller.verifyPool(1, 10, null, "order", null);
+                controller.verifyPool(1, 10, null, "order", null, null, null);
 
         assertEquals(3L, result.getData().getTotal());
         verify(jdbcTemplate, never()).queryForObject(
@@ -71,7 +71,7 @@ class AdminTradeQueryControllerTest {
         when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(List.of());
 
         Result<PageResult<Map<String, Object>>> result =
-                controller.verifyPool(1, 10, null, "exchange", null);
+                controller.verifyPool(1, 10, null, "exchange", null, null, null);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForList(sqlCaptor.capture(), eq(10L), eq(0L));
@@ -85,7 +85,7 @@ class AdminTradeQueryControllerTest {
         stubTotals(1L, 1L);
         when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(List.of());
 
-        controller.verifyPool(3, 20, "A", null, 9L);
+        controller.verifyPool(3, 20, "A", null, 9L, null, null);
 
         verify(jdbcTemplate).queryForList(
                 anyString(),
@@ -103,7 +103,7 @@ class AdminTradeQueryControllerTest {
         when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(rows);
 
         PageResult<Map<String, Object>> page =
-                controller.verifyPool(1, 10, null, null, null).getData();
+                controller.verifyPool(1, 10, null, null, null, null, null).getData();
 
         Map<String, Object> order = page.getRecords().stream()
                 .filter(row -> "order".equals(row.get("type")))
@@ -139,7 +139,7 @@ class AdminTradeQueryControllerTest {
         when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(List.of());
 
         PageResult<Map<String, Object>> page =
-                controller.verifyPool(1, 10, null, null, null).getData();
+                controller.verifyPool(1, 10, null, null, null, null, null).getData();
 
         assertTrue(page.getRecords().isEmpty());
         assertEquals(0L, page.getTotal());

@@ -54,7 +54,10 @@ const BENEFIT_ICON_WHITELIST = [
   'message-square-heart'
 ] as const;
 
-const iconModules = import.meta.glob('../../../../user-h5/assets/icons/lucide/*.svg', {
+// 图标来源：src/assets/lucide/（由 scripts/sync-benefit-icons.mjs 从 user-h5 同步）。
+// 必须从「本工程内」引用：跨到 user-h5（独立工程）时 Vite 的 ?url 无法生成可访问 URL，
+// 产物里只剩源文件路径字符串，会导致下拉框图标全部空白。
+const iconModules = import.meta.glob('/src/assets/lucide/*.svg', {
   eager: true,
   query: '?url',
   import: 'default'

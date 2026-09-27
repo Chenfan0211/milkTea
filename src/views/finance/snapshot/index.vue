@@ -100,6 +100,7 @@ const rowActions: RowAction[] = [
 ];
 const config: AdminListConfig = {
   title: '分账快照',
+  refreshOnEnter: false,
   remoteKey: 'snapshots',
   columns,
   searchFields,

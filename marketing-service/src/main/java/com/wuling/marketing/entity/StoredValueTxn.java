@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class StoredValueTxn {
     public static final String PAY = "PAY";
     public static final String REFUND = "REFUND";
+    public static final String COMPENSATE = "COMPENSATE";
     public static final String PROCESSING = "PROCESSING";
     public static final String SUCCESS = "SUCCESS";
     public static final String FAILED = "FAILED";

@@ -3,11 +3,18 @@ package com.wuling.trade.service;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.common.mq.MqConstants;
+import com.wuling.common.mq.event.CouponEvent;
+import com.wuling.common.mq.event.OrderRefundedEvent;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.entity.Order;
+import com.wuling.trade.entity.Payment;
 import com.wuling.trade.entity.Refund;
 import com.wuling.trade.mapper.OrderItemMapper;
 import com.wuling.trade.mapper.OrderMapper;
+import com.wuling.trade.mapper.PaymentMapper;
 import com.wuling.trade.mapper.RefundMapper;
+import com.wuling.trade.pay.storedvalue.StoredValueBalancePort;
 import com.wuling.trade.port.SettlementQueryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +29,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class RefundServiceStatusTest {
@@ -34,28 +42,36 @@ class RefundServiceStatusTest {
 
     private OrderMapper orderMapper;
     private RefundMapper refundMapper;
+    private PaymentMapper paymentMapper;
     private SettlementQueryPort settlementQueryPort;
     private OrderService orderService;
     private PaymentGatewayResolver gatewayResolver;
     private PaymentGateway paymentGateway;
+    private OutboxService outboxService;
+    private StoredValueBalancePort storedValueBalancePort;
     private RefundService service;
 
     @BeforeEach
     void setUp() {
         orderMapper = mock(OrderMapper.class);
         refundMapper = mock(RefundMapper.class);
+        paymentMapper = mock(PaymentMapper.class);
         settlementQueryPort = mock(SettlementQueryPort.class);
         orderService = mock(OrderService.class);
         gatewayResolver = mock(PaymentGatewayResolver.class);
         paymentGateway = mock(PaymentGateway.class);
+        outboxService = mock(OutboxService.class);
+        storedValueBalancePort = mock(StoredValueBalancePort.class);
         service = new RefundService(
                 orderMapper,
                 mock(OrderItemMapper.class),
                 refundMapper,
+                paymentMapper,
                 settlementQueryPort,
                 orderService,
                 gatewayResolver,
-                mock(com.wuling.common.mq.MqProducer.class));
+                outboxService,
+                storedValueBalancePort);
     }
 
     @Test
@@ -170,6 +186,93 @@ class RefundServiceStatusTest {
         verify(orderService).markRefunded(order);
     }
 
+    @Test
+    void successfulSettledRefundEnqueuesReverseAndCouponRestoreEvents() {
+        Refund refund = refund(RefundService.STATUS_REFUNDING);
+        Order order = order(OrderService.STATUS_COMPLETED, "PENDING");
+        order.setUserId(9L);
+        order.setCouponId(77L);
+        when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund);
+        when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
+        when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, true));
+
+        service.onRefundResult(REFUND_NO, true, null);
+
+        ArgumentCaptor<Object> reversePayload = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService).enqueue(
+                eq("ORDER"),
+                eq(ORDER_NO),
+                eq("ORDER_REFUNDED"),
+                eq(MqConstants.FINANCE_REVERSE_ROUTING_KEY),
+                eq(ORDER_NO),
+                reversePayload.capture());
+        OrderRefundedEvent reverseEvent = (OrderRefundedEvent) reversePayload.getValue();
+        assertEquals(ORDER_ID, reverseEvent.getOrderId());
+        assertEquals(ORDER_NO, reverseEvent.getOrderNo());
+        assertEquals(AMOUNT, reverseEvent.getRefundAmount());
+        assertEquals(REFUND_NO, reverseEvent.getRefundNo());
+
+        ArgumentCaptor<Object> couponPayload = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService).enqueue(
+                eq("ORDER"),
+                eq(ORDER_NO),
+                eq("COUPON_RESTORE_REFUND"),
+                eq(MqConstants.COUPON_EVENT_ROUTING_KEY),
+                eq(ORDER_NO),
+                couponPayload.capture());
+        CouponEvent restoreEvent = (CouponEvent) couponPayload.getValue();
+        assertEquals(CouponEvent.ACTION_RESTORE_REFUND, restoreEvent.getAction());
+        assertEquals(9L, restoreEvent.getUserId());
+        assertEquals(77L, restoreEvent.getUserCouponId());
+        assertEquals(ORDER_NO, restoreEvent.getOrderNo());
+    }
+
+    @Test
+    void successfulUnsettledRefundWithCouponOnlyEnqueuesRestoreEvent() {
+        Refund refund = refund(RefundService.STATUS_REFUNDING);
+        Order order = order(OrderService.STATUS_PAID, "PENDING");
+        order.setUserId(9L);
+        order.setCouponId(88L);
+        when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund);
+        when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
+        when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
+
+        service.onRefundResult(REFUND_NO, true, null);
+
+        verify(outboxService).enqueue(
+                eq("ORDER"),
+                eq(ORDER_NO),
+                eq("COUPON_RESTORE_REFUND"),
+                eq(MqConstants.COUPON_EVENT_ROUTING_KEY),
+                eq(ORDER_NO),
+                any());
+        verify(outboxService, never()).enqueue(
+                anyString(), anyString(), eq("ORDER_REFUNDED"), anyString(), anyString(), any());
+    }
+
+    @Test
+    void storedValueRefundUsesStableBizNoAndNeverCallsPaymentGateway() {
+        Order order = order(OrderService.STATUS_PAID, null);
+        order.setUserId(9L);
+        Payment payment = new Payment();
+        payment.setOrderNo(ORDER_NO);
+        payment.setChannel("STORED_VALUE");
+        payment.setStandardStatus("PAID");
+        when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
+        when(paymentMapper.selectOne(any(Wrapper.class))).thenReturn(payment);
+        when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
+        when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
+        doAnswer(invocation -> {
+            Refund refund = invocation.getArgument(0);
+            refund.setId(REFUND_ID);
+            return 1;
+        }).when(refundMapper).insert(any(Refund.class));
+
+        service.refund(ORDER_NO, "stored value cancel");
+
+        verify(storedValueBalancePort).refund(9L, AMOUNT, "REFUND:" + ORDER_NO);
+        verifyNoInteractions(gatewayResolver, paymentGateway, outboxService);
+    }
     @Test
     void failedRefundResultMarksOrderRefundFailed() {
         Refund refund = refund(RefundService.STATUS_REFUNDING);

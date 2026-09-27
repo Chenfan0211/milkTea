@@ -239,6 +239,106 @@ public class AdminMarketingConfigController {
         return Result.ok();
     }
 
+    // ---------- 储值套餐：全局使用说明 + 上下架 ----------
+
+    /** 读取全局储值使用说明（所有套餐共用，存 app_config.stored_value_usage） */
+    @GetMapping("/stored-value/usage")
+    public Result<List<String>> storedValueUsage() {
+        return Result.ok(readGlobalUsage());
+    }
+
+    /**
+     * 保存全局储值使用说明。
+     *
+     * <p>所有储值套餐共用一份，写在 app_config.stored_value_usage（JSON 数组）。
+     * 写入后需失效配置缓存，否则小程序端在缓存过期前仍读到旧文案
+     * （见 AppConfigCacheService，TTL 30 天）。
+     */
+    @PutMapping("/stored-value/usage")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> saveStoredValueUsageGlobal(@RequestBody(required = false) List<String> paragraphs) {
+        String json;
+        try {
+            json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                    paragraphs == null ? List.of() : paragraphs);
+        } catch (Exception e) {
+            json = "[]";
+        }
+        int updated = jdbcTemplate.update(
+                "update app_config set value = ?, update_time = CURRENT_TIMESTAMP "
+                        + "where config_key = 'stored_value_usage' and deleted = 0", json);
+        if (updated == 0) {
+            jdbcTemplate.update("insert into app_config (config_key, config_name, value, sort, remark) "
+                            + "values ('stored_value_usage', '储值使用说明', ?, 20, '储值套餐共用的使用说明（每行一条）')",
+                    json);
+        }
+        return Result.ok();
+    }
+
+    /**
+     * 储值套餐上架 / 下架。
+     *
+     * <p>只有 status = enabled 才在小程序端展示（StoredValueService.listPackages 按此过滤）；
+     * 只有非 enabled（即已下架）才允许删除，见 deleteStoredValuePackage。
+     */
+    @PostMapping("/stored-value/{id}/status")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> setStoredValuePackageStatus(@PathVariable Long id, @RequestParam boolean enabled) {
+        int updated = jdbcTemplate.update(
+                "update stored_value_package set status = ?, update_time = CURRENT_TIMESTAMP "
+                        + "where id = ? and deleted = 0",
+                enabled ? "enabled" : "disabled", id);
+        if (updated == 0) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "储值套餐不存在");
+        }
+        return Result.ok();
+    }
+
+    /**
+     * 删除储值套餐：仅「已下架」可删。
+     *
+     * <p>为什么要求先下架：套餐一旦上架可能已被用户购买，直接删除会让历史订单
+     * 失去面额归属；强制「先下架再删除」给运营一个显式的确认动作。
+     */
+    @DeleteMapping("/stored-value/{id}")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> deleteStoredValuePackage(@PathVariable Long id) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select id, status from stored_value_package where id = ? and deleted = 0", id);
+        if (rows.isEmpty()) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "储值套餐不存在");
+        }
+        String status = String.valueOf(rows.get(0).get("status"));
+        if ("enabled".equals(status)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "套餐处于上架状态，请先下架后再删除");
+        }
+        jdbcTemplate.update("update stored_value_package set deleted = 1, update_time = CURRENT_TIMESTAMP "
+                + "where id = ?", id);
+        // 关联赠券一并逻辑删除，避免残留脏数据
+        jdbcTemplate.update("update stored_value_package_coupon set deleted = 1, update_time = CURRENT_TIMESTAMP "
+                + "where package_id = ? and deleted = 0", id);
+        return Result.ok();
+    }
+
+    /** 读取全局储值使用说明（JSON 数组）；缺失或解析失败返回空列表 */
+    private List<String> readGlobalUsage() {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select value from app_config where config_key = 'stored_value_usage' and deleted = 0");
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        Object raw = rows.get(0).get("value");
+        if (raw == null) {
+            return List.of();
+        }
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(String.valueOf(raw), new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
     // ---------- 礼品卡（卡面聚合，面额在 gift_card_denomination 表平铺） ----------
 
     /**

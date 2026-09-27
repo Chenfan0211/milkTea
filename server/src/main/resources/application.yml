@@ -34,6 +34,13 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 app:
+  # 事务内事件 outbox 扫描发布器（储值/优惠券/分账/冲正等最终一致事件）
+  outbox:
+    enabled: ${OUTBOX_ENABLED:true}
+    fixed-delay-ms: ${OUTBOX_FIXED_DELAY_MS:1000}
+    max-retries: ${OUTBOX_MAX_RETRIES:8}
+    batch-size: ${OUTBOX_BATCH_SIZE:100}
+    lock-timeout-ms: ${OUTBOX_LOCK_TIMEOUT_MS:300000}
   # 请求日志开关（生产默认脱敏；排查时可临时置 true 输出全量参数，排查完务必关闭）
   log:
     request:

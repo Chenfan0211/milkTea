@@ -23,6 +23,7 @@ import com.wuling.user.mapper.AppUserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,6 +76,14 @@ public class StoredValueService {
     private final AppUserMapper appUserMapper;
     private final StoredValueTxnMapper storedValueTxnMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * 读全局储值使用说明（app_config.stored_value_usage）。
+     * 用字段注入而非构造参数：本类既有单测用 5/6 参数构造直接 new，
+     * 改构造签名会破坏单测；字段为 null 时回落空列表，不影响既有行为。
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
 
     /** 兼容既有单测与旧调用。 */
     public StoredValueService(StoredValuePackageMapper packageMapper,
@@ -139,7 +148,8 @@ public class StoredValueService {
         dto.setAmount(pkg.getAmount());
         dto.setStatus(pkg.getStatus());
         dto.setCoupons(loadGiftCoupons(pkg.getId()));
-        dto.setUsageParagraphs(parseParagraphs(pkg.getUsageParagraphs()));
+        // 使用说明改为全局共用（app_config.stored_value_usage），不再取每套餐的 usage_paragraphs
+        dto.setUsageParagraphs(readGlobalUsage());
         return dto;
     }
 
@@ -165,6 +175,26 @@ public class StoredValueService {
             result.add(item);
         }
         return result;
+    }
+
+    /** 读取全局储值使用说明（app_config.stored_value_usage）；缺失/异常返回空列表由前端回落默认 */
+    private List<String> readGlobalUsage() {
+        if (jdbcTemplate == null) {
+            return List.of();
+        }
+        try {
+            List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "select value from app_config where config_key = 'stored_value_usage' and deleted = 0");
+            if (rows.isEmpty() || rows.get(0).get("value") == null) {
+                return List.of();
+            }
+            return objectMapper.readValue(String.valueOf(rows.get(0).get("value")),
+                    new TypeReference<List<String>>() {
+                    });
+        } catch (Exception e) {
+            log.warn("全局储值使用说明读取失败，按空处理: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /** JSON 字符串数组 -> List；解析失败返回空列表，由前端回落默认文案 */

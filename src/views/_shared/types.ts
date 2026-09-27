@@ -13,7 +13,7 @@ export interface SelectOption {
 export interface SearchField {
   key: string;
   label: string;
-  type?: 'input' | 'select';
+  type?: 'input' | 'select' | 'daterange';
   options?: SelectOption[] | (() => SelectOption[]);
   placeholder?: string;
 }
@@ -96,7 +96,7 @@ export interface AdminListConfig {
   remoteKey?: string;
   /** 需要预加载的其他远端资源（如下拉选项依赖的 provinces） */
   remoteDeps?: string[];
-  /** 从菜单重新进入页面（onActivated）时是否重新查询后端数据；默认 true，仅当显式设为 false 时关闭 */
+  /**\n   * 顶部 tab 切回 / KeepAlive 回显（onActivated）时是否重新查询后端数据。\n   * 默认 false（切 tab 不刷新，保持上一次状态）；\n   * 需要「每次回显都拉最新」的页面显式设为 true。\n   * 组件真正重挂载（tab 关闭后重新进入菜单、点刷新按钮）始终会重新加载，不受此开关影响。\n   */
   refreshOnEnter?: boolean;
   columns: DataTableColumns<any>;
   searchFields?: SearchField[];

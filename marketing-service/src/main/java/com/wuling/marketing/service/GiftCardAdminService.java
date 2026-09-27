@@ -109,6 +109,151 @@ public class GiftCardAdminService {
         return PageResult.of(allFaces.subList(from, to), Math.max(1, current), effectiveSize, allFaces.size());
     }
 
+    /**
+     * 后台「礼品卡订单」分页查询（业务视图）。
+     *
+     * 通用 CRUD 只查 gift_card_order 单表，缺卡种/面额/购买人等展示字段，
+     * 因此这里用联表查询一次性补齐，金额单位均为「分」，由前端转元展示。
+     *
+     * 搜索口径：
+     *   orderNo -> gift_card_order.order_no 模糊
+     *   buyer   -> app_user.nick_name 模糊
+     *   status  -> gift_card_order.status 等值
+     */
+    public PageResult<Map<String, Object>> listOrders(long current, long size,
+                                                       String orderNo, String buyer, String status) {
+        StringBuilder where = new StringBuilder(" where o.deleted = 0");
+        List<Object> args = new ArrayList<>();
+
+        if (orderNo != null && !orderNo.isBlank()) {
+            where.append(" and o.order_no like ?");
+            args.add("%" + orderNo.trim() + "%");
+        }
+        if (buyer != null && !buyer.isBlank()) {
+            where.append(" and u.nick_name like ?");
+            args.add("%" + buyer.trim() + "%");
+        }
+        if (status != null && !status.isBlank()) {
+            where.append(" and o.status = ?");
+            args.add(status.trim());
+        }
+
+        Long total = jdbcTemplate.queryForObject(
+                "select count(*) from gift_card_order o "
+                        + "left join app_user u on u.id = o.user_id" + where,
+                Long.class, args.toArray());
+
+        long effectiveSize = Math.max(1, size);
+        long effectiveCurrent = Math.max(1, current);
+        long offset = Math.max(0, (effectiveCurrent - 1) * effectiveSize);
+
+        String sql = "select o.id, o.order_no, o.amount, o.status, o.create_time, o.denomination_id, "
+                + "coalesce(d.card_name, d.name, '礼品卡') as card_name, "
+                + "d.amount as face_value, "
+                + "coalesce(u.nick_name, '') as buyer "
+                + "from gift_card_order o "
+                + "left join gift_card_denomination d on d.id = o.denomination_id "
+                + "left join app_user u on u.id = o.user_id"
+                + where
+                + " order by o.id desc limit ? offset ?";
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(effectiveSize);
+        pageArgs.add(offset);
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, pageArgs.toArray());
+        List<Map<String, Object>> records = new ArrayList<>();
+        for (Map<String, Object> srcRow : rows) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("orderNo", srcRow.get("order_no"));
+            row.put("cardName", srcRow.get("card_name"));
+            row.put("faceValue", longValue(srcRow.get("face_value")));
+            // 当前业务为一单一卡，数量固定为 1
+            row.put("quantity", 1);
+            row.put("amount", longValue(srcRow.get("amount")));
+            row.put("buyer", stringValue(srcRow.get("buyer"), "—"));
+            row.put("status", srcRow.get("status"));
+            row.put("createTime", srcRow.get("create_time"));
+            records.add(row);
+        }
+        return PageResult.of(records, effectiveCurrent, effectiveSize, total == null ? 0L : total);
+    }
+
+    /**
+     * 后台「兑换记录」分页查询（业务视图）。
+     *
+     * 通用 CRUD 只查 exchange_order 单表，缺用户昵称 / 商品名称等展示字段，
+     * 这里联表补齐，金额（时光币）为整数点数值，无需分转元。
+     *
+     * 搜索口径：
+     *   recordNo -> exchange_order.exchange_no 模糊
+     *   user     -> app_user.nick_name 模糊
+     *   product  -> points_product.name 模糊
+     *   status   -> exchange_order.status 等值
+     */
+    public PageResult<Map<String, Object>> listExchangeOrders(long current, long size,
+                                                               String recordNo, String user,
+                                                               String product, String status) {
+        StringBuilder where = new StringBuilder(" where e.deleted = 0");
+        List<Object> args = new ArrayList<>();
+
+        if (recordNo != null && !recordNo.isBlank()) {
+            where.append(" and e.exchange_no like ?");
+            args.add("%" + recordNo.trim() + "%");
+        }
+        if (user != null && !user.isBlank()) {
+            where.append(" and u.nick_name like ?");
+            args.add("%" + user.trim() + "%");
+        }
+        if (product != null && !product.isBlank()) {
+            where.append(" and p.name like ?");
+            args.add("%" + product.trim() + "%");
+        }
+        if (status != null && !status.isBlank()) {
+            where.append(" and e.status = ?");
+            args.add(status.trim());
+        }
+
+        Long total = jdbcTemplate.queryForObject(
+                "select count(*) from exchange_order e "
+                        + "left join app_user u on u.id = e.user_id "
+                        + "left join points_product p on p.id = e.points_product_id" + where,
+                Long.class, args.toArray());
+
+        long effectiveSize = Math.max(1, size);
+        long effectiveCurrent = Math.max(1, current);
+        long offset = Math.max(0, (effectiveCurrent - 1) * effectiveSize);
+
+        String sql = "select e.id, e.exchange_no, e.points, e.quantity, e.status, e.create_time, "
+                + "e.pickup_code, "
+                + "coalesce(u.nick_name, '') as user_name, "
+                + "coalesce(p.name, '') as product_name "
+                + "from exchange_order e "
+                + "left join app_user u on u.id = e.user_id "
+                + "left join points_product p on p.id = e.points_product_id"
+                + where
+                + " order by e.id desc limit ? offset ?";
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(effectiveSize);
+        pageArgs.add(offset);
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, pageArgs.toArray());
+        List<Map<String, Object>> records = new ArrayList<>();
+        for (Map<String, Object> srcRow : rows) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", longValue(srcRow.get("id")));
+            row.put("recordNo", srcRow.get("exchange_no"));
+            row.put("user", stringValue(srcRow.get("user_name"), "—"));
+            row.put("product", stringValue(srcRow.get("product_name"), "—"));
+            row.put("quantity", srcRow.get("quantity") == null ? 1 : ((Number) srcRow.get("quantity")).intValue());
+            row.put("points", longValue(srcRow.get("points")));
+            row.put("status", srcRow.get("status"));
+            row.put("applyTime", srcRow.get("create_time"));
+            row.put("pickupCode", srcRow.get("pickup_code"));
+            records.add(row);
+        }
+        return PageResult.of(records, effectiveCurrent, effectiveSize, total == null ? 0L : total);
+    }
+
     public List<Map<String, Object>> listGroups() {
         return jdbcTemplate.queryForList(
                 "select code, name, sort, create_time, update_time "

@@ -37,9 +37,22 @@ public record EventOutboxEntity(
                                              String bizKey,
                                              String payload,
                                              Instant now) {
+        return newEvent(eventId, aggregateType, aggregateId, eventType, routingKey,
+                bizKey, payload, now, now);
+    }
+
+    public static EventOutboxEntity newEvent(String eventId,
+                                             String aggregateType,
+                                             String aggregateId,
+                                             String eventType,
+                                             String routingKey,
+                                             String bizKey,
+                                             String payload,
+                                             Instant availableAt,
+                                             Instant now) {
         return new EventOutboxEntity(
                 null, eventId, aggregateType, aggregateId, eventType, routingKey,
                 bizKey, payload, OutboxStatus.NEW, 0, null, null, null,
-                null, now, now, now, null);
+                null, availableAt, now, now, null);
     }
 }

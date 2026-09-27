@@ -38,6 +38,8 @@ class BalancePayReconcileJobTest {
     private final List<Payment> payments = new CopyOnWriteArrayList<>();
     private final List<long[]> refunds = new CopyOnWriteArrayList<>();
     private final AtomicLong idGen = new AtomicLong(0);
+    /** 模拟「是否已成功扣款」；默认 true（悬挂单场景确有扣款）。 */
+    private boolean successfulPayExists = true;
 
     private BalancePayReconcileJob job;
 
@@ -97,6 +99,11 @@ class BalancePayReconcileJobTest {
             @Override
             public DeductResult deduct(Long userId, long amount, String bizNo) {
                 return DeductResult.ok();
+            }
+
+            @Override
+            public boolean hasSuccessfulPay(String bizNo) {
+                return successfulPayExists;
             }
 
             @Override
@@ -225,6 +232,22 @@ class BalancePayReconcileJobTest {
         assertEquals(BalancePayIntent.STATUS_COMPENSATED, intents.get(0).getStatus());
         assertEquals(1, refunds.size(), "旧 VERIFIED 不得再作为完成态");
     }
+    @Test
+    @DisplayName("无成功扣款记录（余额不足等）→ 只标记 COMPENSATED，绝不退款")
+    void noSuccessfulPayDoesNotRefund() {
+        successfulPayExists = false;
+        pendingIntent("WX-7", 5);
+        Order order = new Order();
+        order.setOrderNo("WX-7");
+        order.setStatus(OrderService.STATUS_CREATED);
+        orders.add(order);
+
+        job.reconcile();
+
+        assertEquals(BalancePayIntent.STATUS_COMPENSATED, intents.get(0).getStatus());
+        assertTrue(refunds.isEmpty(), "无成功扣款记录时不得退款，否则会凭空退钱");
+    }
+
     @Test
     @DisplayName("刚创建的意图（2 分钟内）不处理，避免误判尚未提交的主事务")
     void freshIntentIsSkipped() {

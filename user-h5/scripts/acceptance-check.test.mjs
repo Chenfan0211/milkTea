@@ -1091,7 +1091,7 @@ assert.ok(
   /paymentMethod === 'stored-value' \? \(item\.storedValuePrice \|\| item\.price\) : item\.price/.test(confirmWxml),
   '商品行金额必须随支付方式切换'
 );
-assert.ok(confirmWxml.includes('优惠券') && confirmWxml.includes('暂无可用优惠券'), '确认订单页必须包含优惠券行');
+assert.ok(confirmWxml.includes('优惠券') && confirmWxml.includes('couponText'), '确认订单页必须展示动态优惠券状态');
 assert.ok(confirmWxml.includes('共优惠') && confirmWxml.includes('合计'), '确认订单页必须包含优惠与合计汇总');
 assert.ok(
   confirmWxml.includes('当前订单可获得') &&
@@ -1143,8 +1143,8 @@ assert.ok(
 assert.ok(
   confirmJs.includes('selectPaymentMethod') &&
     confirmJs.includes('stored-value') &&
-    confirmJs.includes('storedValuePrice'),
-  '确认订单页必须支持切换储值支付并按储值价计算'
+    confirmJs.includes('storedValueDiscount'),
+  '确认订单页必须支持切换储值支付并按储值立减计算'
 );
 // 储值余额支付改为「服务端扣款」：
 // 页面不得再本地扣余额（nextBalance 必须已移除），否则换设备余额复原、
@@ -1160,8 +1160,15 @@ assert.ok(
 );
 // 阶段 C：商品储值价由菜单接口提供，不再内置于 data/mock.js
 assert.ok(
-  confirmJs.includes('storedValuePrice'),
-  '订单确认页必须从接口商品数据读取储值价'
+  confirmJs.includes('refreshCouponsFromRemote') &&
+    confirmJs.includes('userCouponId') &&
+    confirmJs.includes('clientPaidAmount') &&
+    confirmJs.includes("STORED_VALUE"),
+  '订单确认页必须加载可用券并传递后端计价参数'
+);
+assert.ok(
+  !confirmJs.includes('prepay') && !confirmJs.includes('requestPayment'),
+  '储值余额支付不得调用微信预支付接口'
 );
 
 assert.ok(
@@ -1883,13 +1890,27 @@ assert.ok(
 assert.ok(!menuJs.includes('规格编辑暂未接入'), '购物车编辑不得继续显示暂未接入提示');
 assert.ok(
   specSheetWxml.includes('product.specDetail.imageDisclaimer') &&
-    specSheetWxml.includes('product.specDetail.priceLabel') &&
+    specSheetWxml.includes('spec-sheet__title-row') &&
+    specSheetWxml.includes('product.specDetail.tag') &&
     specSheetWxml.includes('主要原料') &&
     specSheetWxml.includes('展开') &&
     specSheetWxml.includes('收起') &&
     specSheetWxml.includes('立即购买') &&
     specSheetWxml.includes('加入购物车'),
   '规格弹层必须保留参考图的完整信息结构'
+);
+// 商品名同行承载标签，且不得再出现「小程序价 ¥xx起」起始价行
+assert.ok(
+  !specSheetWxml.includes('spec-sheet__promo-row') &&
+    !specSheetWxml.includes('product.specDetail.priceLabel') &&
+    !specSheetWxml.includes('product.specDetail.startPrice'),
+  '规格弹层必须移除起始价行（小程序价 ¥xx起）'
+);
+// 立即购买必须直连结算页，且只带当前选中的这一件商品
+assert.ok(
+  !menuJs.includes('立即购买暂未接入') &&
+    /handleSpecBuy\(event\)\s*\{[\s\S]*?globalData\.pendingOrder[\s\S]*?\/pages\/order-confirm\/order-confirm/.test(menuJs),
+  '立即购买必须直接跳转确认订单页'
 );
 assert.ok(
   specSheetWxml.includes('确定修改') &&

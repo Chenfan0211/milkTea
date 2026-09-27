@@ -3,11 +3,12 @@ package com.wuling.trade.service;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.wuling.common.mq.MqProducer;
+import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.entity.Order;
 import com.wuling.trade.mapper.OrderItemMapper;
 import com.wuling.trade.mapper.OrderMapper;
 import com.wuling.trade.pricing.MemberPricingService;
+import com.wuling.trade.port.CouponPort;
 import com.wuling.trade.port.ProductQueryPort;
 import com.wuling.trade.port.SplitSnapshotQueryPort;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -49,7 +50,8 @@ class OrderStatusLifecycleTest {
                 mock(OrderItemMapper.class),
                 mock(ProductQueryPort.class),
                 mock(SplitSnapshotQueryPort.class),
-                mock(MqProducer.class),
+                mock(CouponPort.class),
+                mock(OutboxService.class),
                 mock(MemberPricingService.class));
         when(orderMapper.updateById(any(Order.class))).thenReturn(1);
     }

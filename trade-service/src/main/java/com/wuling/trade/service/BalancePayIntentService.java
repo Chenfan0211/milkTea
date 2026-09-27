@@ -7,6 +7,7 @@ import com.wuling.trade.entity.BalancePayIntent;
 import com.wuling.trade.mapper.BalancePayIntentMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,23 +44,24 @@ public class BalancePayIntentService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public BalancePayIntent register(String orderNo, Long userId, long amount) {
-        BalancePayIntent existing = intentMapper.selectOne(new LambdaQueryWrapper<BalancePayIntent>()
-                .eq(BalancePayIntent::getOrderNo, orderNo)
-                .last("limit 1"));
-        if (existing != null) {
-            if (BalancePayIntent.STATUS_PENDING.equals(existing.getStatus())) {
-                // 重复发起：直接复用，避免并发下重复扣款
-                log.info("余额支付意图已存在（复用） orderNo={} intentId={}", orderNo, existing.getId());
-                return existing;
-            }
-            throw new BusinessException(ResultCode.BAD_REQUEST, "该订单已处理，请勿重复支付");
-        }
         BalancePayIntent intent = new BalancePayIntent();
         intent.setOrderNo(orderNo);
         intent.setUserId(userId);
         intent.setAmount(amount);
         intent.setStatus(BalancePayIntent.STATUS_PENDING);
-        intentMapper.insert(intent);
+        try {
+            intentMapper.insert(intent);
+        } catch (DuplicateKeyException duplicate) {
+            // 并发下同订单重复发起：查询复用，仅 PENDING 可复用
+            BalancePayIntent existing = intentMapper.selectOne(new LambdaQueryWrapper<BalancePayIntent>()
+                    .eq(BalancePayIntent::getOrderNo, orderNo)
+                    .last("limit 1"));
+            if (existing != null && BalancePayIntent.STATUS_PENDING.equals(existing.getStatus())) {
+                log.info("余额支付意图已存在（复用） orderNo={} intentId={}", orderNo, existing.getId());
+                return existing;
+            }
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该订单已处理，请勿重复支付");
+        }
         log.info("登记余额支付意图 orderNo={} userId={} amount={} intentId={}",
                 orderNo, userId, amount, intent.getId());
         return intent;
@@ -70,18 +72,19 @@ public class BalancePayIntentService {
      *
      * <p>在扣款 + 订单落库都成功后调用；用条件更新（PENDING → DONE）保证幂等。
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    /**
+     * 标记意图为「订单已支付」。纳入主事务：随订单/支付单一起提交，
+     * 避免 REQUIRES_NEW 导致主事务回滚前就提前把意图置为 DONE。
+     * 条件更新（PENDING → DONE）保证幂等。
+     */
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void markDone(String orderNo) {
-        BalancePayIntent intent = intentMapper.selectOne(new LambdaQueryWrapper<BalancePayIntent>()
-                .eq(BalancePayIntent::getOrderNo, orderNo)
-                .last("limit 1"));
-        if (intent == null) {
-            return;
-        }
         BalancePayIntent update = new BalancePayIntent();
-        update.setId(intent.getId());
         update.setStatus(BalancePayIntent.STATUS_DONE);
-        intentMapper.updateById(update);
+        intentMapper.update(update,
+                new LambdaQueryWrapper<BalancePayIntent>()
+                        .eq(BalancePayIntent::getOrderNo, orderNo)
+                        .eq(BalancePayIntent::getStatus, BalancePayIntent.STATUS_PENDING));
     }
 
     /**

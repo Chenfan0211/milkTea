@@ -1149,7 +1149,9 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
         size: pageSize,
         orderNo: String(search?.orderNo ?? '').trim() || undefined,
         tradeNo: String(search?.tradeNo ?? '').trim() || undefined,
-        standardStatus: String(search?.standardStatus ?? '').trim() || undefined
+        standardStatus: String(search?.standardStatus ?? '').trim() || undefined,
+        startTime: search?.startTime || undefined,
+        endTime: search?.endTime || undefined
       });
       const records = res?.records ?? res?.data?.records ?? [];
       const total = res?.total ?? res?.data?.total ?? 0;
@@ -1163,7 +1165,9 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
         current: page,
         size: pageSize,
         orderNo: String(search?.orderNo ?? '').trim() || undefined,
-        status: String(search?.eq_status ?? '').trim() || undefined
+        status: String(search?.eq_status ?? '').trim() || undefined,
+        startTime: search?.startTime || undefined,
+        endTime: search?.endTime || undefined
       });
       const records = res?.records ?? res?.data?.records ?? [];
       const total = res?.total ?? res?.data?.total ?? 0;
@@ -1177,7 +1181,9 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
         current: page,
         size: pageSize,
         search: String(search?.search ?? search?.pickupCode ?? search?.orderNo ?? '').trim() || undefined,
-        type: String(search?.type ?? '').trim() || undefined
+        type: String(search?.type ?? '').trim() || undefined,
+        startTime: search?.startTime || undefined,
+        endTime: search?.endTime || undefined
       });
       const records = res?.records ?? res?.data?.records ?? [];
       const total = res?.total ?? res?.data?.total ?? 0;
