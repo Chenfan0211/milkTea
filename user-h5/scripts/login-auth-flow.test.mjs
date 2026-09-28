@@ -112,7 +112,7 @@ assert.match(
 assert.match(
   authSource,
   /function bindPhone\([\s\S]*?retryAuth:\s*false/,
-  '手机号绑定请求不得自动复用旧 encryptedData\/iv 重试'
+  '手机号绑定请求不得自动复用旧 encryptedData/iv 重试'
 );
 
 // 6. 弹层刷新未完成时，不得使用当前点击生成的旧 encryptedData/iv 发请求。
