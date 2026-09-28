@@ -16,6 +16,15 @@ spring:
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
+  # ---------- 数据库连接池（P0 统一显式配置） ----------
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: 3000
+      max-lifetime: 1800000
+      validation-timeout: 3000
+
   flyway:
     enabled: true
     baseline-on-migrate: true

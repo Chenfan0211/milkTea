@@ -16,6 +16,20 @@ server:
 spring:
   application:
     name: wuling-trade-service
+  # ---------- 数据库连接池（P0 统一显式配置） ----------
+  # 默认 Spring Boot 的 maximum-pool-size=10、connection-timeout=30s 在
+  # 高并发下会导致「连接池耗尽 -> 30s 死等 -> 雪崩」。这里统一显式收紧：
+  #   - connection-timeout 降到 3s：拿不到连接快速失败，而非长时间挂起；
+  #   - maximum-pool-size 按单实例 20：与 Tomcat 默认 200 线程匹配的合理值；
+  #   - minimum-idle 5：减少冷启动抖动。
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: 3000
+      max-lifetime: 1800000
+      validation-timeout: 3000
+
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
