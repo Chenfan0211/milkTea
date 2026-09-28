@@ -53,6 +53,8 @@ public class GatewayAuthPolicy {
             "/api/v1/app/payments/wxpay/refund-notify",
             // 健康检查
             "/actuator/health",
+            // 网关熔断兜底端点（内部 forward，无需登录）
+            "/fallback/unavailable",
             // 文件服务公开读取（文件名由服务端生成并严格校验）
             "/api/v1/files/public/**",
             // 文件服务自述（不含敏感信息，便于运维探活）

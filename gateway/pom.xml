@@ -55,6 +55,13 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- 网关限流：RequestRateLimiter 需要 Reactive Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+        </dependency>
+
+
         <!-- JWT 校验（网关层前置鉴权） -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

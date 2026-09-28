@@ -11,6 +11,20 @@ spring:
   application:
     name: wuling-gateway
 
+  # ---------- 请求体大小硬上限（WebFlux 网关用 codec 限制，非 servlet multipart） ----------
+  # 超过该上限的请求体在网关层直接 413，拦截在进入 file-service 之前，
+  # 与 file-service 的 max-request-size(6MB) 保持一致，形成双层兜底。
+  codec:
+    max-in-memory-size: 6MB
+
+  # ---------- Redis（网关限流 + 熔断状态共享） ----------
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
   # ---------- Nacos 服务发现 ----------
   cloud:
     nacos:
@@ -31,6 +45,9 @@ spring:
 
     # ---------- 路由 ----------
     gateway:
+      # 启用 Redis 支持的过滤器（RequestRateLimiter 等），默认关闭需显式开启
+      redis:
+        enabled: true
       # 路由定义见下方 routes
       routes:
         # 认证路由：登录 / 刷新令牌
@@ -127,6 +144,9 @@ spring:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
 
 app:
+  # 网关限流 Redis 独立库号（与业务 AUTH=0/SMS=1/CACHE=2/BIZ=3 隔离，便于按库监控清理）
+  rate-limit:
+    redis-db: ${RATE_LIMIT_REDIS_DB:4}
   # 请求日志开关（生产默认脱敏；排查时可临时置 true 输出全量参数，排查完务必关闭）
   log:
     request:
@@ -135,6 +155,7 @@ app:
   jwt:
     # 与 auth-service / server 共用同一密钥；缺失时网关拒绝启动
     secret: ${JWT_SECRET:}
+
 
 management:
   endpoints:
