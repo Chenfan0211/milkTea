@@ -78,9 +78,31 @@ services:
       retries: 12
       start_period: 40s
 
+  # ---------- ClamAV 病毒扫描（第 P2 期）----------
+  # clamd 守护进程，提供 TCP 3310 端口 INSTREAM 流式扫描，
+  # 供 file-service 在上传时做病毒检测。
+  clamav:
+    image: clamav/clamav:stable
+    container_name: wuling-clamav
+    restart: unless-stopped
+    # 首次启动需拉取病毒库，用 freshclam 定期更新
+    environment:
+      CLAMAV_NO_FRESHCLAMD: "false"
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
 volumes:
   mysql-data: {}
   redis-data: {}
   rabbitmq-data: {}
   nacos-data: {}
   nacos-logs: {}
+  clamav-data: {}

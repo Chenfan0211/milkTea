@@ -74,7 +74,7 @@ preflight() {
   fi
 
   # 中间件容器应已加入该网络
-  for c in wuling-mysql wuling-redis wuling-rabbitmq wuling-nacos; do
+  for c in wuling-mysql wuling-redis wuling-rabbitmq wuling-nacos wuling-clamav; do
     if docker inspect "$c" >/dev/null 2>&1; then
       if ! docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$c" | grep -q wuling-net; then
         warn "$c 尚未加入 wuling-net，正在接入…"

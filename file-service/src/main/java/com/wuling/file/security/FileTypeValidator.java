@@ -28,10 +28,19 @@ public final class FileTypeValidator {
             "png", new FileType("image/png", new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A})
     );
 
-    /** 禁止的扩展名（即便文件头合法也拒绝，避免"借壳"脚本） */
+    /**
+     * 禁止的扩展名（即便文件头合法也拒绝，避免"借壳"脚本）。
+     * 覆盖可执行、脚本宿主、Web 脚本及其编码/模块变体，防止改名为图片上传。
+     */
     private static final Set<String> FORBIDDEN_EXT = Set.of(
-            "exe", "dll", "so", "sh", "bat", "cmd", "ps1", "js", "jar",
-            "php", "jsp", "asp", "py", "rb", "pl", "html", "htm", "svg"
+            // 可执行 / 动态库 / 安装包
+            "exe", "dll", "so", "jar", "msi", "scr", "com", "pif",
+            // 脚本宿主（Windows）
+            "bat", "cmd", "sh", "ps1", "ps1xml", "vbs", "vbe", "jse",
+            "wsf", "wsh", "hta", "sct",
+            // Web 脚本与模板
+            "js", "mjs", "cjs", "php", "jsp", "asp", "aspx", "py", "rb", "pl",
+            "html", "htm", "svg"
     );
 
     private FileTypeValidator() {

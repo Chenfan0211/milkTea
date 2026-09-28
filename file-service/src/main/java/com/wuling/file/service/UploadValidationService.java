@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.UUID;
 
 /**
@@ -33,6 +35,40 @@ public class UploadValidationService {
 
     public UploadValidationService(@Value("${app.file.max-size-bytes:5242880}") long maxSizeBytes) {
         this.maxSizeBytes = maxSizeBytes;
+    }
+
+    /**
+     * 校验上传内容并生成安全存储信息（流式入口，仅读文件头判类型，不读全量）。
+     *
+     * @param originalFilename 原始文件名（仅用于取扩展名）
+     * @param in               文件内容流（本方法不负责关闭）
+     * @param declaredType     客户端声明的 Content-Type（仅记录，不参与判定）
+     */
+    public ValidatedUpload validate(String originalFilename, InputStream in, String declaredType) {
+        if (in == null) {
+            throw new InvalidFileException("文件内容为空");
+        }
+        byte[] head;
+        try {
+            head = in.readNBytes(16);
+        } catch (IOException e) {
+            throw new InvalidFileException("文件读取失败");
+        }
+        if (head.length == 0) {
+            throw new InvalidFileException("文件内容为空");
+        }
+        FileType type = FileTypeValidator.validate(originalFilename, head);
+        String ext = FileTypeValidator.extensionOf(originalFilename);
+        if (declaredType != null && !declaredType.isBlank()
+                && !declaredType.equalsIgnoreCase(type.mimeType())) {
+            log.warn("declared content-type mismatch: declared={} actual={} file={}",
+                    declaredType, type.mimeType(), originalFilename);
+        }
+        String storedName = UUID.randomUUID().toString().replace("-", "") + "." + ext;
+        // 流式版本仅读文件头，size 字段填头部字节数（非全量大小），仅作记录用途。
+        log.info("upload validated file={} type={} stored={}",
+                originalFilename, type.mimeType(), storedName);
+        return new ValidatedUpload(storedName, type.mimeType(), head.length);
     }
 
     /**

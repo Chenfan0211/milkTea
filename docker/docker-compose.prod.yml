@@ -138,6 +138,10 @@ services:
       JAVA_OPTS: "-Xms128m -Xmx256m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
       FILE_STORAGE_ROOT: /data/wuling/uploads
       FILE_PUBLIC_BASE_URL: /api/v1/files/public
+      # ClamAV 病毒扫描（P2）：生产启用，clamd 由中间件 compose 提供（容器名 wuling-clamav）
+      CLAMAV_ENABLED: "true"
+      CLAMAV_HOST: wuling-clamav
+      CLAMAV_PORT: "3310"
     ports:
       - "127.0.0.1:8082:8082"
     volumes:

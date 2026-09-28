@@ -82,6 +82,23 @@ class FileTypeValidatorTest {
     }
 
     @Test
+    void shouldRejectNewlyAddedScriptExtensionsEvenWithValidHeader() {
+        // P1：补齐脚本宿主 / JS 模块变体 / 编码脚本等扩展名。
+        // 说明：当前这些扩展名同样不在 ALLOWED 白名单（jpg/jpeg/png）内，
+        // 因此由白名单兜底拒绝；黑名单为纵深防御，防止未来白名单扩展（如 svg）
+        // 后出现"借壳"漏洞。此处验证结果等价：危险扩展名一律被拒。
+        String[] scriptExts = {
+                "mjs", "cjs", "wsf", "wsh", "hta", "sct",
+                "vbs", "vbe", "jse", "ps1xml", "msi", "scr", "com", "pif", "aspx"
+        };
+        for (String ext : scriptExts) {
+            assertThrows(InvalidFileException.class,
+                    () -> FileTypeValidator.validate("evil." + ext, jpegHead()),
+                    "应拒绝扩展名: " + ext);
+        }
+    }
+
+    @Test
     void shouldRejectExtensionMismatch() {
         // 扩展名说 png，内容其实是 jpeg —— 说明被改过，拒绝
         assertThrows(InvalidFileException.class,

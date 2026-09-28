@@ -35,6 +35,15 @@ app:
     public-base-url: ${FILE_PUBLIC_BASE_URL:/api/v1/files/public}
     max-dimension: ${FILE_MAX_IMAGE_DIMENSION:8000}
     max-pixels: ${FILE_MAX_IMAGE_PIXELS:40000000}
+  # ---------- ClamAV 病毒扫描 ----------
+  # enabled=false 时跳过扫描（本地开发/测试未部署 clamd 时兼容）；
+  # 生产应设为 true 并部署 clamd 容器。
+  clamav:
+    enabled: ${CLAMAV_ENABLED:false}
+    host: ${CLAMAV_HOST:127.0.0.1}
+    port: ${CLAMAV_PORT:3310}
+    timeout-ms: ${CLAMAV_TIMEOUT_MS:5000}
+    chunk-size: ${CLAMAV_CHUNK_SIZE:4096}
 
 management:
   endpoints:

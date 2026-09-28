@@ -1,10 +1,12 @@
 package com.wuling.file.service;
 
+import com.wuling.file.security.ClamAvScanner;
 import com.wuling.file.security.FileTypeValidator;
 import com.wuling.file.security.FileTypeValidator.FileType;
 import com.wuling.file.security.FileTypeValidator.InvalidFileException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +18,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -47,6 +51,8 @@ public class ImageStorageService {
     private final long maxSizeBytes;
     private final int maxDimension;
     private final long maxPixels;
+    /** 病毒扫描器；null 表示未启用扫描（本地开发/测试兼容） */
+    private ClamAvScanner scanner;
 
     public ImageStorageService(
             @Value("${app.file.storage-root}") String storageRoot,
@@ -75,6 +81,56 @@ public class ImageStorageService {
         }
     }
 
+    /** 可选注入病毒扫描器（ClamAV 未启用时 Spring 不注入，保持 null）。 */
+    @Autowired(required = false)
+    public void setScanner(ClamAvScanner scanner) {
+        this.scanner = scanner;
+    }
+
+    /**
+     * 校验、重编码并保存图片（流式入口，避免整文件读入堆内存）。
+     *
+     * <p>与 {@link #store(String, byte[], String)} 的差异：签名与尺寸判断阶段只读文件头，
+     * 不加载全量内容；仅在确认尺寸合法后才做全量解码与重编码。
+     *
+     * @param originalFilename 原始文件名，仅用于扩展名校验
+     * @param in               文件内容流（本方法不负责关闭）
+     * @param declaredType     客户端声明的 Content-Type，仅用于告警，不作为可信依据
+     */
+    public StoredImage store(String originalFilename, InputStream in, String declaredType) {
+        if (in == null) {
+            throw new InvalidFileException("文件内容为空");
+        }
+        try {
+            byte[] head;
+            try {
+                head = in.readNBytes(16);
+            } catch (IOException e) {
+                throw new InvalidFileException("文件读取失败");
+            }
+            if (head.length == 0) {
+                throw new InvalidFileException("文件内容为空");
+            }
+            FileType type = FileTypeValidator.validate(originalFilename, head);
+            if (declaredType != null && !declaredType.isBlank()
+                    && !declaredType.equalsIgnoreCase(type.mimeType())) {
+                log.warn("declared content-type mismatch: declared={} actual={} file={}",
+                        declaredType, type.mimeType(), originalFilename);
+            }
+            // 已读 head 与剩余流拼接，保证解码器拿到完整文件头
+            InputStream complete = new SequenceInputStream(
+                    new ByteArrayInputStream(head), in);
+            BufferedImage decoded = decodeWithDimensionLimits(complete);
+            String suffix = JPEG_MIME.equals(type.mimeType()) ? "jpg" : "png";
+            byte[] encoded = reencode(decoded, type);
+            return writeEncoded(originalFilename, encoded, type, suffix);
+        } catch (InvalidFileException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InvalidFileException("文件读取失败");
+        }
+    }
+
     /**
      * 校验、重编码并保存图片。
      *
@@ -98,28 +154,11 @@ public class ImageStorageService {
                     declaredType, type.mimeType(), originalFilename);
         }
 
+        scanIfEnabled(content);
         BufferedImage decoded = decodeWithDimensionLimits(content);
         String suffix = JPEG_MIME.equals(type.mimeType()) ? "jpg" : "png";
         byte[] encoded = reencode(decoded, type);
-
-        while (true) {
-            String storedName = UUID.randomUUID().toString().replace("-", "") + "." + suffix;
-            Path target = storageRoot.resolve(storedName).normalize();
-            if (!target.getParent().equals(storageRoot)) {
-                throw new IllegalStateException("生成的文件路径越界");
-            }
-            try {
-                Files.write(target, encoded, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-                log.info("stored image file={} size={} type={} stored={}",
-                        originalFilename, encoded.length, type.mimeType(), storedName);
-                return new StoredImage(publicBaseUrl + "/" + storedName,
-                        storedName, type.mimeType(), encoded.length);
-            } catch (FileAlreadyExistsException ignored) {
-                // UUID 冲突概率极低；若发生则重新生成，绝不覆盖既有文件。
-            } catch (IOException e) {
-                throw new IllegalStateException("图片落盘失败: " + storedName, e);
-            }
-        }
+        return writeEncoded(originalFilename, encoded, type, suffix);
     }
 
     /**
@@ -151,9 +190,78 @@ public class ImageStorageService {
         }
     }
 
+    /** 编码结果落盘：UUID 命名 + 防覆盖 + 防路径越界 */
+    private StoredImage writeEncoded(String originalFilename, byte[] encoded,
+                                      FileType type, String suffix) {
+        while (true) {
+            String storedName = UUID.randomUUID().toString().replace("-", "") + "." + suffix;
+            Path target = storageRoot.resolve(storedName).normalize();
+            if (!target.getParent().equals(storageRoot)) {
+                throw new IllegalStateException("生成的文件路径越界");
+            }
+            try {
+                Files.write(target, encoded, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                log.info("stored image file={} size={} type={} stored={}",
+                        originalFilename, encoded.length, type.mimeType(), storedName);
+                return new StoredImage(publicBaseUrl + "/" + storedName,
+                        storedName, type.mimeType(), encoded.length);
+            } catch (FileAlreadyExistsException ignored) {
+                // UUID 冲突概率极低；若发生则重新生成，绝不覆盖既有文件。
+            } catch (IOException e) {
+                throw new IllegalStateException("图片落盘失败: " + storedName, e);
+            }
+        }
+    }
+
+    /** 病毒扫描（若启用）。发现病毒或扫描失败（fail-closed）则拒绝。 */
+    private void scanIfEnabled(byte[] content) {
+        if (scanner == null) {
+            return;
+        }
+        try {
+            if (!scanner.isClean(new ByteArrayInputStream(content))) {
+                throw new InvalidFileException("检测到病毒或恶意内容，已拒绝上传");
+            }
+        } catch (ClamAvScanner.ScanException e) {
+            // fail-closed：扫描服务不可用同样拒绝，保留明确语义
+            throw new InvalidFileException("病毒扫描服务不可用，已拒绝上传");
+        }
+    }
+
     private BufferedImage decodeWithDimensionLimits(byte[] content) {
         try (ImageInputStream input = ImageIO.createImageInputStream(
                 new ByteArrayInputStream(content))) {
+            if (input == null) {
+                throw new InvalidFileException("图片内容无法读取");
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                throw new InvalidFileException("图片内容无法解码");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                validateDimensions(width, height);
+                BufferedImage image = reader.read(0);
+                if (image == null) {
+                    throw new InvalidFileException("图片内容无法解码");
+                }
+                return image;
+            } finally {
+                reader.dispose();
+            }
+        } catch (InvalidFileException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InvalidFileException("图片内容无法解码");
+        }
+    }
+
+    /** 从流中解码图片：先读 header 判尺寸，尺寸合法后才全量解码像素。 */
+    private BufferedImage decodeWithDimensionLimits(InputStream in) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(in)) {
             if (input == null) {
                 throw new InvalidFileException("图片内容无法读取");
             }

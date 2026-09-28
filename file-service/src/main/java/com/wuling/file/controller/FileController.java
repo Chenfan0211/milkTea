@@ -55,7 +55,7 @@ public class FileController {
     public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
         try {
             StoredImage result = imageStorageService.store(
-                    file.getOriginalFilename(), file.getBytes(), file.getContentType());
+                    file.getOriginalFilename(), file.getInputStream(), file.getContentType());
             return ResponseEntity.ok(Result.ok(result));
         } catch (InvalidFileException e) {
             return badRequest(e.getMessage());
@@ -89,7 +89,7 @@ public class FileController {
     public ResponseEntity<?> validate(@RequestParam("file") MultipartFile file) throws IOException {
         try {
             ValidatedUpload result = uploadService.validate(
-                    file.getOriginalFilename(), file.getBytes(), file.getContentType());
+                    file.getOriginalFilename(), file.getInputStream(), file.getContentType());
             return ResponseEntity.ok(Map.of(
                     "storedName", result.storedName(),
                     "mimeType", result.mimeType(),

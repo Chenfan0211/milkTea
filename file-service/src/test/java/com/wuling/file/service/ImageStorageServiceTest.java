@@ -1,5 +1,6 @@
 package com.wuling.file.service;
 
+import com.wuling.file.security.ClamAvScanner;
 import com.wuling.file.security.FileTypeValidator.InvalidFileException;
 import com.wuling.file.service.ImageStorageService.ImageNotFoundException;
 import com.wuling.file.service.ImageStorageService.InvalidFilePathException;
@@ -20,6 +21,7 @@ import javax.imageio.stream.ImageOutputStream;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -36,6 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ImageStorageServiceTest {
 
@@ -53,6 +58,45 @@ class ImageStorageServiceTest {
     void setUp() {
         service = new ImageStorageService(storageRoot.toString(), PUBLIC_BASE, MAX_SIZE,
                 MAX_DIMENSION, MAX_PIXELS);
+    }
+
+    // ---------- 病毒扫描集成（P2） ----------
+
+    @Test
+    void storeRejectsInfectedFileWhenScannerEnabled() throws IOException {
+        ClamAvScanner scanner = mock(ClamAvScanner.class);
+        when(scanner.isClean(any())).thenReturn(false); // 发现病毒
+        service.setScanner(scanner);
+
+        byte[] original = imageBytes("jpeg", 320, 180);
+
+        assertThrows(InvalidFileException.class,
+                () -> service.store("photo.jpg", original, "image/jpeg"));
+    }
+
+    @Test
+    void storeRejectsWhenScannerUnavailableFailClosed() throws IOException {
+        ClamAvScanner scanner = mock(ClamAvScanner.class);
+        when(scanner.isClean(any())).thenThrow(
+                new ClamAvScanner.ScanException("clamd down"));
+        service.setScanner(scanner);
+
+        byte[] original = imageBytes("png", 20, 20);
+
+        assertThrows(InvalidFileException.class,
+                () -> service.store("photo.png", original, "image/png"));
+    }
+
+    @Test
+    void storeAcceptsCleanFileWhenScannerSaysOk() throws IOException {
+        ClamAvScanner scanner = mock(ClamAvScanner.class);
+        when(scanner.isClean(any())).thenReturn(true); // 无病毒
+        service.setScanner(scanner);
+
+        byte[] original = imageBytes("png", 20, 20);
+
+        StoredImage stored = service.store("photo.png", original, "image/png");
+        assertTrue(stored.storedName().endsWith(".png"));
     }
 
     @Test
@@ -92,6 +136,49 @@ class ImageStorageServiceTest {
 
         assertThrows(InvalidFileException.class,
                 () -> service.store("fake.jpg", fake, "image/jpeg"));
+    }
+
+    // ---------- 流式入口（P0：避免整文件读入堆内存） ----------
+
+    @Test
+    void storeStreamAcceptsRealJpeg() throws IOException {
+        byte[] original = imageBytes("jpeg", 320, 180);
+
+        StoredImage stored = service.store("photo.jpg",
+                new ByteArrayInputStream(original), "image/jpeg");
+
+        assertTrue(stored.storedName().matches("[0-9a-f]{32}\\.jpg"));
+        assertEquals("image/jpeg", stored.mimeType());
+        assertTrue(stored.size() > 0);
+        assertTrue(Files.isRegularFile(storageRoot.resolve(stored.storedName())));
+    }
+
+    @Test
+    void storeStreamRejectsNonImageContent() {
+        byte[] fake = "not an image".getBytes(StandardCharsets.UTF_8);
+
+        assertThrows(InvalidFileException.class,
+                () -> service.store("fake.jpg", new ByteArrayInputStream(fake), "image/jpeg"));
+    }
+
+    @Test
+    void storeStreamRejectsNullStream() {
+        assertThrows(InvalidFileException.class,
+                () -> service.store("a.jpg", (java.io.InputStream) null, "image/jpeg"));
+    }
+
+    @Test
+    void storeStreamRejectsEmptyStream() {
+        assertThrows(InvalidFileException.class,
+                () -> service.store("a.jpg", new ByteArrayInputStream(new byte[0]), "image/jpeg"));
+    }
+
+    @Test
+    void storeStreamRejectsTruncatedHeader() {
+        // 只有 2 字节，不足以匹配任何 magic bytes
+        byte[] truncated = new byte[]{(byte) 0xFF, (byte) 0xD8};
+        assertThrows(InvalidFileException.class,
+                () -> service.store("a.jpg", new ByteArrayInputStream(truncated), "image/jpeg"));
     }
 
     @Test
