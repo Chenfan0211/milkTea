@@ -279,6 +279,87 @@ assert.ok(
 );
 assert.equal(paidOrder.payMethodText, '微信支付', 'WXPAY 必须显示为「微信支付」');
 
+// 18.1 储值余额支付的订单必须显示「储值余额」，不得因 payStatus=PAID 被说成「微信支付」
+//      （真实故障：所有已支付订单都被旧映射表按 PAID 反推成「微信支付」）
+orders.setOrdersForTest([
+  {
+    id: 'o-method-stored',
+    category: 'store',
+    timeGroup: 'today',
+    orderStatus: 'pending_verify',
+    status: '待核销',
+    payStatus: 'PAID',
+    payChannel: 'STORED_VALUE',
+    items: [],
+    orderInfo: { orderNo: 'M-3', createdAt: '2026-09-25 09:33:40' }
+  }
+]);
+const storedPaidOrder = orders.getOrderById('o-method-stored', NOW);
+assert.equal(
+  storedPaidOrder.payMethodText,
+  '储值余额',
+  'STORED_VALUE 渠道必须显示为「储值余额」（不得按 payStatus=PAID 显示微信支付）'
+);
+
+// 18.2 储值充值订单（category=stored-value）走同一条渠道映射
+orders.setOrdersForTest([
+  orders.normalizeAuxOrder(
+    {
+      id: 'sv-1',
+      orderNo: 'CZ202609250001',
+      payStatus: 'PAID',
+      payChannel: 'STORED_VALUE',
+      amount: 10000,
+      createTime: '2026-09-25 09:33:40'
+    },
+    'stored-value'
+  )
+]);
+const storedValueOrder = orders.getOrderById('sv-1', NOW);
+assert.equal(
+  storedValueOrder.payMethodText,
+  '储值余额',
+  '储值充值订单必须显示「储值余额」'
+);
+
+// 18.3 已支付但后端未下发渠道时，按默认「微信支付」展示（不得为空）
+orders.setOrdersForTest([
+  {
+    id: 'o-method-nopay',
+    category: 'store',
+    timeGroup: 'today',
+    orderStatus: 'pending_verify',
+    status: '待核销',
+    payStatus: 'PAID',
+    items: [],
+    orderInfo: { orderNo: 'M-4', createdAt: '2026-09-25 09:33:40' }
+  }
+]);
+assert.equal(
+  orders.getOrderById('o-method-nopay', NOW).payMethodText,
+  '微信支付',
+  '已支付且无渠道信息时必须回落到默认「微信支付」'
+);
+
+// 18.4 payStatus 本身不能反推支付方式：UNPAID 必须仍是「未支付」
+assert.equal(
+  orders.decorateOrder(
+    {
+      id: 'o-method-unpaid',
+      category: 'store',
+      timeGroup: 'today',
+      orderStatus: 'pending_payment',
+      status: '待支付',
+      payStatus: 'UNPAID',
+      items: [],
+      orderInfo: { orderNo: 'M-5', createdAt: '2026-09-25 09:33:40' }
+    },
+    NOW
+  ).payMethodText,
+  '未支付',
+  'UNPAID 必须显示「未支付」，不得被当作支付方式'
+);
+
 // 19. 详情页 wxml 必须绑定中文支付方式字段，不得直接用 orderInfo.payMethod
 const detailWxml = fs.readFileSync(path.join(root, 'pages/order-detail/order-detail.wxml'), 'utf8');
 assert.ok(

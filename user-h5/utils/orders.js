@@ -62,34 +62,55 @@ const STATUS_META = {
   paid: { title: '已支付', note: '充值已到账，可在余额记录中查看' }
 };
 
-/** 支付方式（后端英文枚举 / 支付状态）-> 中文文案。 */
-const PAY_METHOD_TEXT = {
+/**
+ * 支付渠道（后端 order.pay_channel）-> 中文文案。
+ *
+ * 注意：这里只放「渠道码」，不得混入支付状态（PAID / UNPAID）。
+ * 历史 bug：旧表把 PAID 也映射成「微信支付」，导致所有已支付订单
+ * （含储值余额支付的订单）在详情页一律显示「微信支付」。
+ */
+const PAY_CHANNEL_TEXT = {
   WXPAY: '微信支付',
   WECHAT: '微信支付',
   MOCK: '模拟支付',
-  BALANCE: '储值余额',
   STORED_VALUE: '储值余额',
-  UNPAID: '未支付',
-  PAID: '微信支付',
-  REFUNDED: '已退款',
-  '' : ''
+  BALANCE: '储值余额'
 };
+
+/**
+ * 支付方式兜底文案：仅当后端没有下发任何支付渠道信息时使用。
+ *
+ * 按产品口径默认为「微信支付」；待支付订单即使没有渠道信息也按「未支付」
+ * 展示，避免把「还没付」说成已付。
+ */
+const PAY_METHOD_FALLBACK = '微信支付';
 
 /**
  * 支付方式归一化为中文。
  *
- * 注意：后端 OrderDTO 没有独立的 payMethod 字段，只有 payStatus
- * （UNPAID / PAID）。因此这里优先读 payMethod，缺失时用 payStatus 兜底，
- * 避免详情页显示「UNPAID」这类英文枚举。
+ * 后端 OrderDTO 同时下发 payChannel（渠道码）与 payStatus（支付状态）：
+ *   - payChannel 才是「用什么付的」，必须作为第一优先级；
+ *   - payStatus 只用来判断「还没付」，绝不能反推支付方式
+ *     （历史 bug：已支付订单被 payStatus=PAID 一律说成「微信支付」）。
+ *
+ * orderInfo 兼容两种历史结构：本地下单夹具把渠道写在 orderInfo.payMethod，
+ * 因此 payMethod 也按渠道码解析，全都没有时才回落到默认文案。
  */
 function resolvePayMethodText(order) {
   if (!order) return '';
   const info = order.orderInfo || {};
-  const raw = info.payMethod || order.payMethod || order.payStatus || '';
-  const key = String(raw).toUpperCase();
-  if (PAY_METHOD_TEXT[key] != null) return PAY_METHOD_TEXT[key];
-  // 已是中文则原样返回
-  return /[\u4e00-\u9fa5]/.test(String(raw)) ? String(raw) : String(raw);
+  // 1) 渠道码优先：顶层 payChannel > orderInfo.payChannel
+  const channel = String(order.payChannel || info.payChannel || '').toUpperCase();
+  if (PAY_CHANNEL_TEXT[channel]) return PAY_CHANNEL_TEXT[channel];
+  // 2) 兼容历史字段：payMethod 里可能存的是渠道码，或已是中文文案
+  const legacy = info.payMethod || order.payMethod || '';
+  const legacyKey = String(legacy).toUpperCase();
+  if (PAY_CHANNEL_TEXT[legacyKey]) return PAY_CHANNEL_TEXT[legacyKey];
+  if (/[\u4e00-\u9fa5]/.test(String(legacy))) return String(legacy);
+  // 3) 无渠道信息：未支付照实说，已支付按默认渠道展示
+  const payStatus = String(order.payStatus || info.payStatus || '').toUpperCase();
+  if (payStatus === 'UNPAID') return '未支付';
+  return PAY_METHOD_FALLBACK;
 }
 
 /** 用餐方式（后端英文枚举 / 中文）-> 展示文案。 */
@@ -222,7 +243,9 @@ function normalizeOrderShape(order) {
   // 扁平 -> orderInfo（仅在 orderInfo 缺失对应字段时回填，保持幂等）
   if (!orderInfo.orderNo && order.orderNo) orderInfo.orderNo = order.orderNo;
   if (!orderInfo.createdAt && order.createTime) orderInfo.createdAt = order.createTime;
-  if (!orderInfo.payMethod && order.payStatus) orderInfo.payMethod = order.payStatus;
+  // 注意：不得把 payStatus 回填成 payMethod —— 支付状态（PAID）不是支付方式，
+  // 回填后会被 resolvePayMethodText 误判成「微信支付」。
+  if (!orderInfo.payChannel && order.payChannel) orderInfo.payChannel = order.payChannel;
   // 后端下发英文状态枚举，前端统一按 category 转为内部状态码与中文文案。
   // 注意：不能按「是否含下划线」判断内部码，completed / canceled / paid
   // 都不含下划线，必须直接按已知内部状态白名单保留。
@@ -288,7 +311,9 @@ function cloneOrder(order) {
           })
         )
       : [],
-    orderInfo: Object.assign({}, normalized.orderInfo || {})
+    // 支付渠道兜底写入 orderInfo：远程单查合并后仍能取到渠道，
+    // 避免已支付订单因缺渠道被误展示成默认支付方式。
+    orderInfo: Object.assign({}, normalized.orderInfo || {}, { payChannel: normalized.payChannel || (normalized.orderInfo && normalized.orderInfo.payChannel) || '' })
   });
 }
 
@@ -546,8 +571,8 @@ function decorateOrder(order, now) {
     couponAmountText: formatOrderAmount(orderAmountYuan(order, 'couponDiscount')),
     firstItem,
     previewItems,
-    isPaidCancellable: order.category === 'store' && order.orderStatus === 'pending_verify' && !isCanceled,
-    // 用餐方式：列表卡片左上角标签（堂食/自取），缺失会导致标签位置空白
+    // 待核销订单不允许用户自行取消（取消入口仅在运营后台/门店），此处恒为 false 以隐藏取消按钮。
+    isPaidCancellable: false,
     type: resolveMealTypeText(order),
     // 详情页「用餐信息」分组：用餐方式 + 取餐门店
     mealInfo: buildMealInfo(order),

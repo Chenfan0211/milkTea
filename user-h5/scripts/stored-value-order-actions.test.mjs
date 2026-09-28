@@ -31,4 +31,25 @@ const ordersPageJs = fs.readFileSync(path.join(root, 'pages/orders/orders.js'), 
 assert.ok(ordersPageJs.includes('prepayStoredValue'), '立即支付必须调用储值预支付');
 assert.ok(ordersPageJs.includes('fetchStoredValueOrder'), '支付后必须查单确认');
 
+// 支付方式展示：已支付订单不得被 payStatus=PAID 反推成「微信支付」
+const orders = require(path.join(root, 'utils/orders.js'));
+orders.setOrdersForTest([
+  {
+    id: 'sv-display-1',
+    category: 'store',
+    timeGroup: 'today',
+    orderStatus: 'pending_verify',
+    status: '待核销',
+    payStatus: 'PAID',
+    payChannel: 'STORED_VALUE',
+    items: [],
+    orderInfo: { orderNo: 'WX-STORED-1', createdAt: '2026-09-28 03:41:13' }
+  }
+]);
+assert.equal(
+  orders.getOrderById('sv-display-1').payMethodText,
+  '储值余额',
+  '储值余额支付的订单必须显示「储值余额」，不得按支付状态显示微信支付'
+);
+
 console.log('储值订单取消与立即支付接入测试通过');
