@@ -5,6 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wuling.common.api.PageResult;
+import com.wuling.common.redis.RedisManager;
+import com.wuling.common.redis.RedisNamespace;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.time.Duration;
 import com.wuling.product.dto.AdminProductDTO;
 import com.wuling.product.dto.CategoryDTO;
 import com.wuling.product.dto.MenuDTO;
@@ -42,22 +46,42 @@ public class ProductQueryService {
     /** 第 12 期：主体查询改走端口 */
     private final SubjectQueryPort subjectQueryPort;
     private final ObjectMapper objectMapper;
+    private final RedisManager redisManager;
 
     public ProductQueryService(ProductMapper productMapper,
                                ProductCategoryMapper categoryMapper,
                                ProductSpecMapper specMapper,
                                ProductStoreMapper productStoreMapper,
                                SubjectQueryPort subjectQueryPort,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               RedisManager redisManager) {
         this.productMapper = productMapper;
         this.categoryMapper = categoryMapper;
         this.specMapper = specMapper;
         this.productStoreMapper = productStoreMapper;
         this.subjectQueryPort = subjectQueryPort;
         this.objectMapper = objectMapper;
+        this.redisManager = redisManager;
     }
 
+    /** 菜单缓存 key（CACHE 命名空间，TTL 5 分钟） */
+    private static final String MENU_CACHE_KEY = "menu:all";
+    private static final Duration MENU_CACHE_TTL = Duration.ofMinutes(5);
+
+    /** 商品详情缓存 key 前缀（CACHE 命名空间，TTL 5 分钟） */
+    private static final String PRODUCT_CACHE_PREFIX = "product:detail:";
+    private static final Duration PRODUCT_CACHE_TTL = Duration.ofMinutes(5);
+
     public List<MenuDTO.MenuTab> getMenu() {
+        // 缓存优先：菜单数据读多写少，命中后跳过 3 次全表查询 + 43KB 组装
+        String cached = safeGetMenuCache();
+        if (cached != null) {
+            List<MenuDTO.MenuTab> hit = parseMenuCache(cached);
+            if (hit != null) {
+                return hit;
+            }
+        }
+
         // 单层分类：仅启用且 type=CATEGORY 的节点参与菜单
         List<ProductCategory> categories = categoryMapper.selectList(new LambdaQueryWrapper<ProductCategory>()
                 .eq(ProductCategory::getType, "CATEGORY")
@@ -104,9 +128,100 @@ public class ProductQueryService {
 
         List<MenuDTO.MenuTab> tabs = new ArrayList<>();
         tabs.add(tabDto);
+
+        // 写回缓存（序列化失败不影响返回）
+        safeSetMenuCache(tabs);
         return tabs;
     }
+
+    /** 读菜单缓存；Redis 不可用或未命中返回 null（fail-open，回源 DB）。 */
+    private String safeGetMenuCache() {
+        try {
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            return redis.opsForValue().get(redisManager.key(RedisNamespace.CACHE, MENU_CACHE_KEY));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 写菜单缓存；序列化或 Redis 失败时静默忽略。 */
+    private void safeSetMenuCache(List<MenuDTO.MenuTab> tabs) {
+        try {
+            String json = objectMapper.writeValueAsString(tabs);
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            redis.opsForValue().set(redisManager.key(RedisNamespace.CACHE, MENU_CACHE_KEY), json, MENU_CACHE_TTL);
+        } catch (Exception e) {
+            // 缓存写入失败不影响业务
+        }
+    }
+
+    /** 反序列化菜单缓存；损坏返回 null（走回源）。 */
+    private List<MenuDTO.MenuTab> parseMenuCache(String json) {
+        try {
+            return objectMapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<List<MenuDTO.MenuTab>>() {});
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 菜单数据变更后失效缓存（供商品/分类/规格的增删改调用）。 */
+    public void evictMenuCache() {
+        try {
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            redis.delete(redisManager.key(RedisNamespace.CACHE, MENU_CACHE_KEY));
+        } catch (Exception e) {
+            // 删除失败可忽略，缓存 TTL 兜底
+        }
+    }
+
+    private String safeGetProductCache(String productId) {
+        try {
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            return redis.opsForValue().get(redisManager.key(RedisNamespace.CACHE, PRODUCT_CACHE_PREFIX + productId));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void safeSetProductCache(String productId, ProductDetailDTO dto) {
+        try {
+            String json = objectMapper.writeValueAsString(dto);
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            redis.opsForValue().set(redisManager.key(RedisNamespace.CACHE, PRODUCT_CACHE_PREFIX + productId), json, PRODUCT_CACHE_TTL);
+        } catch (Exception e) {
+            // 缓存写入失败不影响业务
+        }
+    }
+
+    private ProductDetailDTO parseProductCache(String json) {
+        try {
+            return objectMapper.readValue(json, ProductDetailDTO.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 商品详情变更后失效单个商品缓存（供商品写操作调用）。 */
+    public void evictProductCache(String productId) {
+        try {
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            redis.delete(redisManager.key(RedisNamespace.CACHE, PRODUCT_CACHE_PREFIX + productId));
+        } catch (Exception e) {
+            // 删除失败可忽略，缓存 TTL 兜底
+        }
+    }
     public ProductDetailDTO getProductDetail(String productId) {
+        // 缓存优先：商品详情读多写少，命中后跳过 2 次 DB 查询
+        if (StringUtils.hasText(productId)) {
+            String cached = safeGetProductCache(productId);
+            if (cached != null) {
+                ProductDetailDTO hit = parseProductCache(cached);
+                if (hit != null) {
+                    return hit;
+                }
+            }
+        }
+
         Product product = productMapper.selectOne(new LambdaQueryWrapper<Product>()
                 .eq(Product::getProductId, productId));
         if (product == null) {
@@ -137,6 +252,9 @@ public class ProductQueryService {
         dto.setCupCapacity(product.getCupCapacity());
         dto.setTips(parseStringList(product.getTips()));
         dto.setSpecGroups(buildSpecGroups(specs));
+
+        // 写回缓存（序列化失败不影响返回）
+        safeSetProductCache(productId, dto);
         return dto;
     }
 
@@ -148,8 +266,72 @@ public class ProductQueryService {
                     .or().like(Product::getCode, search));
         }
         Page<Product> page = productMapper.selectPage(new Page<>(current, size), query);
-        List<AdminProductDTO> records = page.getRecords().stream().map(this::toAdminProduct).toList();
-        return PageResult.of(records, page.getCurrent(), page.getSize(), page.getTotal());
+        List<Product> records = page.getRecords();
+
+        // 批量预加载，避免 N+1：分类 / 规格 / 门店 / 门店名各查一次
+        Map<Long, ProductCategory> categoryMap = loadCategoryMap(records);
+        Map<Long, List<ProductSpec>> specsMap = loadSpecsMap(records);
+        Map<Long, List<String>> storeNamesMap = loadStoreNamesMap(records);
+
+        List<AdminProductDTO> dtos = records.stream()
+                .map(p -> toAdminProductBatch(p, categoryMap, specsMap, storeNamesMap))
+                .toList();
+        return PageResult.of(dtos, page.getCurrent(), page.getSize(), page.getTotal());
+    }
+
+    /** 批量加载分类映射（productId -> 分类） */
+    private Map<Long, ProductCategory> loadCategoryMap(List<Product> records) {
+        List<Long> ids = records.stream().map(Product::getCategoryId).filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+        return categoryMapper.selectList(new LambdaQueryWrapper<ProductCategory>().in(ProductCategory::getId, ids))
+                .stream().collect(Collectors.toMap(ProductCategory::getId, c -> c));
+    }
+
+    /** 批量加载规格映射（productId -> 规格列表） */
+    private Map<Long, List<ProductSpec>> loadSpecsMap(List<Product> records) {
+        List<Long> ids = records.stream().map(Product::getId).toList();
+        if (ids.isEmpty()) return Map.of();
+        return specMapper.selectList(new LambdaQueryWrapper<ProductSpec>().in(ProductSpec::getProductId, ids))
+                .stream().collect(Collectors.groupingBy(ProductSpec::getProductId));
+    }
+
+    /** 批量加载门店名映射（productId -> 门店名列表），门店名经 subjectQueryPort.findNames 批量查询 */
+    private Map<Long, List<String>> loadStoreNamesMap(List<Product> records) {
+        List<Long> ids = records.stream().map(Product::getId).toList();
+        if (ids.isEmpty()) return Map.of();
+        List<ProductStore> links = productStoreMapper.selectList(new LambdaQueryWrapper<ProductStore>().in(ProductStore::getProductId, ids));
+        if (links.isEmpty()) return Map.of();
+        // 批量查门店主体名
+        List<Long> subjectIds = links.stream().map(ProductStore::getStoreSubjectId).distinct().toList();
+        Map<Long, String> subjectNames = subjectQueryPort.findNames(subjectIds);
+        Map<Long, List<String>> result = new java.util.HashMap<>();
+        for (ProductStore link : links) {
+            String name = subjectNames.get(link.getStoreSubjectId());
+            if (name != null) {
+                result.computeIfAbsent(link.getProductId(), k -> new ArrayList<>()).add(name);
+            }
+        }
+        return result;
+    }
+
+    /** 用预加载的映射批量组装单个商品 DTO（避免 N+1） */
+    private AdminProductDTO toAdminProductBatch(Product product,
+                                                Map<Long, ProductCategory> categoryMap,
+                                                Map<Long, List<ProductSpec>> specsMap,
+                                                Map<Long, List<String>> storeNamesMap) {
+        AdminProductDTO dto = toAdminProductBase(product);
+        // 分类
+        ProductCategory category = product.getCategoryId() == null ? null : categoryMap.get(product.getCategoryId());
+        dto.setCategory(category == null ? "-" : category.getName());
+        dto.setCategoryId(product.getCategoryId());
+        // 规格
+        List<ProductSpec> specs = specsMap.getOrDefault(product.getId(), List.of());
+        dto.setSpecCount((int) specs.stream().map(ProductSpec::getGroupCode).distinct().count());
+        // 门店名
+        List<String> storeNames = storeNamesMap.getOrDefault(product.getId(), List.of());
+        dto.setStores(storeNames);
+        dto.setStore(storeNames.isEmpty() ? "-" : storeNames.get(0));
+        return dto;
     }
 
     /** 按 id 组装单个商品 DTO（写操作后回填用） */
@@ -229,7 +411,8 @@ public class ProductQueryService {
         return groups;
     }
 
-    private AdminProductDTO toAdminProduct(Product product) {
+    /** 组装商品 DTO 的基础字段（不含关联查询），供批量与单个共用。 */
+    private AdminProductDTO toAdminProductBase(Product product) {
         AdminProductDTO dto = new AdminProductDTO();
         dto.setId(product.getId());
         dto.setProductId(product.getProductId());
@@ -251,18 +434,22 @@ public class ProductQueryService {
         dto.setOnSale(product.getOnSale() != null && product.getOnSale() == 1 ? "on" : "off");
         dto.setSplitReady(product.getSplitRuleId() != null ? "ready" : "incomplete");
         dto.setCreateTime(product.getCreateTime() == null ? null : product.getCreateTime().format(FMT));
+        dto.setTags(parseStringList(product.getTags()));
+        return dto;
+    }
 
-        // 分类：name 供列表展示，id 供编辑回显（前端下拉以 id 为值）
+    /** 单个商品 DTO（写操作后回填用），关联查询逐个进行（低频场景）。 */
+    private AdminProductDTO toAdminProduct(Product product) {
+        AdminProductDTO dto = toAdminProductBase(product);
+        // 分类
         ProductCategory category = product.getCategoryId() == null ? null : categoryMapper.selectById(product.getCategoryId());
         dto.setCategory(category == null ? "-" : category.getName());
         dto.setCategoryId(product.getCategoryId());
-        // 标签：库中为 JSON 文本，统一解析为字符串列表（与菜单接口 toMenuProduct 同口径）
-        dto.setTags(parseStringList(product.getTags()));
-
+        // 规格
         List<ProductSpec> specs = specMapper.selectList(new LambdaQueryWrapper<ProductSpec>()
                 .eq(ProductSpec::getProductId, product.getId()));
         dto.setSpecCount((int) specs.stream().map(ProductSpec::getGroupCode).distinct().count());
-
+        // 门店名
         List<String> storeNames = new ArrayList<>();
         List<ProductStore> links = productStoreMapper.selectList(new LambdaQueryWrapper<ProductStore>()
                 .eq(ProductStore::getProductId, product.getId()));

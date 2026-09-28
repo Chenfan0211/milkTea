@@ -50,20 +50,26 @@ public class AdminProductController {
     /** 新增商品 */
     @PostMapping("/create")
     public Result<AdminProductDTO> create(@RequestBody Map<String, Object> payload) {
-        return Result.ok(adminProductWriteService.create(payload));
+        AdminProductDTO created = adminProductWriteService.create(payload);
+        productQueryService.evictMenuCache();
+        return Result.ok(created);
     }
 
     /** 编辑商品 */
     @PutMapping("/{id}")
     public Result<AdminProductDTO> update(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        return Result.ok(adminProductWriteService.update(id, payload));
+        AdminProductDTO updated = adminProductWriteService.update(id, payload);
+        productQueryService.evictMenuCache();
+        return Result.ok(updated);
     }
 
     /** 上下架：onSale = on / off */
     @PatchMapping("/{id}/on-sale")
     public Result<AdminProductDTO> updateOnSale(@PathVariable Long id,
                                                 @RequestParam String onSale) {
-        return Result.ok(adminProductWriteService.updateOnSale(id, onSale));
+        AdminProductDTO toggled = adminProductWriteService.updateOnSale(id, onSale);
+        productQueryService.evictMenuCache();
+        return Result.ok(toggled);
     }
 
     // ---------- 规格组 ----------
@@ -78,7 +84,9 @@ public class AdminProductController {
     @PutMapping("/{id}/spec-groups")
     public Result<SpecGroupsDTO> saveSpecGroups(@PathVariable Long id,
                                                 @RequestBody SpecGroupsDTO payload) {
-        return Result.ok(adminProductWriteService.saveSpecGroups(id, payload));
+        SpecGroupsDTO saved = adminProductWriteService.saveSpecGroups(id, payload);
+        productQueryService.evictMenuCache();
+        return Result.ok(saved);
     }
 
     // ---------- 门店关联 ----------
@@ -92,13 +100,16 @@ public class AdminProductController {
     /** 保存商品的门店关联（整体替换 product_store） */
     @PutMapping("/{id}/stores")
     public Result<List<Long>> saveStores(@PathVariable Long id, @RequestBody List<Long> storeSubjectIds) {
-        return Result.ok(adminProductWriteService.saveStoreIds(id, storeSubjectIds));
+        List<Long> savedIds = adminProductWriteService.saveStoreIds(id, storeSubjectIds);
+        productQueryService.evictMenuCache();
+        return Result.ok(savedIds);
     }
 
     /** 逻辑删除 */
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         adminProductWriteService.delete(id);
+        productQueryService.evictMenuCache();
         return Result.ok();
     }
 }
