@@ -164,6 +164,48 @@ public class PointsService {
         return next;
     }
 
+    /**
+     * 消费发放时光币（每消费 1 元 +1 时光币）。
+     *
+     * <p>由订单支付成功事件消费端调用；按 {@code points_earning_rule}
+     * 表里 {@code code=consume} 且 {@code enabled=1} 的规则结构化计算。
+     *
+     * <p><b>口径</b>：向下取整（floor），实付金额(分) / basis_amount(分/元)
+     * 得到整元数，再 × reward_value。不足 1 元不发放。
+     *
+     * <p><b>幂等</b>：依赖 points_record(order_no, source) 唯一索引。
+     * 重复投递同一订单时插入流水抛 DuplicateKeyException，由调用方捕获 ACK。
+     *
+     * @param userId       用户 ID
+     * @param paidAmountFen 实付金额（分）
+     * @param orderNo      订单号（幂等键）
+     * @return 发放的时光币数；未配置规则或不足 1 元时为 0
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public long awardForOrderPaid(Long userId, Long paidAmountFen, String orderNo) {
+        if (userId == null || paidAmountFen == null || paidAmountFen <= 0 || orderNo == null || orderNo.isBlank()) {
+            return 0;
+        }
+        PointsEarningRule rule = pointsEarningRuleMapper.selectOne(new LambdaQueryWrapper<PointsEarningRule>()
+                .eq(PointsEarningRule::getCode, "consume")
+                .eq(PointsEarningRule::getEnabled, 1)
+                .last("limit 1"));
+        if (rule == null || !"per-yuan".equals(rule.getRewardType())) {
+            return 0;
+        }
+        long basis = rule.getBasisAmount() == null || rule.getBasisAmount() <= 0 ? 100L : rule.getBasisAmount();
+        long reward = rule.getRewardValue() == null || rule.getRewardValue() <= 0 ? 1L : rule.getRewardValue();
+        long yuan = paidAmountFen / basis;
+        long points = yuan * reward;
+        if (points <= 0) {
+            return 0;
+        }
+        long balance = change(userId, "EARN", points, "consume", orderNo, "每消费1元获得1时光币");
+        log.info("消费发放时光币 userId={} orderNo={} 实付分={} 发放={} 余额={}",
+                userId, orderNo, paidAmountFen, points, balance);
+        return points;
+    }
+
     /** 用户所有签到日期（yyyy-MM-dd，倒序），供小程序端还原签到状态 */
     public List<String> signinDates(Long userId) {
         return pointsSigninMapper.selectList(new LambdaQueryWrapper<PointsSignin>()

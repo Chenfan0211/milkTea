@@ -6,6 +6,7 @@ import com.wuling.common.exception.BusinessException;
 import com.wuling.marketing.entity.Coupon;
 import com.wuling.marketing.entity.ExchangeOrder;
 import com.wuling.marketing.entity.PointsCategory;
+import com.wuling.marketing.entity.PointsEarningRule;
 import com.wuling.marketing.entity.PointsProduct;
 import com.wuling.marketing.entity.PointsRecord;
 import com.wuling.marketing.entity.UserCoupon;
@@ -51,6 +52,7 @@ class PointsServiceTest {
     private UserCouponMapper userCouponMapper;
     private ExchangeOrderMapper exchangeOrderMapper;
     private AppUserMapper appUserMapper;
+    private PointsEarningRuleMapper pointsEarningRuleMapper;
     private PointsService service;
 
     @BeforeEach
@@ -62,12 +64,13 @@ class PointsServiceTest {
         userCouponMapper = mock(UserCouponMapper.class);
         exchangeOrderMapper = mock(ExchangeOrderMapper.class);
         appUserMapper = mock(AppUserMapper.class);
+        pointsEarningRuleMapper = mock(PointsEarningRuleMapper.class);
         service = new PointsService(
                 pointsProductMapper,
                 pointsRecordMapper,
                 mock(PointsSigninMapper.class),
                 mock(PointsSigninRuleMapper.class),
-                mock(PointsEarningRuleMapper.class),
+                pointsEarningRuleMapper,
                 appUserMapper,
                 exchangeOrderMapper,
                 pointsCategoryMapper,
@@ -229,6 +232,81 @@ class PointsServiceTest {
 
         assertEquals(ResultCode.BAD_REQUEST, exception.getCode());
         verify(exchangeOrderMapper, never()).updateById(any(ExchangeOrder.class));
+    }
+
+    @Test
+    @DisplayName("消费发放：per-yuan 规则按实付金额向下取整发币")
+    void awardForOrderPaidCalculatesPerYuanFloor() {
+        PointsEarningRule rule = new PointsEarningRule();
+        rule.setCode("consume");
+        rule.setRewardType("per-yuan");
+        rule.setRewardValue(1L);
+        rule.setBasisAmount(100L);
+        rule.setBasisUnit("yuan");
+        rule.setEnabled(1);
+        when(pointsEarningRuleMapper.selectOne(any(Wrapper.class))).thenReturn(rule);
+        AppUser user = new AppUser();
+        user.setId(7L);
+        user.setPoints(100L);
+        when(appUserMapper.selectById(7L)).thenReturn(user);
+        when(appUserMapper.addPoints(eq(7L), anyLong())).thenReturn(1);
+        when(pointsRecordMapper.insert(any(PointsRecord.class))).thenReturn(1);
+
+        long awarded = service.awardForOrderPaid(7L, 1130L, "WX202609280001");
+
+        // 1130 分 = 11.3 元，向下取整 -> 11 币
+        assertEquals(11L, awarded);
+        verify(appUserMapper).addPoints(7L, 11L);
+        ArgumentCaptor<PointsRecord> captor = ArgumentCaptor.forClass(PointsRecord.class);
+        verify(pointsRecordMapper).insert(captor.capture());
+        assertEquals("consume", captor.getValue().getSource());
+        assertEquals("WX202609280001", captor.getValue().getOrderNo());
+    }
+
+    @Test
+    @DisplayName("消费发放：不足 1 元不发币")
+    void awardForOrderPaidSkipsWhenBelowOneYuan() {
+        PointsEarningRule rule = new PointsEarningRule();
+        rule.setCode("consume");
+        rule.setRewardType("per-yuan");
+        rule.setRewardValue(1L);
+        rule.setBasisAmount(100L);
+        rule.setBasisUnit("yuan");
+        rule.setEnabled(1);
+        when(pointsEarningRuleMapper.selectOne(any(Wrapper.class))).thenReturn(rule);
+
+        long awarded = service.awardForOrderPaid(7L, 99L, "WX202609280002");
+
+        assertEquals(0L, awarded);
+        verify(appUserMapper, never()).addPoints(anyLong(), anyLong());
+        verify(pointsRecordMapper, never()).insert(any(PointsRecord.class));
+    }
+
+    @Test
+    @DisplayName("消费发放：规则停用或非 per-yuan 不发币")
+    void awardForOrderPaidSkipsWhenRuleDisabledOrNotPerYuan() {
+        PointsEarningRule rule = new PointsEarningRule();
+        rule.setCode("consume");
+        rule.setRewardType("fixed");
+        rule.setRewardValue(5L);
+        rule.setEnabled(0);
+        when(pointsEarningRuleMapper.selectOne(any(Wrapper.class))).thenReturn(rule);
+
+        long awarded = service.awardForOrderPaid(7L, 1000L, "WX202609280003");
+
+        assertEquals(0L, awarded);
+        verify(appUserMapper, never()).addPoints(anyLong(), anyLong());
+        verify(pointsRecordMapper, never()).insert(any(PointsRecord.class));
+    }
+
+    @Test
+    @DisplayName("消费发放：未配置规则或用户/金额非法不发币")
+    void awardForOrderPaidSkipsWhenNoRuleOrInvalidArgs() {
+        when(pointsEarningRuleMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+        assertEquals(0L, service.awardForOrderPaid(7L, 1000L, "WX202609280004"));
+        assertEquals(0L, service.awardForOrderPaid(null, 1000L, "WX202609280005"));
+        assertEquals(0L, service.awardForOrderPaid(7L, 0L, "WX202609280006"));
+        verify(pointsRecordMapper, never()).insert(any(PointsRecord.class));
     }
 
     private void stubExchangeProduct(PointsProduct product, Long usedQuantity) {

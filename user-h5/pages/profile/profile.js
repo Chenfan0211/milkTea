@@ -107,7 +107,7 @@ Page(
       });
       if (state.hasToken) {
         api
-          .fetchMe()
+          .fetchMe(true)
           .then(remote => {
             this.setData({ remoteUser: remote, phoneMasked: remote.phone ? maskPhone(remote.phone) : '' });
             // 回写本地资料，供其他页面复用。
@@ -129,6 +129,13 @@ Page(
                 balance: Number.isFinite(Number(remote.balance))
                   ? roundMoney((Number(remote.balance) || 0) / 100)
                   : userProfile.balance,
+                // 成长值/累计消费：后端 totalSpend 为「分」，前端按「元」展示
+                totalSpend: Number.isFinite(Number(remote.totalSpend))
+                  ? roundMoney((Number(remote.totalSpend) || 0) / 100)
+                  : userProfile.totalSpend,
+                growth: Number.isFinite(Number(remote.totalSpend))
+                  ? roundMoney((Number(remote.totalSpend) || 0) / 100)
+                  : userProfile.growth,
                 vipLevel: remote.vipLevel || userProfile.vipLevel,
                 region: userProfile.region
               })

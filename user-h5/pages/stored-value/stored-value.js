@@ -85,8 +85,14 @@ Page(
       this.setData({ packages, selectedIndex, selectedPackage });
       this.updateSummary(quantity);
     },
-    syncBalance() {
-      this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
+    syncBalance(force) {
+      const render = () =>
+        this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
+      // 支付成功后必须拉后端最新余额，不能只读本地缓存（否则显示充值前的旧值）
+      if (force) {
+        return refreshUserProfileFromRemote().then(render).catch(render);
+      }
+      render();
     },
     syncStore() {
       this.setData({ currentStore: getDisplayStore() });
@@ -217,7 +223,7 @@ Page(
           .then(order => {
             if (order && order.payStatus === 'PAID') {
               // 入账成功：刷新余额并提示
-              this.syncBalance();
+              this.syncBalance(true);
               wx.hideLoading();
               this.setData({ recharging: false });
               wx.showToast({ title: '充值成功', icon: 'success' });
@@ -240,7 +246,7 @@ Page(
         .then(order => {
           const paid = Boolean(order && order.payStatus === 'PAID');
           if (paid) {
-            this.syncBalance();
+            this.syncBalance(true);
             wx.hideLoading();
             this.setData({ recharging: false });
             wx.showToast({ title: '充值成功', icon: 'success' });
