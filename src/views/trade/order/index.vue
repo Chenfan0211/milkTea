@@ -110,9 +110,9 @@ const splitDetail = computed(() => {
     split.platformShare != null;
 
   if (snapshotComplete) {
-    const commission = Number(split.platformCommission) || 0;
+    const snapshotCommission = Number(split.platformCommission) || 0;
     const platformTotal = Number(split.platformShare) || 0;
-    const platformBonus = Math.max(0, platformTotal - commission);
+    const platformBonus = Math.max(0, platformTotal - snapshotCommission);
     return {
       paid,
       originalAmount: Number(row.originalAmount) || 0,

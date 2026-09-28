@@ -12,12 +12,10 @@ import {
   refundOrderApi,
   retryRefundApi,
   adminApplyWithdraw as adminApplyWithdrawApi,
-  bindSubjectUser as bindSubjectUserApi,
   bindChannelStore as bindChannelStoreApi,
   unbindChannelStore as unbindChannelStoreApi,
   bindUserRole as bindUserRoleApi,
   reviewRoleApplication as reviewApplicationApi,
-  unbindSubjectUser as unbindSubjectUserApi,
   unbindUserRole as unbindUserRoleApi,
   reviewWithdraw as reviewWithdrawApi,
   saveReferralConfigApi,
@@ -1372,7 +1370,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    * 注意后端 subjectId 需要**数字主体 id**，而本方法的 subjectId 参数是主体 code，
    * 故此处先按 code 查出实体再取其 id。
    */
-  async function bindUserRole(userId: number, roleType: RoleType, subjectCode: string, subjectName: string) {
+  async function bindUserRole(userId: number, roleType: RoleType, subjectCode: string, _subjectName: string) {
     const users = ensure('users');
     const subjects = ensure('subjects');
     const user = users.find((u: any) => Number(u.id) === Number(userId));
@@ -1663,57 +1661,6 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     return platform || { withdrawFreeAuditThreshold: 0 };
   }
 
-  function ensureAccount(subjectId: number, subjectName: string, roleType: string) {
-    const accounts = ensure('subjectAccounts');
-    let acc = accounts.find((a: any) => a.subjectId === subjectId);
-    if (!acc) {
-      acc = {
-        id: nextId(accounts),
-        subjectId,
-        subjectName,
-        roleType,
-        availableBalance: 0,
-        frozenBalance: 0,
-        totalIncome: 0,
-        totalWithdrawn: 0,
-        updateTime: now()
-      };
-      accounts.unshift(acc);
-    }
-    return acc;
-  }
-
-  function creditAccount(acc: any, amount: number) {
-    acc.availableBalance = Math.round((acc.availableBalance + amount) * 100) / 100;
-    acc.totalIncome = Math.round((acc.totalIncome + amount) * 100) / 100;
-    acc.updateTime = now();
-  }
-
-  function debitAccount(acc: any, amount: number) {
-    acc.availableBalance = Math.round((acc.availableBalance - amount) * 100) / 100;
-    acc.totalWithdrawn = Math.round((acc.totalWithdrawn + amount) * 100) / 100;
-    acc.updateTime = now();
-  }
-
-  function addFlow(flow: Record<string, any>) {
-    const flows = ensure('fundFlows');
-    const pool = ensure('fundPool')[0] || { totalBalance: 0 };
-    flows.unshift({
-      id: nextId(flows),
-      flowNo: flow.flowNo || `FF${Date.now()}`,
-      type: flow.type,
-      direction: flow.direction,
-      amount: flow.amount,
-      subjectId: flow.subjectId ?? null,
-      subjectName: flow.subjectName ?? '',
-      roleType: flow.roleType ?? '',
-      orderNo: flow.orderNo ?? '',
-      poolBalanceAfter: flow.poolBalanceAfter ?? pool.totalBalance,
-      remark: flow.remark ?? '',
-      createTime: now()
-    });
-  }
-
   /**
    * 订单支付入账：统一进资金池，按分账规则记账到各方账户（不入真实账户）
    */
@@ -1728,7 +1675,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    * 故本方法不再执行任何记账，仅提示用户入账由核销自动触发。
    * 若后续确有「自动分账失败后人工补录」需求，应另行设计幂等的补录接口。
    */
-  function orderIncome(orderId: number) {
+  function orderIncome() {
     window.$message?.info('订单入账由「核销」自动触发，无需手动操作');
   }
 
@@ -1792,7 +1739,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   }
 
   /** 冻结账户余额（走后端接口；成功后再刷新本地账户镜像） */
-  async function freezeAccount(subjectId: number, reason = '') {
+  async function freezeAccount(subjectId: number, _reason = '') {
     const acc = ensure('subjectAccounts').find((a: any) => a.subjectId === subjectId);
     if (!acc) {
       window.$message?.warning('未找到该主体账户');
@@ -1809,7 +1756,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   }
 
   /** 解冻账户余额（走后端接口；成功后再刷新本地账户镜像） */
-  async function unfreezeAccount(subjectId: number, reason = '') {
+  async function unfreezeAccount(subjectId: number, _reason = '') {
     const acc = ensure('subjectAccounts').find((a: any) => a.subjectId === subjectId);
     if (!acc) {
       window.$message?.warning('未找到该主体账户');
