@@ -1,7 +1,7 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { buildMonthCells, buildWeekDates, calculateContinuousDays } = require('../../utils/points-signin');
-const { getPoints, setPoints } = require('../../utils/points');
+const { getPoints, notifyPointsChanged } = require('../../utils/points');
 
 function buildHint(rewards) {
   const first = rewards && rewards[0];
@@ -107,7 +107,8 @@ Page(
           const balance = result && Number.isFinite(Number(result.balance))
             ? Number(result.balance)
             : previousPoints + 1;
-          setPoints(balance);
+          // 统一广播：缓存 + globalData + 订阅者（我的页 / 商城）一起刷新
+          notifyPointsChanged(balance, { source: 'signin' });
           const now = new Date();
           const pad = n => String(n).padStart(2, '0');
           const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;

@@ -1,7 +1,7 @@
 const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { getPoints } = require('../../utils/points');
+const { getPoints, notifyPointsChanged } = require('../../utils/points');
 
 function roundMoney(value) {
   return Math.round(value * 10) / 10;
@@ -116,6 +116,10 @@ Page(
             stock: Math.max(0, this.data.stock - quantity),
             insufficient: true
           });
+          // 历史缺口：兑换扣币后没有回写本地余额，导致「我的」页仍显示兑换前的数量。
+          // 这里按「当前余额 - 本次消耗」本地扣减并广播，各页随即同步。
+          const cost = roundMoney(item.points * quantity);
+          notifyPointsChanged(Math.max(0, getPoints() - cost), { source: 'points-exchange' });
           wx.showToast({ title: '兑换成功', icon: 'success' });
           const targetUrl = isCoupon
             ? '/pages/coupon-list/coupon-list'

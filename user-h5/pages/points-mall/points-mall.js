@@ -1,6 +1,6 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { getPoints } = require('../../utils/points');
+const { getPoints, notifyPointsChanged } = require('../../utils/points');
 const { refreshUserProfileFromRemote } = require('../../utils/user-profile');
 const { resolveStoreCatalog } = require('../../utils/store');
 
@@ -41,6 +41,13 @@ Page(
     },
     onLoad() {
       this.syncStore();
+      // 订阅时光币广播：签到 / 兑换 / 远端刷新后，商城余额立即跟随更新
+      const app = getApp();
+      if (app && typeof app.subscribePoints === 'function') {
+        this.unsubscribePoints = app.subscribePoints(points => {
+          this.setData({ pointsBalance: points });
+        });
+      }
       const categoriesRequest = api.fetchPointsCategories().catch(() => []);
       const productsRequest = api.fetchPointsProducts().catch(() => []);
       return Promise.all([
@@ -68,9 +75,13 @@ Page(
         pointsBalance: getPoints(),
         signedToday: Boolean(this.data.todayKey) && app.globalData.signedDates.includes(this.data.todayKey)
       });
+      // 远端刷新后统一广播，保证「我的」页与商城读到同一份余额
       refreshUserProfileFromRemote()
-        .then(profile => this.setData({ pointsBalance: profile.points }))
+        .then(profile => notifyPointsChanged(profile.points, { source: 'points-mall' }))
         .catch(() => null);
+    },
+    onUnload() {
+      if (typeof this.unsubscribePoints === 'function') this.unsubscribePoints();
     },
     syncStore() {
       const catalog = resolveStoreCatalog();

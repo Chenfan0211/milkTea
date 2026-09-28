@@ -1,6 +1,6 @@
 const { withShare } = require('../../utils/share');
 const { DEFAULT_AVATAR, getUserProfile, maskPhone, roundMoney, saveUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
-const { getPoints } = require('../../utils/points');
+const { getPoints, notifyPointsChanged } = require('../../utils/points');
 const { buildLevelMeta, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 const { getCurrentBusinessRole, getPendingRoles, getDashboard } = require('../../utils/roles');
 const loginGuard = require('../../utils/login-guard');
@@ -66,27 +66,60 @@ Page(
       this.syncLevel();
       // 会员等级来自接口：拉取后重建等级卡（否则等级名与进度条为空）
       refreshMemberLevelsFromRemote().then(() => this.syncLevel());
-    },
-    onShow() {
-      const points = getPoints();
+      // 订阅时光币广播：其它页签到 / 兑换 / 远端刷新后，本页卡片立即同步
       const app = getApp();
-      app.globalData.points = points;
+      if (app && typeof app.subscribePoints === 'function') {
+        this.unsubscribePoints = app.subscribePoints(points => {
+          const app2 = getApp();
+          if (app2 && app2.globalData) app2.globalData.points = points;
+          const stats = this.data.stats.map(item =>
+            item.id === 'points' ? Object.assign({}, item, { value: points }) : item
+          );
+          this.setData({ stats });
+        });
+      }
+    },
+    onUnload() {
+      if (typeof this.unsubscribePoints === 'function') this.unsubscribePoints();
+    },
+    /**
+     * 重算资产统计卡（时光币 / 储值余额 / 优惠券 / 礼品卡）。
+     *
+     * 为什么抽成方法：onShow 先渲染本地缓存，远端 fetchMe 返回后还要再刷一次。
+     * 原先这两处各写一份 stats 组装逻辑，远端回来时漏了刷新，
+     * 导致「我的」页时光币长期停留在旧值（与时光币商城不一致）。
+     *
+     * 同时把最新时光币写回 globalData 会话镜像，保证其他页面读到同一份数据。
+     */
+    refreshAssetStats() {
       const userProfile = getUserProfile();
-      const businessRole = getCurrentBusinessRole();
-      const pendingRoles = getPendingRoles();
+      const points = Number(userProfile.points) || 0;
+      const app = getApp();
+      if (app && app.globalData) app.globalData.points = points;
       const stats = this.data.stats.map(item => {
         if (item.id === 'points') return Object.assign({}, item, { value: points });
-        if (item.id === 'balance') return Object.assign({}, item, { value: userProfile.balance, display: formatBalance(userProfile.balance) });
+        if (item.id === 'balance')
+          return Object.assign({}, item, { value: userProfile.balance, display: formatBalance(userProfile.balance) });
         if (item.id === 'coupon') return Object.assign({}, item, { value: userProfile.couponCount });
         if (item.id === 'gift')
           return Object.assign({}, item, { value: userProfile.giftCards.length });
         return item;
       });
-      const giftCards = userProfile.giftCards.slice(0, 2);
       this.setData({
-        giftCards,
         stats,
         userProfile,
+        giftCards: userProfile.giftCards.slice(0, 2)
+      });
+    },
+
+    onShow() {
+      const app = getApp();
+      const userProfile = getUserProfile();
+      const businessRole = getCurrentBusinessRole();
+      const pendingRoles = getPendingRoles();
+      // 先用本地缓存渲染（秒出），随后远端返回时会再次刷新资产卡
+      this.refreshAssetStats();
+      this.setData({
         businessRole,
         pendingRoleCount: pendingRoles.length,
         roleFunctions: buildRoleFunctions(businessRole && businessRole.id)
@@ -140,7 +173,12 @@ Page(
                 region: userProfile.region
               })
             );
-            this.setData({ userProfile: getUserProfile() });
+            // 关键：远端返回后必须重算资产卡（含时光币），
+            // 否则卡片停留在 onShow 那一刻的本地旧值 ——
+            // 表现为「商城显示 25、我的页仍显示 13」。
+            this.refreshAssetStats();
+            // 广播给其它页面（商城 / 明细等），保证全端余额一致
+            notifyPointsChanged(getPoints(), { source: 'profile-refresh' });
           })
           .catch(() => {});
         // 我的优惠券数量与优惠券列表共用同一远端刷新方法，统一只取 UNUSED 可用券。

@@ -25,6 +25,8 @@ App({
     orderMode: 'pickup',
     menuTabId: 'classic',
     points: 0,
+    // 时光币变更订阅者（页面 onLoad 注册、onUnload 注销）
+    pointsListeners: [],
     signedDates: [],
     continuousDays: 0,
     pointsRecords: [],
@@ -37,6 +39,45 @@ App({
     loginFailed: false,
     loginError: ''
   },
+  /**
+   * 订阅时光币变更。页面 onLoad 调用，返回取消订阅函数（onUnload 时执行）。
+   *
+   * 用于解决「签到 / 兑换后，其它页面仍显示旧时光币」的问题：
+   * 所有余额变更统一经 utils/points.notifyPointsChanged() 广播，
+   * 页面按需刷新，而不是各自读各自缓存的快照。
+   *
+   * @param {(points:number, source:string)=>void} listener
+   * @returns {()=>void} 取消订阅
+   */
+  subscribePoints(listener) {
+    if (typeof listener !== 'function') return () => {};
+    if (!Array.isArray(this.globalData.pointsListeners)) this.globalData.pointsListeners = [];
+    this.globalData.pointsListeners.push(listener);
+    return () => {
+      this.globalData.pointsListeners = (this.globalData.pointsListeners || [])
+        .filter(item => item !== listener);
+    };
+  },
+
+  /**
+   * 广播时光币变更（由 utils/points.notifyPointsChanged 调用）。
+   *
+   * 订阅者异常不得中断其它订阅者，逐个 try/catch 隔离。
+   */
+  publishPointsChanged(points, source) {
+    this.globalData.points = points;
+    const listeners = Array.isArray(this.globalData.pointsListeners)
+      ? this.globalData.pointsListeners.slice()
+      : [];
+    listeners.forEach(listener => {
+      try {
+        listener(points, source || 'unknown');
+      } catch (error) {
+        // 单个页面回调异常不影响其它页面刷新
+      }
+    });
+  },
+
   /** 把最新登录态同步到 globalData，供页面无侵入读取 */
   syncAuthState() {
     this.globalData.authState = authState.getAuthState();
