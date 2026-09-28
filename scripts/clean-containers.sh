@@ -50,7 +50,7 @@ IMAGE_PREFIX="wuling/"
 CONTAINER_PREFIX="wuling-"
 
 # 中间件容器：任何情况下都不得删除
-PROTECTED_CONTAINERS="wuling-mysql wuling-redis wuling-rabbitmq wuling-nacos"
+PROTECTED_CONTAINERS="wuling-mysql wuling-redis wuling-rabbitmq wuling-nacos wuling-clamav"
 
 log()  { echo "[clean-containers] $*"; }
 warn() { echo "[clean-containers][warn] $*"; }
