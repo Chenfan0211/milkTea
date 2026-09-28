@@ -2,10 +2,7 @@ package com.wuling.trade.internal;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wuling.trade.entity.Order;
-import com.wuling.trade.entity.OrderItem;
-import com.wuling.trade.mapper.OrderItemMapper;
 import com.wuling.trade.mapper.OrderMapper;
-import com.wuling.trade.service.OrderService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,11 +34,9 @@ import java.util.stream.Collectors;
 public class TradeInternalQueryController {
 
     private final OrderMapper orderMapper;
-    private final OrderItemMapper orderItemMapper;
 
-    public TradeInternalQueryController(OrderMapper orderMapper, OrderItemMapper orderItemMapper) {
+    public TradeInternalQueryController(OrderMapper orderMapper) {
         this.orderMapper = orderMapper;
-        this.orderItemMapper = orderItemMapper;
     }
 
     /**
@@ -59,27 +54,16 @@ public class TradeInternalQueryController {
     }
 
     /**
-     * 门店排队件数：已核销但未取餐（status=COMPLETED 且 complete_time 为空）的订单商品总件数。
+     * 门店待核销杯数：今日已支付（PAID）、非退款中的订单商品总件数（Σ quantity）。
      * 供小程序点单页「前方N杯制作中」展示；为 0 时前端不展示。
      *
      * @return { "count": n }
      */
     @GetMapping("/store-queue-count")
     public Map<String, Object> storeQueueCount(@RequestParam Long storeSubjectId) {
-        List<Order> orders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
-                .eq(Order::getStoreSubjectId, storeSubjectId)
-                .eq(Order::getStatus, OrderService.STATUS_COMPLETED)
-                .isNull(Order::getCompleteTime));
-        if (orders.isEmpty()) {
-            return Map.of("count", 0L);
-        }
-        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
-        List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
-                .in(OrderItem::getOrderId, orderIds));
-        long total = items.stream()
-                .mapToLong(i -> i.getQuantity() == null ? 0L : i.getQuantity())
-                .sum();
-        return Map.of("count", total);
+        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
+        Long total = orderMapper.sumTodayPendingVerifyQuantity(storeSubjectId, dayStart);
+        return Map.of("count", total == null ? 0L : total);
     }
 
     /**

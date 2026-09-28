@@ -11,7 +11,6 @@ import com.wuling.trade.port.UserQueryPort;
 import com.wuling.trade.service.OrderService;
 import com.wuling.trade.service.PaymentGatewayResolver;
 import com.wuling.trade.service.PaymentService;
-import com.wuling.trade.service.RefundService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +25,6 @@ public class AppOrderController {
 
     private final OrderService orderService;
     private final PaymentService paymentService;
-    private final RefundService refundService;
     private final PaymentGatewayResolver gatewayResolver;
     private final UserQueryPort userQueryPort;
     private final com.wuling.common.security.PaymentCallbackSigner signer;
@@ -34,14 +32,12 @@ public class AppOrderController {
 
     public AppOrderController(OrderService orderService,
                               PaymentService paymentService,
-                              RefundService refundService,
                               PaymentGatewayResolver gatewayResolver,
                               UserQueryPort userQueryPort,
                               com.wuling.common.security.PaymentCallbackSigner signer,
                               com.wuling.common.audit.AuditLogService auditLog) {
         this.orderService = orderService;
         this.paymentService = paymentService;
-        this.refundService = refundService;
         this.gatewayResolver = gatewayResolver;
         this.userQueryPort = userQueryPort;
         this.signer = signer;
@@ -152,12 +148,9 @@ public class AppOrderController {
     /**
      * 取消订单（用户主动）。
      *
-     * <p>按订单当前状态分流：
-     * <ul>
-     *   <li><b>未支付</b>（CREATED）：直接关闭订单，不产生退款；</li>
-     *   <li><b>已支付待核销</b>（PAID）：走整单退款，原路退回并冲正台账；
-     *       已核销 / 已结算等状态由 RefundService 拒绝。</li>
-     * </ul>
+     * <p>仅<b>未支付</b>（CREATED）订单允许用户自行取消（直接关闭，不产生退款）。
+     * 已支付待核销（PAID）及之后状态不允许用户自行取消，
+     * 需由门店或运营后台通过整单退款处理。
      *
      * <p>安全：订单归属取自 JWT，禁止取消他人订单。
      */
@@ -172,11 +165,9 @@ public class AppOrderController {
         if (OrderService.STATUS_CREATED.equals(order.getStatus())) {
             return Result.ok(orderService.cancelUnpaid(orderNo, userId));
         }
-        if (OrderService.STATUS_PAID.equals(order.getStatus())) {
-            return Result.ok(refundService.refund(orderNo, "用户主动取消"));
-        }
+        // 待核销（PAID）及之后状态一律不允许用户自行取消，需联系门店或运营后台处理。
         throw new com.wuling.common.exception.BusinessException(
-                com.wuling.common.api.ResultCode.BAD_REQUEST, "订单当前状态不可取消: " + order.getStatus());
+                com.wuling.common.api.ResultCode.BAD_REQUEST, "订单已支付，无法自行取消，请联系门店或客服处理");
     }
 
     /**
