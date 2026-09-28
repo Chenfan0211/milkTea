@@ -33,6 +33,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/internal")
 public class TradeInternalQueryController {
 
+    /** 「前方N杯制作中」的统计窗口：近 1 小时的已支付订单。 */
+    private static final long QUEUE_WINDOW_HOURS = 1;
+
     private final OrderMapper orderMapper;
 
     public TradeInternalQueryController(OrderMapper orderMapper) {
@@ -54,15 +57,18 @@ public class TradeInternalQueryController {
     }
 
     /**
-     * 门店待核销杯数：今日已支付（PAID）、非退款中的订单商品总件数（Σ quantity）。
+     * 门店排队杯数：近 1 小时内已支付（PAID）、非退款中的订单商品总件数（Σ quantity）。
      * 供小程序点单页「前方N杯制作中」展示；为 0 时前端不展示。
+     *
+     * <p>窗口起点在应用侧计算（而非数据库 now()），与 pay_time 的写入时区保持一致，
+     * 避免容器/数据库时区不一致导致的窗口偏移。
      *
      * @return { "count": n }
      */
     @GetMapping("/store-queue-count")
     public Map<String, Object> storeQueueCount(@RequestParam Long storeSubjectId) {
-        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
-        Long total = orderMapper.sumTodayPendingVerifyQuantity(storeSubjectId, dayStart);
+        LocalDateTime windowStart = LocalDateTime.now().minusHours(QUEUE_WINDOW_HOURS);
+        Long total = orderMapper.sumRecentPendingVerifyQuantity(storeSubjectId, windowStart);
         return Map.of("count", total == null ? 0L : total);
     }
 

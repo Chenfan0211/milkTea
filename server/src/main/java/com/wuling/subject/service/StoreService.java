@@ -15,6 +15,8 @@ import com.wuling.subject.mapper.BizSubjectMapper;
 import com.wuling.subject.mapper.StoreProfileMapper;
 import com.wuling.finance.port.TradeOrderQueryPort;
 import lombok.Data;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,8 @@ import java.util.List;
 
 @Service
 public class StoreService {
+
+    private static final Logger log = LoggerFactory.getLogger(StoreService.class);
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -215,11 +219,21 @@ public class StoreService {
         return "ST-" + String.format("%04d", next);
     }
 
-    /** 门店排队件数：已核销未取餐的商品总件数（查询失败或 0 表示无需展示） */
+    /**
+     * 门店排队件数：近 1 小时「已支付待核销」的商品总件数，用于点单页「前方N杯制作中」。
+     *
+     * <p>口径由 trade-service 的 /internal/store-queue-count 计算，本方法只做透传。
+     * 注意：这**不是**「已核销未取餐」——奶茶核销即取餐，complete_time 永远为空，
+     * 按 COMPLETED 统计会把历史全部已核销订单当成在制（历史事故：某店显示「前方28杯」）。
+     *
+     * <p>下游不可用时返回 0（前端对 0 不展示该文案）；此处必须留日志，
+     * 否则线上故障只表现为「数字突然变 0」，无法定位。
+     */
     private Integer countPendingQueue(Long storeSubjectId) {
         try {
             return (int) tradeOrderQueryPort.countStoreQueueItems(storeSubjectId);
         } catch (Exception e) {
+            log.warn("门店排队件数查询失败，回退为 0 storeSubjectId={} err={}", storeSubjectId, e.getMessage());
             return 0;
         }
     }
