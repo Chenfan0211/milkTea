@@ -271,64 +271,11 @@
   height: 20rpx;
 }
 
-/* 底部操作条 */
-.product-detail-bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx var(--page-gutter) calc(20rpx + env(safe-area-inset-bottom));
-  background: var(--card-bg);
-  border-top: 1rpx solid var(--line-color);
-}
-
-.product-detail-bar__status {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.product-detail-bar__label {
-  color: var(--text-muted);
-  font-size: var(--font-caption);
-  line-height: 28rpx;
-}
-
-.product-detail-bar__value {
-  margin-top: 4rpx;
-  font-size: var(--font-base);
-  font-weight: 600;
-  line-height: 36rpx;
-}
-
-.product-detail-bar__value.is-listed {
+/* 加载失败重试（只读页，无写操作） */
+.product-detail-retry {
+  margin-top: 24rpx;
   color: var(--brand-green);
-}
-
-.product-detail-bar__value.is-unlisted {
-  color: var(--accent-orange);
-}
-
-.product-detail-bar__button {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  min-width: 240rpx;
-  height: 80rpx;
-  padding: 0 40rpx;
   font-size: var(--font-md);
   font-weight: 600;
-  border-radius: var(--radius-pill);
-}
-
-.product-detail-bar__button.is-list {
-  color: var(--card-bg);
-  background: var(--brand-green);
-}
-
-.product-detail-bar__button.is-unlist {
-  color: var(--text-main);
-  background: var(--card-bg);
-  border: 2rpx solid var(--line-color);
+  text-align: center;
 }

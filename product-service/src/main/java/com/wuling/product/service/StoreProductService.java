@@ -2,6 +2,7 @@ package com.wuling.product.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wuling.common.api.PageResult;
+import com.wuling.product.dto.StoreProductDetailDTO;
 import com.wuling.product.dto.StoreProductDTO;
 import com.wuling.product.entity.Product;
 import com.wuling.product.entity.ProductCategory;
@@ -42,13 +43,17 @@ public class StoreProductService {
     private final ProductMapper productMapper;
     private final ProductCategoryMapper categoryMapper;
     private final ProductStoreMapper productStoreMapper;
+    /** 复用消费端详情的字段组装与缓存（本 DTO 仅在其上补门店维度）。 */
+    private final ProductQueryService productQueryService;
 
     public StoreProductService(ProductMapper productMapper,
                                ProductCategoryMapper categoryMapper,
-                               ProductStoreMapper productStoreMapper) {
+                               ProductStoreMapper productStoreMapper,
+                               ProductQueryService productQueryService) {
         this.productMapper = productMapper;
         this.categoryMapper = categoryMapper;
         this.productStoreMapper = productStoreMapper;
+        this.productQueryService = productQueryService;
     }
 
     /**
@@ -112,6 +117,52 @@ public class StoreProductService {
             records.add(toDTO(product, listedIdList, categoryNames));
         }
         return PageResult.of(records, safeCurrent, safeSize, total);
+    }
+
+    /**
+     * 门店选品详情（只读）。
+     *
+     * <p><b>为什么单独一个方法而不复用商品列表</b>：详情页需要商品自身的完整展示字段
+     * （规格 / 原料 / 过敏原 / 提示等），列表只返回摘要；而消费端详情接口
+     * {@code /api/v1/app/products/{id}} 不携带门店上下架状态，故在服务端补齐门店维度。
+     *
+     * <p><b>为什么不走缓存</b>：结果含门店维度 {@code listed}，同商品在不同门店取值不同，
+     * 套用消费端那份按 productId 的缓存会串数据。商品自身字段仍由
+     * {@link ProductQueryService#getProductDetail(String)} 内部走缓存，无额外开销。
+     *
+     * <p><b>口径一致性</b>：仅返回平台已上架商品（{@code on_sale = 1}），
+     * 与列表页 {@link #pageStoreProducts} 相同；平台已下架或不存在返回 {@code null}，
+     * 由控制层转 404 语义，避免门店看到不可售商品。
+     *
+     * @param storeSubjectId 门店主体 ID
+     * @param productId      商品业务编号（product.product_id）
+     * @return 详情；商品不存在或平台已下架时返回 null
+     */
+    public StoreProductDetailDTO getStoreProductDetail(Long storeSubjectId, String productId) {
+        if (!StringUtils.hasText(productId)) {
+            return null;
+        }
+        Product product = productMapper.selectOne(new LambdaQueryWrapper<Product>()
+                .eq(Product::getProductId, productId.trim()));
+        if (product == null || !Integer.valueOf(1).equals(product.getOnSale())) {
+            return null;
+        }
+
+        var base = productQueryService.getProductDetail(productId.trim());
+        if (base == null) {
+            return null;
+        }
+
+        StoreProductDetailDTO dto = new StoreProductDetailDTO();
+        org.springframework.beans.BeanUtils.copyProperties(base, dto);
+
+        // 门店维度：product_store 以商品主键关联，故用 product.getId() 而非业务编号
+        Long linked = productStoreMapper.selectCount(new LambdaQueryWrapper<ProductStore>()
+                .eq(ProductStore::getStoreSubjectId, storeSubjectId)
+                .eq(ProductStore::getProductId, product.getId()));
+        dto.setPlatformListed(true);
+        dto.setListed(linked != null && linked > 0);
+        return dto;
     }
 
     /** 单条上架 / 下架。 */

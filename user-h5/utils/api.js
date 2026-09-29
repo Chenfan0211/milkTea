@@ -436,6 +436,19 @@ function fetchStoreProducts(subjectId, params) {
   }).then(unwrap);
 }
 
+/**
+ * 门店选品详情（只读）。
+ *
+ * 返回商品完整展示字段 + 门店维度状态（listed）。
+ * 只读接口：上下架请使用 updateStoreListing / updateStoreListingBatch。
+ */
+function fetchStoreProductDetail(subjectId, productId) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/products/${productId}`,
+    method: 'GET'
+  }).then(unwrap);
+}
+
 /** 门店商品单条上架 / 下架 */
 function updateStoreListing(subjectId, productId, listed) {
   return request({
@@ -553,9 +566,12 @@ function fetchWithdrawRule() {
  */
 function applyWithdraw(subjectId, roleType, amount) {
   const query =
-    'subjectId=' + encodeURIComponent(subjectId) +
-    '&roleType=' + encodeURIComponent(roleType) +
-    '&amount=' + encodeURIComponent(amount);
+    'subjectId=' +
+    encodeURIComponent(subjectId) +
+    '&roleType=' +
+    encodeURIComponent(roleType) +
+    '&amount=' +
+    encodeURIComponent(amount);
   return request({
     url: '/api/v1/app/withdrawals?' + query,
     method: 'POST'
@@ -743,6 +759,7 @@ module.exports = {
   fetchStoreVerifyRecords,
   fetchStoreVerifyPool,
   fetchStoreProducts,
+  fetchStoreProductDetail,
   updateStoreListing,
   updateStoreListingBatch,
   verifyStoreOrder,
@@ -761,5 +778,3 @@ module.exports = {
   fetchReverseGeocode,
   fetchStoreDistances
 };
-
-

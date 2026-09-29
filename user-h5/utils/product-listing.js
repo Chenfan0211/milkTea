@@ -140,9 +140,7 @@ function isListed(storeId, productId, state) {
 // 按门店筛选商品清单（用于选品页），保留 isListed 标记。
 function getProductsForStore(storeId) {
   const state = readState();
-  return getAllProducts().map(item =>
-    Object.assign({}, item, { listed: isListed(storeId, item.id, state) })
-  );
+  return getAllProducts().map(item => Object.assign({}, item, { listed: isListed(storeId, item.id, state) }));
 }
 
 // 统计某门店的上架情况，供状态角标使用。
@@ -186,48 +184,6 @@ function resetListing(storeId) {
   delete state[storeId];
   writeState(state);
   return getListingStats(storeId);
-}
-
-// 单个商品详情：仅在运营后台已上架时可查，附带门店上下架状态与规格。
-function getProductDetail(storeId, productId) {
-  if (!productId) return null;
-  const item = flattenProducts(menuCatalog).find(entry => entry.id === productId);
-  if (!item) return null;
-  if (!isPlatformListed(productId)) return null;
-  const product = item.product || {};
-  return {
-    id: item.id,
-    name: item.name,
-    price: item.price,
-    originalPrice: item.originalPrice,
-    storedValuePrice: item.product.storedValuePrice,
-    image: item.image,
-    galleryImage: product.galleryImage || item.image,
-    badgeIcon: item.badgeIcon,
-    tags: (item.product.tags || []).slice(),
-    description: product.description || '',
-    ingredients: product.ingredients || '',
-    allergens: product.allergens || '',
-    cupCapacity: product.cupCapacity || '',
-    tips: product.tips || [],
-    imageDisclaimer: product.imageDisclaimer || '',
-    promotionText: product.promotionText || '',
-    tabLabel: item.tabLabel,
-    groupLabel: item.groupLabel,
-    categoryId: item.categoryId,
-    categoryLabel: item.categoryLabel,
-    platformListed: true,
-    listed: isListed(storeId, item.id),
-    specGroups: (product.specGroups || []).map(group => ({
-      id: group.id,
-      label: group.label,
-      options: (group.options || []).map(option => ({
-        id: option.id,
-        label: option.label,
-        priceDelta: option.priceDelta || 0
-      }))
-    }))
-  };
 }
 
 // 按门店过滤后返回菜单，供消费端（点单页 / 适用商品页）使用。
@@ -311,7 +267,6 @@ module.exports = {
   getListedMenuTabs,
   getMergedMenuTab,
   getListingStats,
-  getProductDetail,
   getProductsForStore,
   isProductListed,
   resetListing,

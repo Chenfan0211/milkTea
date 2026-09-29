@@ -1,7 +1,9 @@
 package com.wuling.product.service;
 
 import com.wuling.common.api.PageResult;
+import com.wuling.product.dto.ProductDetailDTO;
 import com.wuling.product.dto.StoreProductDTO;
+import com.wuling.product.dto.StoreProductDetailDTO;
 import com.wuling.product.entity.Product;
 import com.wuling.product.entity.ProductCategory;
 import com.wuling.product.entity.ProductStore;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,6 +36,7 @@ class StoreProductServiceTest {
     private ProductMapper productMapper;
     private ProductCategoryMapper categoryMapper;
     private ProductStoreMapper productStoreMapper;
+    private ProductQueryService productQueryService;
     private StoreProductService service;
 
     @BeforeEach
@@ -40,7 +44,8 @@ class StoreProductServiceTest {
         productMapper = mock(ProductMapper.class);
         categoryMapper = mock(ProductCategoryMapper.class);
         productStoreMapper = mock(ProductStoreMapper.class);
-        service = new StoreProductService(productMapper, categoryMapper, productStoreMapper);
+        productQueryService = mock(ProductQueryService.class);
+        service = new StoreProductService(productMapper, categoryMapper, productStoreMapper, productQueryService);
     }
 
     private Product product(long id, String productId, String name, long price, Long categoryId) {
@@ -150,6 +155,58 @@ class StoreProductServiceTest {
         assertThrows(com.wuling.common.exception.BusinessException.class,
                 () -> service.updateListing(STORE_ID, 1L, true));
         verify(productStoreMapper, never()).insert(any(ProductStore.class));
+    }
+
+    @Test
+    @DisplayName("详情：补齐门店维度 listed，且平台字段来自消费端详情")
+    void storeProductDetailCarriesStoreListingState() {
+        Product p = product(1L, "classic-001", "五窨茉莉抹茶", 1390L, 5L);
+        when(productMapper.selectOne(any())).thenReturn(p);
+
+        ProductDetailDTO base = new ProductDetailDTO();
+        base.setId("classic-001");
+        base.setName("五窨茉莉抹茶");
+        when(productQueryService.getProductDetail("classic-001")).thenReturn(base);
+        when(productStoreMapper.selectCount(any())).thenReturn(1L);
+
+        StoreProductDetailDTO dto = service.getStoreProductDetail(STORE_ID, "classic-001");
+
+        assertEquals("classic-001", dto.getId());
+        assertEquals("五窨茉莉抹茶", dto.getName());
+        assertTrue(dto.getPlatformListed(), "平台已上架商品 platformListed 恒为 true");
+        assertTrue(dto.getListed(), "product_store 有记录即为本店已上架");
+    }
+
+    @Test
+    @DisplayName("详情：本店未上架时 listed=false（仍可查看，只读展示）")
+    void storeProductDetailUnlistedWhenNoLink() {
+        when(productMapper.selectOne(any())).thenReturn(product(1L, "p1", "A", 100L, null));
+        when(productQueryService.getProductDetail("p1")).thenReturn(new ProductDetailDTO());
+        when(productStoreMapper.selectCount(any())).thenReturn(0L);
+
+        StoreProductDetailDTO dto = service.getStoreProductDetail(STORE_ID, "p1");
+
+        assertFalse(dto.getListed(), "无关联记录即本店已下架");
+    }
+
+    @Test
+    @DisplayName("详情：平台已下架商品返回 null（门店不可见）")
+    void storeProductDetailNullForOffSale() {
+        Product offSale = product(1L, "p1", "A", 100L, null);
+        offSale.setOnSale(0);
+        when(productMapper.selectOne(any())).thenReturn(offSale);
+
+        assertNull(service.getStoreProductDetail(STORE_ID, "p1"));
+        verify(productQueryService, never()).getProductDetail(any());
+    }
+
+    @Test
+    @DisplayName("详情：商品不存在返回 null，且不触发门店关联查询")
+    void storeProductDetailNullForUnknown() {
+        when(productMapper.selectOne(any())).thenReturn(null);
+
+        assertNull(service.getStoreProductDetail(STORE_ID, "missing"));
+        verify(productStoreMapper, never()).selectCount(any());
     }
 
     @Test

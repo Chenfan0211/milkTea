@@ -9,26 +9,21 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 for (const page of ['role-verify', 'role-income', 'role-withdraw']) {
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-    assert.ok(fs.existsSync(path.join(root, `packageRole/${page}/${page}.${extension}`)), `missing ${page}.${extension}`);
+    assert.ok(
+      fs.existsSync(path.join(root, `packageRole/${page}/${page}.${extension}`)),
+      `missing ${page}.${extension}`
+    );
   }
 }
 
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
-for (const page of [
-  'role-verify/role-verify',
-  'role-income/role-income',
-  'role-withdraw/role-withdraw'
-]) {
+for (const page of ['role-verify/role-verify', 'role-income/role-income', 'role-withdraw/role-withdraw']) {
   assert.ok(appJson.subpackages?.[0]?.pages?.includes(page), `${page} must be registered`);
 }
 
-const {
-  getVerifyData,
-  getIncomeData,
-  getWithdrawData,
-  getDashboard,
-  getBoundStore
-} = require(path.join(root, 'utils/roles.js'));
+const { getVerifyData, getIncomeData, getWithdrawData, getDashboard, getBoundStore } = require(
+  path.join(root, 'utils/roles.js')
+);
 
 // 权限：未开通/无角色返回 null
 assert.equal(getVerifyData('unknown'), null, 'getVerifyData must return null for unknown role');
@@ -100,10 +95,7 @@ assert.ok(
   'verify page must support exchange redemption via real store endpoint'
 );
 // 兑换核销必须走真实后端链路，不得再本地拼假数据或误调礼品卡接口
-assert.ok(
-  !verifyJs.includes("id: 'ex-' + Date.now()"),
-  'exchange verify must not fabricate local records'
-);
+assert.ok(!verifyJs.includes("id: 'ex-' + Date.now()"), 'exchange verify must not fabricate local records');
 assert.ok(
   !verifyJs.includes('verifyGiftCardOrder') && !verifyJs.includes('演示数据'),
   'exchange verify must not call gift-card API or show demo-data note'
@@ -135,15 +127,9 @@ assert.ok(verifyWxml.includes("type === 'exchange'"), 'verify records must tag e
 // ===== 独立授权登录页（替代 login-sheet 弹层）=====
 const authDir = path.join(root, 'pages/auth-login');
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-  assert.ok(
-    fs.existsSync(path.join(authDir, `auth-login.${extension}`)),
-    `missing auth-login.${extension}`
-  );
+  assert.ok(fs.existsSync(path.join(authDir, `auth-login.${extension}`)), `missing auth-login.${extension}`);
 }
-assert.ok(
-  appJson.pages.includes('pages/auth-login/auth-login'),
-  'auth-login must be registered'
-);
+assert.ok(appJson.pages.includes('pages/auth-login/auth-login'), 'auth-login must be registered');
 
 const authWxml = fs.readFileSync(path.join(authDir, 'auth-login.wxml'), 'utf8');
 const authWxss = fs.readFileSync(path.join(authDir, 'auth-login.wxss'), 'utf8');
@@ -165,15 +151,11 @@ assert.ok(
 
 // 未勾选协议时「同意」必须被拦截（aria-disabled + JS 双重保护）
 assert.ok(
-  authWxml.includes("agreementChecked ? '' : 'is-disabled'") &&
-    authJs.includes('请先阅读并勾选同意协议'),
+  authWxml.includes("agreementChecked ? '' : 'is-disabled'") && authJs.includes('请先阅读并勾选同意协议'),
   'auth page must block authorization until the agreement is checked'
 );
 // 用户取消系统授权时必须留在本页，不得误跳首页
-assert.ok(
-  authJs.includes('已取消授权'),
-  'auth page must stay put when the user cancels the phone authorization'
-);
+assert.ok(authJs.includes('已取消授权'), 'auth page must stay put when the user cancels the phone authorization');
 
 // 协议确认：勾选框 + 隐私政策/用户协议链接 + 底部「拒绝仅浏览 / 同意」双按钮
 assert.ok(
@@ -189,14 +171,10 @@ assert.ok(
 
 // 样式合规
 assert.ok(
-  /flex:\s*1[\s\S]*?min-height:\s*0/.test(authWxss) &&
-    /\.auth-scroll\s*\{[^}]*flex:\s*1/.test(authWxss),
+  /flex:\s*1[\s\S]*?min-height:\s*0/.test(authWxss) && /\.auth-scroll\s*\{[^}]*flex:\s*1/.test(authWxss),
   'auth page scroll area must keep flex:1 and min-height:0'
 );
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(authWxss),
-  'auth page WXSS must use design tokens only'
-);
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(authWxss), 'auth page WXSS must use design tokens only');
 // 「同意」按钮必须是唯一主操作（实心绿 + 胶囊圆角）
 const primaryRule = (authWxss.match(/\.auth-actions__primary\s*\{([^}]*)\}/) || [])[1] || '';
 assert.ok(
@@ -210,14 +188,8 @@ assert.ok(
   guardSource.includes("'/pages/auth-login/auth-login'"),
   'login guard must navigate to the standalone auth page'
 );
-assert.ok(
-  guardSource.includes('wx.navigateTo'),
-  'login guard must navigate instead of opening an in-page sheet'
-);
-assert.ok(
-  !guardSource.includes('current.openLoginSheet'),
-  'login guard must no longer delegate to an in-page sheet'
-);
+assert.ok(guardSource.includes('wx.navigateTo'), 'login guard must navigate instead of opening an in-page sheet');
+assert.ok(!guardSource.includes('current.openLoginSheet'), 'login guard must no longer delegate to an in-page sheet');
 // 内存中的 pendingAction 必须在跳转后仍可续跑
 assert.ok(
   /let pendingAction = null/.test(guardSource) &&
@@ -246,28 +218,19 @@ assert.ok(
   authJs.includes('onUnload') && authJs.includes('guard.clearPendingAction()'),
   'auth page must clear the pending action when the user leaves early'
 );
-assert.ok(
-  authJs.includes('guard.flushPendingAction()'),
-  'auth page must resume the pending action after binding'
-);
+assert.ok(authJs.includes('guard.flushPendingAction()'), 'auth page must resume the pending action after binding');
 assert.ok(
   /this\.completed = false/.test(authJs) && /this\.completed = true/.test(authJs),
   'auth page must track completion to decide whether to clear the pending action'
 );
 
 // 启动页引导态：进入即登录的入口编排（Task 4）
-assert.ok(
-  authJs.includes('entryMode') && /mode[^;]*===\s*'entry'/.test(authJs),
-  'auth page must detect entry mode'
-);
+assert.ok(authJs.includes('entryMode') && /mode[^;]*===\s*'entry'/.test(authJs), 'auth page must detect entry mode');
 assert.ok(
   authJs.includes('entryTarget') && authJs.includes("require('../../utils/navigate')"),
   'entry mode must navigate to the resolved target (tabBar-safe)'
 );
-assert.ok(
-  authWxml.includes('agreementChecked'),
-  'entry mode must show the agreement confirmation'
-);
+assert.ok(authWxml.includes('agreementChecked'), 'entry mode must show the agreement confirmation');
 assert.ok(
   fs.existsSync(path.join(root, 'pages/launch/launch.js')) &&
     fs.existsSync(path.join(root, 'pages/launch/launch.wxml')),
@@ -279,10 +242,7 @@ assert.equal(
   'pages/launch/launch',
   'app.json must open the launch page as the cold-start entry for forced login gating'
 );
-assert.ok(
-  appJson.pages.includes('pages/launch/launch'),
-  'launch page must stay registered for future entry gating'
-);
+assert.ok(appJson.pages.includes('pages/launch/launch'), 'launch page must stay registered for future entry gating');
 {
   const launchJs = fs.readFileSync(path.join(root, 'pages/launch/launch.js'), 'utf8');
   assert.ok(
@@ -335,10 +295,7 @@ assert.ok(
 );
 // 授权页列入私密名单，不参与分享
 const shareSource = fs.readFileSync(path.join(root, 'utils/share.js'), 'utf8');
-assert.ok(
-  shareSource.includes("'pages/auth-login/auth-login'"),
-  'auth page must be registered as private'
-);
+assert.ok(shareSource.includes("'pages/auth-login/auth-login'"), 'auth page must be registered as private');
 assert.ok(isPrivatePage('pages/auth-login/auth-login'), 'auth page must not be shareable');
 
 // ===== 协议独立页面（用户协议 / 隐私政策）=====
@@ -354,13 +311,11 @@ const legalJs = fs.readFileSync(path.join(legalDir, 'legal.js'), 'utf8');
 
 // 单页面按 type 取文档
 assert.ok(
-  legalJs.includes('getLegalDoc') && legalJs.includes("options.type"),
+  legalJs.includes('getLegalDoc') && legalJs.includes('options.type'),
   'legal page must resolve the document from the type query'
 );
 assert.ok(
-  legalWxml.includes('doc.sections') &&
-    legalWxml.includes('item.clauses') &&
-    legalWxml.includes('doc.footnotes'),
+  legalWxml.includes('doc.sections') && legalWxml.includes('item.clauses') && legalWxml.includes('doc.footnotes'),
   'legal page must render sections, clauses and footnotes'
 );
 assert.ok(
@@ -421,9 +376,7 @@ const agreementClauses = getLegalDoc('agreement')
   .sections.map(section => section.title)
   .join(' ');
 assert.ok(
-  agreementClauses.includes('账号') &&
-    agreementClauses.includes('免责') &&
-    agreementClauses.includes('争议解决'),
+  agreementClauses.includes('账号') && agreementClauses.includes('免责') && agreementClauses.includes('争议解决'),
   'user agreement must cover accounts, disclaimer and dispute resolution'
 );
 
@@ -434,10 +387,7 @@ assert.ok(
   authWxmlForLegal.includes('data-type="agreement"') && authWxmlForLegal.includes('data-type="privacy"'),
   'auth page must tag both agreement links with a type'
 );
-assert.ok(
-  authJsForLegal.includes('/pages/legal/legal?type='),
-  'auth page must navigate to the legal page'
-);
+assert.ok(authJsForLegal.includes('/pages/legal/legal?type='), 'auth page must navigate to the legal page');
 assert.ok(
   !/openAgreement[\s\S]{0,200}showToast/.test(authJsForLegal),
   'auth page must not fall back to a toast for agreements'
@@ -459,8 +409,7 @@ const serviceJs = fs.readFileSync(path.join(serviceDir, 'service.js'), 'utf8');
 // profile 入口必须跳到客服中心，而不是落到兜底 Toast
 const profileScript = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
 assert.ok(
-  profileScript.includes("id === 'service'") &&
-    profileScript.includes("'/pages/service/service'"),
+  profileScript.includes("id === 'service'") && profileScript.includes("'/pages/service/service'"),
   'profile must route the service entry to the service page'
 );
 
@@ -474,9 +423,7 @@ assert.ok(
   'open-type="contact" must sit on a native button element'
 );
 const serviceHoursOutputCount = (serviceWxml.match(/服务时间 \{\{serviceHours\}\}/g) || []).length;
-const responseNoteOutputCount = (
-  serviceWxml.match(/>\{\{info\.responseNote\}\}<\/text>/g) || []
-).length;
+const responseNoteOutputCount = (serviceWxml.match(/>\{\{info\.responseNote\}\}<\/text>/g) || []).length;
 assert.ok(
   serviceWxml.includes('service-contact-card') &&
     serviceHoursOutputCount === 1 &&
@@ -532,10 +479,7 @@ assert.equal(
   'undefined',
   'data/service.js must not export hardcoded FAQs (moved to app_config)'
 );
-assert.ok(
-  !serviceDataSourceIncludesHotline,
-  'no mini-program source file may hardcode the customer hotline'
-);
+assert.ok(!serviceDataSourceIncludesHotline, 'no mini-program source file may hardcode the customer hotline');
 
 // 2) 页面从后台配置读取客服信息与常见问题
 assert.ok(
@@ -582,18 +526,14 @@ assert.ok(
 
 // 页面渲染与交互
 assert.ok(
-  serviceWxml.includes('{{info.hotline}}') &&
-    serviceWxml.includes('服务时间 {{serviceHours}}'),
+  serviceWxml.includes('{{info.hotline}}') && serviceWxml.includes('服务时间 {{serviceHours}}'),
   'service page must render the hotline and a single shared service schedule'
 );
 assert.ok(
   serviceWxml.includes('toggleFaq') && serviceWxml.includes('expandedFaqId'),
   'service page must offer collapsible FAQs'
 );
-assert.ok(
-  serviceJs.includes("this.data.expandedFaqId === id ? '' : id"),
-  'tapping an open FAQ must collapse it again'
-);
+assert.ok(serviceJs.includes("this.data.expandedFaqId === id ? '' : id"), 'tapping an open FAQ must collapse it again');
 assert.ok(
   serviceWxml.includes('callPhone') && serviceJs.includes('wx.makePhoneCall'),
   'phone entries must dial through makePhoneCall'
@@ -614,7 +554,15 @@ assert.ok(isPrivatePage('pages/service/service'), 'service page must be private'
 
 // ===== 设计 token 合规（全量排查后固化）=====
 // 字号必须取自 token 档位；仅允许验收测试/参考图已固化的字面量。
-const FONT_TOKENS = ['--font-caption', '--font-sm', '--font-base', '--font-md', '--font-lg', '--font-xl', '--font-display'];
+const FONT_TOKENS = [
+  '--font-caption',
+  '--font-sm',
+  '--font-base',
+  '--font-md',
+  '--font-lg',
+  '--font-xl',
+  '--font-display'
+];
 const TOKEN_FONT_RPX = ['20rpx', '24rpx', '28rpx', '30rpx', '34rpx', '38rpx', '48rpx'];
 // 已被验收测试显式固化的字号字面量（design-system 档位豁免）
 const FROZEN_FONT_RPX = ['18rpx'];
@@ -635,33 +583,33 @@ for (const page of appJson.pages) {
 // 签到页的连续天数必须走 token，不得写死 40rpx
 const signinWxss = fs.readFileSync(path.join(root, 'pages/points-signin/points-signin.wxss'), 'utf8');
 const signinDaysRule = (signinWxss.match(/\.signin-card__days\s*\{([^}]*)\}/) || [])[1] || '';
-assert.ok(
-  signinDaysRule.indexOf('font-size: var(--font-xl)') >= 0,
-  '签到天数必须使用字号 token，不得写死 40rpx'
-);
-assert.ok(
-  signinDaysRule.indexOf('40rpx') === -1,
-  '签到天数不得回退为 40rpx 字面量'
-);
+assert.ok(signinDaysRule.indexOf('font-size: var(--font-xl)') >= 0, '签到天数必须使用字号 token，不得写死 40rpx');
+assert.ok(signinDaysRule.indexOf('40rpx') === -1, '签到天数不得回退为 40rpx 字面量');
 
 // 点单页商品区分组上边距必须落在档位内
 const menuWxssForSpacing = fs.readFileSync(path.join(root, 'pages/menu/menu.wxss'), 'utf8');
 const productSectionRule = (menuWxssForSpacing.match(/\.product-section\s*\{([^}]*)\}/) || [])[1] || '';
-assert.ok(
-  productSectionRule.indexOf('padding-top: 24rpx') >= 0,
-  '点单页商品区上边距必须为档位值 24rpx'
-);
-assert.ok(
-  productSectionRule.indexOf('22rpx') === -1,
-  '点单页商品区不得回退为非档位值 22rpx'
-);
+assert.ok(productSectionRule.indexOf('padding-top: 24rpx') >= 0, '点单页商品区上边距必须为档位值 24rpx');
+assert.ok(productSectionRule.indexOf('22rpx') === -1, '点单页商品区不得回退为非档位值 22rpx');
 
 // 非档位间距仅允许已登记豁免值
 const SPACING_ALLOWED = [4, 8, 12, 16, 20, 24, 32, 40];
 // 已固化 / 已登记豁免的非档位间距（含负值取绝对值）
 const SPACING_FROZEN = [
-  6, 9, 13, 14, 15, 18, 28, 72, 120, 127, 280, // 验收测试显式固化
-  58, 62, 100 // design-system 已登记豁免值
+  6,
+  9,
+  13,
+  14,
+  15,
+  18,
+  28,
+  72,
+  120,
+  127,
+  280, // 验收测试显式固化
+  58,
+  62,
+  100 // design-system 已登记豁免值
 ];
 for (const page of appJson.pages) {
   const wxssPath = path.join(root, `${page}.wxss`);
@@ -695,10 +643,7 @@ for (const page of ['pages/home/home.wxml', 'pages/profile/profile.wxml']) {
   const scrollIndex = lines.findIndex(line => /^<scroll-view\b/.test(line));
   assert.ok(scrollIndex >= 0, `${page} 必须以 scroll-view 作为根节点`);
   const rootView = lines[scrollIndex + 1] || '';
-  assert.ok(
-    /^\s{2}<view\b/.test(rootView),
-    `${page} 的内容根节点必须比 scroll-view 缩进一级`
-  );
+  assert.ok(/^\s{2}<view\b/.test(rootView), `${page} 的内容根节点必须比 scroll-view 缩进一级`);
 }
 
 // 提现页 WXML 含可提现余额/待结算/押金/规则/输入/提交
@@ -721,11 +666,7 @@ assert.equal(
   1,
   'withdraw page must define the fill-all affordance exactly once'
 );
-assert.equal(
-  (withdrawWxml.match(/fillAll/g) || []).length,
-  1,
-  'withdraw page must bind fillAll exactly once'
-);
+assert.equal((withdrawWxml.match(/fillAll/g) || []).length, 1, 'withdraw page must bind fillAll exactly once');
 // 规则与记录只能是入口按钮，不得在提现页直接铺数据
 assert.ok(
   withdrawWxml.includes('openRules') && withdrawWxml.includes('openRecords'),
@@ -750,10 +691,7 @@ const {
   WITHDRAW_STATUS_TEXT: withdrawStatusText
 } = require(path.join(root, 'utils/roles.js'));
 const withdrawRuleData = getWithdrawRule();
-assert.ok(
-  withdrawRuleData && withdrawRuleData.items.length >= 4,
-  'withdraw rule must expose at least four icon items'
-);
+assert.ok(withdrawRuleData && withdrawRuleData.items.length >= 4, 'withdraw rule must expose at least four icon items');
 assert.ok(
   withdrawRuleData.items.every(item => item.id && item.icon && item.title && item.description),
   'withdraw rule items must be complete'
@@ -779,7 +717,10 @@ for (const [backend, expected] of [
   );
 }
 assert.ok(
-  withdrawStatusText.pending && withdrawStatusText.processing && withdrawStatusText.success && withdrawStatusText.failed,
+  withdrawStatusText.pending &&
+    withdrawStatusText.processing &&
+    withdrawStatusText.success &&
+    withdrawStatusText.failed,
   'withdraw status labels must cover all four states'
 );
 
@@ -795,21 +736,14 @@ assert.ok(
   appJson.subpackages?.[0]?.pages?.includes('role-withdraw-records/role-withdraw-records'),
   'role-withdraw-records must be registered'
 );
-const withdrawRecordsWxml = fs.readFileSync(
-  path.join(withdrawRecordsDir, 'role-withdraw-records.wxml'),
-  'utf8'
-);
-const withdrawRecordsWxss = fs.readFileSync(
-  path.join(withdrawRecordsDir, 'role-withdraw-records.wxss'),
-  'utf8'
-);
+const withdrawRecordsWxml = fs.readFileSync(path.join(withdrawRecordsDir, 'role-withdraw-records.wxml'), 'utf8');
+const withdrawRecordsWxss = fs.readFileSync(path.join(withdrawRecordsDir, 'role-withdraw-records.wxss'), 'utf8');
 assert.ok(
   withdrawRecordsWxml.includes('switchCategory') && withdrawRecordsWxml.includes('empty-state'),
   'withdraw records page must support filtering and an empty state'
 );
 assert.ok(
-  withdrawRecordsWxml.includes('withdraw-record__amount') == false ||
-    withdrawRecordsWxml.includes('{{item.amount}}'),
+  withdrawRecordsWxml.includes('withdraw-record__amount') == false || withdrawRecordsWxml.includes('{{item.amount}}'),
   'withdraw records page must render the amount'
 );
 assert.ok(
@@ -818,10 +752,7 @@ assert.ok(
 );
 
 // 搜索只匹配提现单号
-const withdrawRecordsJs = fs.readFileSync(
-  path.join(withdrawRecordsDir, 'role-withdraw-records.js'),
-  'utf8'
-);
+const withdrawRecordsJs = fs.readFileSync(path.join(withdrawRecordsDir, 'role-withdraw-records.js'), 'utf8');
 assert.ok(
   withdrawRecordsWxml.includes('placeholder="搜索提现单号"'),
   'withdraw records search must target the order no'
@@ -831,8 +762,7 @@ assert.ok(
   'withdraw records search must not accept a time keyword'
 );
 assert.ok(
-  /function matchKeyword\(record, keyword\)/.test(withdrawRecordsJs) &&
-    withdrawRecordsJs.includes('record.orderNo'),
+  /function matchKeyword\(record, keyword\)/.test(withdrawRecordsJs) && withdrawRecordsJs.includes('record.orderNo'),
   'withdraw records search must be a pure order-no matcher'
 );
 assert.ok(
@@ -886,14 +816,9 @@ assert.ok(
   /\.withdraw-record-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(withdrawRecordsWxss),
   'withdraw records scroll area must keep the three-section layout contract'
 );
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(withdrawRecordsWxss), 'withdraw records WXSS must use design tokens only');
 assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(withdrawRecordsWxss),
-  'withdraw records WXSS must use design tokens only'
-);
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(
-    fs.readFileSync(path.join(root, 'packageRole/role-withdraw/role-withdraw.wxss'), 'utf8')
-  ),
+  !/#[0-9A-Fa-f]{3,8}\b/.test(fs.readFileSync(path.join(root, 'packageRole/role-withdraw/role-withdraw.wxss'), 'utf8')),
   'withdraw page WXSS must use design tokens only'
 );
 assert.ok(
@@ -928,11 +853,7 @@ for (const raw of backendWithdrawals) {
   );
   // 金额：分 -> 元，且到账额 = 金额 - 手续费
   assert.equal(mapped.amount, '¥' + (raw.amount / 100).toFixed(2), 'amount must be converted from fen');
-  assert.equal(
-    mapped.arrivalText,
-    '¥' + ((raw.amount - raw.fee) / 100).toFixed(2),
-    'arrival must subtract the fee'
-  );
+  assert.equal(mapped.arrivalText, '¥' + ((raw.amount - raw.fee) / 100).toFixed(2), 'arrival must subtract the fee');
   assert.ok(/^WD\d+$/.test(mapped.orderNo), 'withdraw order no must follow the WD + digits format');
 
   const timeline = buildWithdrawTimeline(mapped);
@@ -976,22 +897,14 @@ assert.ok(
   appJson.subpackages?.[0]?.pages?.includes('role-withdraw-detail/role-withdraw-detail'),
   'role-withdraw-detail must be registered'
 );
-const withdrawDetailWxml = fs.readFileSync(
-  path.join(withdrawDetailDir, 'role-withdraw-detail.wxml'),
-  'utf8'
-);
-const withdrawDetailWxss = fs.readFileSync(
-  path.join(withdrawDetailDir, 'role-withdraw-detail.wxss'),
-  'utf8'
-);
+const withdrawDetailWxml = fs.readFileSync(path.join(withdrawDetailDir, 'role-withdraw-detail.wxml'), 'utf8');
+const withdrawDetailWxss = fs.readFileSync(path.join(withdrawDetailDir, 'role-withdraw-detail.wxss'), 'utf8');
 assert.ok(
-  withdrawDetailWxml.includes('record.timeline') &&
-    withdrawDetailWxml.includes('timeline-item--{{item.state}}'),
+  withdrawDetailWxml.includes('record.timeline') && withdrawDetailWxml.includes('timeline-item--{{item.state}}'),
   'withdraw detail must render the status timeline'
 );
 assert.ok(
-  withdrawDetailWxml.includes('{{record.statusLabel}}') &&
-    withdrawDetailWxml.includes('{{record.statusNote}}'),
+  withdrawDetailWxml.includes('{{record.statusLabel}}') && withdrawDetailWxml.includes('{{record.statusNote}}'),
   'withdraw detail must render status label and note'
 );
 assert.ok(
@@ -1001,23 +914,16 @@ assert.ok(
     withdrawDetailWxml.includes('{{record.channel}}'),
   'withdraw detail must render order no, fee, arrival and channel'
 );
-assert.ok(
-  withdrawDetailWxml.includes('record.failReason'),
-  'withdraw detail must surface the failure reason'
-);
+assert.ok(withdrawDetailWxml.includes('record.failReason'), 'withdraw detail must surface the failure reason');
 assert.ok(
   /\.withdraw-detail-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(withdrawDetailWxss),
   'withdraw detail scroll area must keep the three-section layout contract'
 );
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(withdrawDetailWxss),
-  'withdraw detail WXSS must use design tokens only'
-);
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(withdrawDetailWxss), 'withdraw detail WXSS must use design tokens only');
 
 // 记录卡必须可点跳详情
 assert.ok(
-  withdrawRecordsWxml.includes('bindtap="openDetail"') &&
-    withdrawRecordsWxml.includes('chevron-right.svg'),
+  withdrawRecordsWxml.includes('bindtap="openDetail"') && withdrawRecordsWxml.includes('chevron-right.svg'),
   'withdraw record cards must be tappable and hint navigation'
 );
 assert.ok(
@@ -1060,18 +966,9 @@ assert.ok(
   appJson.subpackages?.[0]?.pages?.includes('role-withdraw-rules/role-withdraw-rules'),
   'role-withdraw-rules must be registered'
 );
-const withdrawRulesWxml = fs.readFileSync(
-  path.join(withdrawRulesDir, 'role-withdraw-rules.wxml'),
-  'utf8'
-);
-const withdrawRulesWxss = fs.readFileSync(
-  path.join(withdrawRulesDir, 'role-withdraw-rules.wxss'),
-  'utf8'
-);
-const withdrawRulesJs = fs.readFileSync(
-  path.join(withdrawRulesDir, 'role-withdraw-rules.js'),
-  'utf8'
-);
+const withdrawRulesWxml = fs.readFileSync(path.join(withdrawRulesDir, 'role-withdraw-rules.wxml'), 'utf8');
+const withdrawRulesWxss = fs.readFileSync(path.join(withdrawRulesDir, 'role-withdraw-rules.wxss'), 'utf8');
+const withdrawRulesJs = fs.readFileSync(path.join(withdrawRulesDir, 'role-withdraw-rules.js'), 'utf8');
 assert.ok(
   withdrawRulesWxml.includes('ruleItems') && withdrawRulesWxml.includes('{{item.icon}}'),
   'withdraw rules page must render icon rule items'
@@ -1084,14 +981,8 @@ assert.ok(
   /\.withdraw-rules-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(withdrawRulesWxss),
   'withdraw rules scroll area must keep the three-section layout contract'
 );
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(withdrawRulesWxss),
-  'withdraw rules WXSS must use design tokens only'
-);
-assert.ok(
-  !withdrawRulesWxml.includes('{{item.amount}}'),
-  'withdraw rules page must not render withdraw records'
-);
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(withdrawRulesWxss), 'withdraw rules WXSS must use design tokens only');
+assert.ok(!withdrawRulesWxml.includes('{{item.amount}}'), 'withdraw rules page must not render withdraw records');
 
 // ===== 门店选品上下架 =====
 // product-listing 依赖 wx 存储；测试环境注入内存桩后再引入。
@@ -1109,15 +1000,9 @@ const listing = require(listingPath);
 // 选品页文件与注册
 const productsDir = path.join(root, 'packageRole/role-products');
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-  assert.ok(
-    fs.existsSync(path.join(productsDir, `role-products.${extension}`)),
-    `missing role-products.${extension}`
-  );
+  assert.ok(fs.existsSync(path.join(productsDir, `role-products.${extension}`)), `missing role-products.${extension}`);
 }
-assert.ok(
-  appJson.subpackages?.[0]?.pages?.includes('role-products/role-products'),
-  'role-products must be registered'
-);
+assert.ok(appJson.subpackages?.[0]?.pages?.includes('role-products/role-products'), 'role-products must be registered');
 const productsWxml = fs.readFileSync(path.join(productsDir, 'role-products.wxml'), 'utf8');
 const productsWxss = fs.readFileSync(path.join(productsDir, 'role-products.wxss'), 'utf8');
 const productsJs = fs.readFileSync(path.join(productsDir, 'role-products.js'), 'utf8');
@@ -1130,18 +1015,10 @@ assert.ok(
 );
 // 绑定门店来自后端 /roles/mine 的 subjectId（不再写死 store-001）。
 // 未同步时不应伪造绑定关系。
-assert.equal(
-  storeDashboard.boundStoreId,
-  '',
-  'bound store must come from the backend, not a hardcoded id'
-);
+assert.equal(storeDashboard.boundStoreId, '', 'bound store must come from the backend, not a hardcoded id');
 assert.equal(getBoundStore('investor'), null, 'non-store roles must not bind a store');
 assert.equal(getBoundStore('resource'), null, 'non-store roles must not bind a store');
-assert.equal(
-  getBoundStore('store'),
-  null,
-  'bound store must be null until /roles/mine provides a subject'
-);
+assert.equal(getBoundStore('store'), null, 'bound store must be null until /roles/mine provides a subject');
 
 for (const [file, label] of [
   ['packageRole/role-workbench/role-workbench.js', 'workbench'],
@@ -1161,14 +1038,8 @@ assert.ok(
   productsAction.icon === '/assets/icons/lucide/shopping-bag.svg',
   'products action must use the dark shopping-bag icon, not the white one'
 );
-assert.ok(
-  !productsAction.icon.endsWith('white.svg'),
-  'products action icon must stay visible on a white card'
-);
-const shoppingBagIcon = fs.readFileSync(
-  path.join(root, 'assets/icons/lucide/shopping-bag.svg'),
-  'utf8'
-);
+assert.ok(!productsAction.icon.endsWith('white.svg'), 'products action icon must stay visible on a white card');
+const shoppingBagIcon = fs.readFileSync(path.join(root, 'assets/icons/lucide/shopping-bag.svg'), 'utf8');
 assert.ok(
   shoppingBagIcon.indexOf('#FFFFFF') === -1 && shoppingBagIcon.indexOf('#747570') !== -1,
   'shopping-bag icon must be rendered in the dark neutral tone'
@@ -1216,18 +1087,13 @@ assert.ok(
   productsJs.includes('current') && productsJs.includes('size') && productsJs.includes('hasMore'),
   '门店选品必须支持分页（current/size/hasMore）'
 );
-assert.ok(
-  productsJs.includes('onReachBottom') && productsJs.includes('loadMore'),
-  '门店选品必须支持触底加载下一页'
-);
-assert.ok(
-  productsWxml.includes('loadingMore') && productsWxml.includes('hasMore'),
-  '选品页必须渲染加载更多状态'
-);
+assert.ok(productsJs.includes('onReachBottom') && productsJs.includes('loadMore'), '门店选品必须支持触底加载下一页');
+assert.ok(productsWxml.includes('loadingMore') && productsWxml.includes('hasMore'), '选品页必须渲染加载更多状态');
 // 点单页必须按门店过滤菜单（选品下架影响消费端）
 const menuSource = fs.readFileSync(path.join(root, 'pages/menu/menu.js'), 'utf8');
 assert.ok(
-  menuSource.includes('currentStoreSubjectId') && /refreshMenuFromRemote\(this\.currentStoreSubjectId\(\)\)/.test(menuSource),
+  menuSource.includes('currentStoreSubjectId') &&
+    /refreshMenuFromRemote\(this\.currentStoreSubjectId\(\)\)/.test(menuSource),
   '点单页必须按当前门店 subjectId 拉菜单，使门店选品下架实时生效'
 );
 
@@ -1277,84 +1143,60 @@ assert.ok(
   appJson.subpackages?.[0]?.pages?.includes('role-product-detail/role-product-detail'),
   'role-product-detail must be registered'
 );
-const productDetailWxml = fs.readFileSync(
-  path.join(productDetailDir, 'role-product-detail.wxml'),
-  'utf8'
-);
-const productDetailWxss = fs.readFileSync(
-  path.join(productDetailDir, 'role-product-detail.wxss'),
-  'utf8'
-);
-const productDetailJs = fs.readFileSync(
-  path.join(productDetailDir, 'role-product-detail.js'),
-  'utf8'
-);
+const productDetailWxml = fs.readFileSync(path.join(productDetailDir, 'role-product-detail.wxml'), 'utf8');
+const productDetailWxss = fs.readFileSync(path.join(productDetailDir, 'role-product-detail.wxss'), 'utf8');
+const productDetailJs = fs.readFileSync(path.join(productDetailDir, 'role-product-detail.js'), 'utf8');
 assert.ok(
   productDetailWxml.includes('{{product.galleryImage}}') &&
     productDetailWxml.includes('{{product.name}}') &&
-    productDetailWxml.includes('{{product.price}}'),
+    productDetailWxml.includes('{{product.priceText}}'),
   'product detail must render the hero image, name and price'
 );
+// 「所属菜单」按产品决策不再展示，详情页只保留商品编号与分类
 assert.ok(
   productDetailWxml.includes('{{product.id}}') &&
-    productDetailWxml.includes('{{product.categoryLabel}}') &&
-    productDetailWxml.includes('{{product.tabLabel}}'),
-  'product detail must render id, category and menu origin'
+    productDetailWxml.includes('{{product.categoryLabel}}'),
+  'product detail must render id and category'
 );
 assert.ok(
   productDetailWxml.includes('product.platformListed') && productDetailWxml.includes('product.listed'),
   'product detail must distinguish platform status from store status'
 );
 assert.ok(
-  productDetailWxml.includes('product.specGroups') && productDetailWxml.includes('option.priceDelta'),
+  productDetailWxml.includes('product.specGroups') && productDetailWxml.includes('option.priceDeltaText'),
   'product detail must render spec groups with price deltas'
 );
+// 详情页已改为只读：不得再出现任何上下架入口或本地选品数据源
 assert.ok(
-  productDetailWxml.includes('toggleListing') && productDetailJs.includes('setListed'),
-  'product detail must allow listing changes'
+  !productDetailWxml.includes('toggleListing') && !productDetailJs.includes('setListed'),
+  'product detail must be read-only (no listing toggle)'
 );
 assert.ok(
-  productDetailJs.includes('getBoundStore') && productDetailJs.includes('getProductDetail'),
-  'product detail must scope to the bound store and reuse the shared lookup'
+  !productDetailJs.includes('product-listing'),
+  'product detail must not depend on the local product-listing data source'
+);
+assert.ok(
+  productDetailJs.includes('getBoundStore') && productDetailJs.includes('fetchStoreProductDetail'),
+  'product detail must scope to the bound store and load from the remote detail endpoint'
 );
 assert.ok(
   /flex:\s*1[\s\S]*?min-height:\s*0/.test(productDetailWxss),
   'product detail scroll area must keep flex:1 and min-height:0'
 );
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(productDetailWxss),
-  'product detail WXSS must use design tokens only'
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(productDetailWxss), 'product detail WXSS must use design tokens only');
+
+// 详情数据来源改为远端接口：前端不再内置离线查表（getProductDetail 已随本地数据源一并删除）
+assert.equal(
+  typeof listing.getProductDetail,
+  'undefined',
+  'local getProductDetail must be removed now that detail loads from the API'
 );
 
-// 详情数据来源：仅平台已上架商品可查
-// 商品详情依赖菜单镜像：注入 seed 菜单（等价于 /api/v1/app/menu 返回）
+// 下述展示逻辑（可售商品 / 统计口径）仍依赖菜单镜像：注入 seed 菜单
+// （等价于 /api/v1/app/menu 返回），与详情页的数据来源无关。
 const { setMenuCatalogForTest } = require(path.join(root, 'utils/product-listing.js'));
 const { loadMenu } = await import('./lib/seed-data.mjs');
 setMenuCatalogForTest(loadMenu());
-
-const { getProductDetail } = listing;
-assert.equal(getProductDetail('store-001', 'classic-002'), null, 'off-sale platform products must not open');
-assert.equal(getProductDetail('store-001', 'missing'), null, 'unknown products must not open');
-const productSample = getProductDetail('store-001', 'classic-001');
-assert.ok(
-  productSample &&
-    productSample.name &&
-    productSample.categoryLabel &&
-    productSample.tabLabel &&
-    productSample.specGroups.length,
-  'product detail must expose name, category, menu origin and specs'
-);
-assert.ok(
-  productSample.specGroups.every(group =>
-    group.options.every(option => option.id && option.label && typeof option.priceDelta === 'number')
-  ),
-  'spec options must carry label and price delta'
-);
-assert.equal(
-  getProductDetail('store-999', 'classic-001').listed,
-  true,
-  'detail must read that store listing state'
-);
 
 // 商品详情页分享：私密 + 有标题
 const productDetailRoute = 'packageRole/role-product-detail/role-product-detail';
@@ -1370,10 +1212,7 @@ assert.ok(
   /\.products-summary[\s\S]*?padding:\s*16rpx/.test(productsWxss),
   'summary row must be separated from the tab rows'
 );
-assert.ok(
-  !/min-width:\s*750rpx/.test(productsWxss),
-  'products toolbar must not force the tab strip to 750rpx'
-);
+assert.ok(!/min-width:\s*750rpx/.test(productsWxss), 'products toolbar must not force the tab strip to 750rpx');
 assert.ok(
   productsWxml.includes('products-status') && productsWxml.includes('products-tab'),
   'category and status tabs must be distinct rows'
@@ -1387,18 +1226,9 @@ assert.ok(
   productsWxml.includes('batchUpdate') && productsWxml.includes('批量上架') && productsWxml.includes('批量下架'),
   'products page must support batch listing'
 );
-assert.ok(
-  productsJs.includes('wx.showModal'),
-  'batch listing must confirm before applying'
-);
-assert.ok(
-  productsJs.includes('getBoundStore'),
-  'products page must scope listing to the bound store'
-);
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(productsWxss),
-  'products WXSS must use design tokens only'
-);
+assert.ok(productsJs.includes('wx.showModal'), 'batch listing must confirm before applying');
+assert.ok(productsJs.includes('getBoundStore'), 'products page must scope listing to the bound store');
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(productsWxss), 'products WXSS must use design tokens only');
 assert.ok(
   /\.products-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(productsWxss),
   'products scroll area must keep the three-section layout contract'
@@ -1406,10 +1236,7 @@ assert.ok(
 
 // 运营后台商品池：仅 onSale === 'on' 的商品可被门店选择
 const catalog = require(path.join(root, 'utils/product-catalog.js'));
-assert.ok(
-  catalog.getPlatformProductIds().length > 0,
-  'platform catalog must not be empty'
-);
+assert.ok(catalog.getPlatformProductIds().length > 0, 'platform catalog must not be empty');
 assert.ok(
   catalog.getPlatformUnlistedIds().length > 0,
   'platform catalog must include at least one off-sale product to prove filtering'
@@ -1453,21 +1280,9 @@ assert.equal(defaultStats.unlisted, 0, 'products must default to listed');
 listing.setListed('store-001', 'classic-004', false);
 const afterUnlist = listing.getListingStats('store-001');
 assert.equal(afterUnlist.unlisted, 1, 'unlisting must be reflected in stats');
-assert.equal(
-  listing.getListingStats('store-002').unlisted,
-  0,
-  'listing state must be isolated per store'
-);
-assert.equal(
-  listing.isProductListed('store-001', 'classic-004'),
-  false,
-  'unlisted product must report as unlisted'
-);
-assert.equal(
-  listing.isProductListed('store-002', 'classic-004'),
-  true,
-  'other stores must keep the product listed'
-);
+assert.equal(listing.getListingStats('store-002').unlisted, 0, 'listing state must be isolated per store');
+assert.equal(listing.isProductListed('store-001', 'classic-004'), false, 'unlisted product must report as unlisted');
+assert.equal(listing.isProductListed('store-002', 'classic-004'), true, 'other stores must keep the product listed');
 // 平台级下架对任何门店都不可选，门店无法把它改回上架。
 assert.equal(
   listing.isProductListed('store-001', 'classic-002'),
@@ -1492,14 +1307,8 @@ assert.ok(
   listedIds.indexOf('classic-004') === -1,
   'products unlisted by the store must not appear in the consumer menu'
 );
-assert.ok(
-  listedIds.indexOf('classic-003') !== -1,
-  'listed products must remain in the consumer menu'
-);
-assert.ok(
-  listedIds.indexOf('classic-002') === -1,
-  'platform off-sale products must never reach the consumer menu'
-);
+assert.ok(listedIds.indexOf('classic-003') !== -1, 'listed products must remain in the consumer menu');
+assert.ok(listedIds.indexOf('classic-002') === -1, 'platform off-sale products must never reach the consumer menu');
 
 // 空分类 / 空分组 / 空 Tab 自动隐藏
 // 当前可选商品都落在 recommend 分组，逐一处理整组以验证空分组隐藏。
@@ -1508,10 +1317,7 @@ listing.setListedBatch('store-001', leafIds, false);
 const prunedTabs = listing.getListedMenuTabs('store-001');
 const remainingGroups = [];
 prunedTabs.forEach(tab => tab.groups.forEach(group => remainingGroups.push(group.id)));
-assert.ok(
-  remainingGroups.indexOf('recommend') === -1,
-  'a group whose products are all unlisted must be hidden'
-);
+assert.ok(remainingGroups.indexOf('recommend') === -1, 'a group whose products are all unlisted must be hidden');
 assert.ok(
   prunedTabs.every(tab => tab.groups.length && tab.groups.every(group => group.categories.length)),
   'empty groups and categories must never reach the consumer menu'
@@ -1539,37 +1345,22 @@ assert.ok(
   menuRuntime.includes('getListedMenuTabs') && menuRuntime.includes('isProductListed'),
   'menu page must consume the shared listing filter'
 );
-assert.ok(
-  menuRuntime.includes('buildListingUpdates'),
-  'menu page must refresh the listing when the store changes'
-);
-assert.ok(
-  menuRuntime.includes('hasUnlistedInCart'),
-  'menu page must flag unlisted products sitting in the cart'
-);
+assert.ok(menuRuntime.includes('buildListingUpdates'), 'menu page must refresh the listing when the store changes');
+assert.ok(menuRuntime.includes('hasUnlistedInCart'), 'menu page must flag unlisted products sitting in the cart');
 assert.ok(
   /buildCartUpdates\(storeId\)/.test(menuRuntime) && menuRuntime.includes('listed: isProductListed'),
   'cart items must carry a listed flag without being auto-removed'
 );
-assert.ok(
-  !/cartItems\.filter\([^)]*listed/.test(menuRuntime),
-  'unlisted cart items must not be silently dropped'
-);
+assert.ok(!/cartItems\.filter\([^)]*listed/.test(menuRuntime), 'unlisted cart items must not be silently dropped');
 
-const cartSheetWxml = fs.readFileSync(
-  path.join(root, 'components/cart-sheet/cart-sheet.wxml'),
-  'utf8'
-);
+const cartSheetWxml = fs.readFileSync(path.join(root, 'components/cart-sheet/cart-sheet.wxml'), 'utf8');
 assert.ok(
   cartSheetWxml.includes('cart-item__unlisted') && cartSheetWxml.includes('item.listed === false'),
   'cart sheet must label unlisted products'
 );
 
 const couponRuntime = fs.readFileSync(path.join(root, 'pages/coupon-products/coupon-products.js'), 'utf8');
-assert.ok(
-  couponRuntime.includes('getListedMenuTabs'),
-  'coupon products page must consume the shared listing filter'
-);
+assert.ok(couponRuntime.includes('getListedMenuTabs'), 'coupon products page must consume the shared listing filter');
 
 // 选品页分享：私密 + 有标题
 const productsRoute = 'packageRole/role-products/role-products';
@@ -1577,11 +1368,9 @@ assert.ok(isPrivatePage(productsRoute), `${productsRoute} must be private`);
 assert.ok(PAGE_SHARE_TITLES[productsRoute], `${productsRoute} must define a title`);
 
 // ===== 资源方门店提成 =====
-const {
-  getResourceBoundStores,
-  getResourceOrders,
-  INCOME_STATUS_TEXT: resourceStatusText
-} = require(path.join(root, 'utils/roles.js'));
+const { getResourceBoundStores, getResourceOrders, INCOME_STATUS_TEXT: resourceStatusText } = require(
+  path.join(root, 'utils/roles.js')
+);
 
 // 非资源方不得读取提成；未同步后端时资源方也不返回数据（不再回退假数据）
 assert.deepEqual(getResourceBoundStores('store'), [], 'non-resource roles must not have bound stores');
@@ -1592,16 +1381,36 @@ assert.deepEqual(getResourceBoundStores('resource'), [], 'bound stores must be e
 
 // 提成映射：后端订单摘要 -> 前端展示结构（金额分转元、门店归属、状态映射、时间线）
 // 假数据清理后不再内置提成订单，这里用构造的后端数据校验映射逻辑。
-const {
-  normalizeCommissionOrder,
-  buildIncomeTimeline: buildCommissionTimeline
-} = require(path.join(root, 'utils/roles.js'));
+const { normalizeCommissionOrder, buildIncomeTimeline: buildCommissionTimeline } = require(
+  path.join(root, 'utils/roles.js')
+);
 
 const backendStore = { id: 101, code: 'ST-1001', name: '星沙乐运魔方店', subjectType: 'STORE' };
 const backendOrders = [
-  { id: 1, orderNo: 'WX202609212012558608', storeSubjectId: 101, status: 'PAID', paidAmount: 1390, createTime: '2026-09-21 20:12:56' },
-  { id: 2, orderNo: 'WX2026091900001', storeSubjectId: 101, status: 'COMPLETED', paidAmount: 1800, createTime: '2026-09-19 10:00:00' },
-  { id: 3, orderNo: 'WX2026091800002', storeSubjectId: 101, status: 'CANCELED', paidAmount: 2200, createTime: '2026-09-18 09:30:00' }
+  {
+    id: 1,
+    orderNo: 'WX202609212012558608',
+    storeSubjectId: 101,
+    status: 'PAID',
+    paidAmount: 1390,
+    createTime: '2026-09-21 20:12:56'
+  },
+  {
+    id: 2,
+    orderNo: 'WX2026091900001',
+    storeSubjectId: 101,
+    status: 'COMPLETED',
+    paidAmount: 1800,
+    createTime: '2026-09-19 10:00:00'
+  },
+  {
+    id: 3,
+    orderNo: 'WX2026091800002',
+    storeSubjectId: 101,
+    status: 'CANCELED',
+    paidAmount: 2200,
+    createTime: '2026-09-18 09:30:00'
+  }
 ];
 
 const mappedOrders = backendOrders.map(item => normalizeCommissionOrder(item, backendStore.name));
@@ -1677,10 +1486,7 @@ assert.ok(
   ordersWxml.includes('detail.timeline') && ordersWxml.includes('timeline-item--{{item.state}}'),
   'resource order detail must render the settlement timeline'
 );
-assert.ok(
-  ordersWxml.includes('detail.failReason'),
-  'resource order detail must surface the reversal reason'
-);
+assert.ok(ordersWxml.includes('detail.failReason'), 'resource order detail must surface the reversal reason');
 assert.ok(
   !/#[0-9A-Fa-f]{3,8}\b/.test(ordersWxss) &&
     /\.resource-orders-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(ordersWxss),
@@ -1692,18 +1498,9 @@ assert.ok(
 );
 
 // 工作台：规则改为入口，且不再内联铺数据
-const workbenchWxml = fs.readFileSync(
-  path.join(root, 'packageRole/role-workbench/role-workbench.wxml'),
-  'utf8'
-);
-const workbenchWxss = fs.readFileSync(
-  path.join(root, 'packageRole/role-workbench/role-workbench.wxss'),
-  'utf8'
-);
-const workbenchScript = fs.readFileSync(
-  path.join(root, 'packageRole/role-workbench/role-workbench.js'),
-  'utf8'
-);
+const workbenchWxml = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.wxml'), 'utf8');
+const workbenchWxss = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.wxss'), 'utf8');
+const workbenchScript = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.js'), 'utf8');
 assert.ok(
   workbenchWxml.includes('openIncomeRules') &&
     workbenchWxml.includes('openWithdrawRules') &&
@@ -1723,28 +1520,19 @@ assert.ok(
   !workbenchWxml.includes('需接入后端接口') && !workbenchWxml.includes('演示数据'),
   'workbench must not expose developer notes'
 );
-assert.ok(
-  workbenchWxml.includes('meta-card') === false,
-  'workbench must not reintroduce the legacy meta-card markup'
-);
+assert.ok(workbenchWxml.includes('meta-card') === false, 'workbench must not reintroduce the legacy meta-card markup');
 assert.ok(
   /\.metric-grid\s*\{[^}]*gap:\s*16rpx/.test(workbenchWxss),
   'workbench metric grid must use the shared spacing scale'
 );
-assert.ok(
-  /\.action-card\s*\{/.test(workbenchWxss),
-  'workbench actions must be grouped in a shared card'
-);
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(workbenchWxss),
-  'workbench WXSS must use design tokens only'
-);
+assert.ok(/\.action-card\s*\{/.test(workbenchWxss), 'workbench actions must be grouped in a shared card');
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(workbenchWxss), 'workbench WXSS must use design tokens only');
 
 // profile 必须能路由资源方订单页
 assert.ok(
-  fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8').includes(
-    "orders: '/packageRole/resource-orders/resource-orders'"
-  ),
+  fs
+    .readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8')
+    .includes("orders: '/packageRole/resource-orders/resource-orders'"),
   'profile must route the resource orders page'
 );
 
@@ -1778,10 +1566,7 @@ for (const [file, label] of [
   ['pages/profile/profile.js', 'profile']
 ]) {
   const source = fs.readFileSync(path.join(root, file), 'utf8');
-  assert.ok(
-    source.includes("invest: '/packageRole/role-invest/role-invest'"),
-    `${label} must route to role-invest`
-  );
+  assert.ok(source.includes("invest: '/packageRole/role-invest/role-invest'"), `${label} must route to role-invest`);
 }
 
 // 门店数据：启用状态 + 绑定投资人
@@ -1866,25 +1651,22 @@ const signedSpot = spots.find(spot => spot.spotStatus === 'signed');
 const occupiedSpot = spots.find(spot => spot.spotStatus === 'occupied');
 
 // 前置校验：已签约 / 已绑定 / 不存在 / 缺 storeId 必须被拒绝（返回 {ok:false} 的 Promise）
-invest.submitApplication({ storeId: signedSpot.id }).then(r =>
-  assert.equal(r.ok, false, 'already signed spots must be rejected')
-);
-invest.submitApplication({ storeId: occupiedSpot.id }).then(r =>
-  assert.equal(r.ok, false, 'spots bound to another investor must be rejected')
-);
-invest.submitApplication({ storeId: 'store-not-exist' }).then(r =>
-  assert.equal(r.ok, false, 'unknown spots must be rejected')
-);
-invest.submitApplication({}).then(r =>
-  assert.equal(r.ok, false, 'missing store id must be rejected')
-);
+invest
+  .submitApplication({ storeId: signedSpot.id })
+  .then(r => assert.equal(r.ok, false, 'already signed spots must be rejected'));
+invest
+  .submitApplication({ storeId: occupiedSpot.id })
+  .then(r => assert.equal(r.ok, false, 'spots bound to another investor must be rejected'));
+invest
+  .submitApplication({ storeId: 'store-not-exist' })
+  .then(r => assert.equal(r.ok, false, 'unknown spots must be rejected'));
+invest.submitApplication({}).then(r => assert.equal(r.ok, false, 'missing store id must be rejected'));
 
 // 提交必须走后端角色申请接口（role_type=investor + 目标门店 subjectId），
 // 复用 role_application 链路（用户确认的决策），不再写 localStorage
 const investSource = fs.readFileSync(path.join(root, 'utils/invest.js'), 'utf8');
 assert.ok(
-  investSource.includes("applyBusinessRole('investor'") &&
-    investSource.includes('subjectId: spot.subjectId'),
+  investSource.includes("applyBusinessRole('investor'") && investSource.includes('subjectId: spot.subjectId'),
   'submission must call applyBusinessRole with role_type=investor and the target store as subjectId'
 );
 assert.ok(
@@ -1893,28 +1675,29 @@ assert.ok(
 );
 
 // 详情：注入一条申请后校验状态文案 + 脱敏手机号 + 时间线
-invest.setInvestApplicationsForTest([{
-  id: 1,
-  role_type: 'investor',
-  subject_id: availableSpot.id,
-  applicant_name: '张三',
-  applicant_phone: '13800008888',
-  extra_form: JSON.stringify({ budget: '200000', storeName: availableSpot.name }),
-  status: 'PENDING',
-  apply_time: '2026-09-25 12:00:00'
-}]);
+invest.setInvestApplicationsForTest([
+  {
+    id: 1,
+    role_type: 'investor',
+    subject_id: availableSpot.id,
+    applicant_name: '张三',
+    applicant_phone: '13800008888',
+    extra_form: JSON.stringify({ budget: '200000', storeName: availableSpot.name }),
+    status: 'PENDING',
+    apply_time: '2026-09-25 12:00:00'
+  }
+]);
 assert.equal(invest.listApplications().length, 1, 'applications must reflect the injected record');
 const applicationDetail = invest.getApplicationDetail('1');
 assert.ok(
-  applicationDetail && applicationDetail.statusLabel && applicationDetail.statusNote && applicationDetail.timeline.length,
+  applicationDetail &&
+    applicationDetail.statusLabel &&
+    applicationDetail.statusNote &&
+    applicationDetail.timeline.length,
   'detail must expose label, note and timeline'
 );
 assert.equal(applicationDetail.statusLabel, '审核中', 'detail label must map from PENDING');
-assert.ok(
-  /^\d{3}\*{4}\d{2}$/.test(applicationDetail.phoneText),
-  'detail must mask the contact phone'
-);
-
+assert.ok(/^\d{3}\*{4}\d{2}$/.test(applicationDetail.phoneText), 'detail must mask the contact phone');
 
 // 主页面：搜索 / 城市筛选 / 入口
 const investWxml = fs.readFileSync(path.join(investDir, 'role-invest.wxml'), 'utf8');
@@ -1938,23 +1721,16 @@ assert.ok(
   investWxml.includes('openRecords') && investWxml.includes('openSpot'),
   'invest page must expose the records entry and spot selection'
 );
+assert.ok(investWxml.includes('spot-card--{{item.spotStatus}}'), 'spot cards must reflect their status');
 assert.ok(
-  investWxml.includes('spot-card--{{item.spotStatus}}'),
-  'spot cards must reflect their status'
-);
-assert.ok(
-  !/#[0-9A-Fa-f]{3,8}\b/.test(investWxss) &&
-    /\.invest-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(investWxss),
+  !/#[0-9A-Fa-f]{3,8}\b/.test(investWxss) && /\.invest-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(investWxss),
   'invest page must use tokens and keep the three-section layout contract'
 );
 
 // 申请表单：仅可申请点位可进入 + 手机号校验
 const applyJs = fs.readFileSync(path.join(investApplyDir, 'role-invest-apply.js'), 'utf8');
 const applyWxml = fs.readFileSync(path.join(investApplyDir, 'role-invest-apply.wxml'), 'utf8');
-assert.ok(
-  applyJs.includes("spot.spotStatus !== 'available'"),
-  'apply form must reject spots that are not applicable'
-);
+assert.ok(applyJs.includes("spot.spotStatus !== 'available'"), 'apply form must reject spots that are not applicable');
 assert.ok(
   /function isValidPhone\(value\)/.test(applyJs) && applyJs.includes('/^1\\d{10}$/'),
   'apply form must validate the contact phone'
@@ -1984,10 +1760,7 @@ assert.ok(
     recordsWxml.includes('bindchange="handleDateChange"'),
   'invest records must offer an inclusive date range picker'
 );
-assert.ok(
-  /function matchDateRange\(record, start, end\)/.test(recordsJs),
-  'invest records must filter by date range'
-);
+assert.ok(/function matchDateRange\(record, start, end\)/.test(recordsJs), 'invest records must filter by date range');
 assert.ok(
   recordsWxml.includes('invest-record-category__count') &&
     recordsJs.includes('matched.filter(r => r.status === item.id)'),
@@ -2061,26 +1834,45 @@ assert.ok(
   'income WXSS must use design tokens only'
 );
 assert.ok(
-  /"role-income-records\/role-income-records"/.test(
-    fs.readFileSync(path.join(root, 'app.json'), 'utf8')
-  ),
+  /"role-income-records\/role-income-records"/.test(fs.readFileSync(path.join(root, 'app.json'), 'utf8')),
   'income records page must be registered'
 );
 
 // 收益数据：不再内置假数据；未同步后端时返回 null
-const {
-  buildIncomeTimeline: buildIncomeTl,
-  getIncomeRecordDetail,
-  getIncomeRule,
-  normalizeSettlement
-} = require(path.join(root, 'utils/roles.js'));
+const { buildIncomeTimeline: buildIncomeTl, getIncomeRecordDetail, getIncomeRule, normalizeSettlement } = require(
+  path.join(root, 'utils/roles.js')
+);
 assert.equal(getIncomeData('store'), null, 'income must be null until the backend台账 is loaded');
 
 // 结算台账映射：后端 SettlementRecord -> 前端收益记录结构
 const backendSettlements = [
-  { id: 41, recordNo: 'DEMO-IC202609180004', subjectId: 101, amount: 1890, status: 'PENDING', settleDate: '2026-09-18', createTime: '2026-09-18 20:31:02' },
-  { id: 42, recordNo: 'DEMO-IC202609170002', subjectId: 101, amount: 2780, status: 'SETTLED', settleDate: '2026-09-17', createTime: '2026-09-17 15:08:20' },
-  { id: 43, recordNo: 'DEMO-IC202609160001', subjectId: 101, amount: 1890, status: 'CANCELED', settleDate: '2026-09-16', createTime: '2026-09-16 11:42:36' }
+  {
+    id: 41,
+    recordNo: 'DEMO-IC202609180004',
+    subjectId: 101,
+    amount: 1890,
+    status: 'PENDING',
+    settleDate: '2026-09-18',
+    createTime: '2026-09-18 20:31:02'
+  },
+  {
+    id: 42,
+    recordNo: 'DEMO-IC202609170002',
+    subjectId: 101,
+    amount: 2780,
+    status: 'SETTLED',
+    settleDate: '2026-09-17',
+    createTime: '2026-09-17 15:08:20'
+  },
+  {
+    id: 43,
+    recordNo: 'DEMO-IC202609160001',
+    subjectId: 101,
+    amount: 1890,
+    status: 'CANCELED',
+    settleDate: '2026-09-16',
+    createTime: '2026-09-16 11:42:36'
+  }
 ];
 const mappedSettlements = backendSettlements.map(normalizeSettlement);
 assert.ok(
@@ -2148,11 +1940,7 @@ assert.ok(
 // 收益详情：权限 + 状态文案
 assert.equal(getIncomeRecordDetail('unknown', '1'), null, 'income detail must respect role permission');
 assert.equal(getIncomeRecordDetail('store', 'missing'), null, 'income detail must reject unknown ids');
-assert.equal(
-  getIncomeRecordDetail('store', '41'),
-  null,
-  'income detail must be null until the backend data is loaded'
-);
+assert.equal(getIncomeRecordDetail('store', '41'), null, 'income detail must be null until the backend data is loaded');
 
 // 结算说明
 const incomeRule = getIncomeRule();
@@ -2175,10 +1963,7 @@ for (const page of ['role-income-records', 'role-income-detail', 'role-income-ru
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
     assert.ok(fs.existsSync(path.join(dir, `${page}.${extension}`)), `missing ${page}.${extension}`);
   }
-  assert.ok(
-    appJson.subpackages?.[0]?.pages?.includes(`${page}/${page}`),
-    `${page} must be registered`
-  );
+  assert.ok(appJson.subpackages?.[0]?.pages?.includes(`${page}/${page}`), `${page} must be registered`);
   const wxss = fs.readFileSync(path.join(dir, `${page}.wxss`), 'utf8');
   assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(wxss), `${page} WXSS must use design tokens only`);
   const scrollRule = wxss.match(/\.[a-z-]*scroll\s*\{([\s\S]*?)\}/);
@@ -2199,8 +1984,7 @@ const incomeRecordsJs = fs.readFileSync(
   'utf8'
 );
 assert.ok(
-  incomeRecordsWxml.includes('placeholder="搜索收益单号"') &&
-    !/placeholder="[^"]*时间[^"]*"/.test(incomeRecordsWxml),
+  incomeRecordsWxml.includes('placeholder="搜索收益单号"') && !/placeholder="[^"]*时间[^"]*"/.test(incomeRecordsWxml),
   'income records search must target the order no only'
 );
 assert.ok(
@@ -2240,8 +2024,7 @@ const incomeDetailWxml = fs.readFileSync(
   'utf8'
 );
 assert.ok(
-  incomeDetailWxml.includes('record.timeline') &&
-    incomeDetailWxml.includes('income-detail-hero--{{record.status}}'),
+  incomeDetailWxml.includes('record.timeline') && incomeDetailWxml.includes('income-detail-hero--{{record.status}}'),
   'income detail must render the settlement timeline and status hero'
 );
 assert.ok(
