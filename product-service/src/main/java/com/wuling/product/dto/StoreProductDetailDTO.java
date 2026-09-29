@@ -12,7 +12,7 @@ import lombok.EqualsAndHashCode;
  *
  * <p><b>为什么继承而非复制字段</b>：商品自身的展示字段（名称/价格/规格/原料等）
  * 与消费端详情完全同源，继承可避免两处字段各写一遍导致漂移；
- * 门店维度仅 2 个字段（{@code listed} / {@code platformListed}）。
+ * 门店维度字段为 {@code listed} / {@code platformListed}，另补分类信息（分类名）。
  *
  * <p><b>只读语义</b>：本详情页不支持上下架操作，上下架统一在选品列表页完成。
  * 因此后端不提供对应的写接口，本 DTO 仅用于查询。
@@ -26,4 +26,10 @@ public class StoreProductDetailDTO extends ProductDetailDTO {
 
     /** 该商品在本门店是否已上架（product_store 是否有记录）。 */
     private Boolean listed;
+
+    /** 商品分类主键（详情页展示分类用；消费端详情不含该字段）。 */
+    private Long categoryId;
+
+    /** 商品分类名称（详情页展示分类用；查不到时为 "-"）。 */
+    private String categoryLabel;
 }

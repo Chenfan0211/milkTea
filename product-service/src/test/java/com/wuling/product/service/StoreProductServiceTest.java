@@ -168,6 +168,10 @@ class StoreProductServiceTest {
         base.setName("五窨茉莉抹茶");
         when(productQueryService.getProductDetail("classic-001")).thenReturn(base);
         when(productStoreMapper.selectCount(any())).thenReturn(1L);
+        ProductCategory category = new ProductCategory();
+        category.setId(5L);
+        category.setName("传统原叶茶");
+        when(categoryMapper.selectById(5L)).thenReturn(category);
 
         StoreProductDetailDTO dto = service.getStoreProductDetail(STORE_ID, "classic-001");
 
@@ -175,6 +179,21 @@ class StoreProductServiceTest {
         assertEquals("五窨茉莉抹茶", dto.getName());
         assertTrue(dto.getPlatformListed(), "平台已上架商品 platformListed 恒为 true");
         assertTrue(dto.getListed(), "product_store 有记录即为本店已上架");
+        assertEquals(5L, dto.getCategoryId());
+        assertEquals("传统原叶茶", dto.getCategoryLabel(), "详情页需展示分类名");
+    }
+
+    @Test
+    @DisplayName("详情：分类缺失时 categoryLabel 回落为 '-'，不抛异常")
+    void storeProductDetailToleratesMissingCategory() {
+        when(productMapper.selectOne(any())).thenReturn(product(1L, "p1", "A", 100L, 5L));
+        when(productQueryService.getProductDetail("p1")).thenReturn(new ProductDetailDTO());
+        when(productStoreMapper.selectCount(any())).thenReturn(0L);
+        when(categoryMapper.selectById(5L)).thenReturn(null);
+
+        StoreProductDetailDTO dto = service.getStoreProductDetail(STORE_ID, "p1");
+
+        assertEquals("-", dto.getCategoryLabel());
     }
 
     @Test

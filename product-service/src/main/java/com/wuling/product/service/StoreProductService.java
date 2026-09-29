@@ -162,6 +162,16 @@ public class StoreProductService {
                 .eq(ProductStore::getProductId, product.getId()));
         dto.setPlatformListed(true);
         dto.setListed(linked != null && linked > 0);
+
+        // 分类：消费端详情不含该字段，门店详情页需要展示「商品分类」
+        dto.setCategoryId(product.getCategoryId());
+        if (product.getCategoryId() != null) {
+            ProductCategory category = categoryMapper.selectById(product.getCategoryId());
+            dto.setCategoryLabel(category == null || category.getName() == null
+                    ? "-" : category.getName());
+        } else {
+            dto.setCategoryLabel("-");
+        }
         return dto;
     }
 
