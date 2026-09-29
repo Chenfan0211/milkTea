@@ -29,6 +29,8 @@ Page(
       storeName: '',
       keyword: '',
       catTabs: [{ id: 'all', label: '全部', count: 0 }],
+      // 后端返回的分类分布（与 stats 同源），供分类 tab 渲染
+      categoryCounts: [],
       activeCatId: 'all',
       statusTabs: STATUS_TABS.map(item => Object.assign({}, item, { count: 0 })),
       activeStatusId: 'all',
@@ -187,35 +189,32 @@ Page(
           unlisted
         }
       });
-      // tab 计数依赖 stats，必须在 stats 落定后再重建，避免两者显示不一致
-      this.rebuildTabs(this.data.products);
+      // tab 计数依赖 stats 与后端分类分布，必须在 stats 落定后再重建
+      this.rebuildTabs(source.categoryCounts);
     },
     /**
-     * 从当前页数据推导分类 tab。
+     * 重建分类 / 状态 tab。
      *
-     * 说明：分页下当前页不含全部分类时，tab 会随翻页补齐；
-     * 这是避免再开一个「分类聚合」接口的取舍，已够用（分类数量少且稳定）。
+     * 分类 Tab 直接使用后端返回的分类分布（categoryCounts），**不再按当前页统计** ——
+     * 后者在分页下只统计当前页，数字会随翻页变化，且与「全部」口径不一致
+     * （实测：全量分类为 11/9/8，按当前页却显示 10/5/5）。
+     *
+     * 口径统一：Σ 分类数 == 「全部」== listedTotal + unlistedTotal，
+     * 且不随状态档位切换而变化。
      */
-    rebuildTabs(products) {
-      const seen = [];
-      (products || []).forEach(item => {
-        const key = item.categoryId == null ? item.categoryLabel : item.categoryId;
-        if (key && !seen.some(entry => entry.key === key)) {
-          seen.push({
-            key,
-            id: item.categoryId == null ? item.categoryLabel : item.categoryId,
-            label: item.categoryLabel
-          });
-        }
-      });
+    rebuildTabs(categoryCounts) {
+      const counts = Array.isArray(categoryCounts) ? categoryCounts : this.data.categoryCounts;
+      // 过滤分类 tab 的 id 用后端分类主键；后端可能返回 null 主键（历史数据），跳过
       const catTabs = [{ id: 'all', label: '全部', count: this.data.stats.total }].concat(
-        seen.map(entry => ({
-          id: entry.id,
-          label: entry.label,
-          count: (products || []).filter(p => (p.categoryId == null ? p.categoryLabel : p.categoryId) === entry.key)
-            .length
-        }))
+        (counts || [])
+          .filter(entry => entry && entry.categoryId != null)
+          .map(entry => ({
+            id: entry.categoryId,
+            label: entry.label || '未分类',
+            count: Number(entry.count) || 0
+          }))
       );
+      this.setData({ categoryCounts: counts || [] });
       const statusTabs = STATUS_TABS.map(item => {
         // 「全部」用分布总和（自动剔除档位筛选）；另两档用各自计数
         let count = this.data.stats.total;
@@ -325,7 +324,7 @@ Page(
           hasMore: leavesCurrentTab ? false : this.data.hasMore
         });
       }
-      this.rebuildTabs(products);
+      this.rebuildTabs();
     },
     // 批量操作走二次确认，避免误触导致门店整体下架。
     batchUpdate(event) {

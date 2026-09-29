@@ -145,6 +145,61 @@ class StoreProductServiceTest {
     }
 
     @Test
+    @DisplayName("分类分布：与总数同源，Σ分类 == 全部，且按数量降序")
+    void categoryCountsAreConsistentWithTotal() {
+        when(productStoreMapper.selectListedProductIds(STORE_ID)).thenReturn(List.of(1L));
+        when(productMapper.selectList(any())).thenReturn(List.of(
+                product(1L, "p1", "A", 100L, 10L),
+                product(2L, "p2", "B", 200L, 10L),
+                product(3L, "p3", "C", 300L, 20L)));
+        ProductCategory c10 = new ProductCategory();
+        c10.setId(10L);
+        c10.setName("草本养生茶");
+        ProductCategory c20 = new ProductCategory();
+        c20.setId(20L);
+        c20.setName("季节限定");
+        when(categoryMapper.selectBatchIds(any())).thenReturn(List.of(c10, c20));
+
+        StoreProductPageDTO page = service.pageStoreProducts(STORE_ID, 1, 20, null, null, null);
+
+        List<StoreProductPageDTO.CategoryCount> counts = page.getCategoryCounts();
+        assertEquals(2, counts.size(), "两个分类各一条");
+        // 降序：10 有 2 个 -> 在前
+        assertEquals(10L, counts.get(0).getCategoryId());
+        assertEquals("草本养生茶", counts.get(0).getLabel());
+        assertEquals(2, counts.get(0).getCount());
+        assertEquals(20L, counts.get(1).getCategoryId());
+        assertEquals(1, counts.get(1).getCount());
+
+        long sum = counts.stream().mapToLong(StoreProductPageDTO.CategoryCount::getCount).sum();
+        assertEquals(page.getListedTotal() + page.getUnlistedTotal(), sum,
+                "Σ分类数必须等于「全部」，否则分类 Tab 与状态 Tab 对不上");
+    }
+
+    @Test
+    @DisplayName("分类分布：不随 listed 档位变化（口径统一）")
+    void categoryCountsIgnoreListingFilter() {
+        when(productStoreMapper.selectListedProductIds(STORE_ID)).thenReturn(List.of(1L));
+        when(productMapper.selectList(any())).thenReturn(List.of(
+                product(1L, "p1", "A", 100L, 10L),
+                product(2L, "p2", "B", 200L, 10L)));
+        ProductCategory c10 = new ProductCategory();
+        c10.setId(10L);
+        c10.setName("草本养生茶");
+        when(categoryMapper.selectBatchIds(any())).thenReturn(List.of(c10));
+
+        StoreProductPageDTO listed = service.pageStoreProducts(STORE_ID, 1, 20, null, null, true);
+        StoreProductPageDTO unlisted = service.pageStoreProducts(STORE_ID, 1, 20, null, null, false);
+
+        assertEquals(1, listed.getTotal(), "已上架档 1 条");
+        assertEquals(1, unlisted.getTotal(), "已下架档 1 条");
+        // 两档的分类分布完全一致（都反映全量）
+        assertEquals(2, listed.getCategoryCounts().get(0).getCount());
+        assertEquals(2, unlisted.getCategoryCounts().get(0).getCount(),
+                "分类分布不随档位变化，避免数字随切档跳动");
+    }
+
+    @Test
     @DisplayName("计数：跟随关键词筛选，避免「全部」与两个档位口径不一致")
     void countsFollowKeywordFilter() {
         when(productStoreMapper.selectListedProductIds(STORE_ID)).thenReturn(List.of(1L));

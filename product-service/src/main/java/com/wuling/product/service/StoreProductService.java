@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +108,53 @@ public class StoreProductService {
             records.add(toDTO(product, listedIdList, categoryNames));
         }
         return StoreProductPageDTO.of(
-                PageResult.of(records, safeCurrent, safeSize, total), listedTotal, unlistedTotal);
+                PageResult.of(records, safeCurrent, safeSize, total),
+                listedTotal, unlistedTotal, buildCategoryCounts(scoped));
+    }
+
+    /**
+     * 分类分布：按基础条件（keyword / categoryId 过滤后、listed 过滤前）统计各分类商品数。
+     *
+     * <p><b>为什么与计数同源</b>：分类 Tab 的「全部」与各分类数字必须能对上
+     * （Σ 分类数 == 全部）。早期由前端按「当前页数据」统计，分页下只统计当前页，
+     * 数字会随翻页变化且与「全部」口径不一致。
+     *
+     * <p>按数量降序；数量相同按分类主键升序，保证多次请求顺序稳定
+     * （否则前端 Tab 会来回跳位）。
+     */
+    private List<StoreProductPageDTO.CategoryCount> buildCategoryCounts(List<Product> scoped) {
+        Map<Long, Long> byCategory = new LinkedHashMap<>();
+        for (Product product : scoped) {
+            Long categoryId = product.getCategoryId();
+            if (categoryId != null) {
+                byCategory.merge(categoryId, 1L, Long::sum);
+            }
+        }
+        if (byCategory.isEmpty()) {
+            return List.of();
+        }
+        // 复用已有的批量分类名查询，避免 N+1
+        List<ProductCategory> categories = categoryMapper.selectBatchIds(byCategory.keySet());
+        Map<Long, String> names = new LinkedHashMap<>();
+        if (categories != null) {
+            for (ProductCategory category : categories) {
+                if (category != null && category.getId() != null) {
+                    names.put(category.getId(), category.getName());
+                }
+            }
+        }
+        List<StoreProductPageDTO.CategoryCount> result = new ArrayList<>();
+        byCategory.entrySet().stream()
+                .sorted(Comparator.comparingLong((Map.Entry<Long, Long> e) -> e.getValue()).reversed()
+                        .thenComparingLong(Map.Entry::getKey))
+                .forEach(entry -> {
+                    StoreProductPageDTO.CategoryCount count = new StoreProductPageDTO.CategoryCount();
+                    count.setCategoryId(entry.getKey());
+                    count.setLabel(names.getOrDefault(entry.getKey(), "-"));
+                    count.setCount(entry.getValue());
+                    result.add(count);
+                });
+        return result;
     }
 
     /**
