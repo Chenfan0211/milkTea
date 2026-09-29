@@ -122,6 +122,16 @@ spring:
           uri: lb://wuling-product-service
           predicates:
             - Path=/api/v1/app/menu,/api/v1/app/products/**
+        # 商品服务 · 门店选品（小程序，需登录）
+        # 为什么单独一条：选品控制器路径为 /api/v1/app/workbench/store/{id}/products，
+        # 与 trade-service 的核销路径（.../store/{id}/verify*）同处 workbench 前缀下，
+        # 但归属不同服务，只能按精确子路径分流；否则会被下方 legacy-server 的
+        # /api/v1/** 兜底吞掉（server 无此类 -> NoResourceFoundException）。
+        # 顺序敏感：必须排在 legacy-server 之前。
+        - id: product-app-workbench
+          uri: lb://wuling-product-service
+          predicates:
+            - Path=/api/v1/app/workbench/store/*/products,/api/v1/app/workbench/store/*/products/**
 
         # ---------- 单体兜底（尚未拆分的域：财务 / 主体 / 系统）----------
         - id: legacy-server
@@ -133,9 +143,9 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
+            allowedOriginPatterns: '*'
+            allowedMethods: '*'
+            allowedHeaders: '*'
             allowCredentials: true
             maxAge: 3600
 
@@ -155,7 +165,6 @@ app:
   jwt:
     # 与 auth-service / server 共用同一密钥；缺失时网关拒绝启动
     secret: ${JWT_SECRET:}
-
 
 management:
   endpoints:
