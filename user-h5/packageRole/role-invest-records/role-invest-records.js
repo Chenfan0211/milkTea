@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole } = require('../../utils/roles');
 const { listApplications, INVEST_STATUS_TEXT, refreshInvestApplications } = require('../../utils/invest');
@@ -36,7 +37,9 @@ function buildRange(count, from) {
 
 // 搜索同时匹配申请单号与点位名称。
 function matchKeyword(record, keyword) {
-  const key = String(keyword || '').trim().toLowerCase();
+  const key = String(keyword || '')
+    .trim()
+    .toLowerCase();
   if (!key) return true;
   const orderNo = String(record.orderNo || '').toLowerCase();
   const storeName = String(record.storeName || '').toLowerCase();
@@ -80,7 +83,7 @@ Page(
       this.todayKey = toDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate());
       // 从申请页跳转过来时直接高亮对应记录。
       this.focusId = (options && options.id) || '';
-      this.syncRole();
+      ensureBusinessRole().then(() => this.syncRole());
     },
     onShow() {
       if (this.data.ready) this.syncRecords();

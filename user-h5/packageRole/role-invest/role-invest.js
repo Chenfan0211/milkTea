@@ -1,6 +1,13 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { getCurrentBusinessRole, getCurrentSubjectId } = require('../../utils/roles');
-const { getInvestStats, getSpots, listApplications, refreshInvestCatalog, refreshInvestApplications } = require('../../utils/invest');
+const {
+  getInvestStats,
+  getSpots,
+  listApplications,
+  refreshInvestCatalog,
+  refreshInvestApplications
+} = require('../../utils/invest');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
 const APPLY_URL = '/packageRole/role-invest-apply/role-invest-apply';
@@ -23,7 +30,9 @@ const FLOW_STEPS = [
 
 // 搜索匹配点位名称与地址。
 function matchKeyword(spot, keyword) {
-  const key = String(keyword || '').trim().toLowerCase();
+  const key = String(keyword || '')
+    .trim()
+    .toLowerCase();
   if (!key) return true;
   const name = String(spot.name || '').toLowerCase();
   const address = String(spot.address || '').toLowerCase();
@@ -45,7 +54,9 @@ Page(
       recordsSummary: '暂无申请记录'
     },
     onLoad() {
-      this.syncRole();
+      // 先确保角色已同步（冷启动/直接进入时本地 Storage 尚无角色），
+      // 再走原有 syncRole（内部自会按「有无角色」分流处理）。
+      ensureBusinessRole().then(() => this.syncRole());
     },
     onShow() {
       if (this.data.ready) this.syncSpots();
@@ -99,8 +110,7 @@ Page(
           };
         })
       );
-      const filteredSpots =
-        activeCityId === 'all' ? matched : matched.filter(spot => spot.cityCode === activeCityId);
+      const filteredSpots = activeCityId === 'all' ? matched : matched.filter(spot => spot.cityCode === activeCityId);
       this.setData({ cityTabs, filteredSpots });
     },
     handleKeyword(event) {

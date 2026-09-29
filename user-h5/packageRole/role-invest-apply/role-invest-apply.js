@@ -1,6 +1,12 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { getCurrentBusinessRole, getCurrentSubjectId } = require('../../utils/roles');
-const { getSpotById, submitApplication, refreshInvestCatalog, refreshInvestApplications } = require('../../utils/invest');
+const {
+  getSpotById,
+  submitApplication,
+  refreshInvestCatalog,
+  refreshInvestApplications
+} = require('../../utils/invest');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
 const RECORDS_URL = '/packageRole/role-invest-records/role-invest-records';
@@ -60,23 +66,24 @@ Page(
       canSubmit: false
     },
     onLoad(options) {
-      const role = getCurrentBusinessRole();
-      if (!role || role.id !== 'investor') {
-        wx.showToast({ title: '仅投资人角色可申请点位投资', icon: 'none' });
-        this.leaveToRoleCenter();
-        return;
-      }
-      const storeId = (options && options.storeId) || '';
-      Promise.all([refreshInvestCatalog(), refreshInvestApplications()]).then(() => {
-        const spot = getSpotById(storeId, getCurrentSubjectId());
-      // 只有「可申请」状态的点位能进入表单，避免绕过列表直接提交。
-      if (!spot || spot.spotStatus !== 'available') {
-        this.setData({ ready: false });
-        wx.showToast({ title: '该点位当前不可申请', icon: 'none' });
-        return;
-      }
-        this.storeId = spot.id;
-        this.setData({ ready: true, title: `${spot.name} · 投资申请`, spot });
+      ensureBusinessRole().then(role => {
+        if (!role || role.id !== 'investor') {
+          wx.showToast({ title: '仅投资人角色可申请点位投资', icon: 'none' });
+          this.leaveToRoleCenter();
+          return;
+        }
+        const storeId = (options && options.storeId) || '';
+        Promise.all([refreshInvestCatalog(), refreshInvestApplications()]).then(() => {
+          const spot = getSpotById(storeId, getCurrentSubjectId());
+          // 只有「可申请」状态的点位能进入表单，避免绕过列表直接提交。
+          if (!spot || spot.spotStatus !== 'available') {
+            this.setData({ ready: false });
+            wx.showToast({ title: '该点位当前不可申请', icon: 'none' });
+            return;
+          }
+          this.storeId = spot.id;
+          this.setData({ ready: true, title: `${spot.name} · 投资申请`, spot });
+        });
       });
     },
     handleInput(event) {

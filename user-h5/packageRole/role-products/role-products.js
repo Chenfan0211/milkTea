@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { getCurrentBusinessRole, getBoundStore, getCurrentSubjectId } = require('../../utils/roles');
 const api = require('../../utils/api');
 
@@ -50,7 +51,9 @@ Page(
       selectedUnlistedCount: 0
     },
     onLoad() {
-      this.syncRole();
+      // 先确保角色已同步（冷启动/直接进入时本地 Storage 尚无角色），
+      // 再走原有 syncRole（内部自会按「有无角色」分流处理）。
+      ensureBusinessRole().then(() => this.syncRole());
     },
     onShow() {
       // 从详情页返回：保留勾选并重新拉第 1 页（后台可能已改价/上下架）

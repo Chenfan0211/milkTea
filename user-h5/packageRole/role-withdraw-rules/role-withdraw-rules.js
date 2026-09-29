@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const {
   getCurrentBusinessRole,
   getWithdrawRule,
@@ -17,16 +18,17 @@ Page(
       ruleFootnotes: []
     },
     onLoad() {
-      const role = getCurrentBusinessRole();
-      if (!role) {
-        wx.showToast({ title: '请先开通并选择经营角色', icon: 'none' });
-        this.leaveToRoleCenter();
-        return;
-      }
-      // 即时额度取后端提现规则接口，说明文案取 app_config.withdraw_rule；
-      // 两者都拿不到时用内置兜底，保证规则页始终可读
-      Promise.all([syncRoleConfigFromRemote(), syncWithdrawRuleFromRemote()]).then(() => this.render());
-      this.render();
+      ensureBusinessRole().then(role => {
+        if (!role) {
+          wx.showToast({ title: '请先开通并选择经营角色', icon: 'none' });
+          this.leaveToRoleCenter();
+          return;
+        }
+        // 即时额度取后端提现规则接口，说明文案取 app_config.withdraw_rule；
+        // 两者都拿不到时用内置兜底，保证规则页始终可读
+        Promise.all([syncRoleConfigFromRemote(), syncWithdrawRuleFromRemote()]).then(() => this.render());
+        this.render();
+      });
     },
     render() {
       const rule = getWithdrawRule();

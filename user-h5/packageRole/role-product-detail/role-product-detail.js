@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { getCurrentBusinessRole, getBoundStore, getCurrentSubjectId } = require('../../utils/roles');
 const api = require('../../utils/api');
 
@@ -25,7 +26,8 @@ Page(
     },
     onLoad(options) {
       this.productId = (options && options.id) || '';
-      this.syncProduct();
+      // 先确保角色已同步（冷启动时 getBoundStore 依赖 subjectId）
+      ensureBusinessRole().then(() => this.syncProduct());
     },
     syncProduct() {
       const role = getCurrentBusinessRole();

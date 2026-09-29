@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole } = require('../../utils/roles');
 const { getApplicationDetail, refreshInvestApplications } = require('../../utils/invest');
@@ -13,12 +14,16 @@ Page(
       record: null
     },
     onLoad(options) {
-      const role = getCurrentBusinessRole();
-      if (!role || role.id !== 'investor') {
-        wx.showToast({ title: '仅投资人角色可查看申请详情', icon: 'none' });
-        this.leaveToRoleCenter();
-        return;
-      }
+      ensureBusinessRole().then(role => {
+        if (!role || role.id !== 'investor') {
+          wx.showToast({ title: '仅投资人角色可查看申请详情', icon: 'none' });
+          this.leaveToRoleCenter();
+          return;
+        }
+        this.loadDetail(options);
+      });
+    },
+    loadDetail(options) {
       this.recordId = (options && options.id) || '';
       // 先拉取申请镜像再取详情（getApplicationDetail 依赖镜像）
       refreshInvestApplications().then(() => {
@@ -28,7 +33,15 @@ Page(
           wx.showToast({ title: '申请记录不存在', icon: 'none' });
           return;
         }
-        this.setData({ ready: true, record: Object.assign({}, record, { timeText: formatDateTime(record.time), timeline: (record.timeline || []).map(step => Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })) }) });
+        this.setData({
+          ready: true,
+          record: Object.assign({}, record, {
+            timeText: formatDateTime(record.time),
+            timeline: (record.timeline || []).map(step =>
+              Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })
+            )
+          })
+        });
       });
     },
     copyOrderNo() {

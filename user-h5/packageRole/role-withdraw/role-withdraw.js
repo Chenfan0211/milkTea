@@ -1,5 +1,6 @@
 const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const {
   getCurrentBusinessRole,
   getWithdrawData,
@@ -45,7 +46,9 @@ Page(
       canSubmit: false
     },
     onLoad() {
-      this.syncRole();
+      // 先确保角色已同步（冷启动/直接进入时本地 Storage 尚无角色），
+      // 再走原有 syncRole（内部自会按「有无角色」分流处理）。
+      ensureBusinessRole().then(() => this.syncRole());
     },
     onShow() {
       if (this.data.ready) this.syncRecords();
@@ -172,17 +175,15 @@ Page(
           // 重新拉取记录与余额，确保展示与后端一致
           const role = getCurrentBusinessRole();
           if (!role) return null;
-          return Promise.all([
-            syncWorkbenchFromRemote(role.id),
-            syncWithdrawalsFromRemote(role.id)
-          ]).then(() => this.applyRoleData(role));
+          return Promise.all([syncWorkbenchFromRemote(role.id), syncWithdrawalsFromRemote(role.id)]).then(() =>
+            this.applyRoleData(role)
+          );
         })
         .catch(error => {
           wx.hideLoading();
           this.submitting = false;
           wx.showToast({ title: (error && error.message) || '提现申请失败，请稍后重试', icon: 'none' });
         });
-    },
+    }
   })
 );
-

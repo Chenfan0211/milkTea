@@ -2072,4 +2072,34 @@ for (const recordsRoute of [
   assert.ok(PAGE_SHARE_TITLES[recordsRoute], `${recordsRoute} must define a title`);
 }
 
+// 冷启动守卫：所有依赖 getCurrentBusinessRole / getActiveRoles 的角色页，
+// 都必须在 onLoad 前经过 ensureBusinessRole / ensureRolesLoaded 同步角色。
+// 否则冷启动 / 直接进入（分享、B 端跳转）时本地 Storage 尚无角色，
+// getCurrentBusinessRole() 恒为 null，页面会误判「暂无权限」且接口永不调用。
+{
+  const guardPath = path.join(root, 'utils/role-page.js');
+  assert.ok(fs.existsSync(guardPath), 'missing utils/role-page.js');
+  const guardSource = fs.readFileSync(guardPath, 'utf8');
+  for (const fn of ['ensureBusinessRole', 'ensureRolesLoaded']) {
+    assert.ok(guardSource.includes(`function ${fn}`), `role-page.js must export ${fn}`);
+  }
+
+  // 抽查关键页面已接入守卫（全量由下方清单保证）
+  const guardedPages = [
+    'packageRole/role-verify/role-verify.js',
+    'packageRole/role-products/role-products.js',
+    'packageRole/role-withdraw/role-withdraw.js',
+    'packageRole/role-invest/role-invest.js',
+    'packageRole/role-workbench/role-workbench.js',
+    'packageRole/role-product-detail/role-product-detail.js'
+  ];
+  for (const page of guardedPages) {
+    const src = fs.readFileSync(path.join(root, page), 'utf8');
+    assert.ok(
+      src.includes('role-page') && (src.includes('ensureBusinessRole') || src.includes('ensureRolesLoaded')),
+      `${page} 必须在 onLoad 前接入角色守卫，避免冷启动误判「暂无权限」`
+    );
+  }
+}
+
 console.log('角色功能落地页、核销/收益/提现路由与权限测试通过');

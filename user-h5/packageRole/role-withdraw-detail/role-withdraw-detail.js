@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole, getWithdrawRecordDetail, syncWithdrawalsFromRemote } = require('../../utils/roles');
 
@@ -14,8 +15,8 @@ Page(
     },
     onLoad(options) {
       this.recordId = (options && options.id) || '';
-      // 先同步后端记录再取单条，避免直接进详情页时缓存为空
-      syncWithdrawalsFromRemote().then(() => this.syncRecord());
+      // 先确保角色已同步，再同步后端记录取单条
+      ensureBusinessRole().then(() => syncWithdrawalsFromRemote().then(() => this.syncRecord()));
     },
     syncRecord() {
       const role = getCurrentBusinessRole();
@@ -31,7 +32,15 @@ Page(
         wx.showToast({ title: '提现记录不存在', icon: 'none' });
         return;
       }
-      this.setData({ ready: true, record: Object.assign({}, record, { timeText: formatDateTime(record.time), timeline: (record.timeline || []).map(step => Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })) }) });
+      this.setData({
+        ready: true,
+        record: Object.assign({}, record, {
+          timeText: formatDateTime(record.time),
+          timeline: (record.timeline || []).map(step =>
+            Object.assign({}, step, { timeText: step.time ? formatDateTime(step.time) : '' })
+          )
+        })
+      });
     },
     copyOrderNo() {
       const orderNo = this.data.record && this.data.record.orderNo;

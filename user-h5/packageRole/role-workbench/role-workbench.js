@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureRolesLoaded } = require('../../utils/role-page');
 const { getActiveRoles, getDashboard, warmUpRoleData } = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
@@ -15,23 +16,25 @@ Page(
     onLoad(options) {
       const requested = options && options.role;
       const action = options && options.action;
-      const activeRoles = getActiveRoles();
-      const role = activeRoles.find(item => item.id === requested) || null;
-      const dashboard = role ? getDashboard(role.id) : null;
-      if (!role || !dashboard) {
-        this.setData({ ready: false, role: null, dashboard: null, title: '角色工作台' });
-        wx.showToast({ title: '暂无权限访问该工作台', icon: 'none' });
-        this.leaveToRoleCenter();
-        return;
-      }
-      const validAction = dashboard.actions.some(item => item.id === action) ? action : '';
-      this.setData({ ready: true, role, dashboard, title: dashboard.title, highlightActionId: validAction }, () => {
-        if (validAction) this.focusAction(validAction);
-      });
-      // 概览 / 核销 / 订单等数据全部来自后端；失败时保留上面的兜底渲染
-      warmUpRoleData(role.id).then(() => {
-        const next = getDashboard(role.id);
-        if (next) this.setData({ dashboard: next, title: next.title });
+      // 先确保角色列表已同步（冷启动时 getActiveRoles 依赖 /roles/mine）
+      ensureRolesLoaded().then(activeRoles => {
+        const role = activeRoles.find(item => item.id === requested) || null;
+        const dashboard = role ? getDashboard(role.id) : null;
+        if (!role || !dashboard) {
+          this.setData({ ready: false, role: null, dashboard: null, title: '角色工作台' });
+          wx.showToast({ title: '暂无权限访问该工作台', icon: 'none' });
+          this.leaveToRoleCenter();
+          return;
+        }
+        const validAction = dashboard.actions.some(item => item.id === action) ? action : '';
+        this.setData({ ready: true, role, dashboard, title: dashboard.title, highlightActionId: validAction }, () => {
+          if (validAction) this.focusAction(validAction);
+        });
+        // 概览 / 核销 / 订单等数据全部来自后端；失败时保留上面的兜底渲染
+        warmUpRoleData(role.id).then(() => {
+          const next = getDashboard(role.id);
+          if (next) this.setData({ dashboard: next, title: next.title });
+        });
       });
     },
     focusAction(actionId) {

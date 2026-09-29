@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const { ensureBusinessRole } = require('../../utils/role-page');
 const { formatDateTime } = require('../../utils/date-format');
 const {
   getCurrentBusinessRole,
@@ -42,9 +43,15 @@ function buildRange(count, from) {
 
 // 搜索只匹配提现单号，时间交由独立的开始/结束选择器处理。
 function matchKeyword(record, keyword) {
-  const key = String(keyword || '').trim().toLowerCase();
+  const key = String(keyword || '')
+    .trim()
+    .toLowerCase();
   if (!key) return true;
-  return String(record.orderNo || '').toLowerCase().indexOf(key) >= 0;
+  return (
+    String(record.orderNo || '')
+      .toLowerCase()
+      .indexOf(key) >= 0
+  );
 }
 
 // 闭区间比较，字符串按 YYYY-MM-DD 定长可直接字典序比较。
@@ -82,7 +89,7 @@ Page(
     onLoad() {
       const now = new Date();
       this.todayKey = toDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate());
-      this.syncRole();
+      ensureBusinessRole().then(() => this.syncRole());
     },
     onShow() {
       // 提现记录以后端为唯一来源：拉到后重渲染，失败保留现有列表
