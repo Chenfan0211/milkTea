@@ -1381,7 +1381,7 @@ assert.ok(!giftPurchaseWxml.includes('tabbar-safe-space'), '礼品卡购买页�
 
 const profileWxssSource = fs.readFileSync(path.join(root, 'pages/profile/profile.wxss'), 'utf8');
 const profileLiterals = [
-  ...new Set([...profileWxssSource.matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0]).filter(c => c !== '#FFFFFF'))
+  ...new Set([...profileWxssSource.matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0]).filter(c => c.toUpperCase() !== '#FFFFFF'))
 ];
 assert.ok(profileLiterals.length === 0, '个人中心样式不得使用颜色字面量（白色除外）');
 const profileBadFonts = [
@@ -1563,7 +1563,7 @@ assert.ok(
   '分类栏必须为 195rpx 且使用统一浅灰背景'
 );
 assert.ok(
-  /\.category-item\.is-active\s*\{[\s\S]*?background:\s*#FFFFFF/.test(menuWxss),
+  /\.category-item\.is-active\s*\{[\s\S]*?background:\s*#[Ff]{6}/.test(menuWxss),
   '当前分类行必须使用白色选中背景'
 );
 assert.ok(
@@ -1689,13 +1689,13 @@ assert.ok(
 );
 const appWxssSource = fs.readFileSync(path.join(root, 'app.wxss'), 'utf8');
 assert.ok(
-  appWxssSource.includes('--queue-warning: #E6A23C') && appWxssSource.includes('--favorite-gold: #D4A017'),
+  /--queue-warning:\s*#E6A23C/i.test(appWxssSource) && /--favorite-gold:\s*#D4A017/i.test(appWxssSource),
   '设计系统必须包含排队黄色和收藏金色 token'
 );
 assert.ok(
-  appWxssSource.includes('--store-page-mint: #EAF4E1') &&
-    appWxssSource.includes('--store-promo-from: #429E46') &&
-    appWxssSource.includes('--store-decor-leaf: #A6C685'),
+  /--store-page-mint:\s*#EAF4E1/i.test(appWxssSource) &&
+    /--store-promo-from:\s*#429E46/i.test(appWxssSource) &&
+    /--store-decor-leaf:\s*#A6C685/i.test(appWxssSource),
   '设计系统必须登记门店卡鲜绿 token'
 );
 assert.ok(
@@ -1852,7 +1852,7 @@ assert.ok(
 );
 assert.ok(!cartBarWxss.includes('.cart-bar__label'), '购物车样式不得保留购物袋标签');
 assert.ok(
-  /\.cart-bar\s*\{[\s\S]*?right:\s*34rpx[\s\S]*?left:\s*27rpx[\s\S]*?height:\s*96rpx[\s\S]*?background:\s*#2D2D2D/.test(
+  /\.cart-bar\s*\{[\s\S]*?right:\s*34rpx[\s\S]*?left:\s*27rpx[\s\S]*?height:\s*96rpx[\s\S]*?background:\s*#2d2d2d/i.test(
     cartBarWxss
   ),
   '购物车胶囊位置、高度和颜色必须与调整方案一致'
