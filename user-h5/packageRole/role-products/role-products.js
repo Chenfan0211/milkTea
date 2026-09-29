@@ -12,7 +12,9 @@ const STATUS_TABS = [
 
 // 搜索同时匹配商品名称与商品编号，大小写不敏感。
 function matchKeyword(product, keyword) {
-  const key = String(keyword || '').trim().toLowerCase();
+  const key = String(keyword || '')
+    .trim()
+    .toLowerCase();
   if (!key) return true;
   const name = String(product.name || '').toLowerCase();
   const id = String(product.id || '').toLowerCase();
@@ -137,8 +139,7 @@ Page(
             loadingMore: false,
             loadError: ''
           });
-          this.refreshStats(products, total);
-          this.rebuildTabs(products);
+          this.refreshStats(page, total);
           this.syncSelectionSummary();
         })
         .catch(() => {
@@ -147,15 +148,13 @@ Page(
             loadingMore: false,
             loadError: '商品加载失败，请下拉重试'
           });
-          if (!append) this.refreshStats([], 0);
+          if (!append) this.refreshStats(null, 0);
         });
     },
     /** 触底加载下一页。 */
     loadMore() {
       if (!this.data.hasMore || this.data.loading || this.data.loadingMore) return Promise.resolve();
-      this.setData({ loadingMore: true, current: this.data.current + 1 }, () =>
-        this.fetchPage({ append: true })
-      );
+      this.setData({ loadingMore: true, current: this.data.current + 1 }, () => this.fetchPage({ append: true }));
     },
     /** 价格（分 -> 元，保留 2 位）。 */
     formatPrice(fen) {
@@ -165,38 +164,28 @@ Page(
     /**
      * 统计卡：全部 / 已上架 / 已下架。
      *
-     * 注意：分页下前端只有当前页数据，故「全部」以 total 为准；
-     * 已上架 / 已下架由后端按状态分别计数（见 refreshStats 的两次轻量查询）。
+     * 三个数全部取自**同一次列表请求**的后端计数（listedTotal / unlistedTotal），
+     * 与 total 使用完全相同的筛选条件，因此恒有 全部 = 已上架 + 已下架。
+     *
+     * 历史 bug（本次修复）：
+     *   1) 原先用「当前页数据」本地估算，再异步被后端值覆盖 -> 数字会跳动；
+     *   2) 后端计数由前端额外发两次请求获得，且未带 keyword / categoryId，
+     *      导致「全部」走筛选口径、两个档位走全量口径，三者永不自洽
+     *      （线上实测 全部 1 / 已上架 27 / 已下架 1，而 27+1=28≠1）。
      */
-    refreshStats(products, total) {
-      // 当前页能确定的部分先展示，随后用后端计数校准（见 refreshStatsFromRemote）。
-      const listed = products.filter(item => item.listed).length;
-      const unlisted = products.length - listed;
+    refreshStats(page, total) {
+      const source = page || {};
+      const listed = Number(source.listedTotal) || 0;
+      const unlisted = Number(source.unlistedTotal) || 0;
       this.setData({
-        stats: { total, listed, unlisted }
+        stats: {
+          total: Number(total) || 0,
+          listed,
+          unlisted
+        }
       });
-      this.refreshStatsFromRemote(total);
-    },
-    /** 用后端计数校准「已上架 / 已下架」个数（当前页数据不足以统计全量）。 */
-    refreshStatsFromRemote(total) {
-      if (this.storeSubjectId == null) return;
-      const base = { current: 1, size: 1 };
-      Promise.all([
-        api.fetchStoreProducts(this.storeSubjectId, Object.assign({}, base, { listed: true })),
-        api.fetchStoreProducts(this.storeSubjectId, Object.assign({}, base, { listed: false }))
-      ])
-        .then(([listedPage, unlistedPage]) => {
-          this.setData({
-            stats: {
-              total: Number(total) || 0,
-              listed: Number(listedPage && listedPage.total) || 0,
-              unlisted: Number(unlistedPage && unlistedPage.total) || 0
-            }
-          });
-        })
-        .catch(() => {
-          // 计数失败保留当前页统计，不影响主流程
-        });
+      // tab 计数依赖 stats，必须在 stats 落定后再重建，避免两者显示不一致
+      this.rebuildTabs(this.data.products);
     },
     /**
      * 从当前页数据推导分类 tab。
@@ -209,14 +198,19 @@ Page(
       (products || []).forEach(item => {
         const key = item.categoryId == null ? item.categoryLabel : item.categoryId;
         if (key && !seen.some(entry => entry.key === key)) {
-          seen.push({ key, id: item.categoryId == null ? item.categoryLabel : item.categoryId, label: item.categoryLabel });
+          seen.push({
+            key,
+            id: item.categoryId == null ? item.categoryLabel : item.categoryId,
+            label: item.categoryLabel
+          });
         }
       });
       const catTabs = [{ id: 'all', label: '全部', count: this.data.total }].concat(
         seen.map(entry => ({
           id: entry.id,
           label: entry.label,
-          count: (products || []).filter(p => (p.categoryId == null ? p.categoryLabel : p.categoryId) === entry.key).length
+          count: (products || []).filter(p => (p.categoryId == null ? p.categoryLabel : p.categoryId) === entry.key)
+            .length
         }))
       );
       const statusTabs = STATUS_TABS.map(item => {
@@ -225,7 +219,11 @@ Page(
         if (item.id === 'unlisted') count = this.data.stats.unlisted;
         return { id: item.id, label: item.label, count };
       });
-      this.setData({ catTabs, statusTabs, hasFilter: Boolean(this.data.keyword || this.data.activeCatId !== 'all' || this.data.activeStatusId !== 'all') });
+      this.setData({
+        catTabs,
+        statusTabs,
+        hasFilter: Boolean(this.data.keyword || this.data.activeCatId !== 'all' || this.data.activeStatusId !== 'all')
+      });
     },
     selectedIds() {
       return (this.data.products || []).filter(item => item.selected).map(item => item.id);
@@ -284,7 +282,7 @@ Page(
         .updateStoreListing(this.storeSubjectId, target.productId, next)
         .then(() => {
           this.listing = false;
-          this.patchProduct(id, { listed: next });
+          this.patchProduct(id, { listed: next }, target.listed);
           wx.showToast({ title: next ? '已上架' : '已下架', icon: 'none' });
         })
         .catch(error => {
@@ -292,14 +290,28 @@ Page(
           wx.showToast({ title: (error && error.message) || '操作失败，请重试', icon: 'none' });
         });
     },
-    patchProduct(id, patch) {
-      const products = this.data.products.map(item =>
-        item.id === id ? Object.assign({}, item, patch) : item
-      );
+    /**
+     * 单条上下架后的局部回写。
+     *
+     * 统计按「已知的一进一出」本地精确调整，不整页 reload ——
+     * reload 会重置到第 1 页并丢失滚动位置，用户连点上架时体验很差。
+     * afterListing 记录该商品操作前的状态，用于判断计数是否需要挪动。
+     */
+    patchProduct(id, patch, beforeListed) {
+      const products = this.data.products.map(item => (item.id === id ? Object.assign({}, item, patch) : item));
       this.setData({ products });
       this.syncSelectionSummary();
-      // 校准统计与 tab 计数
-      this.refreshStats(products, this.data.total);
+
+      if (typeof beforeListed === 'boolean' && beforeListed !== patch.listed) {
+        const delta = patch.listed ? 1 : -1;
+        this.setData({
+          stats: {
+            total: this.data.stats.total,
+            listed: Math.max(0, this.data.stats.listed + delta),
+            unlisted: Math.max(0, this.data.stats.unlisted - delta)
+          }
+        });
+      }
       this.rebuildTabs(products);
     },
     // 批量操作走二次确认，避免误触导致门店整体下架。

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wuling.common.api.PageResult;
 import com.wuling.product.dto.StoreProductDetailDTO;
 import com.wuling.product.dto.StoreProductDTO;
+import com.wuling.product.dto.StoreProductPageDTO;
 import com.wuling.product.entity.Product;
 import com.wuling.product.entity.ProductCategory;
 import com.wuling.product.entity.ProductStore;
@@ -66,45 +67,34 @@ public class StoreProductService {
      *   <li>{@code listed} —— true=仅已上架 / false=仅已下架 / null=全部。</li>
      * </ul>
      */
-    public PageResult<StoreProductDTO> pageStoreProducts(Long storeSubjectId,
-                                                         long current,
-                                                         long size,
-                                                         String keyword,
-                                                         Long categoryId,
-                                                         Boolean listed) {
+    public StoreProductPageDTO pageStoreProducts(Long storeSubjectId,
+                                                 long current,
+                                                 long size,
+                                                 String keyword,
+                                                 Long categoryId,
+                                                 Boolean listed) {
         long safeCurrent = current < 1 ? 1 : current;
         long safeSize = size < 1 ? 20 : Math.min(size, MAX_PAGE_SIZE);
 
         List<Long> listedIds = productStoreMapper.selectListedProductIds(storeSubjectId);
-        // 已上架集合；用于 listed 过滤与标记
+        // 已上架集合；用于 listed 过滤、标记与状态计数
         List<Long> listedIdList = listedIds == null ? List.of() : listedIds;
 
-        LambdaQueryWrapper<Product> query = new LambdaQueryWrapper<Product>()
-                .eq(Product::getOnSale, 1)
-                .orderByAsc(Product::getId);
+        // ① 基础条件（keyword / categoryId）—— 三个计数与分页共用，保证口径一致
+        List<Product> scoped = productMapper.selectList(baseQuery(keyword, categoryId));
+        long listedTotal = scoped.stream()
+                .filter(p -> listedIdList.contains(p.getId()))
+                .count();
+        long unlistedTotal = scoped.size() - listedTotal;
 
-        String trimmed = StringUtils.hasText(keyword) ? keyword.trim() : null;
-        if (trimmed != null) {
-            query.and(w -> w.like(Product::getName, trimmed).or().like(Product::getProductId, trimmed));
-        }
-        if (categoryId != null) {
-            query.eq(Product::getCategoryId, categoryId);
-        }
-        // 上架状态过滤下推为 in / not in（数据量可控；避免全表拉取后再过滤导致分页不准）
+        // ② listed 过滤（在基础条件之上再筛）
+        List<Product> all = scoped;
         if (listed != null) {
-            if (listed) {
-                if (listedIdList.isEmpty()) {
-                    return PageResult.of(List.of(), safeCurrent, safeSize, 0);
-                }
-                query.in(Product::getId, listedIdList);
-            } else {
-                if (!listedIdList.isEmpty()) {
-                    query.notIn(Product::getId, listedIdList);
-                }
-            }
+            all = scoped.stream()
+                    .filter(p -> listedIdList.contains(p.getId()) == listed)
+                    .toList();
         }
 
-        List<Product> all = productMapper.selectList(query);
         long total = all.size();
         long offset = (safeCurrent - 1) * safeSize;
         List<Product> pageProducts = offset >= total
@@ -116,7 +106,32 @@ public class StoreProductService {
         for (Product product : pageProducts) {
             records.add(toDTO(product, listedIdList, categoryNames));
         }
-        return PageResult.of(records, safeCurrent, safeSize, total);
+        return StoreProductPageDTO.of(
+                PageResult.of(records, safeCurrent, safeSize, total), listedTotal, unlistedTotal);
+    }
+
+    /**
+     * 选品基础查询条件：平台已上架 + 关键词 + 分类。
+     *
+     * <p><b>为什么单独抽出</b>：状态计数（已上架 / 已下架）必须与分页使用**完全相同**的
+     * 筛选条件，否则会出现「全部 1 / 已上架 27 / 已下架 1」这类不自洽的数字
+     * （历史 bug：计数未带 keyword 与 categoryId）。
+     *
+     * <p><b>为何不含 listed</b>：计数需在 listed 过滤**之前**的集合上进行，
+     * 否则「全部」在被 listed 筛掉后失去意义；listed 单独在调用处应用。
+     */
+    private LambdaQueryWrapper<Product> baseQuery(String keyword, Long categoryId) {
+        LambdaQueryWrapper<Product> query = new LambdaQueryWrapper<Product>()
+                .eq(Product::getOnSale, 1)
+                .orderByAsc(Product::getId);
+        String trimmed = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        if (trimmed != null) {
+            query.and(w -> w.like(Product::getName, trimmed).or().like(Product::getProductId, trimmed));
+        }
+        if (categoryId != null) {
+            query.eq(Product::getCategoryId, categoryId);
+        }
+        return query;
     }
 
     /**

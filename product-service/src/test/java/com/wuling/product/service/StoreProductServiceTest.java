@@ -3,6 +3,7 @@ package com.wuling.product.service;
 import com.wuling.common.api.PageResult;
 import com.wuling.product.dto.ProductDetailDTO;
 import com.wuling.product.dto.StoreProductDTO;
+import com.wuling.product.dto.StoreProductPageDTO;
 import com.wuling.product.dto.StoreProductDetailDTO;
 import com.wuling.product.entity.Product;
 import com.wuling.product.entity.ProductCategory;
@@ -72,7 +73,7 @@ class StoreProductServiceTest {
         category.setName("经典系列");
         when(categoryMapper.selectBatchIds(any())).thenReturn(List.of(category));
 
-        PageResult<StoreProductDTO> page = service.pageStoreProducts(STORE_ID, 1, 20, null, null, null);
+        StoreProductPageDTO page = service.pageStoreProducts(STORE_ID, 1, 20, null, null, null);
 
         assertEquals(2, page.getTotal());
         assertEquals(2, page.getRecords().size());
@@ -93,7 +94,7 @@ class StoreProductServiceTest {
                 product(2L, "p2", "B", 200L, null),
                 product(3L, "p3", "C", 300L, null)));
 
-        PageResult<StoreProductDTO> page = service.pageStoreProducts(STORE_ID, 2, 2, null, null, null);
+        StoreProductPageDTO page = service.pageStoreProducts(STORE_ID, 2, 2, null, null, null);
 
         assertEquals(3, page.getTotal(), "total 是匹配总数而非当前页条数");
         assertEquals(1, page.getRecords().size(), "第 2 页只剩 1 条");
@@ -101,15 +102,64 @@ class StoreProductServiceTest {
     }
 
     @Test
-    @DisplayName("筛选 listed=true 时，本店无任何上架商品直接返回空页")
+    @DisplayName("筛选 listed=true 且本店无上架商品时返回空页，但计数仍反映全量")
     void filtersListedWhenNoneListed() {
         when(productStoreMapper.selectListedProductIds(STORE_ID)).thenReturn(List.of());
+        when(productMapper.selectList(any())).thenReturn(List.of(
+                product(1L, "p1", "A", 100L, null),
+                product(2L, "p2", "B", 200L, null)));
 
-        PageResult<StoreProductDTO> page = service.pageStoreProducts(STORE_ID, 1, 20, null, null, true);
+        StoreProductPageDTO page = service.pageStoreProducts(STORE_ID, 1, 20, null, null, true);
 
-        assertEquals(0, page.getTotal());
+        assertEquals(0, page.getTotal(), "本店无上架商品，listed=true 结果为空");
         assertTrue(page.getRecords().isEmpty());
-        verify(productMapper, never()).selectList(any());
+        assertEquals(0, page.getListedTotal());
+        assertEquals(2, page.getUnlistedTotal(), "计数基于基础条件，不受 listed 过滤影响");
+    }
+
+    @Test
+    @DisplayName("计数：三个数自洽（listedTotal + unlistedTotal == total），且随筛选联动")
+    void countsAreConsistentWithFilters() {
+        // 门店已上架商品主键 1、2；平台在售共 3 个
+        when(productStoreMapper.selectListedProductIds(STORE_ID)).thenReturn(List.of(1L, 2L));
+        when(productMapper.selectList(any())).thenReturn(List.of(
+                product(1L, "p1", "A", 100L, 10L),
+                product(2L, "p2", "B", 200L, 10L),
+                product(3L, "p3", "C", 300L, 10L)));
+
+        StoreProductPageDTO all = service.pageStoreProducts(STORE_ID, 1, 20, null, null, null);
+
+        assertEquals(3, all.getTotal());
+        assertEquals(2, all.getListedTotal());
+        assertEquals(1, all.getUnlistedTotal());
+        assertEquals(all.getTotal(), all.getListedTotal() + all.getUnlistedTotal(),
+                "全部 = 已上架 + 已下架，三个数必须自洽");
+
+        // listed 是「看哪一档」而非筛选条件：切档只改 total，计数保持稳定
+        StoreProductPageDTO unlisted = service.pageStoreProducts(STORE_ID, 1, 20, null, null, false);
+        assertEquals(1, unlisted.getTotal(), "已下架档位只剩 1 条");
+        assertEquals(2, unlisted.getListedTotal(), "计数不随 listed 过滤变化");
+        assertEquals(1, unlisted.getUnlistedTotal());
+        assertEquals(all.getTotal(), unlisted.getListedTotal() + unlisted.getUnlistedTotal(),
+                "全部 = 已上架 + 已下架（与当前档位无关）");
+    }
+
+    @Test
+    @DisplayName("计数：跟随关键词筛选，避免「全部」与两个档位口径不一致")
+    void countsFollowKeywordFilter() {
+        when(productStoreMapper.selectListedProductIds(STORE_ID)).thenReturn(List.of(1L));
+        // 关键词命中 1、3；其中 1 已上架、3 未上架
+        when(productMapper.selectList(any())).thenReturn(List.of(
+                product(1L, "p1", "A", 100L, null),
+                product(3L, "p3", "C", 300L, null)));
+
+        StoreProductPageDTO page = service.pageStoreProducts(STORE_ID, 1, 20, "p", null, null);
+
+        assertEquals(2, page.getTotal());
+        assertEquals(1, page.getListedTotal(), "关键词命中的已上架数");
+        assertEquals(1, page.getUnlistedTotal(), "关键词命中的未上架数");
+        assertEquals(page.getTotal(), page.getListedTotal() + page.getUnlistedTotal(),
+                "历史 bug：计数未带 keyword，导致 全部 1 / 已上架 27 / 已下架 1 三数不自洽");
     }
 
     @Test

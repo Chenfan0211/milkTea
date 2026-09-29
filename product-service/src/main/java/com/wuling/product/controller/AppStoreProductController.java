@@ -5,6 +5,7 @@ import com.wuling.common.api.Result;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.product.dto.StoreProductDTO;
+import com.wuling.product.dto.StoreProductPageDTO;
 import com.wuling.product.dto.StoreProductDetailDTO;
 import com.wuling.product.port.StoreOperatorPort;
 import com.wuling.product.service.StoreProductService;
@@ -57,7 +58,7 @@ public class AppStoreProductController {
      * @param listed         true=仅已上架 / false=仅已下架 / 不传=全部
      */
     @GetMapping("/{storeSubjectId}/products")
-    public Result<PageResult<StoreProductDTO>> products(
+    public Result<StoreProductPageDTO> products(
             @PathVariable Long storeSubjectId,
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "20") long size,
