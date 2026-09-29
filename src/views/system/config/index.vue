@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'system_config'
+  name: 'SystemConfig'
 });
 
 import { computed } from 'vue';
@@ -32,7 +32,7 @@ const KEY_HINTS: Record<string, string> = {
   profile_functions: '我的页功能宫格',
   signin_rules: '签到规则页文案',
   signin_rewards: '连续签到奖励档位',
-  app_cities: '小程序城市选择列表',
+  app_cities: '小程序城市选择列表（已废弃，城市统一由「城市管理」维护）',
   points_signin: '签到页日历基准数据',
   settlement_notes: '经营角色结算说明',
   service_info: '客服页：热线 / 在线客服说明（改此值即生效）',

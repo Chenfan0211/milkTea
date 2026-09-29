@@ -64,12 +64,17 @@
             </view>
           </view>
 
-          <view class="profile-form__row profile-form__row--region" bindtap="openRegionPicker" aria-role="button" aria-label="选择地区">
+          <view class="profile-form__row">
             <text class="profile-form__label">详细地址</text>
-            <view class="profile-form__value-wrap">
-              <text class="profile-form__value">{{regionText || '请选择地区'}}</text>
-              <image class="profile-form__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
-            </view>
+            <input
+              class="profile-form__input"
+              value="{{address}}"
+              maxlength="60"
+              placeholder="请输入详细地址"
+              placeholder-class="profile-form__placeholder"
+              bindinput="handleAddressInput"
+              aria-label="详细地址"
+            />
           </view>
         </view>
       </view>
@@ -99,37 +104,6 @@
         <view class="profile-sheet__button profile-sheet__button--secondary" bindtap="closeBirthdayPicker" aria-role="button" aria-label="取消生日选择">取消</view>
         <view class="profile-sheet__button profile-sheet__button--primary" bindtap="confirmBirthday" aria-role="button" aria-label="确定生日">确定</view>
       </view>
-    </view>
-  </view>
-
-  <view wx:if="{{regionVisible}}" class="profile-sheet">
-    <view class="profile-sheet__mask" bindtap="closeRegionPicker"></view>
-    <view class="profile-sheet__panel profile-sheet__panel--region">
-      <view class="region-tabs">
-        <view
-          wx:for="{{regionTabs}}"
-          wx:key="step"
-          class="region-tab {{item.active ? 'is-active' : ''}}"
-          data-step="{{item.step}}"
-          bindtap="jumpRegionStep"
-          aria-role="button"
-          aria-label="{{item.label}}"
-        >
-          <text>{{item.label}}</text>
-          <view class="region-tab__line"></view>
-        </view>
-      </view>
-      <scroll-view class="region-options" scroll-y enhanced="{{false}}" show-scrollbar="{{false}}">
-        <view
-          wx:for="{{regionOptions}}"
-          wx:key="code"
-          class="region-option"
-          data-code="{{item.code}}"
-          bindtap="selectRegionOption"
-          aria-role="button"
-          aria-label="选择{{item.name}}"
-        >{{item.name}}</view>
-      </scroll-view>
     </view>
   </view>
 </view>

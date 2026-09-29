@@ -1,16 +1,21 @@
 <view class="coupon-page">
   <navigation-bar title="优惠券列表" back="{{true}}" background="#FFFFFF" color="#2F302D" />
 
+  <view class="coupon-tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="value"
+      class="coupon-tabs__item {{activeTab === item.value ? 'is-active' : ''}}"
+      data-tab="{{item.value}}"
+      bindtap="switchTab"
+      aria-role="button"
+      aria-label="{{item.label}}优惠券"
+    >
+      <text>{{item.label}}</text>
+    </view>
+  </view>
   <scroll-view class="coupon-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="coupon-page__body">
-      <view class="coupon-notice">
-        <text class="coupon-notice__text">开启优惠券过期/到账提醒</text>
-        <view class="coupon-notice__help" bindtap="showHelp" aria-role="button" aria-label="优惠券提醒说明">
-          <image class="coupon-notice__help-icon" src="/assets/icons/lucide/circle-help.svg" mode="aspectFit" />
-        </view>
-        <view class="coupon-notice__button" bindtap="handleSubscribe" aria-role="button" aria-label="立即订阅">立即订阅</view>
-      </view>
-
       <view class="coupon-page__inner">
         <view class="exchange-card" bindtap="handleExchange" aria-role="button" aria-label="兑换优惠券">
           <image class="exchange-card__icon" src="/assets/icons/lucide/badge-japanese-yen-brand.svg" mode="aspectFit" />
@@ -34,10 +39,10 @@
           <view class="coupon-stack__layer coupon-stack__layer--second"></view>
 
           <view class="coupon-card" wx:for="{{coupons}}" wx:key="id">
-            <view class="coupon-card__count">共{{item.quantity}}张</view>
+            <view wx:if="{{item.showCount}}" class="coupon-card__count">共{{item.quantity}}张</view>
 
             <view class="coupon-card__main">
-              <view class="coupon-card__value">
+              <view class="coupon-card__value {{item.disabled ? 'is-disabled' : ''}}">
                 <view class="coupon-card__discount">
                   <block wx:if="{{item.displayType === 'buyone' || item.displayType === 'halfprice'}}">
                     <text class="coupon-card__amount coupon-card__amount--text">{{item.displayType === 'buyone' ? '买一送一' : '第二杯半价'}}</text>
@@ -52,7 +57,7 @@
               </view>
 
               <view class="coupon-card__copy">
-                <text class="coupon-card__title">{{item.title}}</text>
+                <text class="coupon-card__title {{item.disabled ? 'is-disabled' : ''}}">{{item.title}}</text>
                 <text class="coupon-card__expiry">{{item.expiryText}}</text>
               </view>
             </view>
@@ -62,7 +67,8 @@
                 <text>使用规则</text>
                 <image class="coupon-card__chevron {{item.expanded ? 'is-expanded' : ''}}" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
               </view>
-              <view class="coupon-card__use" bindtap="handleUse" aria-role="button" aria-label="去使用">去使用</view>
+              <view wx:if="{{item.usable}}" class="coupon-card__use" bindtap="handleUse" aria-role="button" aria-label="去使用">去使用</view>
+              <text wx:else class="coupon-card__status">{{item.statusText}}</text>
             </view>
 
             <view wx:if="{{item.expanded}}" class="coupon-card__details">
@@ -93,6 +99,7 @@
               <view class="rule-row"><text class="rule-row__label">使用渠道：</text><text class="rule-row__value">{{item.channel}}</text></view>
               <view class="rule-row"><text class="rule-row__label">使用场景：</text><text class="rule-row__value">{{item.scenes}}</text></view>
               <view class="rule-row"><text class="rule-row__label">有效期：</text><text class="rule-row__value">{{item.validityPeriod}}</text></view>
+              <view wx:if="{{item.effectiveDelayText}}" class="rule-row"><text class="rule-row__label">生效时间：</text><text class="rule-row__value">{{item.effectiveDelayText}}</text></view>
               <view class="rule-row"><text class="rule-row__label">使用时段：</text><text class="rule-row__value">{{item.usageTime}}</text></view>
               <view class="rule-row"><text class="rule-row__label">限制支付方式：</text><text class="rule-row__value">{{item.paymentRestriction}}</text></view>
               <view class="rule-block"><text class="rule-block__label">优惠券说明：</text><text class="rule-block__text">{{item.description}}</text></view>
@@ -101,16 +108,10 @@
           </view>
         </view>
 
-        <empty-state wx:else title="暂无可用优惠券" description="去点单页看看，新获得的优惠券会展示在这里" />
+        <empty-state wx:else title="{{emptyTitle}}" description="{{emptyDescription}}" />
 
-        <view class="tabbar-safe-space"></view>
+        <view class="coupon-page__footer-space"></view>
       </view>
     </view>
   </scroll-view>
-
-  <view class="coupon-footer">
-    <view class="coupon-footer__item" bindtap="handleHistory" aria-role="button" aria-label="历史优惠券">历史优惠券</view>
-    <view class="coupon-footer__item" bindtap="handleBatchGift" aria-role="button" aria-label="批量赠送">批量赠送</view>
-    <view class="coupon-footer__item" bindtap="handleGiftRecord" aria-role="button" aria-label="赠送记录">赠送记录</view>
-  </view>
 </view>

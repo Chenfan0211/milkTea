@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'trade_refund'
+  name: 'TradeRefund'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

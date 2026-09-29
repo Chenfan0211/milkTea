@@ -22,6 +22,8 @@ public class AppUser {
     private String phone;
     private LocalDate birthday;
     private String gender;
+    /** 详细地址（用户手填文本框）。 */
+    private String address;
     private String vipLevel;
     private Long points;
     private Long balance;

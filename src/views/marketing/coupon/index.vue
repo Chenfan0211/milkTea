@@ -1,10 +1,10 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'marketing_coupon'
+  name: 'MarketingCoupon'
 });
 
 import { h } from 'vue';
-import { NImage, NTag } from 'naive-ui';
+import { NImage } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';

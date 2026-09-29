@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'product_category'
+  name: 'ProductCategory'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

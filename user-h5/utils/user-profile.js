@@ -29,6 +29,7 @@ const EMPTY_PROFILE = {
   phone: '',
   gender: '',
   birthday: '',
+  address: '',
   region: [],
   avatar: DEFAULT_AVATAR,
   vipLevel: '',
@@ -49,6 +50,9 @@ function normalizeRemoteProfile(user) {
     phone: user.phone || '',
     gender: user.gender || '',
     birthday: user.birthday || '',
+    // 详细地址：用户手填文本；后端无值时空串
+    address: user.address || '',
+    // region 为历史遗留字段（省市区数组）；后端无对应列，统一返回空数组
     region: [],
     // 未授权头像（后端为 null/空串）时使用默认头像，避免前端空白
     avatar: user.avatar || DEFAULT_AVATAR,

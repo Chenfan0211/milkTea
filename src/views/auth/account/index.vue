@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'auth_account'
+  name: 'AuthAccount'
 });
 
 import { h, onMounted, reactive, ref } from 'vue';

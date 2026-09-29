@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'user_list'
+  name: 'UserList'
 });
 
 import { h } from 'vue';

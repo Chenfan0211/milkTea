@@ -16,9 +16,11 @@ function refreshCitiesFromRemote() {
     .then(list => {
       if (Array.isArray(list) && list.length) {
         cityCatalog = list.map(item => ({
+          id: item.id != null ? Number(item.id) : null,
           code: item.code,
           name: item.name,
-          initial: item.initial,
+          provinceName: item.provinceName || '',
+          parentId: item.parentId != null ? Number(item.parentId) : null,
           latitude: Number(item.latitude) || 0,
           longitude: Number(item.longitude) || 0
         }));
@@ -43,7 +45,7 @@ function refreshStoreCatalogFromRemote() {
 
 /** 把后端门店结构映射为小程序页面使用的结构 */
 function normalizeRemoteStore(item) {
-  const cityCode = item.city === '广州市' ? 'guangzhou' : item.city === '深圳市' ? 'shenzhen' : 'changsha';
+  const cityCode = item.cityCode || item.city || '';
   return Object.assign({}, item, {
     // 前端内部标识沿用业务 code（收藏、路由、选店记忆都已依赖它）；
     // subjectId 单独保留后端数字主键，下单时 storeSubjectId 必须用它，
@@ -60,7 +62,7 @@ function normalizeRemoteStore(item) {
   });
 }
 
-const DEFAULT_CITY_CODE = 'changsha';
+const DEFAULT_CITY_CODE = '4301';
 const STORE_SELECTION_TTL = 30 * 60 * 1000;
 const STORAGE_KEYS = {
   LOCATION: 'milkTea:location-context',
@@ -439,3 +441,4 @@ module.exports = {
   toggleFavoriteStore,
   useDeviceLocation
 };
+

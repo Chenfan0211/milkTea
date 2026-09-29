@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'subject_platform'
+  name: 'SubjectPlatform'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

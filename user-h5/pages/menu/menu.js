@@ -135,7 +135,7 @@ Page(
       // 定位进行中标记：防止用户连点「重新定位」并发申请授权
       locating: false,
       pickerCityName: '长沙市',
-      pickerCityCode: 'changsha',
+      pickerCityCode: '4301',
       pickerAnchor: { latitude: 28.2282, longitude: 112.9388 },
       pickerLocation: { latitude: 28.2282, longitude: 112.9388 },
       pickerStores: [],
@@ -155,7 +155,16 @@ Page(
      * 这样既保证每次进入都能看到后台最新数据，又避免每次返回都发 4 个请求。
      */
     refreshMenuPage() {
-      return Promise.all([refreshStoreCatalogFromRemote(), refreshMenuFromRemote()]).then(() => this.renderMenu());
+      // 先刷新门店（拿到当前门店的 subjectId），再按该门店拉菜单：
+      // 门店选品下架的商品不会出现在点单页。顺序不可颠倒 —— 菜单过滤依赖 subjectId。
+      return refreshStoreCatalogFromRemote()
+        .then(() => refreshMenuFromRemote(this.currentStoreSubjectId()))
+        .then(() => this.renderMenu());
+    },
+    /** 当前选中门店的后端数字主键（门店选品/下单均以它为准）。 */
+    currentStoreSubjectId() {
+      const catalog = resolveStoreCatalog();
+      return catalog.currentStore ? catalog.currentStore.subjectId : null;
     },
     /**
      * 菜单加载失败时的用户提示。
@@ -191,7 +200,7 @@ Page(
       Promise.all([
         refreshCitiesFromRemote(),
         refreshStoreCatalogFromRemote(),
-        refreshMenuFromRemote(),
+        refreshMenuFromRemote(this.currentStoreSubjectId()),
         refreshMemberLevelsFromRemote()
       ]);
       api

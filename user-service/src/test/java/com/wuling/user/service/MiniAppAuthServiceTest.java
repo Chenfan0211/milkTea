@@ -130,6 +130,97 @@ class MiniAppAuthServiceTest {
         );
     }
 
+    @Test
+    @DisplayName("资料更新：姓名/性别/生日/详细地址一次性写入并返回")
+    void updateProfileFieldsPersistsAllFields() {
+        AppUser user = registeredUser();
+        when(appUserMapper.selectById(1L)).thenReturn(user);
+
+        var result = service.updateProfileFields(1L, "李小茶", "female", "2000-01-02", "上海市浦东新区世纪大道 100 号");
+
+        assertEquals("李小茶", user.getNickName());
+        assertEquals("female", user.getGender());
+        assertEquals(java.time.LocalDate.of(2000, 1, 2), user.getBirthday());
+        assertEquals("上海市浦东新区世纪大道 100 号", user.getAddress());
+        assertEquals("李小茶", result.get("nickName"));
+        assertEquals("2000-01-02", result.get("birthday"));
+        verify(appUserMapper).updateById(user);
+    }
+
+    @Test
+    @DisplayName("资料更新：姓名必填")
+    void updateProfileFieldsRejectsBlankNickName() {
+        AppUser user = registeredUser();
+        when(appUserMapper.selectById(1L)).thenReturn(user);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.updateProfileFields(1L, "  ", "male", "2000-01-02", ""));
+        assertEquals("请输入您的姓名", error.getMessage());
+        verify(appUserMapper, never()).updateById(any(AppUser.class));
+    }
+
+    @Test
+    @DisplayName("资料更新：生日必填")
+    void updateProfileFieldsRequiresBirthday() {
+        AppUser user = registeredUser();
+        when(appUserMapper.selectById(1L)).thenReturn(user);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.updateProfileFields(1L, "李小茶", "male", "", ""));
+        assertEquals("请选择您的生日", error.getMessage());
+        verify(appUserMapper, never()).updateById(any(AppUser.class));
+    }
+
+    @Test
+    @DisplayName("资料更新：生日一旦已填写不可修改")
+    void updateProfileFieldsRejectsBirthdayChange() {
+        AppUser user = registeredUser();
+        user.setBirthday(java.time.LocalDate.of(1999, 5, 6));
+        when(appUserMapper.selectById(1L)).thenReturn(user);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.updateProfileFields(1L, "李小茶", "male", "2000-01-02", ""));
+        assertEquals("生日填写后不可修改", error.getMessage());
+        verify(appUserMapper, never()).updateById(any(AppUser.class));
+    }
+
+    @Test
+    @DisplayName("资料更新：生日与已填一致时允许保存其他字段")
+    void updateProfileFieldsAllowsSameBirthday() {
+        AppUser user = registeredUser();
+        user.setBirthday(java.time.LocalDate.of(2000, 1, 2));
+        when(appUserMapper.selectById(1L)).thenReturn(user);
+
+        service.updateProfileFields(1L, "李小茶", "male", "2000-01-02", "北京市朝阳区");
+
+        assertEquals("北京市朝阳区", user.getAddress());
+        verify(appUserMapper).updateById(user);
+    }
+
+    @Test
+    @DisplayName("资料更新：非法性别被拒绝")
+    void updateProfileFieldsRejectsInvalidGender() {
+        AppUser user = registeredUser();
+        when(appUserMapper.selectById(1L)).thenReturn(user);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.updateProfileFields(1L, "李小茶", "unknown", "2000-01-02", ""));
+        assertEquals("性别取值不合法", error.getMessage());
+        verify(appUserMapper, never()).updateById(any(AppUser.class));
+    }
+
+    @Test
+    @DisplayName("资料更新：生日格式非法被拒绝")
+    void updateProfileFieldsRejectsBadBirthdayFormat() {
+        AppUser user = registeredUser();
+        when(appUserMapper.selectById(1L)).thenReturn(user);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.updateProfileFields(1L, "李小茶", "male", "2000/01/02", ""));
+        assertEquals("生日格式不正确", error.getMessage());
+        verify(appUserMapper, never()).updateById(any(AppUser.class));
+    }
+
     private AppUser registeredUser() {
         AppUser user = new AppUser();
         user.setId(1L);

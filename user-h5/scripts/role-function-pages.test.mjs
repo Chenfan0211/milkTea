@@ -95,7 +95,19 @@ assert.ok(verifyWxml.includes('scan-line.svg'), 'verify page must use scan icon'
 
 // 核销页接入兑换核销
 const verifyJs = fs.readFileSync(path.join(root, 'packageRole/role-verify/role-verify.js'), 'utf8');
-assert.ok(verifyJs.includes('verifyExchange'), 'verify page must support exchange redemption');
+assert.ok(
+  verifyJs.includes('verifyStoreExchangeByCode') && verifyJs.includes('verifyExchangeByCode'),
+  'verify page must support exchange redemption via real store endpoint'
+);
+// 兑换核销必须走真实后端链路，不得再本地拼假数据或误调礼品卡接口
+assert.ok(
+  !verifyJs.includes("id: 'ex-' + Date.now()"),
+  'exchange verify must not fabricate local records'
+);
+assert.ok(
+  !verifyJs.includes('verifyGiftCardOrder') && !verifyJs.includes('演示数据'),
+  'exchange verify must not call gift-card API or show demo-data note'
+);
 assert.ok(
   verifyJs.includes("mode: 'order'") && verifyJs.includes('switchMode'),
   'verify page must separate order vs exchange modes'
@@ -1183,14 +1195,40 @@ assert.ok(
   'products page must offer status filtering'
 );
 assert.ok(
-  /const STATUS_TABS = \[/.test(productsJs) && productsJs.includes('buildCatTabs'),
+  /const STATUS_TABS = \[/.test(productsJs) && productsJs.includes('rebuildTabs'),
   'products page must derive both tab dimensions'
 );
 assert.ok(
-  productsJs.includes('activeCatId') &&
-    productsJs.includes('activeStatusId') &&
-    productsJs.includes("item.categoryLabel === activeCatId"),
+  productsJs.includes('activeCatId') && productsJs.includes('activeStatusId'),
   'category and status filters must both apply'
+);
+// 门店选品必须走后端接口（此前读本地 Storage，永远显示 0 个）
+assert.ok(
+  productsJs.includes('fetchStoreProducts') && productsJs.includes('updateStoreListing'),
+  '门店选品必须调用后端接口读写，不得再依赖本地 Storage'
+);
+assert.ok(
+  !productsJs.includes('getProductsForStore') && !productsJs.includes('product-listing'),
+  '门店选品不得再引用本地 product-listing 数据源'
+);
+// 分页参数必须下推后端
+assert.ok(
+  productsJs.includes('current') && productsJs.includes('size') && productsJs.includes('hasMore'),
+  '门店选品必须支持分页（current/size/hasMore）'
+);
+assert.ok(
+  productsJs.includes('onReachBottom') && productsJs.includes('loadMore'),
+  '门店选品必须支持触底加载下一页'
+);
+assert.ok(
+  productsWxml.includes('loadingMore') && productsWxml.includes('hasMore'),
+  '选品页必须渲染加载更多状态'
+);
+// 点单页必须按门店过滤菜单（选品下架影响消费端）
+const menuSource = fs.readFileSync(path.join(root, 'pages/menu/menu.js'), 'utf8');
+assert.ok(
+  menuSource.includes('currentStoreSubjectId') && /refreshMenuFromRemote\(this\.currentStoreSubjectId\(\)\)/.test(menuSource),
+  '点单页必须按当前门店 subjectId 拉菜单，使门店选品下架实时生效'
 );
 
 // 布局：分类行与状态行分离，统计行独立

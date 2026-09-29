@@ -45,11 +45,13 @@ public final class CrudRegistry {
                     List.of("item_code", "item_name"), "sort asc, id asc")),
             // latitude/longitude：城市经纬度（V31 新增列）
             Map.entry("cities", new Resource("cities", "region",
-                    List.of("parent_id", "code", "name", "level", "sort", "latitude", "longitude"),
-                    List.of("code", "name"), "sort asc, id asc")),
+                    List.of("parent_id", "code", "name", "level", "sort", "latitude", "longitude", "status"),
+                    List.of("code", "name"), "sort asc, id asc",
+                    List.of("level", "status"))),
             Map.entry("provinces", new Resource("provinces", "region",
                     List.of("parent_id", "code", "name", "level", "sort"),
-                    List.of("code", "name"), "sort asc, id asc")),
+                    List.of("code", "name"), "sort asc, id asc",
+                    List.of("level", "status"))),
             Map.entry("features", new Resource("features", "feature_flag",
                     List.of("code", "name", "default_status", "current_status", "open_condition"),
                     List.of("code", "name"), "id asc")),
@@ -64,9 +66,14 @@ public final class CrudRegistry {
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),
                     List.of("item_code", "item_name"), "sort asc, id asc")),
             // open_id：供「微信账号绑定」页维护微信 openId（V31 起放行写入与搜索）
+            //
+            // 注意：business_role / bound_subject_id 不在可写白名单内 ——
+            // 用户↔主体是 1:1 绑定关系（见 V66 唯一索引），必须成对写入两侧
+            // （app_user.bound_subject_id 与 biz_subject.bound_user_id）。
+            // 若放开单边写入，会绕过 /admin/subject/binding 的校验，造成一边显示已绑、
+            // 一边显示未绑的不一致（历史故障）。绑定/解绑一律走专用接口。
             Map.entry("users", new Resource("users", "app_user",
-                    List.of("open_id", "nick_name", "phone", "vip_level", "points", "balance",
-                            "business_role", "bound_subject_id", "status"),
+                    List.of("open_id", "nick_name", "phone", "vip_level", "points", "balance", "status"),
                     List.of("nick_name", "phone", "open_id"), "id asc")),
 
             // ---------- 第3批：商品配置 ----------

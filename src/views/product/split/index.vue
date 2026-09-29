@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'product_split'
+  name: 'ProductSplit'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
@@ -165,14 +165,14 @@ const rowActions: RowAction[] = [
     label: '启用',
     type: 'success',
     reasonPrompt: '确认启用该规则？（请填写备注）',
-    handler: async (row, reason) => await toggleSplitRule(row.id, true),
+    handler: async (row, _reason) => await toggleSplitRule(row.id, true),
     visible: row => row.status === 'disabled'
   },
   {
     label: '停用',
     type: 'warning',
     reasonPrompt: '确认停用该规则？（请填写备注）',
-    handler: async (row, reason) => await toggleSplitRule(row.id, false),
+    handler: async (row, _reason) => await toggleSplitRule(row.id, false),
     visible: row => row.status === 'enabled'
   },
   {

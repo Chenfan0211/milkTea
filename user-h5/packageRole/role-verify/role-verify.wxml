@@ -55,9 +55,6 @@
         </view>
       </view>
 
-      <view class="function-note">
-        <text>演示数据，核销仅写入本地，需接入后端接口。</text>
-      </view>
     </view>
   </scroll-view>
 </view>

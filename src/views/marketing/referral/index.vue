@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'marketing_referral'
+  name: 'MarketingReferral'
 });
 
 import { reactive, watch, onMounted } from 'vue';

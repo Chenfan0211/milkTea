@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'marketing_points'
+  name: 'MarketingPoints'
 });
 
 import { computed, h } from 'vue';

@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -466,6 +468,75 @@ public class MiniAppAuthService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("nickName", user.getNickName());
+        return result;
+    }
+
+    /**
+     * 更新个人资料基础字段：姓名 / 性别 / 生日 / 详细地址。
+     *
+     * <p><b>为什么单独开一个接口</b>：个人资料页一次提交多个字段，
+     * 若逐个调用 /nickname 等接口，会出现「部分成功」的中间态。
+     * 本接口在单事务内完成，任一字段非法整体回滚。
+     *
+     * <p><b>校验规则</b>：
+     * <ul>
+     *   <li>nickName 必填；</li>
+     *   <li>gender 仅允许 male / female（可留空）；</li>
+     *   <li>birthday 必填，格式 yyyy-MM-dd；<b>一旦已填写则不可修改</b>
+     *       （与前端「填写完不可修改」口径一致，服务端硬校验防绕过）；</li>
+     *   <li>address 可空，最长 255 字符。</li>
+     * </ul>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> updateProfileFields(Long userId, String nickName, String gender,
+                                                   String birthday, String address) {
+        if (!StringUtils.hasText(nickName)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请输入您的姓名");
+        }
+        AppUser user = requireUser(userId);
+
+        // 性别：仅允许 male / female / 空
+        String normalizedGender = StringUtils.hasText(gender) ? gender.trim() : "";
+        if (StringUtils.hasText(normalizedGender)
+                && !"male".equals(normalizedGender) && !"female".equals(normalizedGender)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "性别取值不合法");
+        }
+
+        // 生日：必填 + 格式校验
+        if (!StringUtils.hasText(birthday)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请选择您的生日");
+        }
+        LocalDate parsedBirthday;
+        try {
+            parsedBirthday = LocalDate.parse(birthday.trim());
+        } catch (DateTimeParseException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "生日格式不正确");
+        }
+        if (parsedBirthday.isAfter(LocalDate.now())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "生日不能晚于今天");
+        }
+        // 生日一旦已填写则不可修改（重要风控字段）
+        if (user.getBirthday() != null && !user.getBirthday().equals(parsedBirthday)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "生日填写后不可修改");
+        }
+
+        // 详细地址：可空，超长拒绝
+        String normalizedAddress = StringUtils.hasText(address) ? address.trim() : "";
+        if (normalizedAddress.length() > 255) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "详细地址过长，请精简后重试");
+        }
+
+        user.setNickName(nickName.trim());
+        user.setGender(normalizedGender);
+        user.setBirthday(parsedBirthday);
+        user.setAddress(normalizedAddress.isEmpty() ? null : normalizedAddress);
+        appUserMapper.updateById(user);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("nickName", user.getNickName());
+        result.put("gender", user.getGender());
+        result.put("birthday", user.getBirthday() == null ? "" : user.getBirthday().toString());
+        result.put("address", user.getAddress() == null ? "" : user.getAddress());
         return result;
     }
 }

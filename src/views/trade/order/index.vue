@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'trade_order'
+  name: 'TradeOrder'
 });
 
 import { computed, h, onMounted, ref } from 'vue';
@@ -359,72 +359,71 @@ const config: AdminListConfig = {
 
 <template>
   <div class="page-root">
+    <AdminListPage :config="config" />
 
-  <AdminListPage :config="config" />
-
-  <NModal v-model:show="splitVisible" preset="card" title="分账明细" class="w-560px">
-    <div v-if="splitRow && splitDetail" class="split-modal">
-      <div class="split-order-no">订单号：{{ splitRow.orderNo }}</div>
-      <div class="split-line">
-        <span>应付金额</span>
-        <span>¥{{ yuan(splitDetail.originalAmount) }}</span>
+    <NModal v-model:show="splitVisible" preset="card" title="分账明细" class="w-560px">
+      <div v-if="splitRow && splitDetail" class="split-modal">
+        <div class="split-order-no">订单号：{{ splitRow.orderNo }}</div>
+        <div class="split-line">
+          <span>应付金额</span>
+          <span>¥{{ yuan(splitDetail.originalAmount) }}</span>
+        </div>
+        <div class="split-line">
+          <span>优惠金额（总优惠）</span>
+          <span>-¥{{ yuan(splitDetail.discountAmount) }}</span>
+        </div>
+        <div class="split-line split-line--sub">
+          <span>　其中会员等级折扣</span>
+          <span>-¥{{ yuan(splitDetail.memberDiscount) }}</span>
+        </div>
+        <div class="split-line split-line--sub">
+          <span>　其中储值立减</span>
+          <span>-¥{{ yuan(splitDetail.storedValueDiscount) }}</span>
+        </div>
+        <div class="split-line split-line--sub">
+          <span>　其中优惠券</span>
+          <span>-¥{{ yuan(splitDetail.couponDiscount) }}</span>
+        </div>
+        <div class="split-line">
+          <span>实付金额</span>
+          <span>¥{{ yuan(splitDetail.paid) }}</span>
+        </div>
+        <div class="split-line">
+          <span>供应商（成本合计 = 成本单价×件数）</span>
+          <span>¥{{ yuan(splitDetail.costTotal) }}</span>
+        </div>
+        <div class="split-line">
+          <span>门店（每件×{{ splitDetail.itemCount }}件）</span>
+          <span>¥{{ yuan(splitDetail.storeShare) }}</span>
+        </div>
+        <div class="split-line">
+          <span>资源方（每件×{{ splitDetail.itemCount }}件）</span>
+          <span>¥{{ yuan(splitDetail.channelShare) }}</span>
+        </div>
+        <div class="split-line">
+          <span>平台提成（分佣）</span>
+          <span>¥{{ yuan(splitDetail.commission) }}</span>
+        </div>
+        <div class="split-line">
+          <span>投资人（{{ splitDetail.base > 0 ? '基础×比例%' : '基础为负' }}）</span>
+          <span>¥{{ yuan(splitDetail.investorShare) }}</span>
+        </div>
+        <div class="split-line">
+          <span>平台剩余</span>
+          <span>¥{{ yuan(splitDetail.platformBonus) }}</span>
+        </div>
+        <div class="split-line split-line--total">
+          <span>平台合计</span>
+          <span>¥{{ yuan(splitDetail.platformTotal) }}</span>
+        </div>
+        <div class="mt-16px text-12px color-#9B9B96">
+          公式：平台合计 = 平台提成 + 平台剩余；平台剩余 = 实付 − 成本合计 − 门店 − 资源方 − 投资人 − 平台提成
+        </div>
+        <div v-if="!splitDetail.fromSnapshot" class="mt-4px text-12px color-#9B9B96">
+          该订单尚未核销，暂无分账快照，以上为按当前分账规则试算的结果。
+        </div>
       </div>
-      <div class="split-line">
-        <span>优惠金额（总优惠）</span>
-        <span>-¥{{ yuan(splitDetail.discountAmount) }}</span>
-      </div>
-      <div class="split-line split-line--sub">
-        <span>　其中会员等级折扣</span>
-        <span>-¥{{ yuan(splitDetail.memberDiscount) }}</span>
-      </div>
-      <div class="split-line split-line--sub">
-        <span>　其中储值立减</span>
-        <span>-¥{{ yuan(splitDetail.storedValueDiscount) }}</span>
-      </div>
-      <div class="split-line split-line--sub">
-        <span>　其中优惠券</span>
-        <span>-¥{{ yuan(splitDetail.couponDiscount) }}</span>
-      </div>
-      <div class="split-line">
-        <span>实付金额</span>
-        <span>¥{{ yuan(splitDetail.paid) }}</span>
-      </div>
-      <div class="split-line">
-        <span>供应商（成本合计 = 成本单价×件数）</span>
-        <span>¥{{ yuan(splitDetail.costTotal) }}</span>
-      </div>
-      <div class="split-line">
-        <span>门店（每件×{{ splitDetail.itemCount }}件）</span>
-        <span>¥{{ yuan(splitDetail.storeShare) }}</span>
-      </div>
-      <div class="split-line">
-        <span>资源方（每件×{{ splitDetail.itemCount }}件）</span>
-        <span>¥{{ yuan(splitDetail.channelShare) }}</span>
-      </div>
-      <div class="split-line">
-        <span>平台提成（分佣）</span>
-        <span>¥{{ yuan(splitDetail.commission) }}</span>
-      </div>
-      <div class="split-line">
-        <span>投资人（{{ splitDetail.base > 0 ? '基础×比例%' : '基础为负' }}）</span>
-        <span>¥{{ yuan(splitDetail.investorShare) }}</span>
-      </div>
-      <div class="split-line">
-        <span>平台剩余</span>
-        <span>¥{{ yuan(splitDetail.platformBonus) }}</span>
-      </div>
-      <div class="split-line split-line--total">
-        <span>平台合计</span>
-        <span>¥{{ yuan(splitDetail.platformTotal) }}</span>
-      </div>
-      <div class="mt-16px text-12px color-#9B9B96">
-        公式：平台合计 = 平台提成 + 平台剩余；平台剩余 = 实付 − 成本合计 − 门店 − 资源方 − 投资人 − 平台提成
-      </div>
-      <div v-if="!splitDetail.fromSnapshot" class="mt-4px text-12px color-#9B9B96">
-        该订单尚未核销，暂无分账快照，以上为按当前分账规则试算的结果。
-      </div>
-    </div>
-  </NModal>
+    </NModal>
   </div>
 </template>
 

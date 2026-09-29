@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'finance_account'
+  name: 'FinanceAccount'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

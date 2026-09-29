@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'finance_flow'
+  name: 'FinanceFlow'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

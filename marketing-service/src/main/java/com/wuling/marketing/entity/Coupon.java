@@ -29,6 +29,8 @@ public class Coupon {
     private LocalDateTime validityStart;
     private LocalDateTime validityEnd;
     private Integer validityDays;
+    /** 领取后延迟生效天数；NULL/0 表示立即生效。 */
+    private Integer effectiveDelayDays;
     private String usageTime;
     private String applicableStoreIds;
     private String applicableProductIds;

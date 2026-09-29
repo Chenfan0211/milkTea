@@ -116,10 +116,7 @@ Page(
       wx.navigateTo({ url: '/pages/coupon-stores/coupon-stores?from=stored-value' });
     },
     handleRecord() {
-      this.showUnavailable('余额记录');
-    },
-    handleManage() {
-      this.showUnavailable('余额管理');
+      wx.navigateTo({ url: '/pages/stored-value-records/stored-value-records' });
     },
     handleRecharge() {
       if (this.data.recharging) return;
@@ -261,3 +258,5 @@ Page(
     }
   })
 );
+
+

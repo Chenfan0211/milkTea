@@ -12,6 +12,8 @@ public class AppStoreDTO {
     private String code;
     private String name;
     private String city;
+    private Long cityId;
+    private String cityCode;
     private String address;
     private String phone;
     private BigDecimal latitude;

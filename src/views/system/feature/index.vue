@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'system_feature'
+  name: 'SystemFeature'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

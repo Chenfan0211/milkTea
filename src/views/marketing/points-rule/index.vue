@@ -5,6 +5,10 @@ import { fetchSigninRule } from '@/service/api/crud';
 
 const store = useAdminStore();
 
+// ===== 签到规则 =====
+const dailyReward = ref(store.signInDaily);
+const rewards = ref<Array<{ days: number; amount: number }>>([]);
+
 // 挂载时从后端加载积分获取规则与签到规则
 onMounted(async () => {
   await store.loadRemote('pointsEarningRules');
@@ -24,10 +28,6 @@ onMounted(async () => {
     window.$message?.error(error?.message || '签到规则加载失败');
   }
 });
-
-// ===== 签到规则 =====
-const dailyReward = ref(store.signInDaily);
-const rewards = ref<Array<{ days: number; amount: number }>>([]);
 
 watch(
   () => store.signInRewards,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'finance_withdraw'
+  name: 'FinanceWithdraw'
 });
 
 import { ref } from 'vue';

@@ -38,6 +38,8 @@ public class CouponService {
     public static final String LOCKED = "LOCKED";
     public static final String USED = "USED";
     public static final String EXPIRED = "EXPIRED";
+    /** 虚拟状态：券仍是 UNUSED，但生效时间尚未开始（前端「待生效」Tab）。 */
+    public static final String PENDING = "PENDING";
 
     private final CouponMapper couponMapper;
     private final UserCouponMapper userCouponMapper;
@@ -64,17 +66,32 @@ public class CouponService {
     }
 
     /**
-     * 我的可用券。
+     * 我的优惠券（按状态筛选）。
      *
-     * <p>列表与「我的」页统计共用本方法，统一只返回当前状态为 UNUSED 且仍在有效期内
-     * 的用户券。展示 ID 始终使用 user_coupon.id，避免同一模板多张券被 code 覆盖。
+     * <p>status 语义：
+     * <ul>
+     *   <li>USED / LOCKED / EXPIRED —— 终态，直接按 user_coupon.status 透传；</li>
+     *   <li>UNUSED 或不传（旧调用 / 「我的」页统计）—— 返回「已生效且未过期」的可用券；</li>
+     *   <li>PENDING —— 虚拟状态，返回「仍是 UNUSED 但生效时间尚未开始」的待生效券。</li>
+     * </ul>
+     *
+     * <p>展示 ID 始终使用 user_coupon.id。
      */
     public List<UserCouponView> myCoupons(Long userId, String status) {
+        boolean pending = PENDING.equalsIgnoreCase(status);
+        // 终态（USED / LOCKED / EXPIRED）直接按库表状态透传；
+        // UNUSED / PENDING / 不传 都从 UNUSED 池里按生效时间进一步区分。
+        boolean terminal = USED.equalsIgnoreCase(status)
+                || LOCKED.equalsIgnoreCase(status)
+                || EXPIRED.equalsIgnoreCase(status);
+
         LambdaQueryWrapper<UserCoupon> query = new LambdaQueryWrapper<UserCoupon>()
                 .eq(UserCoupon::getUserId, userId)
                 .orderByDesc(UserCoupon::getId);
-        if (status != null && !status.isBlank()) {
+        if (terminal) {
             query.eq(UserCoupon::getStatus, status);
+        } else {
+            query.eq(UserCoupon::getStatus, UNUSED);
         }
         List<UserCoupon> userCoupons = userCouponMapper.selectList(query);
         if (userCoupons == null || userCoupons.isEmpty()) {
@@ -101,15 +118,36 @@ public class CouponService {
         LocalDateTime now = LocalDateTime.now();
         List<UserCouponView> result = new ArrayList<>();
         for (UserCoupon userCoupon : userCoupons) {
-            if (userCoupon == null || !UNUSED.equals(userCoupon.getStatus())) {
+            if (userCoupon == null) {
                 continue;
             }
             Coupon coupon = couponById.get(userCoupon.getCouponId());
             CouponValidity validity = resolveValidity(userCoupon, coupon, now);
-            if (!validity.usable()) {
+            if (terminal) {
+                // 终态直接透传（仅保留与请求状态一致的券，兜底 SQL 过滤失效场景）。
+                if (!status.equalsIgnoreCase(userCoupon.getStatus())) {
+                    continue;
+                }
+                UserCouponView view = toView(userCoupon, coupon, validity);
+                view.setUsable(false);
+                result.add(view);
                 continue;
             }
-            result.add(toView(userCoupon, coupon, validity));
+            // UNUSED / PENDING / 不传：兜底过滤，仅处理 UNUSED 状态的券。
+            if (!UNUSED.equals(userCoupon.getStatus())) {
+                continue;
+            }
+            if (pending) {
+                // 待生效：已领取但尚未到生效时间。
+                if (!validity.started()) {
+                    result.add(toView(userCoupon, coupon, validity));
+                }
+                continue;
+            }
+            // 可用（UNUSED / 不传）：已生效且未过期。
+            if (validity.started() && validity.usable()) {
+                result.add(toView(userCoupon, coupon, validity));
+            }
         }
         return result;
     }
@@ -143,6 +181,7 @@ public class CouponService {
         view.setValidityStart(coupon.getValidityStart());
         view.setValidityEnd(coupon.getValidityEnd());
         view.setValidityDays(coupon.getValidityDays());
+        view.setEffectiveDelayDays(coupon.getEffectiveDelayDays());
         // 适用范围：库里是 JSON 字符串，解析成数字数组下发。
         // 空数组表示不限制，前端据此判定是否需按门店/商品过滤。
         view.setApplicableStoreIds(parseLongList(coupon.getApplicableStoreIds()));
@@ -152,39 +191,53 @@ public class CouponService {
 
     /**
      * 列表与锁券共用的有效期判定。
-     * RANGE 使用模板起止时间；DAYS 使用领取时间 + 天数；未知类型视为长期有效。
+     *
+     * <p>RANGE 使用模板起止时间；DAYS 使用领取时间 + 有效天数；未知类型视为长期有效。
+     *
+     * <p>延迟生效（{@code effectiveDelayDays}）：领取后需等待 N 天才可使用，
+     * 生效起点 = 领取时间 + N 天，过期时间 = 生效起点 + 有效天数。
+     * 这段时间内的券 {@code started=false}，归入前端「待生效」Tab，
+     * 且 {@code usable=false}，锁券时会被拒绝。
      */
     private CouponValidity resolveValidity(UserCoupon userCoupon, Coupon coupon, LocalDateTime now) {
         if (coupon == null || !"enabled".equalsIgnoreCase(coupon.getStatus())) {
-            return new CouponValidity(false, null);
+            return new CouponValidity(false, null, false);
         }
 
         String validityType = coupon.getValidityType();
         if (validityType == null || validityType.isBlank()) {
-            return new CouponValidity(true, null);
+            // 无期限：视为立即生效、长期有效。
+            return new CouponValidity(true, null, true);
         }
         if ("RANGE".equalsIgnoreCase(validityType)) {
             LocalDateTime start = coupon.getValidityStart();
             LocalDateTime end = coupon.getValidityEnd();
+            boolean started = start == null || !now.isBefore(start);
             boolean usable = start != null && end != null
                     && !now.isBefore(start)
                     && !now.isAfter(end);
-            return new CouponValidity(usable, end);
+            return new CouponValidity(usable, end, started);
         }
         if ("DAYS".equalsIgnoreCase(validityType)) {
             LocalDateTime receiveTime = userCoupon.getReceiveTime();
             Integer validityDays = coupon.getValidityDays();
             if (receiveTime == null || validityDays == null || validityDays <= 0) {
-                return new CouponValidity(false, null);
+                return new CouponValidity(false, null, false);
             }
-            LocalDateTime expireAt = receiveTime.plusDays(validityDays);
-            boolean usable = !now.isBefore(receiveTime) && !now.isAfter(expireAt);
-            return new CouponValidity(usable, expireAt);
+            // 延迟生效：领取后需等待 effectiveDelayDays 天才开始生效。
+            int delayDays = coupon.getEffectiveDelayDays() == null || coupon.getEffectiveDelayDays() < 0
+                    ? 0
+                    : coupon.getEffectiveDelayDays();
+            LocalDateTime effectiveAt = delayDays == 0 ? receiveTime : receiveTime.plusDays(delayDays);
+            LocalDateTime expireAt = effectiveAt.plusDays(validityDays);
+            boolean started = !now.isBefore(effectiveAt);
+            boolean usable = started && !now.isAfter(expireAt);
+            return new CouponValidity(usable, expireAt, started);
         }
-        return new CouponValidity(true, null);
+        return new CouponValidity(true, null, true);
     }
 
-    private record CouponValidity(boolean usable, LocalDateTime expireAt) {
+    private record CouponValidity(boolean usable, LocalDateTime expireAt, boolean started) {
     }
     /**
      * 发放分享有礼奖励券。
@@ -224,11 +277,14 @@ public class CouponService {
     }
 
     private Coupon findReferralCoupon(Long amountFen) {
+        // 只复用「已配置延迟生效」的模板：若历史库里存在同面额但立即生效的
+        // 分享有礼券（延迟天数为 NULL/0），此处不应命中，否则会绕过 3 天延迟。
         return couponMapper.selectOne(new LambdaQueryWrapper<Coupon>()
                 .eq(Coupon::getType, "REFERRAL")
                 .eq(Coupon::getAmount, amountFen)
                 .eq(Coupon::getThreshold, 0L)
                 .eq(Coupon::getStatus, "enabled")
+                .gt(Coupon::getEffectiveDelayDays, 0)
                 .orderByAsc(Coupon::getId)
                 .last("limit 1"));
     }
@@ -247,6 +303,9 @@ public class CouponService {
         coupon.setImage("/assets/images/3x/menu-product.jpg");
         coupon.setValidityType("DAYS");
         coupon.setValidityDays(15);
+        // 分享有礼券领取后 3 天生效：防止「好友完成首单即刻退单套取奖励」。
+        // 生效前归入「待生效」Tab，不可用于锁券。
+        coupon.setEffectiveDelayDays(3);
         coupon.setUsageTime("00:00:00~23:59:59");
         coupon.setStock(100000);
         coupon.setStatus("enabled");

@@ -8,6 +8,7 @@ import com.wuling.common.api.PageResult;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.marketing.dto.StoredValuePackageDTO;
+import com.wuling.marketing.dto.StoredValueRecordDTO;
 import com.wuling.marketing.entity.Coupon;
 import com.wuling.marketing.entity.StoredValueOrder;
 import com.wuling.marketing.entity.StoredValuePackage;
@@ -32,6 +33,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -486,6 +488,76 @@ public class StoredValueService {
     private String auditOrderNo(String bizNo) {
         return bizNo.length() <= 64 ? bizNo : bizNo.substring(0, 64);
     }
+
+    /**
+     * 我的储值流水（分页，时间倒序）。
+     *
+     * <p>归并两个数据源：
+     * <ol>
+     *   <li>充值：{@code stored_value_order} 中 {@code pay_status=PAID} 的订单；</li>
+     *   <li>消费 / 退款：{@code stored_value_txn} 中 {@code status=SUCCESS}
+     *       的 PAY（余额支付）与 REFUND（余额退回）。</li>
+     * </ol>
+     * 归并后再按时间倒序排序、内存分页，保证「最近的数据在最上面」。
+     *
+     * @param userId  用户 ID
+     * @param current 页码（从 1 开始）
+     * @param size    每页条数
+     */
+    public PageResult<StoredValueRecordDTO> myRecords(Long userId, long current, long size) {
+        List<StoredValueRecordDTO> all = new ArrayList<>();
+
+        // 充值：仅统计已支付入账的储值订单
+        List<StoredValueOrder> paidOrders = orderMapper.selectList(
+                new LambdaQueryWrapper<StoredValueOrder>()
+                        .eq(StoredValueOrder::getUserId, userId)
+                        .eq(StoredValueOrder::getPayStatus, PAY_PAID));
+        for (StoredValueOrder order : paidOrders) {
+            StoredValueRecordDTO dto = new StoredValueRecordDTO();
+            dto.setType("RECHARGE");
+            dto.setTitle("储值充值");
+            dto.setAmount(order.getAmount());
+            dto.setBizNo(order.getOrderNo());
+            dto.setTime(order.getCreateTime());
+            all.add(dto);
+        }
+
+        // 消费 / 退款：仅统计成功的资金操作
+        List<StoredValueTxn> txns = storedValueTxnMapper.selectList(
+                new LambdaQueryWrapper<StoredValueTxn>()
+                        .eq(StoredValueTxn::getUserId, userId)
+                        .eq(StoredValueTxn::getStatus, StoredValueTxn.SUCCESS)
+                        .in(StoredValueTxn::getOperationType,
+                                StoredValueTxn.PAY, StoredValueTxn.REFUND));
+        for (StoredValueTxn txn : txns) {
+            StoredValueRecordDTO dto = new StoredValueRecordDTO();
+            if (StoredValueTxn.REFUND.equals(txn.getOperationType())) {
+                dto.setType("REFUND");
+                dto.setTitle("储值退回");
+            } else {
+                dto.setType("CONSUME");
+                dto.setTitle("余额支付");
+            }
+            dto.setAmount(txn.getAmount());
+            dto.setBizNo(txn.getBizNo());
+            dto.setTime(txn.getCreateTime());
+            all.add(dto);
+        }
+
+        // 时间倒序（最新在前）；时间相同时用 bizNo 稳定排序避免分页错乱
+        all.sort(Comparator.comparing(StoredValueRecordDTO::getTime,
+                        Comparator.nullsLast(Comparator.naturalOrder()))
+                .reversed()
+                .thenComparing(StoredValueRecordDTO::getBizNo,
+                        Comparator.nullsLast(Comparator.naturalOrder())));
+
+        long total = all.size();
+        int from = (int) Math.min((current - 1) * size, total);
+        int to = (int) Math.min(from + size, total);
+        List<StoredValueRecordDTO> records = all.subList(from, to);
+        return PageResult.of(records, current, size, total);
+    }
+
     /** 我的储值订单（分页）；status 由 pay_status 推导下发。 */
     public PageResult<StoredValueOrder> myOrders(Long userId, long current, long size) {
         Page<StoredValueOrder> page = orderMapper.selectPage(
@@ -565,3 +637,5 @@ public class StoredValueService {
                 + String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
     }
 }
+
+

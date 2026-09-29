@@ -23,9 +23,9 @@ let menuSyncState = { loaded: false, error: null, updatedAt: 0 };
  *   · 请求失败 -> 保留旧镜像，但把错误记进 menuSyncState，让页面能区分
  *     「首次就没拿到」和「只是这次刷新失败」，前者需要提示用户重试。
  */
-function refreshMenuFromRemote() {
+function refreshMenuFromRemote(storeSubjectId) {
   return api
-    .fetchMenu()
+    .fetchMenu(storeSubjectId)
     .then(list => {
       if (Array.isArray(list) && list.length) {
         menuCatalog = list;

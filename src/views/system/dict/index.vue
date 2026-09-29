@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'system_dict'
+  name: 'SystemDict'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

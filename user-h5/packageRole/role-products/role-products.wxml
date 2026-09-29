@@ -62,9 +62,19 @@
   </view>
 
   <scroll-view class="products-scroll" scroll-y show-scrollbar="{{false}}">
-    <view wx:if="{{filteredProducts.length}}" class="products-list">
+    <!-- 首屏加载中 -->
+    <view wx:if="{{loading && !products.length}}" class="products-loading">
+      <text class="products-loading__text">正在加载商品…</text>
+    </view>
+
+    <view wx:elif="{{loadError}}" class="products-error" bindtap="reload" aria-role="button" aria-label="重新加载">
+      <text class="products-error__text">{{loadError}}</text>
+      <text class="products-error__action">点击重试</text>
+    </view>
+
+    <view wx:elif="{{products.length}}" class="products-list">
       <view
-        wx:for="{{filteredProducts}}"
+        wx:for="{{products}}"
         wx:key="id"
         class="product-row {{item.selected ? 'is-selected' : ''}}"
         data-id="{{item.id}}"
@@ -88,7 +98,7 @@
           <text class="product-row__name ellipsis">{{item.name}}</text>
           <text class="product-row__meta ellipsis">{{item.categoryLabel}} · {{item.id}}</text>
           <view class="product-row__foot">
-            <text class="product-row__price">¥{{item.price}}</text>
+            <text class="product-row__price">¥{{item.priceText || item.price}}</text>
             <text class="product-row__badge {{item.listed ? 'is-listed' : 'is-unlisted'}}">{{item.listed ? '已上架' : '已下架'}}</text>
           </view>
         </view>
@@ -122,6 +132,13 @@
       title="暂无可选商品"
       description="运营后台已上架的商品会展示在这里"
     />
+
+    <!-- 触底加载进度 / 到底提示 -->
+    <view wx:if="{{products.length}}" class="products-loadmore">
+      <text wx:if="{{loadingMore}}">正在加载更多…</text>
+      <text wx:elif="{{hasMore}}">上拉加载更多</text>
+      <text wx:else>没有更多了</text>
+    </view>
 
     <view class="products-safe"></view>
   </scroll-view>

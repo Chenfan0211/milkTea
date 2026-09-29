@@ -43,6 +43,18 @@ function formatDateTime(value) {
   return text.length >= 16 ? text.slice(0, 16) : text;
 }
 
+/**
+ * 延迟生效提示文案。
+ *
+ * 分享有礼券等「领取后 N 天才生效」的券，生效前归入「待生效」Tab，
+ * 需要在收益说明里明确告诉用户还要等几天，避免误以为券坏了。
+ */
+function buildEffectiveDelayText(item) {
+  const delayDays = Number(item.effectiveDelayDays);
+  if (!Number.isFinite(delayDays) || delayDays <= 0) return '';
+  return `领取后 ${delayDays} 天生效`;
+}
+
 function buildRemoteValidityPeriod(item) {
   const start = formatDateTime(item.validityStart);
   const end = formatDateTime(item.validityEnd || item.expireAt);
@@ -87,6 +99,10 @@ function normalizeRemoteCoupon(item) {
     paymentRestriction: '',
     description: source.description || '',
     source: source.source || '',
+    effectiveDelayDays: Number.isFinite(Number(source.effectiveDelayDays))
+      ? Number(source.effectiveDelayDays)
+      : 0,
+    effectiveDelayText: buildEffectiveDelayText(source),
     expired: source.usable === false || Boolean(source.expired),
     usable: source.usable !== false,
     status: source.status || ''
@@ -172,5 +188,6 @@ module.exports = {
   addCoupon,
   getCoupons,
   refreshCouponsFromRemote,
-  normalizeRemoteCoupon
+  normalizeRemoteCoupon,
+  buildEffectiveDelayText
 };

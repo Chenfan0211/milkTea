@@ -1,19 +1,22 @@
 const { withShare } = require('../../utils/share');
-const store = require('../../utils/store');
+const { getCityByCode, getCityList, refreshCitiesFromRemote, resolveStoreCatalog, selectCity } = require('../../utils/store');
 
-function getCities() {
-  return store.getCityList();
+/** 城市名首字 -> 分组键（省份名，或直辖市用「直辖市」） */
+function provinceKey(city) {
+  if (city.provinceName) return city.provinceName;
+  // 直辖市：城市名即省市同名，直接用「直辖市」
+  return '直辖市';
 }
-const { getCityByCode, refreshCitiesFromRemote, resolveStoreCatalog, selectCity } = require('../../utils/store');
 
-function buildCityGroups() {
-  return getCities()
+/** 按省份分组：直辖市归入「直辖市」，其余按省名分组 */
+function buildProvinceGroups() {
+  return getCityList()
     .slice()
-    .sort((left, right) => left.initial.localeCompare(right.initial))
     .reduce((groups, city) => {
-      let group = groups.find(item => item.initial === city.initial);
+      const key = provinceKey(city);
+      let group = groups.find(item => item.key === key);
       if (!group) {
-        group = { initial: city.initial, cities: [] };
+        group = { key, letter: key.slice(0, 1), cities: [] };
         groups.push(group);
       }
       group.cities.push(city);
@@ -24,33 +27,36 @@ function buildCityGroups() {
 Page(
   withShare({
     data: {
-      cityGroups: buildCityGroups(),
-      alphabet: buildCityGroups().map(group => group.initial),
-      currentCityCode: 'changsha',
-      currentInitial: 'C',
+      cityGroups: buildProvinceGroups(),
+      indexList: buildProvinceGroups().map(group => group.letter),
+      currentCityCode: '4301',
+      currentLetter: '湖',
       scrollIntoView: ''
     },
     onLoad(options) {
-      // 先渲染本地城市，再异步拉取远端（含坐标）后刷新
       refreshCitiesFromRemote().then(() => {
         const catalog = resolveStoreCatalog();
+        const groups = buildProvinceGroups();
         this.setData({
-          cityGroups: buildCityGroups(),
-          alphabet: buildCityGroups().map(group => group.initial),
+          cityGroups: groups,
+          indexList: groups.map(group => group.letter),
           currentCityCode: catalog.city.code
         });
       });
       const catalog = resolveStoreCatalog();
       const currentCityCode = options.city || catalog.city.code;
       const currentCity = getCityByCode(currentCityCode);
+      const groups = buildProvinceGroups();
+      const currentGroup = groups.find(group => group.cities.some(c => c.code === currentCityCode));
       this.setData({
         currentCityCode,
-        currentInitial: currentCity ? currentCity.initial : 'C'
+        currentLetter: currentGroup ? currentGroup.letter : (currentCity ? currentCity.name.slice(0, 1) : '湖')
       });
     },
-    scrollToInitial(event) {
-      const { initial } = event.currentTarget.dataset;
-      this.setData({ scrollIntoView: `city-group-${initial}` });
+    scrollToLetter(event) {
+      const { letter } = event.currentTarget.dataset;
+      const group = buildProvinceGroups().find(item => item.letter === letter);
+      this.setData({ scrollIntoView: group ? `city-group-${group.letter}` : '' });
     },
     handleSelectCity(event) {
       const { code } = event.currentTarget.dataset;
@@ -65,6 +71,3 @@ Page(
     }
   })
 );
-
-
-

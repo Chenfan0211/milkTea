@@ -11,7 +11,7 @@ let navigatedBack = false;
 const app = {
   globalData: {
     selectedStoreId: null,
-    selectedCityCode: 'changsha',
+    selectedCityCode: '4301',
     selectedCityName: '长沙市',
     favoriteStoreSelected: false
   }
@@ -55,7 +55,7 @@ globalThis.Page = config => {
 const { selectCity, toggleFavoriteStore, refreshStoreCatalogFromRemote, refreshCitiesFromRemote } = require(path.join(root, 'utils/store.js'));
 await refreshCitiesFromRemote();
 await refreshStoreCatalogFromRemote();
-selectCity('changsha', 1000);
+selectCity('4301', 1000);
 toggleFavoriteStore('store-001');
 toggleFavoriteStore('store-004');
 

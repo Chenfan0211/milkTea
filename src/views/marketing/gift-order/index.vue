@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'marketing_gift-order'
+  name: 'MarketingGiftOrder'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

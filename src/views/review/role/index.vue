@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'review_role'
+  name: 'ReviewRole'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
@@ -94,7 +94,7 @@ const detailGroups: DetailGroup[] = [
         render: (r: any) => {
           const type = String(r.roleType || '').toLowerCase();
           if (type === 'store') {
-            return `门店：${r.storeName ?? '—'}，地址：${r.storeAddress ?? '—'}`;
+            return `门店：${r.storeName ?? '—'}，城市：${r.storeCity ?? '—'}，详细地址：${r.storeAddress ?? '—'}`;
           }
           if (type === 'investor') {
             return `投资点位：${r.investLocation ?? '—'}，预算：${r.investBudget ?? '—'}`;

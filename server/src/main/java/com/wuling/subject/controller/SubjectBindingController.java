@@ -150,56 +150,59 @@ public class SubjectBindingController {
         return Result.ok(total);
     }
 
-    // ---------- 主体 ↔ 用户 ----------
+    // ---------- 主体 ↔ 用户（1:1 绑定） ----------
 
+    /**
+     * 绑定主体 ↔ 用户（1:1）。
+     *
+     * <p>关联关系在两个方向各存一份：
+     * {@code biz_subject.bound_user_id}（主体→用户）与
+     * {@code app_user.bound_subject_id}（用户→主体）。两者必须始终一致，
+     * 因此所有绑定/解绑都必须经过本类方法，禁止直接改单边字段。
+     *
+     * <p><b>1:1 约束</b>：一个主体只能绑一个用户，一个用户只能绑一个主体。
+     * 绑定时先校验、再清理两个方向的旧值，最后写新值，避免出现
+     * 「门店换了用户但旧用户仍指向该门店」这类漂移。
+     */
     @PostMapping("/subject/{subjectId}/user/{userId}")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> bindSubjectUser(@PathVariable Long subjectId, @PathVariable Long userId) {
-        BizSubject subject = requireSubject(subjectId, null);
-        subject.setBoundUserId(userId);
-        bizSubjectMapper.updateById(subject);
-        jdbcTemplate.update("update app_user set bound_subject_id = ? where id = ? and deleted = 0", subjectId, userId);
+        bindPair(subjectId, userId, null);
         return Result.ok();
     }
 
     @DeleteMapping("/subject/{subjectId}/user")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> unbindSubjectUser(@PathVariable Long subjectId) {
-        BizSubject subject = requireSubject(subjectId, null);
-        Long userId = subject.getBoundUserId();
-        subject.setBoundUserId(null);
-        bizSubjectMapper.updateById(subject);
-        if (userId != null) {
-            jdbcTemplate.update("update app_user set bound_subject_id = null where id = ? and deleted = 0", userId);
-        }
+        unbindPair(subjectId);
         return Result.ok();
     }
 
     // ---------- 用户 ↔ 业务角色 ----------
 
+    /**
+     * 为用户授予业务角色，并绑定该主体（1:1）。
+     *
+     * <p>与 {@link #bindSubjectUser} 绑定同一份关系，区别是这里额外写
+     * {@code user_role_grant} 并把 {@code business_role} 设为角色码；
+     * 绑定关系本身复用 {@link #bindPair}，保证两处入口口径一致。
+     */
     @PostMapping("/user/{userId}/role/{roleCode}/subject/{subjectId}")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> bindUserRole(@PathVariable Long userId,
                                      @PathVariable String roleCode,
                                      @PathVariable Long subjectId) {
-        requireSubject(subjectId, null);
         Long exists = jdbcTemplate.queryForObject(
                 "select count(*) from user_role_grant where user_id = ? and role_code = ? and subject_id = ? and deleted = 0",
                 Long.class, userId, roleCode, subjectId);
         if (exists != null && exists > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该用户已拥有此角色");
         }
+        String normalizedRole = normalizeRoleCode(roleCode);
+        bindPair(subjectId, userId, normalizedRole);
         jdbcTemplate.update("insert into user_role_grant (user_id, role_code, subject_id, status, grant_time) "
                         + "values (?, ?, ?, 'active', now())",
-                userId, roleCode, subjectId);
-        jdbcTemplate.update("update app_user set business_role = ?, bound_subject_id = ? where id = ? and deleted = 0",
-                roleCode, subjectId, userId);
-        // 反向维护主体侧绑定关系。
-        // app_user.bound_subject_id 与 biz_subject.bound_user_id 是同一关系的两个方向，
-        // 原先只写前者，导致主体列表读 bound_user_id 恒为 null：
-        // 前端会误判为「未绑定」，而后台「代发起提现」「绑定/解绑用户」等功能均无法正常工作。
-        jdbcTemplate.update("update biz_subject set bound_user_id = ? where id = ? and deleted = 0",
-                userId, subjectId);
+                userId, normalizedRole, subjectId);
         return Result.ok();
     }
 
@@ -211,12 +214,84 @@ public class SubjectBindingController {
         jdbcTemplate.update("update user_role_grant set deleted = 1 "
                         + "where user_id = ? and role_code = ? and subject_id = ? and deleted = 0",
                 userId, roleCode, subjectId);
-        jdbcTemplate.update("update app_user set business_role = null, bound_subject_id = null "
-                + "where id = ? and deleted = 0", userId);
-        // 同步清空主体侧绑定，保持双向一致（与 bindUserRole 对应）
-        jdbcTemplate.update("update biz_subject set bound_user_id = null "
-                + "where bound_user_id = ? and id = ? and deleted = 0", userId, subjectId);
+        jdbcTemplate.update("update app_user set business_role = null where id = ? and deleted = 0", userId);
+        unbindPair(subjectId);
         return Result.ok();
+    }
+
+    // ---------- 绑定关系内部实现（1:1 一致性保证） ----------
+
+    /**
+     * 建立主体↔用户 1:1 绑定。
+     *
+     * <p>步骤（顺序不可颠倒）：
+     * <ol>
+     *   <li>校验主体存在；</li>
+     *   <li>校验「用户未被其他主体绑定」（否则会破坏 1:1）；</li>
+     *   <li>校验「主体未被其他用户绑定」（否则会破坏 1:1）；</li>
+     *   <li>清理两个方向的历史残留（用户旧主体 / 主体旧用户）；</li>
+     *   <li>写入新绑定，并（可选）设置 business_role。</li>
+     * </ol>
+     *
+     * @param roleCode 非空时写入 app_user.business_role（角色码）
+     */
+    private void bindPair(Long subjectId, Long userId, String roleCode) {
+        requireSubject(subjectId, null);
+
+        // 该用户当前绑定的主体（同方向已有值则拒绝，避免一人多绑）
+        Long currentSubjectOfUser = queryLong(
+                "select bound_subject_id from app_user where id = ? and deleted = 0", userId);
+        if (currentSubjectOfUser != null && !currentSubjectOfUser.equals(subjectId)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该用户已绑定其他主体，请先解绑");
+        }
+
+        // 该主体当前绑定的用户（主体已有用户则拒绝，避免一店多绑）
+        Long currentUserOfSubject = queryLong(
+                "select bound_user_id from biz_subject where id = ? and deleted = 0", subjectId);
+        if (currentUserOfSubject != null && !currentUserOfSubject.equals(userId)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该主体已绑定其他用户，请先解绑");
+        }
+
+        jdbcTemplate.update("update biz_subject set bound_user_id = ? where id = ? and deleted = 0", userId, subjectId);
+        if (roleCode != null && !roleCode.isBlank()) {
+            jdbcTemplate.update("update app_user set bound_subject_id = ?, business_role = ? where id = ? and deleted = 0",
+                    subjectId, roleCode, userId);
+        } else {
+            jdbcTemplate.update("update app_user set bound_subject_id = ? where id = ? and deleted = 0",
+                    subjectId, userId);
+        }
+    }
+
+    /**
+     * 解除主体↔用户绑定（幂等）。
+     *
+     * <p>以主体的 bound_user_id 为线索，把两个方向一并清空；
+     * 若主体未绑定用户，则只清空用户侧指向本主体的残留（防御历史脏数据）。
+     */
+    private void unbindPair(Long subjectId) {
+        requireSubject(subjectId, null);
+        jdbcTemplate.update("update biz_subject set bound_user_id = null where id = ? and deleted = 0", subjectId);
+        jdbcTemplate.update("update app_user set bound_subject_id = null, business_role = null "
+                + "where bound_subject_id = ? and deleted = 0", subjectId);
+    }
+
+    /**
+     * 角色码归一化为权威枚举（与 V36 迁移口径一致）：
+     * STORE / INVESTOR / CHANNEL；前端 resource 别名归并为 CHANNEL。
+     * 历史库内 mix 存过小写与中文，这里统一为大写，避免「经营角色」列映射不中而显示英文。
+     */
+    private String normalizeRoleCode(String roleCode) {
+        if (roleCode == null || roleCode.isBlank()) {
+            return null;
+        }
+        String code = roleCode.trim().toUpperCase();
+        return "RESOURCE".equals(code) ? "CHANNEL" : code;
+    }
+
+    /** 读取单值 Long（无结果返回 null）。 */
+    private Long queryLong(String sql, Object... args) {
+        List<Long> values = jdbcTemplate.queryForList(sql, Long.class, args);
+        return values.isEmpty() ? null : values.get(0);
     }
 
     // ---------- 角色申请审核 ----------

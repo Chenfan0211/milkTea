@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'marketing_stored'
+  name: 'MarketingStored'
 });
 
 import { onMounted, ref } from 'vue';

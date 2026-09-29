@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'system_audit'
+  name: 'SystemAudit'
 });
 
 import { computed } from 'vue';

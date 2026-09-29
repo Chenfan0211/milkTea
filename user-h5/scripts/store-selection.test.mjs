@@ -28,7 +28,11 @@ const migrationDir = path.join(root, '..', 'server/src/main/resources/db/migrati
 const appConfigSeed = fs.readFileSync(path.join(migrationDir, 'V10__app_config.sql'), 'utf8');
 const citiesMatch = appConfigSeed.match(/'app_cities'[\s\S]*?\[([\s\S]*?)\]'/);
 assert.ok(citiesMatch, 'V10 seed 必须包含 app_cities');
-const cities = JSON.parse('[' + citiesMatch[1].replace(/\n/g, '') + ']');
+// app_cities 已废弃，城市统一来自 region(level=2)，code 为国标。
+// 这里把旧 app_cities 拼音 code 映射为国标，模拟 /config/cities 新接口返回。
+const citiesRaw = JSON.parse('[' + citiesMatch[1].replace(/\n/g, '') + ']');
+const PINYIN_TO_NATIONAL = { changsha: '4301', guangzhou: '4401', shenzhen: '4403' };
+const cities = citiesRaw.map(item => ({ ...item, code: PINYIN_TO_NATIONAL[item.code] || item.code }));
 
 const baseSeed = fs.readFileSync(path.join(migrationDir, 'V3__seed_base.sql'), 'utf8');
 const storeNameBlock = baseSeed.match(/INSERT INTO biz_subject[\s\S]*?;/);
@@ -40,7 +44,7 @@ for (const m of storeNameBlock[0].matchAll(/\((\d+)\s*,\s*'[^']*'\s*,\s*'([^']+)
 const profileBlock = baseSeed.match(/INSERT INTO store_profile \([\s\S]*?;/);
 assert.ok(profileBlock, 'V3 seed 必须包含 store_profile 初始化');
 const STORE_CODES = { 101: 'store-001', 102: 'store-002', 103: 'store-003', 104: 'store-004', 105: 'store-005' };
-const CITY_BY_NAME = { 长沙市: 'changsha', 广州市: 'guangzhou', 深圳市: 'shenzhen' };
+const CITY_BY_NAME = { 长沙市: '4301', 广州市: '4401', 深圳市: '4403' };
 const stores = [...profileBlock[0].matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+|NULL),\s*'([^']+)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\)/g)].map(m => ({
   id: STORE_CODES[Number(m[1])] || String(m[1]),
   code: STORE_CODES[Number(m[1])] || String(m[1]),
@@ -142,9 +146,9 @@ assert.equal(firstCatalog.city.code, DEFAULT_CITY_CODE, '首次进入必须使�
 assert.equal(firstCatalog.currentStore, null, '首次进入不得自动选中门店');
 assert.equal(resolveStorePreference().activeStoreId, null, '首次进入不得写入门店缓存');
 
-selectCity('guangzhou', 2000);
+selectCity('4401', 2000);
 const cityCatalog = resolveStoreCatalog(2000);
-assert.equal(cityCatalog.city.code, 'guangzhou', '手动切城后必须使用新城市');
+assert.equal(cityCatalog.city.code, '4401', '手动切城后必须使用新城市');
 assert.equal(cityCatalog.currentStore, null, '手动切城后不得自动预选门店');
 
 selectStore('store-004', 3000);
@@ -166,7 +170,7 @@ assert.equal(
   '退出超时后必须停留选店状态，不得自动恢复最近门店'
 );
 
-selectCity('shenzhen', 20000);
+selectCity('4403', 20000);
 useDeviceLocation(21000);
 assert.equal(resolveLocationContext().cityCode, DEFAULT_CITY_CODE, '重新定位必须回到模拟设备位置长沙');
 assert.equal(resolveStoreCatalog(21000).city.code, DEFAULT_CITY_CODE, '重新定位必须同步重置当前城市');

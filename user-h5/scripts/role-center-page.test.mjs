@@ -217,6 +217,23 @@ assert.ok(
 );
 assert.ok(profileJs.includes('/packageRole/role-apply/role-apply'), 'cooperation must navigate to role apply');
 assert.ok(profileJs.includes('openRoleApply'), 'profile must expose openRoleApply handler');
+// 门店身份展示闭环回归：角色中心入口必须恢复展示，且角色必须被同步到本地。
+assert.ok(
+  profileWxml.includes('openRoleCenter') && profileWxml.includes('进入角色中心'),
+  'profile 必须恢复角色中心入口（不得再被注释掉）'
+);
+assert.ok(
+  !profileWxml.includes('本版本暂不展示'),
+  '角色中心入口不得保留「暂不展示」注释文案'
+);
+assert.ok(
+  profileJs.includes('syncRolesFromRemote()'),
+  'profile onShow 必须同步经营角色，否则门店徽章/功能始终为空'
+);
+assert.ok(
+  fs.readFileSync(path.join(root, 'utils/entry-login.js'), 'utf8').includes('syncRolesFromRemote()'),
+  '冷启动必须同步经营角色，保证登录后「我的」页即显示门店身份'
+);
 
 // 角色中心：仅切换，无申请/演示工具
 const workbenchJs2 = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.js'), 'utf8');

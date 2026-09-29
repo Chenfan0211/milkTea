@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'auth_grant'
+  name: 'AuthGrant'
 });
 
 import { h } from 'vue';

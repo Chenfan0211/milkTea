@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'marketing_gift'
+  name: 'MarketingGift'
 });
 
 import { h, ref } from 'vue';

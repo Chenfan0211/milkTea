@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'trade_verify-pool'
+  name: 'TradeVerifyPool'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

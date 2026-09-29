@@ -18,6 +18,7 @@ const expectedPages = [
   'pages/service/service',
   'pages/profile-data/profile-data',
   'pages/stored-value/stored-value',
+  'pages/stored-value-records/stored-value-records',
   'pages/activity-rules/activity-rules',
   'pages/favorite-stores/favorite-stores',
   'pages/order-detail/order-detail',
@@ -448,5 +449,6 @@ if (errors.length) {
 console.log(
   `项目结构校验通过: ${expectedPages.length + expectedSubPages.length} 个页面、${tabBarPages.length} 个 Tab，Lucide 图标与本地资源完整。`
 );
+
 
 

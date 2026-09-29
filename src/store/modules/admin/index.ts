@@ -1083,7 +1083,10 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     if (!remote) return null;
     try {
       if (NEEDS_SUBJECTS.has(key)) await ensureSubjectsLoaded();
-      const page = await crudPage(remote, { current: 1, size: 200, ...params });
+      // provinces 资源对应 region 表（省市区三级），省级下拉只需 level=1 的省；
+      // 否则按 sort 排序会拉到区县，导致省份下拉为空或错乱。
+      const mergedParams = key === 'provinces' ? { ...params, eq_level: '1' } : params;
+      const page = await crudPage(remote, { current: 1, size: 200, ...mergedParams });
       const list = ensure(key);
       // 同样应用字段归一化：页面内嵌下拉（如 subjects 按 type 过滤）依赖它
       list.splice(0, list.length, ...normalizeRemoteRow(key, page?.records || []));

@@ -25,6 +25,12 @@ globalThis.wx = {
   showToast(options) {
     calls.push({ type: 'toast', ...options });
   },
+  showLoading(options) {
+    calls.push({ type: 'loading', ...(options || {}) });
+  },
+  hideLoading() {
+    calls.push({ type: 'hideLoading' });
+  },
   navigateBack(options = {}) {
     calls.push({ type: 'navigateBack', ...options });
   }
@@ -34,7 +40,7 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(fs.existsSync(`${pageRoot}.${extension}`), `缺少个人资料页文件: profile-data.${extension}`);
 }
 
-const { PROFILE_STORAGE_KEY, getUserProfile, saveUserProfile, maskPhone, getDefaultBirthday, getDaysInMonth } = require(
+const { PROFILE_STORAGE_KEY, getUserProfile, saveUserProfile, maskPhone, getDefaultBirthday, getDaysInMonth, normalizeRemoteProfile } = require(
   path.join(root, 'utils/user-profile.js')
 );
 const defaultProfile = getUserProfile();
@@ -51,24 +57,22 @@ const savedProfile = saveUserProfile(
     phone: '13612345792',
     gender: 'female',
     birthday: '2008-09-17',
-    region: ['湖南省', '长沙市', '岳麓区']
+    address: '湖南省长沙市岳麓区茶子山路 1 号'
   })
 );
 assert.equal(savedProfile.nickname, '李小茶', '保存后必须返回规范化的资料');
-assert.equal(getUserProfile().region.join('/'), '湖南省/长沙市/岳麓区', '地区必须持久化完整省市县');
+assert.equal(savedProfile.address, '湖南省长沙市岳麓区茶子山路 1 号', '详细地址必须持久化');
 assert.ok(PROFILE_STORAGE_KEY, '必须声明资料存储键');
+
+// 详细地址走文本框手填：normalizeRemoteProfile 必须透传后端 address
+assert.equal(
+  normalizeRemoteProfile({ nickName: 'u', address: '上海市浦东新区世纪大道 100 号' }).address,
+  '上海市浦东新区世纪大道 100 号',
+  '后端 address 必须透传到本地资料'
+);
 
 // data/mock.js 已不再导出 userProfile，保存逻辑只作用于本地缓存
 assert.ok(!require(path.join(root, 'data/mock.js')).userProfile, 'data/mock.js 不得再导出 userProfile');
-
-const regions = require(path.join(root, 'data/regions.js'));
-assert.ok(regions.length >= 34, '地区数据必须覆盖省级行政区');
-const hunan = regions.find(region => region.name === '湖南省');
-const changsha = hunan && hunan.children.find(city => city.name === '长沙市');
-assert.ok(
-  changsha && changsha.children.some(district => district.name === '岳麓区'),
-  '地区数据必须包含湖南省长沙市岳麓区'
-);
 
 let definition;
 globalThis.Page = page => {
@@ -92,31 +96,71 @@ assert.equal(page.data.birthdayLocked, true, '已填写生日后必须锁定');
 
 definition.handleNameInput.call(page, { detail: { value: '王小茶' } });
 definition.selectGender.call(page, { currentTarget: { dataset: { gender: 'male' } } });
-definition.openRegionPicker.call(page);
-assert.ok(page.data.regionVisible && page.data.regionOptions.length >= 34, '地区选择器必须从省级列表开始');
-definition.selectRegionOption.call(page, { currentTarget: { dataset: { code: hunan.code } } });
-assert.equal(page.data.regionStep, 1, '选择省后必须进入市级列表');
-definition.selectRegionOption.call(page, { currentTarget: { dataset: { code: changsha.code } } });
-assert.equal(page.data.regionStep, 2, '选择市后必须进入区县列表');
-definition.selectRegionOption.call(page, { currentTarget: { dataset: { code: '430104' } } });
-assert.equal(page.data.regionText, '湖南省 长沙市 岳麓区', '选择区县后必须回填完整地区');
-
-const newPage = createPageInstance();
-definition.onLoad.call(newPage, { reset: '1' });
-newPage.data.nickname = '';
-definition.handleSave.call(newPage);
+// 详细地址改为文本框手填
+definition.handleAddressInput.call(page, { detail: { value: '湖南省长沙市岳麓区茶子山路 1 号' } });
+assert.equal(page.data.address, '湖南省长沙市岳麓区茶子山路 1 号', '详细地址必须由文本框写入');
 assert.ok(
-  calls.some(call => call.type === 'toast' && call.title === '请输入您的姓名'),
-  '空姓名不得保存'
+  !definition.openRegionPicker && !definition.selectRegionOption,
+  '地区选择器（省市区级联）必须已移除，改为手填文本框'
 );
 
-newPage.data.nickname = '新用户';
-definition.handleSave.call(newPage);
-assert.equal(getUserProfile().nickname, '新用户', '保存必须写入本地资料');
-assert.ok(
-  calls.some(call => call.type === 'navigateBack'),
-  '保存成功后必须返回我的页'
-);
+// 保存必须提交后端：stub api.updateProfileFields 后调用，验证载荷与成功回退
+const api = require(path.join(root, 'utils/api.js'));
+const realUpdate = api.updateProfileFields;
+const realRefresh = api.fetchUserProfile;
+let savedPayload = null;
+api.updateProfileFields = payload => {
+  savedPayload = payload;
+  return Promise.resolve({});
+};
+api.fetchUserProfile = () => Promise.resolve({ nickName: '新用户', gender: 'male', birthday: '2008-09-17', address: '湖南省长沙市岳麓区茶子山路 1 号' });
+
+async function runSaveChecks() {
+  // 空姓名不得保存
+  const newPage = createPageInstance();
+  definition.onLoad.call(newPage, { reset: '1' });
+  newPage.data.nickname = '';
+  definition.handleSave.call(newPage);
+  assert.ok(
+    calls.some(call => call.type === 'toast' && call.title === '请输入您的姓名'),
+    '空姓名不得保存'
+  );
+
+  // 生日必填：未选生日不得保存
+  const noBirthday = createPageInstance();
+  definition.onLoad.call(noBirthday, { reset: '1' });
+  noBirthday.data.nickname = '新用户';
+  noBirthday.data.birthday = '';
+  definition.handleSave.call(noBirthday);
+  assert.ok(
+    calls.some(call => call.type === 'toast' && call.title === '请选择您的生日'),
+    '生日未填写不得保存'
+  );
+
+  // 正常保存：必须提交后端并携带完整字段
+  const okPage = createPageInstance();
+  definition.onLoad.call(okPage, { reset: '1' });
+  okPage.data.nickname = '新用户';
+  okPage.data.gender = 'male';
+  okPage.data.birthday = '2008-09-17';
+  okPage.data.address = '湖南省长沙市岳麓区茶子山路 1 号';
+  definition.handleSave.call(okPage);
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.ok(savedPayload, '保存必须调用后端 updateProfileFields（不得只写本地）');
+  assert.equal(savedPayload.nickName, '新用户', '后端载荷必须包含姓名');
+  assert.equal(savedPayload.gender, 'male', '后端载荷必须包含性别');
+  assert.equal(savedPayload.birthday, '2008-09-17', '后端载荷必须包含生日');
+  assert.equal(savedPayload.address, '湖南省长沙市岳麓区茶子山路 1 号', '后端载荷必须包含详细地址');
+  assert.equal(getUserProfile().nickname, '新用户', '保存成功后必须回写本地资料');
+  assert.ok(
+    calls.some(call => call.type === 'navigateBack'),
+    '保存成功后必须返回我的页'
+  );
+}
+await runSaveChecks();
+
+api.updateProfileFields = realUpdate;
+api.fetchUserProfile = realRefresh;
 
 const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
@@ -187,9 +231,14 @@ assert.ok(
 );
 assert.equal((wxml.match(/<picker-view-column/g) || []).length, 3, '生日选择器必须使用年/月/日三列滚轮');
 assert.ok(
-  wxml.includes('region-tabs') && wxml.includes('region-options') && wxml.includes('退出登录'),
-  '个人资料页必须包含地区步骤选择与退出登录'
+  wxml.includes('handleAddressInput') && wxml.includes('请输入详细地址'),
+  '个人资料页详细地址必须为文本框手填'
 );
+assert.ok(
+  !wxml.includes('region-tabs') && !wxml.includes('region-options') && !wxml.includes('openRegionPicker'),
+  '个人资料页必须移除省市区级联选择器'
+);
+assert.ok(wxml.includes('退出登录'), '个人资料页必须包含退出登录');
 assert.ok(
   wxml.includes('chevron-right-brand.svg') && wxml.includes('rotate-ccw-white.svg'),
   '个人资料页图标必须使用 Lucide 矢量图'
@@ -259,4 +308,4 @@ assert.ok(fs.existsSync(path.join(root, 'assets/icons/lucide/rotate-ccw-white.sv
   );
 }
 
-console.log('个人资料录入、生日与三级地区选择测试通过');
+console.log('个人资料保存（后端提交 / 生日必填 / 详细地址手填）测试通过');

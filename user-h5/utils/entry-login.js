@@ -3,6 +3,7 @@ const auth = require('./auth');
 const authState = require('./auth-state');
 const api = require('./api');
 const { refreshUserProfileFromRemote } = require('./user-profile');
+const { syncRolesFromRemote } = require('./roles');
 
 /**
  * 入口层：让用户「进入小程序即完成微信登录」。
@@ -115,6 +116,10 @@ function ensureEntryLogin(options = {}) {
         // 从不写入用户资料 -> profile.points 一直是空壳的 0
         // -> 「我的」页时光币显示 0（后端明明有值）。见 app_user.points。
         if (state.hasToken) {
+          // 经营角色（门店/投资人/资源方）以后端 /roles/mine 为准：
+          // 冷启动同步一次，让「我的」页一进来就能显示门店身份徽章与门店功能。
+          // 独立于资料加载，失败静默（不阻塞启动，也不影响资料回写）。
+          syncRolesFromRemote();
           return refreshUserProfileFromRemote()
             .then(() =>
               finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false })

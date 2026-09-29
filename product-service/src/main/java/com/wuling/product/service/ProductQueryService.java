@@ -72,7 +72,19 @@ public class ProductQueryService {
     private static final String PRODUCT_CACHE_PREFIX = "product:detail:";
     private static final Duration PRODUCT_CACHE_TTL = Duration.ofMinutes(5);
 
+    /** 全量菜单（不按门店过滤）；兼容旧调用。 */
     public List<MenuDTO.MenuTab> getMenu() {
+        return getMenu(null);
+    }
+
+    /**
+     * 菜单（可选按门店选品过滤）。
+     *
+     * <p>缓存的是「全量菜单」（{@code menu:all}）；门店过滤在缓存命中后于内存完成 ——
+     * 因为过滤维度是门店，若按门店分别缓存会让 key 数量随门店数膨胀。
+     * 门店未上架的商品从各分类中剔除；分类被清空时整组隐藏，避免点单页出现空分类。
+     */
+    public List<MenuDTO.MenuTab> getMenu(Long storeSubjectId) {
         // 缓存优先：菜单数据读多写少，命中后跳过 3 次全表查询 + 43KB 组装
         String cached = safeGetMenuCache();
         if (cached != null) {
@@ -131,7 +143,78 @@ public class ProductQueryService {
 
         // 写回缓存（序列化失败不影响返回）
         safeSetMenuCache(tabs);
-        return tabs;
+        return filterMenuByStore(tabs, storeSubjectId);
+    }
+
+    /**
+     * 按门店选品过滤菜单：剔除「本店未上架」的商品。
+     *
+     * <p>{@code product_store} 有记录 = 本店已上架；无记录 = 本店未上架。
+     * 为避免与其它门店共用缓存产生串数据，过滤只作用于返回给该门店的副本。
+     * storeSubjectId 为空时原样返回（未选门店 / 旧调用）。
+     */
+    private List<MenuDTO.MenuTab> filterMenuByStore(List<MenuDTO.MenuTab> tabs, Long storeSubjectId) {
+        if (storeSubjectId == null || tabs == null || tabs.isEmpty()) {
+            return tabs;
+        }
+        List<Long> listedIds = productStoreMapper.selectListedProductIds(storeSubjectId);
+        java.util.Set<String> listedBusinessIds = new java.util.HashSet<>();
+        if (listedIds != null && !listedIds.isEmpty()) {
+            List<Product> listedProducts = productMapper.selectBatchIds(listedIds);
+            if (listedProducts != null) {
+                for (Product p : listedProducts) {
+                    if (p == null) {
+                        continue;
+                    }
+                    if (StringUtils.hasText(p.getProductId())) {
+                        listedBusinessIds.add(p.getProductId());
+                    }
+                    if (StringUtils.hasText(p.getCode())) {
+                        listedBusinessIds.add(p.getCode());
+                    }
+                }
+            }
+        }
+        List<MenuDTO.MenuTab> result = new ArrayList<>();
+        for (MenuDTO.MenuTab tab : tabs) {
+            List<MenuDTO.MenuGroup> groups = new ArrayList<>();
+            for (MenuDTO.MenuGroup group : tab.getGroups() == null ? List.<MenuDTO.MenuGroup>of() : tab.getGroups()) {
+                List<MenuDTO.MenuCategory> cats = new ArrayList<>();
+                for (MenuDTO.MenuCategory category : group.getCategories() == null
+                        ? List.<MenuDTO.MenuCategory>of() : group.getCategories()) {
+                    List<MenuDTO.MenuProduct> visible = (category.getProducts() == null
+                            ? List.<MenuDTO.MenuProduct>of() : category.getProducts()).stream()
+                            .filter(p -> p != null && listedBusinessIds.contains(p.getId()))
+                            .toList();
+                    if (visible.isEmpty()) {
+                        continue;
+                    }
+                    MenuDTO.MenuCategory copy = new MenuDTO.MenuCategory();
+                    copy.setId(category.getId());
+                    copy.setLabel(category.getLabel());
+                    copy.setTag(category.getTag());
+                    copy.setProducts(visible);
+                    cats.add(copy);
+                }
+                if (cats.isEmpty()) {
+                    continue;
+                }
+                MenuDTO.MenuGroup g = new MenuDTO.MenuGroup();
+                g.setId(group.getId());
+                g.setLabel(group.getLabel());
+                g.setCategories(cats);
+                groups.add(g);
+            }
+            if (groups.isEmpty()) {
+                continue;
+            }
+            MenuDTO.MenuTab copyTab = new MenuDTO.MenuTab();
+            copyTab.setId(tab.getId());
+            copyTab.setLabel(tab.getLabel());
+            copyTab.setGroups(groups);
+            result.add(copyTab);
+        }
+        return result;
     }
 
     /** 读菜单缓存；Redis 不可用或未命中返回 null（fail-open，回源 DB）。 */

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'auth_role'
+  name: 'AuthRole'
 });
 
 import { computed, h, onMounted, ref } from 'vue';

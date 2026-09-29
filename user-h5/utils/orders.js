@@ -1,6 +1,7 @@
 const { formatOrderAmount } = require('../data/mock');
 const api = require('./api');
 const { formatDateTime } = require('./date-format');
+const { resolveGiftCardDisplay } = require('./gift-card');
 
 let orderStore = [];
 
@@ -535,6 +536,12 @@ function decorateOrder(order, now) {
         ? 'pending_payment'
         : resolveInternalOrderStatus(order.category, order.orderStatus)
           || '';
+  // 礼品卡订单没有 items，卡名与卡面存放在 cardName / cardImage，
+  // 必须走 resolveGiftCardDisplay 解析（它自带「历史卡面下架」降级链与默认卡面兜底）。
+  // 否则 title 会退化成泛称「订单」、coverImage 为空串导致封面渲染成灰块。
+  const giftCardDisplay = order.category === 'gift-card'
+    ? resolveGiftCardDisplay(order)
+    : null;
   const statusMeta = STATUS_META[statusKey] || { title: '', note: '' };
   // 取消订单的说明按「待支付取消 / 已支付取消」区分，退款提示更准确
   const cancelNote =
@@ -576,8 +583,15 @@ function decorateOrder(order, now) {
     type: resolveMealTypeText(order),
     // 详情页「用餐信息」分组：用餐方式 + 取餐门店
     mealInfo: buildMealInfo(order),
-    title: order.title || order.storeName || firstItem.name || '订单',
-    coverImage: order.coverImage || (order.category === 'stored-value' ? STORED_VALUE_COVER_IMAGE : firstItem.image) || '',
+    title: order.title || order.storeName
+      || (giftCardDisplay && giftCardDisplay.name)
+      || firstItem.name || '订单',
+    // 取值优先级：后端显式 coverImage > 礼品卡卡面 > 储值兜底图 > 首个商品图。
+    // 礼品卡不并入「储值兜底」分支：卡面由运营配置，不能被静态兜底图覆盖。
+    coverImage: order.coverImage
+      || (giftCardDisplay && giftCardDisplay.image)
+      || (order.category === 'stored-value' ? STORED_VALUE_COVER_IMAGE : firstItem.image)
+      || '',
     // 展示用字段：订单时间统一为中文完整格式，原始 orderInfo 保留供排序 / 逻辑使用。
     payTimeText: order.payTime ? formatDateTime(order.payTime) : '',
     createdAtText: order.orderInfo && order.orderInfo.createdAt ? formatDateTime(order.orderInfo.createdAt) : ''

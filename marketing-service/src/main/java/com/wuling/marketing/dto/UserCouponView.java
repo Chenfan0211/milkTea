@@ -28,6 +28,8 @@ public class UserCouponView {
     private LocalDateTime validityStart;
     private LocalDateTime validityEnd;
     private Integer validityDays;
+    /** 领取后延迟生效天数；NULL/0 表示立即生效。前端据此展示「N 天后生效」。 */
+    private Integer effectiveDelayDays;
     private LocalDateTime receiveTime;
     private LocalDateTime expireAt;
     private Boolean usable;

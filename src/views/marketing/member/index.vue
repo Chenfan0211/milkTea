@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'marketing_member'
+  name: 'MarketingMember'
 });
 
 import { computed, reactive, ref } from 'vue';

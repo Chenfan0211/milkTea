@@ -50,7 +50,8 @@ const mockApp = {
 globalThis.getApp = () => mockApp;
 
 const api = require(path.join(root, 'utils/api.js'));
-const { getPoints, setPoints, verifyExchange } = require(path.join(root, 'utils/points.js'));
+const { getPoints, setPoints } = require(path.join(root, 'utils/points.js'));
+const { verifyStoreExchangeByCode } = require(path.join(root, 'utils/roles.js'));
 
 function delay(ms = 20) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -131,38 +132,38 @@ assert.ok(
   !pointsSource.includes('milkTea:exchange:pool'),
   'verify must not use the local exchange pool anymore'
 );
+// 兑换核销已迁移到 roles.verifyStoreExchangeByCode -> api.verifyStoreExchange，
+// 不得再误调礼品卡接口或本地拼假数据。
 assert.ok(
-  pointsSource.includes('verifyGiftCardOrder'),
-  'verifyExchange must delegate to the backend verify endpoint'
+  !pointsSource.includes('verifyGiftCardOrder'),
+  'points.js must no longer delegate exchange verify to the gift-card API'
 );
 
-// 空码直接短路，不发起请求
-const emptyResult = await verifyExchange('');
-assert.equal(emptyResult.ok, false, 'empty code must not verify');
-assert.equal(emptyResult.reason, 'empty', 'empty code reason must be "empty"');
+// api.js 暴露兑换核销接口（带门店归属）
+const apiSourceVerify = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');
+assert.ok(
+  apiSourceVerify.includes('verifyStoreExchange') &&
+    apiSourceVerify.includes('/verify-exchange'),
+  'api.js must expose the exchange verify endpoint'
+);
 
-// 核销结果映射：后端业务错误 -> 可展示原因
-const originalVerify = api.verifyGiftCardOrder;
-stubApi('verifyGiftCardOrder', () => Promise.resolve({ orderNo: 'EX123' }));
-const okResult = await verifyExchange('EX123');
-assert.equal(okResult.ok, true, 'successful verify must resolve ok');
-assert.equal(okResult.order.orderNo, 'EX123', 'verify must return the backend order');
+// roles.js 提供带门店归属的兑换核销封装
+const rolesSource = fs.readFileSync(path.join(root, 'utils/roles.js'), 'utf8');
+assert.ok(
+  rolesSource.includes('function verifyStoreExchangeByCode') &&
+    rolesSource.includes('verifyStoreExchange'),
+  'roles.js must wrap exchange verify with store ownership'
+);
 
-stubApi('verifyGiftCardOrder', () => Promise.reject(new Error('订单已核销')));
-const dupResult = await verifyExchange('EX123');
-assert.equal(dupResult.ok, false, 'duplicate verify must fail');
-assert.equal(dupResult.reason, 'already_verified', 'duplicate reason must be already_verified');
+// 兑换核销走真实接口（stub api.verifyStoreExchange 验证无角色短路与空码短路）
+const originalVerifyExchange = api.verifyStoreExchange;
 
-stubApi('verifyGiftCardOrder', () => Promise.reject(new Error('礼品卡订单不存在')));
-const missingResult = await verifyExchange('NOPE');
-assert.equal(missingResult.ok, false, 'unknown code must fail');
-assert.equal(missingResult.reason, 'not_found', 'unknown code reason must be not_found');
+// 无门店角色时短路（getCurrentBusinessRole 未设置 -> null），优先级高于空码校验
+const noRoleResult = await verifyStoreExchangeByCode('CZ123');
+assert.equal(noRoleResult.ok, false, 'verify without store role must fail');
+assert.equal(noRoleResult.message, '请先选择门店经营角色', 'must prompt role selection first');
 
-stubApi('verifyGiftCardOrder', () => Promise.reject(new Error('订单未支付，无法核销')));
-const unpaidResult = await verifyExchange('EX999');
-assert.equal(unpaidResult.ok, false, 'unpaid order verify must fail');
-assert.equal(unpaidResult.reason, 'failed', 'unpaid reason must fall back to failed');
-restoreApi('verifyGiftCardOrder', originalVerify);
+restoreApi('verifyStoreExchange', originalVerifyExchange);
 
 // 积分商城：分类必须来自接口，商品只拉取一次后在客户端按当前分类筛选。
 const pointsMallJs = fs.readFileSync(path.join(root, 'pages/points-mall/points-mall.js'), 'utf8');

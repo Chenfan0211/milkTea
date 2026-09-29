@@ -31,6 +31,8 @@ function emitChange() {
   emit('update:modelValue', JSON.parse(JSON.stringify(groups.value)));
 }
 
+const TIP_LABEL = '温馨提示';
+
 function onGroupLabelInput(group: SpecGroup) {
   if ((group.label || '').trim() === TIP_LABEL) {
     window.$message?.warning('温馨提示请在「商品详情-饮用提示」中维护，请勿在规格组中配置');
@@ -38,8 +40,6 @@ function onGroupLabelInput(group: SpecGroup) {
   }
   emitChange();
 }
-
-const TIP_LABEL = '温馨提示'
 
 function genId() {
   return 'g' + Date.now() + Math.floor(Math.random() * 1000);

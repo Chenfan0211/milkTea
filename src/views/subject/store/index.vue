@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'subject_store'
+  name: 'SubjectStore'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
@@ -171,11 +171,11 @@ const formFields: FormField[] = [
     key: 'city',
     label: '城市',
     type: 'select',
-    options: () => store.cities.map((c: any) => ({ label: c.name, value: c.name })),
+    options: () => store.cities.map((c: any) => ({ label: c.name, value: String(c.id) })),
     rules: [requiredRule]
   },
   { key: 'manager', label: '负责人', rules: [requiredRule] },
-  { key: 'address', label: '详细地址', type: 'textarea', rules: [requiredRule] },
+  { key: 'address', label: '门店详细地址', type: 'textarea', rules: [requiredRule] },
   { key: 'phone', label: '联系人电话', rules: [requiredRule] },
   {
     key: 'geocode',
@@ -209,7 +209,7 @@ const config: AdminListConfig = {
     toFormData: (row: any) => ({
       name: row.name,
       storeType: row.storeType,
-      city: row.city,
+      city: row.cityId != null ? String(row.cityId) : (row.city || ''),
       manager: row.manager,
       address: row.location,
       phone: row.phone,
@@ -227,7 +227,7 @@ const config: AdminListConfig = {
                   storeType: '门店类型',
                   city: '城市',
                   manager: '负责人',
-                  address: '详细地址',
+                  address: '门店详细地址',
                   phone: '联系人电话'
                 } as Record<string, string>
               )[key]
@@ -236,10 +236,13 @@ const config: AdminListConfig = {
       if (data.latitude == null || data.longitude == null || data.latitude === '' || data.longitude === '') {
         throw new Error('请先填写详细地址并点击「按地址解析经纬度」');
       }
+      const cityRow = store.cities.find((c: any) => String(c.id) === String(data.city));
+      const cityName = cityRow ? cityRow.name : data.city;
       const payload = {
         name: data.name,
         storeType: data.storeType,
-        city: data.city,
+        city: cityName,
+        cityId: Number(data.city),
         manager: data.manager,
         location: data.address,
         phone: data.phone,

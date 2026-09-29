@@ -80,9 +80,41 @@ public class AppVerifyQueryController {
                     "无权核销该门店订单，请确认已开通门店经营角色");
         }
 
-        // 强制按订单核销，避免小程序端核销兑换类记录（兑换核销走营销域礼品卡接口）
+        // 强制按订单核销，点单核销仅允许 ORDER 类型
         request.setType("ORDER");
         // 操作人记录为当前登录用户，不接受前端传入的操作人标识
+        request.setOperator("mini-user-" + userId);
+
+        return Result.ok(verifyService.verify(request));
+    }
+
+    /**
+     * 执行兑换核销（扫码 / 输码核销自提码）。
+     *
+     * <p>兑换单（ExchangeOrder）归属营销域，自提码不绑定具体门店
+     * （exchange_order 无 store_subject_id），因此不做「该兑换单属于本店」的
+     * 归属校验；但仍要求调用者是门店经营角色，避免任意登录用户核销兑换码。
+     *
+     * <p>核销结果：写 verify_record(type=EXCHANGE) 并发布 EXCHANGE_VERIFIED
+     * 事件，由营销域异步把兑换单置 VERIFIED（最终一致，见 ExchangeVerifyConsumer）。
+     *
+     * @param storeSubjectId 门店主体 ID（用于校验当前用户经营门店）
+     * @param request        核销请求：{@code code} 兑换自提码
+     */
+    @PostMapping("/store/{storeSubjectId}/verify-exchange")
+    public Result<VerifyService.VerifyResult> verifyExchange(
+            @PathVariable Long storeSubjectId,
+            @Valid @RequestBody VerifyRequest request) {
+
+        Long userId = CurrentUser.require();
+        // 仍校验门店经营归属：兑换核销也必须由门店店员执行
+        if (!storeOperatorPort.isStoreOperator(userId, storeSubjectId)) {
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.FORBIDDEN,
+                    "无权核销该门店订单，请确认已开通门店经营角色");
+        }
+
+        request.setType("EXCHANGE");
         request.setOperator("mini-user-" + userId);
 
         return Result.ok(verifyService.verify(request));

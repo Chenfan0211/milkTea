@@ -368,3 +368,43 @@
   color: var(--card-bg);
   background: var(--brand-green);
 }
+.products-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320rpx;
+}
+
+.products-loading__text {
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.products-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320rpx;
+}
+
+.products-error__text {
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.products-error__action {
+  margin-top: 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.products-loadmore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}

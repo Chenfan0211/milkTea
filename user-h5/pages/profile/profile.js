@@ -2,7 +2,7 @@ const { withShare } = require('../../utils/share');
 const { DEFAULT_AVATAR, getUserProfile, maskPhone, roundMoney, saveUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
 const { getPoints, notifyPointsChanged } = require('../../utils/points');
 const { buildLevelMeta, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
-const { getCurrentBusinessRole, getPendingRoles, getDashboard } = require('../../utils/roles');
+const { getCurrentBusinessRole, getPendingRoles, getDashboard, syncRolesFromRemote } = require('../../utils/roles');
 const loginGuard = require('../../utils/login-guard');
 const auth = require('../../utils/auth');
 const authState = require('../../utils/auth-state');
@@ -123,6 +123,17 @@ Page(
         businessRole,
         pendingRoleCount: pendingRoles.length,
         roleFunctions: buildRoleFunctions(businessRole && businessRole.id)
+      });
+      // 经营角色以后端 /roles/mine 为准：同步后刷新身份徽章与门店功能入口。
+      // 用户已绑定门店时，此前因「我的」页从不同步角色，徽章/功能始终为空。
+      syncRolesFromRemote().then(() => {
+        const nextRole = getCurrentBusinessRole();
+        const nextPending = getPendingRoles();
+        this.setData({
+          businessRole: nextRole,
+          pendingRoleCount: nextPending.length,
+          roleFunctions: buildRoleFunctions(nextRole && nextRole.id)
+        });
       });
       this.syncLevel();
       refreshMemberLevelsFromRemote().then(() => this.syncLevel());

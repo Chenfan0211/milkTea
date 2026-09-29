@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.wuling.product.entity.ProductStore;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
 
 public interface ProductStoreMapper extends BaseMapper<ProductStore> {
 
@@ -21,4 +24,19 @@ public interface ProductStoreMapper extends BaseMapper<ProductStore> {
      */
     @Delete("DELETE FROM product_store WHERE product_id = #{productId}")
     int physicalDeleteByProductId(@Param("productId") Long productId);
+
+    /** 该门店已上架的商品主键列表（用于标记 listed）。 */
+    @Select("select product_id from product_store where store_subject_id = #{storeSubjectId} and deleted = 0")
+    List<Long> selectListedProductIds(@Param("storeSubjectId") Long storeSubjectId);
+
+    /**
+     * 物理删除「某门店 + 某商品」的上架关联（下架操作）。
+     *
+     * <p>同 {@link #physicalDeleteByProductId}：关联表带唯一键，逻辑删除会让旧行
+     * 继续占用唯一键，导致重新上架时 Duplicate entry。
+     */
+    @Delete("DELETE FROM product_store WHERE store_subject_id = #{storeSubjectId} "
+            + "AND product_id = #{productId}")
+    int physicalDeleteByStoreAndProduct(@Param("storeSubjectId") Long storeSubjectId,
+                                        @Param("productId") Long productId);
 }

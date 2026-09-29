@@ -3,13 +3,15 @@ const api = require('../../utils/api');
 const { withShare } = require('../../utils/share');
 const { getRoleDefinitions, hasRole, applyRole } = require('../../utils/roles');
 const { getStoreTypes } = require('../../utils/store-types');
+const { refreshCitiesFromRemote, getCityList } = require('../../utils/store');
 
 const FIELD_CONFIG = {
   store: [
     { id: 'name', label: '姓名', placeholder: '请输入姓名', type: 'text' },
     { id: 'phone', label: '手机号', placeholder: '请输入手机号', type: 'number' },
     { id: 'storeName', label: '门店名称', placeholder: '请输入门店名称', type: 'text' },
-    { id: 'storeAddress', label: '门店地址', placeholder: '请输入门店地址', type: 'text' },
+    { id: 'storeCity', label: '所在城市', placeholder: '请选择城市', type: 'select', options: [] },
+    { id: 'storeAddress', label: '门店详细地址', placeholder: '请输入门店详细地址', type: 'text' },
     { id: 'storeType', label: '门店类型', placeholder: '请选择门店类型', type: 'select', options: [] }
   ],
   investor: [
@@ -31,6 +33,8 @@ function createEmptyForm() {
     name: '',
     phone: '',
     storeName: '',
+    storeCity: '',
+    storeCityId: null,
     storeAddress: '',
     storeType: '',
     investLocation: '',
@@ -46,7 +50,8 @@ Page(
       selectedRoleId: '',
       fields: [],
       form: createEmptyForm(),
-      storeTypeOptions: []
+      storeTypeOptions: [],
+      cityOptions: []
     },
     onLoad() {
       const roles = getRoleDefinitions();
@@ -54,13 +59,18 @@ Page(
       getStoreTypes().then(storeTypeOptions => {
         this.setData({ storeTypeOptions });
       });
+      refreshCitiesFromRemote().then(cityOptions => {
+        this.setData({ cityOptions });
+      });
     },
     selectRole(event) {
       const { id } = event.currentTarget.dataset;
       if (!id || hasRole(id)) return;
-      const fields = (FIELD_CONFIG[id] || []).map(item =>
-        item.id === 'storeType' ? Object.assign({}, item, { options: this.data.storeTypeOptions }) : item
-      );
+      const fields = (FIELD_CONFIG[id] || []).map(item => {
+        if (item.id === 'storeType') return Object.assign({}, item, { options: this.data.storeTypeOptions });
+        if (item.id === 'storeCity') return Object.assign({}, item, { options: this.data.cityOptions });
+        return item;
+      });
       this.setData({
         selectedRoleId: id,
         fields,
@@ -76,7 +86,13 @@ Page(
       const index = Number(event.detail.value);
       const fieldConfig = this.data.fields.find(item => item.id === field);
       const option = (fieldConfig && fieldConfig.options && fieldConfig.options[index]) || null;
-      if (option) this.setData({ [`form.${field}`]: option.name });
+      if (option) {
+        if (field === 'storeCity') {
+          this.setData({ [`form.${field}`]: option.name, 'form.storeCityId': option.id });
+        } else {
+          this.setData({ [`form.${field}`]: option.name });
+        }
+      }
     },
     submit() {
       loginGuard.requirePhone(() => this.doSubmit(), { reason: '提交申请需要绑定手机号' });

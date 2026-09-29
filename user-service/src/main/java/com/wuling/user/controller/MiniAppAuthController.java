@@ -131,6 +131,22 @@ public class MiniAppAuthController {
         return Result.ok(miniAppAuthService.updateNickName(CurrentUser.require(), nickName));
     }
 
+    /**
+     * 更新个人资料基础字段（姓名 / 性别 / 生日 / 详细地址）。
+     *
+     * <p>个人资料页一次提交多字段；userId 一律取自 JWT（CurrentUser.require），
+     * 不接受前端传入。生日必填且填写后不可修改（服务端硬校验）。
+     */
+    @PostMapping("/profile-fields")
+    public Result<Map<String, Object>> updateProfileFields(@RequestBody Map<String, Object> payload) {
+        return Result.ok(miniAppAuthService.updateProfileFields(
+                CurrentUser.require(),
+                payload.get("nickName") == null ? null : String.valueOf(payload.get("nickName")),
+                payload.get("gender") == null ? null : String.valueOf(payload.get("gender")),
+                payload.get("birthday") == null ? null : String.valueOf(payload.get("birthday")),
+                payload.get("address") == null ? null : String.valueOf(payload.get("address"))));
+    }
+
     private String clientIp(jakarta.servlet.http.HttpServletRequest request) {
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {

@@ -19,6 +19,7 @@ public class StoreProfile {
     /** 门店业务编码（前端以 code 作为门店 id） */
     private String code;
     private String city;
+    private Long cityId;
     private String address;
     private String phone;
     private BigDecimal latitude;
@@ -37,3 +38,4 @@ public class StoreProfile {
     @TableLogic
     private Integer deleted;
 }
+

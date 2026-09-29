@@ -49,23 +49,23 @@ public class ReferralRewardService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void rewardFirstOrder(Long inviteeUserId, String orderNo) {
+    public boolean rewardFirstOrder(Long inviteeUserId, String orderNo) {
         if (inviteeUserId == null || orderNo == null || orderNo.isBlank()) {
             log.warn("邀请首单奖励缺少必要参数 inviteeUserId={} orderNo={}", inviteeUserId, orderNo);
-            return;
+            return false;
         }
 
         AppUser invitee = appUserMapper.selectById(inviteeUserId);
         Long inviterUserId = invitee == null ? null : invitee.getReferrerId();
         if (inviterUserId == null || inviterUserId.equals(inviteeUserId)) {
-            return;
+            return false;
         }
 
         AppUser inviter = appUserMapper.selectById(inviterUserId);
         if (inviter == null) {
             log.warn("邀请人不存在，跳过首单奖励 inviterUserId={} inviteeUserId={}",
                     inviterUserId, inviteeUserId);
-            return;
+            return false;
         }
 
         ReferralRecord record = referralRecordMapper.selectByInviteeForUpdate(inviteeUserId);
@@ -78,7 +78,7 @@ public class ReferralRewardService {
             throw new IllegalStateException("邀请首单记录创建后未查询到 inviteeUserId=" + inviteeUserId);
         }
         if (COMPLETED.equals(record.getStatus()) || PAID.equals(record.getFirstOrderStatus())) {
-            return;
+            return false;
         }
 
         Map<String, Object> config = referralConfigService.getConfig();
@@ -96,6 +96,7 @@ public class ReferralRewardService {
         referralRecordMapper.updateById(record);
         log.info("邀请首单奖励发放成功 inviterUserId={} inviteeUserId={} orderNo={} points={} couponAmountFen={}",
                 inviterUserId, inviteeUserId, orderNo, points, couponAmountFen);
+        return true;
     }
 
     private long nonNegativeLong(Object value, long fallback) {

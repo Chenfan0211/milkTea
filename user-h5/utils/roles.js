@@ -676,6 +676,42 @@ function verifyStoreOrderByCode(code) {
  * 拉取资源方（渠道）绑定门店与提成订单，或门店订单，写入内存缓存。
  * 投资人点位由 role-invest 页自行拉取，这里不重复请求。
  */
+/**
+ * 核销兑换自提码（真实接口，带门店归属校验）。
+ *
+ * 兑换单（ExchangeOrder）归属营销域，自提码不绑定门店；但核销仍需门店经营角色，
+ * 后端接口 /store/{subjectId}/verify-exchange 会校验当前用户经营该门店。
+ * 核销成功后由营销域异步把兑换单置 VERIFIED，前端只展示后端返回的 message。
+ *
+ * @param {string} code 兑换自提码
+ * @returns {Promise<{ok:boolean, message:string, result?:object}>}
+ */
+function verifyStoreExchangeByCode(code) {
+  const role = (getCurrentBusinessRole() || {}).id;
+  const subjectId = getCurrentSubjectId();
+  if (role !== 'store' || subjectId == null) {
+    return Promise.resolve({ ok: false, message: '请先选择门店经营角色' });
+  }
+  const value = String(code || '').trim();
+  if (!value) {
+    return Promise.resolve({ ok: false, message: '请输入兑换自提码' });
+  }
+  return api
+    .verifyStoreExchange(subjectId, value)
+    .then((result) => {
+      // 核销成功后刷新记录与待核销池，避免页面显示过期数据
+      return syncVerifyFromRemote(role).then(() => ({
+        ok: true,
+        message: (result && result.message) || '兑换核销成功',
+        result: result || null
+      }));
+    })
+    .catch(error => ({
+      ok: false,
+      message: (error && error.message) || '核销失败，请稍后重试'
+    }));
+}
+
 function syncResourceFromRemote(roleId) {
   const role = roleId || (getCurrentBusinessRole() || {}).id;
   const subjectId = getCurrentSubjectId();
@@ -1316,6 +1352,7 @@ module.exports = {
   syncWithdrawRuleFromRemote,
   syncWorkbenchFromRemote,
   verifyStoreOrderByCode,
+  verifyStoreExchangeByCode,
   warmUpRoleData,
   INCOME_STATUS_NOTE,
   INCOME_STATUS_TEXT,

@@ -165,10 +165,10 @@ async function doBatchUnbind() {
 <template>
   <NModal
     :show="show"
-    @update:show="emit('update:show', $event)"
     preset="card"
     :title="`${title} - ${channel?.name ?? ''}`"
     class="w-900px"
+    @update:show="emit('update:show', $event)"
   >
     <template v-if="mode === 'bind'">
       <div class="mb-8px text-14px font-semibold text-#2F302D">选择门店绑定</div>

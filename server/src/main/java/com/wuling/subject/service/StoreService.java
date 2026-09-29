@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -37,15 +38,18 @@ public class StoreService {
     private final StoreProfileMapper storeProfileMapper;
     private final ObjectMapper objectMapper;
     private final TradeOrderQueryPort tradeOrderQueryPort;
+    private final JdbcTemplate jdbcTemplate;
 
     public StoreService(BizSubjectMapper bizSubjectMapper,
                         StoreProfileMapper storeProfileMapper,
                         ObjectMapper objectMapper,
-                        TradeOrderQueryPort tradeOrderQueryPort) {
+                        TradeOrderQueryPort tradeOrderQueryPort,
+                        JdbcTemplate jdbcTemplate) {
         this.bizSubjectMapper = bizSubjectMapper;
         this.storeProfileMapper = storeProfileMapper;
         this.objectMapper = objectMapper;
         this.tradeOrderQueryPort = tradeOrderQueryPort;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public List<AppStoreDTO> listAppStores() {
@@ -63,6 +67,8 @@ public class StoreService {
             dto.setCode(subject.getCode());
             dto.setName(subject.getName());
             dto.setCity(profile.getCity());
+            dto.setCityId(profile.getCityId());
+            dto.setCityCode(resolveCityCode(profile.getCityId()));
             dto.setAddress(profile.getAddress());
             dto.setPhone(profile.getPhone());
             dto.setStoreType(profile.getStoreType());
@@ -114,6 +120,7 @@ public class StoreService {
         StoreProfile profile = findProfile(subject.getId());
         if (profile != null) {
             dto.setCity(profile.getCity());
+            dto.setCityId(profile.getCityId());
             dto.setBusinessStatus(profile.getBusinessStatus());
             dto.setManager(profile.getManager());
             dto.setLocation(profile.getAddress());
@@ -202,6 +209,7 @@ public class StoreService {
 
         if (!StringUtils.hasText(profile.getCode())) profile.setCode(fallbackCode);
         profile.setCity(upsert.getCity());
+        profile.setCityId(upsert.getCityId());
         profile.setAddress(upsert.getLocation());
         profile.setPhone(upsert.getPhone());
         profile.setStoreType(upsert.getStoreType());
@@ -238,6 +246,19 @@ public class StoreService {
         }
     }
 
+    /** 按 city_id 反查 region.code（国标行政区划码），供前端就近排序与城市过滤使用。 */
+    private String resolveCityCode(Long cityId) {
+        if (cityId == null) return null;
+        try {
+            List<String> codes = jdbcTemplate.queryForList(
+                    "select code from region where id = ? and deleted = 0", String.class, cityId);
+            return codes.isEmpty() ? null : codes.get(0);
+        } catch (Exception e) {
+            log.warn("反查城市编码失败 cityId={} err={}", cityId, e.getMessage());
+            return null;
+        }
+    }
+
     private StoreProfile findProfile(Long subjectId) {
         return storeProfileMapper.selectOne(new LambdaQueryWrapper<StoreProfile>()
                 .eq(StoreProfile::getSubjectId, subjectId));
@@ -259,6 +280,7 @@ public class StoreService {
     public static class AdminStoreUpsert {
         private String name;
         private String city;
+        private Long cityId;
         private String manager;
         private String location;
         private String phone;

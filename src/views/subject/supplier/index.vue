@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'subject_supplier'
+  name: 'SubjectSupplier'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

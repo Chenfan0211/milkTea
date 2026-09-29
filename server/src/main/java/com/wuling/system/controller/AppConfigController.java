@@ -4,9 +4,12 @@ import com.wuling.common.api.Result;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.cache.AppConfigCacheService;
 import com.wuling.common.exception.BusinessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,9 +37,11 @@ public class AppConfigController {
     private static final Set<String> SENSITIVE_KEYS = Set.of("tencent_map_key");
 
     private final AppConfigCacheService configCacheService;
+    private final JdbcTemplate jdbcTemplate;
 
-    public AppConfigController(AppConfigCacheService configCacheService) {
+    public AppConfigController(AppConfigCacheService configCacheService, JdbcTemplate jdbcTemplate) {
         this.configCacheService = configCacheService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /** 按 key 读取单个配置 */
@@ -83,11 +88,35 @@ public class AppConfigController {
         return Result.ok(result);
     }
 
-    /** 城市列表 */
+    /**
+     * 城市列表（小程序城市下拉 / city-picker）。
+     *
+     * <p>数据源改为 {@code region}(level=2)，code 统一国标行政区划码，
+     * 与门店 city_id 强关联口径一致。不再读 app_cities 配置 ——
+     * 后台「城市管理」维护 region 即生效，无需双写同步。
+     *
+     * <p>返回结构：{@code [{id, code, name, parentId, latitude, longitude}]}，
+     * id 为 region.id（门店 city_id 关联键）。
+     */
     @GetMapping("/cities")
     public Result<Object> cities() {
-        Object value = readPublicValue("app_cities");
-        return Result.ok(value == null ? List.of() : value);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select c.id, c.parent_id, c.code, c.name, c.latitude, c.longitude, p.name as province_name "
+                        + "from region c left join region p on p.id = c.parent_id and p.deleted = 0 "
+                        + "where c.level = 2 and c.deleted = 0 and c.status = 'enabled' order by c.sort asc, c.id asc");
+        List<Map<String, Object>> out = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", row.get("id"));
+            item.put("code", row.get("code"));
+            item.put("name", row.get("name"));
+            item.put("parentId", row.get("parent_id"));
+            item.put("provinceName", row.get("province_name"));
+            item.put("latitude", row.get("latitude"));
+            item.put("longitude", row.get("longitude"));
+            out.add(item);
+        }
+        return Result.ok(out);
     }
 
     /** 签到规则与奖励 */

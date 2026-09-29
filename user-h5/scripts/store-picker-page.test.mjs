@@ -77,13 +77,13 @@ const migrationDir = path.join(root, '..', 'server/src/main/resources/db/migrati
 const baseSeed = fs.readFileSync(path.join(migrationDir, 'V3__seed_base.sql'), 'utf8');
 const appConfigSeed = fs.readFileSync(path.join(migrationDir, 'V10__app_config.sql'), 'utf8');
 const citiesMatch = appConfigSeed.match(/'app_cities'[\s\S]*?\[([\s\S]*?)\]'/);
-const seedCities = JSON.parse('[' + citiesMatch[1].replace(/\n/g, '') + ']');
+const seedCities = JSON.parse('[' + citiesMatch[1].replace(/\n/g, '') + ']').map(item => ({ ...item, code: ({ changsha: '4301', guangzhou: '4401', shenzhen: '4403' })[item.code] || item.code }));
 const subjectBlock = baseSeed.match(/INSERT INTO biz_subject[\s\S]*?;/);
 const SUBJECT_NAMES = {};
 for (const m of subjectBlock[0].matchAll(/\((\d+)\s*,\s*'[^']*'\s*,\s*'([^']+)'\s*,\s*'STORE'/g)) SUBJECT_NAMES[Number(m[1])] = m[2];
 const profileBlock = baseSeed.match(/INSERT INTO store_profile \([\s\S]*?;/);
 const STORE_CODES = { 101: 'store-001', 102: 'store-002', 103: 'store-003', 104: 'store-004', 105: 'store-005' };
-const CITY_BY_NAME = { 长沙市: 'changsha', 广州市: 'guangzhou', 深圳市: 'shenzhen' };
+const CITY_BY_NAME = { 长沙市: '4301', 广州市: '4401', 深圳市: '4403' };
 // 菜单：从 V4 seed 解析 tab/group/category/product 层级
 const productSeed = fs.readFileSync(path.join(migrationDir, 'V4__seed_product.sql'), 'utf8');
 const catBlock = productSeed.match(/INSERT INTO product_category[\s\S]*?;/);
@@ -111,7 +111,7 @@ const seedStores = [...profileBlock[0].matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+
   code: STORE_CODES[Number(m[1])],
   name: SUBJECT_NAMES[Number(m[1])] || '',
   city: m[2],
-  cityCode: CITY_BY_NAME[m[2]] || 'changsha',
+  cityCode: CITY_BY_NAME[m[2]] || '4301',
   address: m[3],
   phone: m[4],
   latitude: Number(m[5]),
@@ -139,7 +139,7 @@ globalThis.getApp = () => ({
     menuTabId: 'classic',
     orderMode: 'pickup',
     selectedStoreId: null,
-    selectedCityCode: 'changsha',
+    selectedCityCode: '4301',
     selectedCityName: '长沙市'
   }
 });
@@ -235,11 +235,11 @@ if (cachedMenuPage.tabBarState.hidden) {
 capturedPage = null;
 require(path.join(root, 'pages/city-picker/city-picker.js'));
 const cityPage = createPage(capturedPage);
-cityPage.onLoad({ city: 'changsha' });
-cityPage.handleSelectCity({ currentTarget: { dataset: { code: 'guangzhou' } } });
+cityPage.onLoad({ city: '4301' });
+cityPage.handleSelectCity({ currentTarget: { dataset: { code: '4401' } } });
 const { resolveStoreCatalog } = require(path.join(root, 'utils/store.js'));
 const catalog = resolveStoreCatalog();
-if (catalog.city.code !== 'guangzhou' || catalog.currentStore) {
+if (catalog.city.code !== '4401' || catalog.currentStore) {
   throw new Error('切换城市后必须进入新城市且不自动预选门店');
 }
 

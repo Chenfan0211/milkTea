@@ -55,6 +55,14 @@ assert.ok(js.includes('invitedCount: 0'), '已邀请人数初始值必须为 0�
 assert.ok(wxml.includes('奖励规则') && wxml.includes('wx:for="{{rewards}}"'), '分享有礼页必须渲染奖励规则');
 assert.ok(wxml.includes('到账规则') && wxml.includes('{{earningNote}}'), '分享有礼页必须展示到账规则');
 assert.ok(js.includes('3 时光币') && js.includes('3 元无门槛券'), '首单奖励必须为 3 时光币 + 3 元无门槛券');
+assert.ok(
+  js.includes('toPositiveNumber') && !js.includes('toNonNegativeNumber'),
+  '奖励配置必须用「仅接受正数」的解析函数，避免 null/0 渲染成 0 元券'
+);
+assert.ok(
+  /Number\.isFinite\(number\) && number > 0 \? number : fallback/.test(js),
+  '奖励解析必须要求 number > 0 才采纳，否则回退默认值 3'
+);
 assert.ok(js.includes('社交达人') && js.includes('时光推荐官'), '必须包含社交达人徽章与时光推荐官档位');
 assert.ok(js.includes('5%') && js.includes('以后台配置为准'), '推荐官返利必须标注 5% 示例');
 assert.ok(wxml.includes('立即邀请好友'), '必须提供立即邀请好友按钮');

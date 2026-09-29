@@ -13,18 +13,26 @@ const DEFAULT_REFERRAL_CONFIG = {
   recommenderRebateRate: 5
 };
 
-function toNonNegativeNumber(value, fallback) {
+/**
+ * 只接受「有限正数」，其余一律回退默认值。
+ *
+ * 为什么是 > 0 而不是 >= 0：后台配置可能把字段写成 null / 0 / undefined，
+ * Number(null) === 0 且 0 >= 0 成立，会被当成合法值渲染出
+ * 「双方各得 0 时光币 + 1 张 0 元无门槛券」这种误导文案。
+ * 奖励为 0 没有业务意义，缺失/非法时回退到与产品口径一致的默认值（3）。
+ */
+function toPositiveNumber(value, fallback) {
   const number = Number(value);
-  return Number.isFinite(number) && number >= 0 ? number : fallback;
+  return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
 function buildReferralView(input) {
   const config = Object.assign({}, DEFAULT_REFERRAL_CONFIG, input || {});
-  const points = toNonNegativeNumber(config.firstOrderPoints, 3);
-  const couponAmount = toNonNegativeNumber(config.firstOrderCouponAmount, 3);
-  const socialStarThreshold = toNonNegativeNumber(config.socialStarThreshold, 5);
-  const recommenderThreshold = toNonNegativeNumber(config.recommenderThreshold, 10);
-  const recommenderRebateRate = toNonNegativeNumber(config.recommenderRebateRate, 5);
+  const points = toPositiveNumber(config.firstOrderPoints, 3);
+  const couponAmount = toPositiveNumber(config.firstOrderCouponAmount, 3);
+  const socialStarThreshold = toPositiveNumber(config.socialStarThreshold, 5);
+  const recommenderThreshold = toPositiveNumber(config.recommenderThreshold, 10);
+  const recommenderRebateRate = toPositiveNumber(config.recommenderRebateRate, 5);
   const socialStarProduct = config.socialStarProduct
     ? ` + ${config.socialStarProduct}`
     : ' + 指定产品';

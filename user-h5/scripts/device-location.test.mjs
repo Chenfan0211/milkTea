@@ -68,8 +68,8 @@ const location = require(path.join(root, 'utils/location.js'));
 
 // 准备城市与门店数据
 store.setCityCatalogForTest([
-  { code: 'changsha', name: '长沙市', initial: 'C', latitude: 28.2282, longitude: 112.9388 },
-  { code: 'shenzhen', name: '深圳市', initial: 'S', latitude: 22.5431, longitude: 114.0579 }
+  { code: '4301', name: '长沙市', initial: 'C', latitude: 28.2282, longitude: 112.9388 },
+  { code: '4403', name: '深圳市', initial: 'S', latitude: 22.5431, longitude: 114.0579 }
 ]);
 store.setStoreCatalogForTest([
   {
@@ -140,9 +140,9 @@ getLocationBehavior = 'ok';
 storage.clear();
 settingValue = { 'scope.userLocation': true };
 const matched = location.matchNearestCity(22.55, 114.06);
-assert.equal(matched.code, 'shenzhen', '坐标邻近深圳时必须匹配到深圳');
+assert.equal(matched.code, '4403', '坐标邻近深圳时必须匹配到深圳');
 const matchedCs = location.matchNearestCity(28.23, 112.94);
-assert.equal(matchedCs.code, 'changsha', '坐标邻近长沙时必须匹配到长沙');
+assert.equal(matchedCs.code, '4301', '坐标邻近长沙时必须匹配到长沙');
 
 // 7. clearDeviceLocation 后缓存失效
 location.clearDeviceLocation();

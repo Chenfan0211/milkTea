@@ -1,10 +1,10 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'finance_pool'
+  name: 'FinancePool'
 });
 
-import { computed, h, onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { NCard, NGrid, NGi, NStatistic, NDataTable } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';

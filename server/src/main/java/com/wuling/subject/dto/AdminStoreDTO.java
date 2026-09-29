@@ -11,6 +11,7 @@ public class AdminStoreDTO {
     private String code;
     private String name;
     private String city;
+    private Long cityId;
     private String businessStatus;
     private String manager;
     private String location;

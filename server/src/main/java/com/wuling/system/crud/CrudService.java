@@ -279,6 +279,7 @@ public class CrudService {
         Map<String, Object> before = getOne(resource, id);
         guardPointsCategoryDelete(def, before);
         guardCouponDelete(def, id);
+        guardUserDelete(def, id);
         int affected = jdbcTemplate.update(
                 "update " + SqlGuard.ident(def.table()) + " set deleted = 1 where id = ? and deleted = 0", id);
         if (affected == 0) {
@@ -286,6 +287,28 @@ public class CrudService {
         }
         writeAudit(resource, "删除", before, before, null);
         evictAppConfigCache(resource, before);
+    }
+
+    /**
+     * 删除用户前清理「用户 ↔ 主体」绑定关系（1:1）。
+     *
+     * <p><b>为什么必须清理</b>：绑定关系在两处各存一份
+     * （app_user.bound_subject_id / biz_subject.bound_user_id）。
+     * 用户被逻辑删除后，若不清理主体侧，门店列表仍会显示「已绑定 用户X」，
+     * 而用户列表已查不到此人 —— 表现为两边对不上（历史故障）。
+     *
+     * <p>只处理 users 资源；其他资源的删除不受影响。
+     */
+    private void guardUserDelete(CrudRegistry.Resource def, long userId) {
+        if (!"users".equals(def.resource())) {
+            return;
+        }
+        // 先解绑主体侧（把指向该用户的主体清空），再删用户，
+        // 与 /admin/subject/binding 的解绑口径一致。
+        jdbcTemplate.update("update biz_subject set bound_user_id = null "
+                + "where bound_user_id = ? and deleted = 0", userId);
+        jdbcTemplate.update("update app_user set bound_subject_id = null, business_role = null "
+                + "where id = ? and deleted = 0", userId);
     }
 
     // ---------- 内部工具 ----------

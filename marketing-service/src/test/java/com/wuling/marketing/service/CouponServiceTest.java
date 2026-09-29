@@ -83,6 +83,48 @@ class CouponServiceTest {
     }
 
     @Test
+    @DisplayName("待生效券走 PENDING 虚拟状态：未到生效时间的 RANGE 券归入待生效，已生效的不归入")
+    void myCouponsPendingReturnsOnlyNotStartedCoupons() {
+        LocalDateTime now = LocalDateTime.now();
+        // 未来才生效的 RANGE 券
+        Coupon futureRange = coupon(51L, "RANGE", now.plusDays(2), now.plusDays(5), null);
+        // 已生效的 RANGE 券
+        Coupon activeRange = coupon(52L, "RANGE", now.minusDays(1), now.plusDays(2), null);
+
+        UserCoupon pending = userCoupon(501L, 1L, 51L, "UNUSED", now.minusDays(1));
+        UserCoupon active = userCoupon(502L, 1L, 52L, "UNUSED", now.minusDays(1));
+
+        when(userCouponMapper.selectList(any(Wrapper.class))).thenReturn(List.of(pending, active));
+        when(couponMapper.selectBatchIds(anyCollection())).thenReturn(List.of(futureRange, activeRange));
+
+        List<UserCouponView> result = service.myCoupons(1L, CouponService.PENDING);
+
+        assertEquals(1, result.size(), "PENDING 只应返回未到生效时间的券");
+        assertEquals(501L, result.get(0).getId());
+        assertEquals("UNUSED", result.get(0).getStatus());
+        assertTrue(result.get(0).getUsable());
+    }
+
+    @Test
+    @DisplayName("真实状态 USED/EXPIRED 直接按库表状态透传，不再被可用性过滤吞掉")
+    void myCouponsExplicitTerminalStatusReturnsRowsDirectly() {
+        LocalDateTime now = LocalDateTime.now();
+        Coupon coupon = coupon(61L, "DAYS", now.minusDays(10), null, 3);
+        UserCoupon used = userCoupon(601L, 1L, 61L, "USED", now.minusDays(10));
+        UserCoupon expired = userCoupon(602L, 1L, 61L, "EXPIRED", now.minusDays(10));
+
+        when(userCouponMapper.selectList(any(Wrapper.class))).thenReturn(List.of(used, expired));
+        when(couponMapper.selectBatchIds(anyCollection())).thenReturn(List.of(coupon));
+
+        List<UserCouponView> result = service.myCoupons(1L, CouponService.USED);
+
+        assertEquals(1, result.size());
+        assertEquals(601L, result.get(0).getId());
+        assertEquals("USED", result.get(0).getStatus());
+        assertFalse(result.get(0).getUsable());
+    }
+
+    @Test
     @DisplayName("锁券与列表共用有效期判定：已过期券不能锁定")
     void lockRejectsExpiredCoupon() {
         LocalDateTime now = LocalDateTime.now();
@@ -94,6 +136,60 @@ class CouponServiceTest {
         BusinessException error = assertThrows(BusinessException.class, () -> service.lock(1L, 301L, 9001L, 10000L));
         assertEquals("优惠券已过期或不可用", error.getMessage());
         verify(userCouponMapper, never()).updateById(any(UserCoupon.class));
+    }
+
+    @Test
+    @DisplayName("延迟生效券：领取 3 天内归入 PENDING 待生效，可用券 Tab 不返回")
+    void delayedCouponIsPendingUntilEffective() {
+        LocalDateTime now = LocalDateTime.now();
+        Coupon coupon = delayedCoupon(71L, 3, 15);
+        // 刚领取：生效起点是 3 天后
+        UserCoupon justReceived = userCoupon(701L, 1L, 71L, "UNUSED", now.minusHours(1));
+        when(userCouponMapper.selectList(any(Wrapper.class))).thenReturn(List.of(justReceived));
+        when(couponMapper.selectBatchIds(anyCollection())).thenReturn(List.of(coupon));
+
+        List<UserCouponView> pending = service.myCoupons(1L, CouponService.PENDING);
+        assertEquals(1, pending.size(), "领取未满 3 天的券必须归入待生效");
+
+        List<UserCouponView> unused = service.myCoupons(1L, CouponService.UNUSED);
+        assertTrue(unused.isEmpty(), "待生效券不得出现在可用券列表");
+    }
+
+    @Test
+    @DisplayName("延迟生效券：领取满 3 天后归入可用券，且过期时间 = 生效时间 + 有效天数")
+    void delayedCouponBecomesUsableAfterDelay() {
+        LocalDateTime now = LocalDateTime.now();
+        Coupon coupon = delayedCoupon(72L, 3, 15);
+        // 4 天前领取：已过 3 天延迟，进入可用期
+        UserCoupon received = userCoupon(702L, 1L, 72L, "UNUSED", now.minusDays(4));
+        when(userCouponMapper.selectList(any(Wrapper.class))).thenReturn(List.of(received));
+        when(couponMapper.selectBatchIds(anyCollection())).thenReturn(List.of(coupon));
+
+        List<UserCouponView> unused = service.myCoupons(1L, CouponService.UNUSED);
+        assertEquals(1, unused.size(), "满 3 天后必须可用");
+        assertTrue(unused.get(0).getUsable());
+        // 过期时间 = 领取时间 + 3 + 15 = 领取时间 + 18 天
+        assertEquals(now.minusDays(4).plusDays(18).withNano(0),
+                unused.get(0).getExpireAt().withNano(0),
+                "过期时间应为 生效时间(领取+3天) + 有效15天");
+
+        List<UserCouponView> pending = service.myCoupons(1L, CouponService.PENDING);
+        assertTrue(pending.isEmpty(), "已生效的券不得再出现在待生效列表");
+    }
+
+    @Test
+    @DisplayName("无延迟券（effectiveDelayDays 为空）保持立即生效")
+    void couponWithoutDelayIsImmediatelyUsable() {
+        LocalDateTime now = LocalDateTime.now();
+        Coupon coupon = coupon(73L, "DAYS", null, null, 15);
+        UserCoupon received = userCoupon(703L, 1L, 73L, "UNUSED", now.minusHours(1));
+        when(userCouponMapper.selectList(any(Wrapper.class)))
+                .thenReturn(List.of(received));
+        when(couponMapper.selectBatchIds(anyCollection())).thenReturn(List.of(coupon));
+
+        List<UserCouponView> unused = service.myCoupons(1L, CouponService.UNUSED);
+        assertEquals(1, unused.size(), "无延迟券必须立即可用");
+        assertTrue(unused.get(0).getUsable());
     }
 
     @Test
@@ -109,6 +205,13 @@ class CouponServiceTest {
 
         assertEquals(1, result.size());
         assertTrue(result.get(0).getUsable());
+    }
+
+    /** 带延迟生效天数的券模板。 */
+    private Coupon delayedCoupon(Long id, Integer delayDays, Integer validityDays) {
+        Coupon coupon = coupon(id, "DAYS", null, null, validityDays);
+        coupon.setEffectiveDelayDays(delayDays);
+        return coupon;
     }
 
     private Coupon coupon(Long id, String validityType, LocalDateTime start,

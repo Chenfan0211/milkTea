@@ -25,9 +25,18 @@ function fetchStores() {
   return request({ url: '/api/v1/app/stores', method: 'GET' }).then(unwrap);
 }
 
-/** 菜单（tab -> group -> category -> products） */
-function fetchMenu() {
-  return request({ url: '/api/v1/app/menu', method: 'GET' }).then(unwrap);
+/**
+ * 菜单（tab -> group -> category -> products）。
+ *
+ * 传入门店主体 ID 时，后端按 product_store 过滤掉「本店未上架」的商品，
+ * 使门店选品下架后点单页实时生效。
+ */
+function fetchMenu(storeSubjectId) {
+  return request({
+    url: '/api/v1/app/menu',
+    method: 'GET',
+    data: storeSubjectId ? { storeSubjectId } : {}
+  }).then(unwrap);
 }
 
 /** 商品详情 */
@@ -253,6 +262,10 @@ function prepayStoredValue(orderNo) {
   }).then(unwrap);
 }
 
+/** 我的储值流水（充值 + 消费/退款，分页）：后端返回 PageResult */
+function fetchStoredValueRecords(page = 1, size = 20) {
+  return request({ url: '/api/v1/app/stored-value/records', method: 'GET', data: { page, size } }).then(unwrap);
+}
 /** 我的储值订单（分页）：后端返回 PageResult */
 function fetchStoredValueOrders(page = 1, size = 20) {
   return request({ url: '/api/v1/app/stored-value/orders', method: 'GET', data: { page, size } }).then(unwrap);
@@ -403,6 +416,44 @@ function fetchStoreVerifyRecords(subjectId) {
   }).then(unwrap);
 }
 
+/**
+ * 门店选品分页列表。
+ *
+ * 基础数据 = 平台已上架商品；listed=true 表示本店已上架（product_store 有记录）。
+ * 筛选（关键词 / 分类 / 上架状态）全部由后端下推，保证 total 准确。
+ */
+function fetchStoreProducts(subjectId, params) {
+  const query = Object.assign({}, params || {});
+  const data = {};
+  ['current', 'size', 'keyword', 'categoryId', 'listed'].forEach(key => {
+    const value = query[key];
+    if (value !== undefined && value !== null && value !== '') data[key] = value;
+  });
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/products`,
+    method: 'GET',
+    data
+  }).then(unwrap);
+}
+
+/** 门店商品单条上架 / 下架 */
+function updateStoreListing(subjectId, productId, listed) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/products/${productId}/listing`,
+    method: 'PUT',
+    data: { listed }
+  }).then(unwrap);
+}
+
+/** 门店商品批量上架 / 下架 */
+function updateStoreListingBatch(subjectId, productIds, listed) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/products/listing`,
+    method: 'PUT',
+    data: { productIds, listed }
+  }).then(unwrap);
+}
+
 /** 门店待核销池（按主体） */
 function fetchStoreVerifyPool(subjectId) {
   return request({
@@ -421,6 +472,21 @@ function fetchStoreVerifyPool(subjectId) {
  * @param {string} code 取餐码或订单号
  * @param {{operator?:string, device?:string}} meta 可选：操作人 / 设备标识
  */
+
+/**
+ * 执行兑换核销（扫码 / 输码核销自提码）。
+ *
+ * 兑换单（ExchangeOrder）归属营销域，自提码不绑定门店；本接口仍按门店归属
+ * 校验调用者是否为门店经营角色，核销结果写 verify_record(type=EXCHANGE)
+ * 并由营销域异步把兑换单置 VERIFIED。
+ */
+function verifyStoreExchange(subjectId, code) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/verify-exchange`,
+    method: 'POST',
+    data: { code, type: 'EXCHANGE' }
+  }).then(unwrap);
+}
 function verifyStoreOrder(subjectId, code, meta) {
   return request({
     url: `/api/v1/app/workbench/store/${subjectId}/verify`,
@@ -563,6 +629,20 @@ function updateNickName(nickName) {
   }).then(unwrap);
 }
 
+/**
+ * 更新个人资料基础字段（姓名 / 性别 / 生日 / 详细地址）。
+ *
+ * 一次事务提交多字段，避免逐个接口出现「部分成功」的中间态。
+ * 生日必填且填写后不可修改（服务端硬校验）。
+ */
+function updateProfileFields(fields) {
+  return request({
+    url: '/api/v1/app/auth/profile-fields',
+    method: 'POST',
+    data: Object.assign({}, fields || {})
+  }).then(unwrap);
+}
+
 /** 更新头像（新版 chooseAvatar） */
 function updateAvatar(avatar) {
   return request({
@@ -611,6 +691,7 @@ module.exports = {
   sendSmsCode,
   bindPhoneBySms,
   updateNickName,
+  updateProfileFields,
   updateAvatar,
   wxLogin,
   fetchMe,
@@ -637,6 +718,7 @@ module.exports = {
   fetchStoredValueOrder,
   prepayStoredValue,
   fetchStoredValueOrders,
+  fetchStoredValueRecords,
   cancelStoredValueOrder,
   fetchGiftCardDenominations,
   purchaseGiftCard,
@@ -660,7 +742,11 @@ module.exports = {
   fetchRoleApplications,
   fetchStoreVerifyRecords,
   fetchStoreVerifyPool,
+  fetchStoreProducts,
+  updateStoreListing,
+  updateStoreListingBatch,
   verifyStoreOrder,
+  verifyStoreExchange,
   fetchMemberLevels,
   fetchWorkbenchOverview,
   fetchWorkbenchFlows,
@@ -675,4 +761,5 @@ module.exports = {
   fetchReverseGeocode,
   fetchStoreDistances
 };
+
 

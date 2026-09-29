@@ -53,7 +53,7 @@ globalThis.getApp = () => ({
   globalData: {
     orderMode: 'pickup',
     selectedStoreId: null,
-    selectedCityCode: 'changsha',
+    selectedCityCode: '4301',
     selectedCityName: '长沙市'
   }
 });
@@ -544,8 +544,9 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
   const giftOrdersWxml = fs.readFileSync(path.join(root, 'pages/gift-card-orders/gift-card-orders.wxml'), 'utf8');
 
   assert.ok(
-    couponListJs.includes("refreshCouponsFromRemote('UNUSED')"),
-    '优惠券列表 onShow 必须刷新后端 UNUSED 券，不能只读旧缓存'
+    couponListJs.includes('refreshCouponsFromRemote(status)') &&
+      couponListJs.includes("activeTab: 'UNUSED'"),
+    '优惠券列表 onShow 必须按当前 Tab 刷新后端券，不能只读旧缓存（默认未使用）'
   );
   assert.ok(couponListJs.includes('loadError'), '优惠券列表必须记录加载失败状态');
   assert.ok(couponListJs.includes('retryLoad'), '优惠券列表必须提供失败重试方法');

@@ -490,25 +490,49 @@ const couponPageJs = fs.readFileSync(path.join(root, 'pages/coupon-list/coupon-l
 const couponPageJson = fs.readFileSync(path.join(root, 'pages/coupon-list/coupon-list.json'), 'utf8');
 assert.ok(
   couponPageWxml.includes('优惠券列表') &&
-    couponPageWxml.includes('开启优惠券过期/到账提醒') &&
     couponPageWxml.includes('兑换优惠券') &&
     couponPageWxml.includes('共{{item.quantity}}张'),
-  '优惠券页必须包含顶部提醒、兑换入口和数量标签'
+  '优惠券页必须包含兑换入口和数量标签'
 );
 assert.ok(
-  couponPageWxml.includes('立减') &&
-    couponPageWxml.includes('使用规则') &&
-    couponPageWxml.includes('去使用') &&
-    couponPageWxml.includes('历史优惠券') &&
-    couponPageWxml.includes('批量赠送') &&
-    couponPageWxml.includes('赠送记录'),
-  '优惠券页必须保留券卡和底部操作结构'
+  couponPageWxml.includes('立减') && couponPageWxml.includes('使用规则') && couponPageWxml.includes('去使用'),
+  '优惠券页必须保留券卡和操作结构'
 );
 assert.ok(
-  couponPageWxml.includes('circle-help.svg') &&
-    couponPageWxml.includes('badge-japanese-yen-brand.svg') &&
-    couponPageWxml.includes('chevron-right-brand.svg'),
+  couponPageWxml.includes('badge-japanese-yen-brand.svg') && couponPageWxml.includes('chevron-right-brand.svg'),
   '优惠券页必须使用规定 Lucide 图标'
+);
+assert.ok(
+  !couponPageWxml.includes('开启优惠券过期/到账提醒') &&
+    !couponPageWxml.includes('历史优惠券') &&
+    !couponPageWxml.includes('批量赠送') &&
+    !couponPageWxml.includes('赠送记录') &&
+    !couponPageWxss.includes('coupon-notice') &&
+    !couponPageWxss.includes('coupon-footer'),
+  '优惠券页必须移除顶部提醒行与底部三个入口'
+);
+assert.ok(couponPageWxml.includes('coupon-tabs') && couponPageWxml.includes('bindtap="switchTab"'), '优惠券列表必须渲染状态 Tab');
+assert.ok(
+  couponPageJs.includes('switchTab') &&
+    couponPageJs.includes("value: 'UNUSED'") &&
+    couponPageJs.includes("value: 'USED'") &&
+    couponPageJs.includes("value: 'EXPIRED'") &&
+    couponPageJs.includes("value: 'PENDING'") &&
+    couponPageJs.includes("label: '未使用'") &&
+    couponPageJs.includes("label: '已使用'") &&
+    couponPageJs.includes("label: '已过期'") &&
+    couponPageJs.includes("label: '待生效'"),
+  '优惠券列表必须提供未使用/已使用/已过期/待生效四个状态 Tab'
+);
+assert.ok(
+  /if \(!tab \|\| tab === this\.data\.activeTab\) return;/.test(couponPageJs) &&
+    /if \(this\.data\.activeTab !== status\) return;/.test(couponPageJs),
+  '优惠券 Tab 切换必须丢弃过期响应，避免串数据'
+);
+assert.ok(couponPageJs.includes('refreshCouponsFromRemote(status)'), '优惠券列表必须按 Tab 状态请求后端');
+assert.ok(
+  /\.coupon-tabs__item\.is-active\s*\{[\s\S]*?color:\s*var\(--brand-green\)/.test(couponPageWxss),
+  '优惠券 Tab 选中态必须使用品牌绿'
 );
 assert.ok(
   couponPageJs.includes('toggleRules') &&
@@ -526,8 +550,10 @@ assert.ok(
 assert.ok(
   couponPageWxml.includes('wx:elif="{{coupons.length}}"') &&
     couponPageWxml.includes('<empty-state') &&
-    couponPageWxml.includes('暂无可用优惠券'),
-  '优惠券为空时必须展示空状态'
+    couponPageWxml.includes('title="{{emptyTitle}}"') &&
+    couponPageJs.includes('emptyTitle') &&
+    couponPageJs.includes('暂无可用优惠券'),
+  '优惠券为空时必须展示按 Tab 区分的空状态'
 );
 assert.ok(
   couponPageJson.includes('empty-state') && couponPageJson.includes('/components/empty-state/empty-state'),
@@ -1576,7 +1602,7 @@ assert.ok(
 );
 assert.ok(
   storeUtility.includes('DEFAULT_CITY_CODE = &#39;changsha&#39;') ||
-    storeUtility.includes("DEFAULT_CITY_CODE = 'changsha'"),
+    storeUtility.includes("DEFAULT_CITY_CODE = '4301'"),
   '无位置缓存时必须默认长沙'
 );
 

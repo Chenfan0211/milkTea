@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 defineOptions({
-  name: 'marketing_exchange'
+  name: 'MarketingExchange'
 });
 
 import AdminListPage from '@/views/_shared/AdminListPage.vue';

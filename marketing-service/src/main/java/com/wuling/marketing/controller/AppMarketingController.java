@@ -4,6 +4,7 @@ import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
 import com.wuling.marketing.dto.PointsCategoryView;
 import com.wuling.marketing.dto.StoredValuePackageDTO;
+import com.wuling.marketing.dto.StoredValueRecordDTO;
 import com.wuling.marketing.dto.UserCouponView;
 import com.wuling.marketing.entity.*;
 import com.wuling.marketing.service.*;
@@ -106,6 +107,18 @@ public class AppMarketingController {
         return Result.ok(storedValueService.orderView(CurrentUser.require(), orderNo));
     }
 
+    /**
+     * 我的储值流水（充值 + 消费/退款，时间倒序分页）。
+     *
+     * <p>「记录」页数据源：充值来自 stored_value_order（PAID），
+     * 消费/退款来自 stored_value_txn（SUCCESS），由 Service 层归并。
+     */
+    @GetMapping("/stored-value/records")
+    public Result<PageResult<StoredValueRecordDTO>> storedValueRecords(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size) {
+        return Result.ok(storedValueService.myRecords(CurrentUser.require(), page, size));
+    }
     /** 取消未支付储值订单（用户主动）。 */
     @PostMapping("/stored-value/orders/{orderNo}/cancel")
     public Result<StoredValueOrder> cancelStoredValueOrder(@PathVariable String orderNo) {
@@ -278,6 +291,7 @@ public class AppMarketingController {
         return value.intValue();
     }
 }
+
 
 
 

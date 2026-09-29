@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'subject_channel'
+  name: 'SubjectChannel'
 });
 
 import { h, ref } from 'vue';

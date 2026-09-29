@@ -3,12 +3,11 @@ const {
   getCurrentBusinessRole,
   getVerifyData,
   syncVerifyFromRemote,
-  verifyStoreOrderByCode
+  verifyStoreOrderByCode,
+  verifyStoreExchangeByCode
 } = require('../../utils/roles');
-const { verifyExchange } = require('../../utils/points');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
-const { formatDateTime } = require('../../utils/date-format');
 
 Page(
   withShare({
@@ -135,36 +134,30 @@ Page(
         wx.showToast({ title: '请输入兑换自提码', icon: 'none' });
         return;
       }
-      // 兑换核销为服务端写操作：结果以后端为准，随后刷新核销记录
-      verifyExchange(value).then(result => {
-        if (!result || !result.ok) {
-          const reason =
-            result && result.reason === 'already_verified'
-              ? '该自提码已核销'
-              : result && result.reason === 'not_found'
-                ? '未找到匹配的兑换自提码'
-                : (result && result.message) || '核销失败，请稍后重试';
-          wx.showToast({ title: reason, icon: 'none' });
-          return;
-        }
-        const order = result.order || {};
-        this.setData({
-          records: this.data.records.concat({
-            id: 'ex-' + Date.now(),
-            title: order.orderNo || '兑换核销',
-            meta: '自提码 ' + value,
-            orderNo: order.orderNo || value,
-            time: formatDateTime(new Date()),
-            image: '',
-            pickupCode: order.pickupCode || value,
-            type: 'exchange'
-          })
+      if (this.verifying) return;
+      this.verifying = true;
+      wx.showLoading({ title: '核销中', mask: true });
+      // 兑换核销为服务端写操作：写 verify_record + 营销域异步置兑换单 VERIFIED。
+      // 成功后走 syncVerifyFromRemote 刷新，不再本地拼假数据。
+      verifyStoreExchangeByCode(value)
+        .then(outcome => {
+          wx.hideLoading();
+          this.verifying = false;
+          wx.showToast({
+            title: outcome.message,
+            icon: outcome.ok ? 'success' : 'none'
+          });
+          if (!outcome.ok) return;
+          const role = getCurrentBusinessRole();
+          const next = role ? getVerifyData(role.id) : null;
+          if (next) this.setData({ pool: next.pool, records: next.records, exchangeKeyword: '' });
+        })
+        .catch(() => {
+          wx.hideLoading();
+          this.verifying = false;
+          wx.showToast({ title: '核销失败，请稍后重试', icon: 'none' });
         });
-        wx.showToast({ title: '兑换核销成功', icon: 'success' });
-      });
     },
-    showUnavailable() {
-      wx.showToast({ title: '该功能待接入真实接口', icon: 'none' });
-    }
+
   })
 );

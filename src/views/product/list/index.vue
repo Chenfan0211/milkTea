@@ -9,7 +9,7 @@ import { formatFen, renderTag, statusMap } from '@/views/_shared/render';
 import SpecGroupsEditor from './SpecGroupsEditor.vue';
 
 defineOptions({
-  name: 'product_list'
+  name: 'ProductList'
 });
 
 const store = useAdminStore();
@@ -310,19 +310,18 @@ const config: AdminListConfig = {
 
 <template>
   <div class="page-root">
+    <AdminListPage ref="listRef" :config="config" />
 
-  <AdminListPage ref="listRef" :config="config" />
-
-  <NModal v-model:show="specVisible" preset="card" title="商品规格编辑" class="w-680px">
-    <div v-if="specRow" class="modal-body">
-      <div class="modal-name">商品：{{ specRow.name }}</div>
-      <SpecGroupsEditor v-model="specModel" />
-      <div class="flex flex-wrap justify-end gap-12px mt-20px">
-        <NButton @click="specVisible = false">取消</NButton>
-        <NButton type="primary" @click="saveSpec">保存</NButton>
+    <NModal v-model:show="specVisible" preset="card" title="商品规格编辑" class="w-680px">
+      <div v-if="specRow" class="modal-body">
+        <div class="modal-name">商品：{{ specRow.name }}</div>
+        <SpecGroupsEditor v-model="specModel" />
+        <div class="flex flex-wrap justify-end gap-12px mt-20px">
+          <NButton @click="specVisible = false">取消</NButton>
+          <NButton type="primary" @click="saveSpec">保存</NButton>
+        </div>
       </div>
-    </div>
-  </NModal>
+    </NModal>
   </div>
 </template>
 

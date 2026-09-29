@@ -252,6 +252,8 @@ assert.ok(
   '使用说明段落之间必须保留 8rpx 间距'
 );
 assert.ok(/\.usage-list__paragraph\s*\{[^}]*word-break:\s*break-word/.test(pageWxss), '使用说明必须支持长文本换行');
+assert.ok(pageJs.includes('handleRecord') && pageJs.includes('/pages/stored-value-records/stored-value-records'), '储值页「记录」必须跳转储值记录页');
+assert.ok(!pageWxml.includes('settings-brand.svg') && !pageJs.includes('handleManage'), '储值页必须去掉「管理」入口');
 assert.ok(!pageJs.includes('handleSearch'), '储值页不得保留无功能搜索处理函数');
 assert.ok(pageJs.includes('changeQuantity') && pageJs.includes('handleRecharge'), '储值页必须实现数量切换与储值交互');
 assert.ok(
@@ -282,7 +284,7 @@ const fontSizeLiterals = [...pageWxss.matchAll(/font-size:\s*(\d+rpx)/g)].map(ma
 assert.deepEqual(fontSizeLiterals, [], '储值页字号必须引用设计 token');
 
 const iconScript = fs.readFileSync(path.join(root, 'scripts/sync-lucide-icons.mjs'), 'utf8');
-for (const icon of ['gift-brand', 'receipt-brand', 'settings-brand', 'file-search-brand', 'plus-brand', 'refresh-cw', 'check-brand']) {
+for (const icon of ['gift-brand', 'receipt-brand', 'file-search-brand', 'plus-brand', 'refresh-cw', 'check-brand']) {
   assert.ok(iconScript.includes(`output: '${icon}'`), `Lucide 映射必须包含 ${icon}`);
   assert.ok(fs.existsSync(path.join(root, `assets/icons/lucide/${icon}.svg`)), `缺少 Lucide 运行图标: ${icon}.svg`);
 }
@@ -326,3 +328,4 @@ assert.ok(fs.existsSync(imagePath), '缺少 3x 储值卡横幅图');
   );
 }
 console.log('会员储值页路由、数据和交互测试通过');
+

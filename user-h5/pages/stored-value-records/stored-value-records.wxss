@@ -1,0 +1,114 @@
+.records-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.records-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.records-scroll__inner {
+  padding: 0 var(--page-gutter) 40rpx;
+}
+
+.balance-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.balance-card__label {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+.balance-card__value {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-main);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 64rpx;
+}
+
+.record-list {
+  margin-top: 20rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.record {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 32rpx var(--page-gutter);
+}
+
+.record + .record {
+  border-top: 1rpx solid var(--line-color);
+}
+
+.record__main,
+.record__side {
+  display: flex;
+  flex-direction: column;
+}
+
+.record__main {
+  min-width: 0;
+}
+
+.record__side {
+  flex: none;
+  align-items: flex-end;
+  margin-left: 20rpx;
+}
+
+.record__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.record__time {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.record__amount {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.record__amount.is-income {
+  color: var(--brand-green);
+}
+
+.record__biz {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  word-break: break-all;
+}
+
+.records-end {
+  padding: 24rpx 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+

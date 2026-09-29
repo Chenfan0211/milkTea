@@ -1,0 +1,45 @@
+<view class="records-page">
+  <navigation-bar
+    title="储值记录"
+    back="{{true}}"
+    background="#FFFFFF"
+    color="#2F302D"
+  />
+
+  <scroll-view
+    class="records-scroll"
+    scroll-y
+    show-scrollbar="{{false}}"
+    bindscrolltolower="onReachBottom"
+  >
+    <view class="records-scroll__inner">
+      <view class="balance-card">
+        <text class="balance-card__label">账户余额（元）</text>
+        <text class="balance-card__value ellipsis">{{balanceText}}</text>
+      </view>
+
+      <view wx:if="{{records.length}}" class="record-list">
+        <view class="record" wx:for="{{records}}" wx:key="key">
+          <view class="record__main">
+            <text class="record__title">{{item.title}}</text>
+            <text class="record__time">{{item.time}}</text>
+          </view>
+          <view class="record__side">
+            <text class="record__amount {{item.isIncome ? 'is-income' : ''}}">{{item.amountText}}</text>
+            <text class="record__biz">{{item.bizText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <empty-state
+        wx:else
+        icon="/assets/icons/lucide/receipt-muted.svg"
+        title="暂无储值记录"
+        description="充值或使用储值消费后，变动会展示在这里"
+      />
+
+      <view wx:if="{{records.length && !hasMore}}" class="records-end">没有更多记录了</view>
+    </view>
+  </scroll-view>
+</view>
+

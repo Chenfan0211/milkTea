@@ -1,5 +1,4 @@
 const { withShare } = require('../../utils/share');
-const regions = require('../../data/regions');
 const api = require('../../utils/api');
 const auth = require('../../utils/auth');
 const { clearSession } = require('../../utils/auth');
@@ -46,9 +45,6 @@ function parseBirthday(value) {
   return { year: parts[0], month: parts[1], day: parts[2] };
 }
 
-function getRegionText(region) {
-  return Array.isArray(region) ? region.filter(Boolean).join(' ') : '';
-}
 
 Page(
   withShare({
@@ -61,19 +57,13 @@ Page(
       phone: '',
       birthday: '',
       birthdayLocked: false,
-      region: [],
-      regionText: '',
+      address: '',
       birthdayVisible: false,
       birthdayYears: buildYearOptions(),
       birthdayMonths: buildMonthOptions(),
       birthdayDays: [],
       birthdayValue: [0, 0, 0],
-      birthdayDraft: null,
-      regionVisible: false,
-      regionTabs: [{ step: 0, label: '请选择', active: true }],
-      regionOptions: regions,
-      regionStep: 0,
-      regionPath: []
+      birthdayDraft: null
     },
     onLoad() {
       this.syncProfile();
@@ -91,8 +81,7 @@ Page(
         phoneMasked: maskPhone(profile.phone),
         birthday: profile.birthday,
         birthdayLocked: Boolean(profile.birthday),
-        region: profile.region,
-        regionText: getRegionText(profile.region)
+        address: profile.address || ''
       });
     },
     handleNameInput(event) {
@@ -253,64 +242,8 @@ Page(
         birthdayVisible: false
       });
     },
-    openRegionPicker() {
-      this.setData({
-        regionVisible: true,
-        regionStep: 0,
-        regionPath: [],
-        regionOptions: regions,
-        regionTabs: [{ step: 0, label: '请选择', active: true }]
-      });
-    },
-    closeRegionPicker() {
-      this.setData({ regionVisible: false });
-    },
-    selectRegionOption(event) {
-      const { code } = event.currentTarget.dataset;
-      const node = this.data.regionOptions.find(item => item.code === code);
-      if (!node) return;
-      const regionPath = this.data.regionPath.concat([node.name]);
-      if (Array.isArray(node.children) && node.children.length) {
-        const nextStep = this.data.regionStep + 1;
-        const tabs = regionPath.map((label, index) => ({
-          step: index,
-          label,
-          active: index === nextStep - 1 || index === nextStep
-        }));
-        if (tabs.length) tabs[tabs.length - 1].active = true;
-        this.setData({
-          regionStep: nextStep,
-          regionPath,
-          regionOptions: node.children,
-          regionTabs: tabs
-        });
-        return;
-      }
-      this.setData({
-        region: regionPath,
-        regionText: getRegionText(regionPath),
-        regionVisible: false
-      });
-    },
-    jumpRegionStep(event) {
-      const step = Number(event.currentTarget.dataset.step || 0);
-      let options = regions;
-      for (let index = 0; index < step; index += 1) {
-        const selectedName = this.data.regionPath[index];
-        const selectedNode = options.find(item => item.name === selectedName);
-        if (!selectedNode) return;
-        options = selectedNode.children || [];
-      }
-      const tabs = this.data.regionPath.slice(0, step + 1).map((label, index) => ({
-        step: index,
-        label,
-        active: index === step
-      }));
-      this.setData({
-        regionStep: step,
-        regionOptions: options,
-        regionTabs: tabs.length ? tabs : [{ step: 0, label: '请选择', active: true }]
-      });
+    handleAddressInput(event) {
+      this.setData({ address: event.detail.value });
     },
     handleSave() {
       const nickname = String(this.data.nickname || '').trim();
@@ -318,17 +251,35 @@ Page(
         wx.showToast({ title: '请输入您的姓名', icon: 'none' });
         return;
       }
-      const profile = getUserProfile();
-      saveUserProfile(
-        Object.assign({}, profile, {
-          nickname,
+      const birthday = String(this.data.birthday || '').trim();
+      // 生日必填：资料完整度依赖生日（会员权益 / 生日礼）
+      if (!birthday) {
+        wx.showToast({ title: '请选择您的生日', icon: 'none' });
+        return;
+      }
+      if (this.saving) return;
+      this.saving = true;
+      wx.showLoading({ title: '保存中', mask: true });
+      // 必须提交后端：只写本地会在下次冷启动被 refreshUserProfileFromRemote 覆盖
+      api
+        .updateProfileFields({
+          nickName: nickname,
           gender: this.data.gender,
-          birthday: this.data.birthday,
-          region: this.data.region
+          birthday,
+          address: String(this.data.address || '').trim()
         })
-      );
-      wx.showToast({ title: '保存成功', icon: 'success' });
-      wx.navigateBack();
+        .then(() => refreshUserProfileFromRemote())
+        .then(() => {
+          this.saving = false;
+          wx.hideLoading();
+          wx.showToast({ title: '保存成功', icon: 'success' });
+          wx.navigateBack();
+        })
+        .catch(error => {
+          this.saving = false;
+          wx.hideLoading();
+          wx.showToast({ title: (error && error.message) || '保存失败，请重试', icon: 'none' });
+        });
     },
     handleLogout() {
       wx.showModal({

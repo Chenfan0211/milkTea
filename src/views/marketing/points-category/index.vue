@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({
-  name: 'marketing_points-category'
+  name: 'MarketingPointsCategory'
 });
 
 import { h } from 'vue';

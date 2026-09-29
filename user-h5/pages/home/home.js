@@ -88,6 +88,12 @@ Page(
         );
         return;
       }
+      // 客服入口：与「我的」页 service 入口跳转保持一致（同一路径、同样不做登录拦截）。
+      // 客服页是匿名可用的兜底联系渠道，强制登录反而会把用户挡在门外。
+      if (id === 'service') {
+        wx.navigateTo({ url: '/pages/service/service' });
+        return;
+      }
       this.showUnavailable({ currentTarget: { dataset: { label } } });
     },
     showUnavailable(event) {
