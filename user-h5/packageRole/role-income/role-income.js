@@ -1,5 +1,11 @@
 const { withShare } = require('../../utils/share');
-const { getCurrentBusinessRole, getIncomeData, syncIncomeFromRemote, syncWorkbenchFromRemote } = require('../../utils/roles');
+const {
+  getCurrentBusinessRole,
+  getIncomeData,
+  syncIncomeFromRemote,
+  syncWorkbenchFromRemote,
+  syncRolesFromRemote
+} = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
 const RECORDS_URL = '/packageRole/role-income-records/role-income-records';
@@ -26,60 +32,80 @@ Page(
       metricValue: '¥0.00',
       summaryLabel: '累计',
       summaryValue: '¥0.00',
-      recordsSummary: '暂无收益记录'
+      recordsSummary: '暂无收益记录',
+      loading: true,
+      loadError: ''
     },
     onLoad() {
-      this.syncRole();
+      this.loadIncome();
     },
     onShow() {
+      // 从详情/记录页返回时刷新（首次进入由 onLoad 处理，避免重复请求）
       if (this.data.ready) this.refreshFromRemote();
     },
     /**
      * 收益数据来自后端结算台账 + 账户概览。
      *
-     * 说明：原实现只读本地 mock，接口拉取后会覆盖为真实数据；
-     * 概览与台账都拉完再统一渲染，避免出现「金额是后端、记录是 mock」的混合态。
+     * 执行顺序（关键）：
+     *   1) 先 syncRolesFromRemote —— 冷启动/直接进入时本地 Storage 尚无角色，
+     *      必须先从 /roles/mine 拉取，否则 getCurrentBusinessRole() 返回 null，
+     *      页面会误判为「暂无权限」（历史 bug：onLoad 只同步读本地）。
+     *   2) 再并发拉工作台概览与收益台账。
+     *   3) 统一渲染；失败给出重试入口，不再静默跳回角色中心。
      */
+    loadIncome() {
+      this.setData({ loading: true, loadError: '', ready: false });
+      syncRolesFromRemote()
+        .then(() => {
+          const role = getCurrentBusinessRole();
+          if (!role) {
+            this.setData({ loading: false, ready: false, role: null, title: '收益明细' });
+            return null;
+          }
+          this.setData({ ready: true, role, title: `${role.label}收益明细` });
+          return Promise.all([syncWorkbenchFromRemote(role.id), syncIncomeFromRemote(role.id)]);
+        })
+        .then(() => {
+          if (this.data.ready) this.syncIncome();
+        })
+        .catch(() => {
+          this.setData({ loading: false, loadError: '收益数据加载失败' });
+        });
+    },
     refreshFromRemote() {
       const role = this.data.role;
       if (!role) return;
-      Promise.all([syncWorkbenchFromRemote(role.id), syncIncomeFromRemote(role.id)]).then(() => {
-        this.syncIncome();
-      });
-    },
-    syncRole() {
-      const role = getCurrentBusinessRole();
-      if (!role) {
-        this.setData({ ready: false, role: null, title: '收益明细' });
-        wx.showToast({ title: '请先开通并选择经营角色', icon: 'none' });
-        this.leaveToRoleCenter();
-        return;
-      }
-      const income = getIncomeData(role.id);
-      if (!income) {
-        this.setData({ ready: false, role, title: '收益明细' });
-        wx.showToast({ title: '当前角色暂无收益数据', icon: 'none' });
-        this.leaveToRoleCenter();
-        return;
-      }
-      this.setData({ ready: true, role, title: `${role.label}${income.title}` }, () => this.syncIncome());
+      Promise.all([syncWorkbenchFromRemote(role.id), syncIncomeFromRemote(role.id)])
+        .then(() => {
+          this.syncIncome();
+        })
+        .catch(() => {
+          this.setData({ loadError: '收益数据加载失败' });
+        });
     },
     syncIncome() {
       const income = getIncomeData(this.data.role.id);
-      if (!income) return;
-      const records = income.records || [];
+      const records = income ? income.records || [] : [];
       const pendingCount = records.filter(item => item.status === 'pending').length;
-      const primary = income.today || income.month || '';
+      // income 为空（尚未拉到）时用空结构占位，保证页面结构仍在、只显示空值
+      const safe = income || { title: '', metricLabel: '收益', today: '', month: '', total: '¥0.00', pending: '¥0.00', settled: '¥0.00', trend: [], records: [] };
+      const primary = safe.today || safe.month || '';
       this.setData({
-        income: Object.assign({}, income, { trend: withPercent(income.trend) }),
-        metricLabel: income.metricLabel || income.title || '收益',
+        loading: false,
+        loadError: '',
+        income: Object.assign({}, safe, { trend: withPercent(safe.trend) }),
+        metricLabel: safe.metricLabel || safe.title || '收益',
         metricValue: primary,
-        summaryLabel: income.today ? '本月累计' : '累计收益',
-        summaryValue: income.today ? income.month || income.total : income.total,
+        summaryLabel: safe.today ? '本月累计' : '累计收益',
+        summaryValue: safe.today ? safe.month || safe.total : safe.total,
         recordsSummary: records.length
           ? `共 ${records.length} 笔${pendingCount ? `，${pendingCount} 笔待结算` : ''}`
           : '暂无收益记录'
       });
+    },
+    /** 加载失败后重试。 */
+    retryLoad() {
+      this.loadIncome();
     },
     openRecords() {
       wx.navigateTo({ url: RECORDS_URL });

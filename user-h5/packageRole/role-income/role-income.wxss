@@ -16,6 +16,15 @@
   padding: 20rpx;
 }
 
+/* 加载失败重试（只读提示，非写操作） */
+.income-retry {
+  margin-top: 24rpx;
+  color: var(--brand-green);
+  font-size: var(--font-md);
+  font-weight: 600;
+  text-align: center;
+}
+
 .income-content {
   padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
 }
