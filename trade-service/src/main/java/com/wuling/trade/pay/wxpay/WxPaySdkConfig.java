@@ -10,6 +10,7 @@ import com.wechat.pay.java.core.notification.NotificationParser;
 import com.wechat.pay.java.core.notification.RSAPublicKeyNotificationConfig;
 import com.wechat.pay.java.service.payments.jsapi.JsapiServiceExtension;
 import com.wechat.pay.java.service.refund.RefundService;
+import com.wechat.pay.java.service.transferbatch.TransferBatchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -131,6 +132,14 @@ public class WxPaySdkConfig {
     @Bean
     public RefundService wxPayRefundService(HttpClient wxPayHttpClient) {
         return new RefundService.Builder()
+                .httpClient(wxPayHttpClient)
+                .build();
+    }
+
+    /** 商家转账服务扩展：提现出款（transfer_batches 转账批次，单笔明细） */
+    @Bean
+    public TransferBatchService wxPayTransferBatchService(HttpClient wxPayHttpClient) {
+        return new TransferBatchService.Builder()
                 .httpClient(wxPayHttpClient)
                 .build();
     }

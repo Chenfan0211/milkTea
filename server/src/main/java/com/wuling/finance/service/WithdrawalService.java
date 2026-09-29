@@ -7,6 +7,7 @@ import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.finance.entity.Withdrawal;
 import com.wuling.finance.mapper.WithdrawalMapper;
+import com.wuling.finance.port.PayoutPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,14 +40,19 @@ public class WithdrawalService {
     public static final String PAID = "PAID";
     public static final String REJECTED = "REJECTED";
     public static final String FAILED = "FAILED";
+    /** 转账已受理、结果待定（对接微信商家转账后新增） */
+    public static final String PROCESSING = "PROCESSING";
 
     private final WithdrawalMapper withdrawalMapper;
     private final LedgerService ledgerService;
+    private final PayoutPort payoutPort;
 
     public WithdrawalService(WithdrawalMapper withdrawalMapper,
-                             LedgerService ledgerService) {
+                             LedgerService ledgerService,
+                             PayoutPort payoutPort) {
         this.withdrawalMapper = withdrawalMapper;
         this.ledgerService = ledgerService;
+        this.payoutPort = payoutPort;
     }
 
     /** 申请提现：冻结金额，小额即时到账，大额进入审核 */
@@ -66,10 +72,10 @@ public class WithdrawalService {
         w.setApplyTime(LocalDateTime.now());
 
         if (amount <= INSTANT_LIMIT) {
-            // 小额即时到账
+            // 小额即时：先置待出款，由 executePayout 据通道决定 PAID 或 PROCESSING
+            // （payTime 只在确认到账后由 executePayout/confirmPaid 回写，此处不预设）
             w.setStatus(PAID);
             w.setReviewTime(LocalDateTime.now());
-            w.setPayTime(LocalDateTime.now());
         } else {
             w.setStatus(APPLIED);
         }
@@ -77,7 +83,8 @@ public class WithdrawalService {
 
         freeze(w, amount);
         if (PAID.equals(w.getStatus())) {
-            settlePaid(w);
+            // 小额即时：发起出款（mock 通道立即成功；wxpay 通道受理后等回调）
+            executePayout(w);
         }
         log.info("withdrawal apply no={} amount={} status={}", w.getWithdrawNo(), amount, w.getStatus());
         return w;
@@ -94,11 +101,10 @@ public class WithdrawalService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该提现申请已处理，不能重复审核");
         }
         if (approve) {
-            settlePaid(w);
-            w.setStatus(PAID);
+            // 审核通过：发起出款。executePayout 会据通道决定「即时到账」或「受理待回调」，
+            // 并回写状态（PAID / PROCESSING / FAILED），这里不再直接置 PAID。
             w.setReviewTime(LocalDateTime.now());
-            w.setPayTime(LocalDateTime.now());
-            withdrawalMapper.updateById(w);
+            executePayout(w);
         } else {
             w.setStatus(REJECTED);
             w.setReviewTime(LocalDateTime.now());
@@ -158,6 +164,88 @@ public class WithdrawalService {
         } catch (LedgerService.InsufficientBalanceException e) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "可提现余额不足");
         }
+    }
+
+    /**
+     * 发起出款（提现 → 微信商家转账）。
+     *
+     * <p><b>状态收敛（资金安全核心）</b>：
+     * <ul>
+     *   <li>mock 通道（immediatePaid=true）→ 立即 {@link #settlePaid} 记账 + 置 PAID；</li>
+     *   <li>wxpay 通道（immediatePaid=false）→ 置 PROCESSING，等回调/查询再置 PAID 或 FAILED；</li>
+     *   <li>受理失败 → 置 FAILED 并自动解冻。</li>
+     * </ul>
+     *
+     * <p>无论哪种通道，都<b>不再</b>在未收到微信确认前同步置 PAID。
+     */
+    private void executePayout(Withdrawal w) {
+        PayoutPort.PayoutResult result = payoutPort.transfer(
+                w.getWithdrawNo(), w.getAmount(), w.getUserId(), "五零时光提现");
+
+        if (!result.accepted()) {
+            // 受理失败：置 FAILED 并解冻
+            w.setStatus(FAILED);
+            w.setFailureReason(result.failReason());
+            withdrawalMapper.updateById(w);
+            unfreeze(w, "提现出款受理失败，金额已解冻");
+            log.warn("withdrawal payout rejected no={} reason={}", w.getWithdrawNo(), result.failReason());
+            return;
+        }
+
+        if (result.immediatePaid()) {
+            // mock 通道：即时到账，维持原记账行为
+            settlePaid(w);
+            w.setStatus(PAID);
+            w.setPayTime(LocalDateTime.now());
+            withdrawalMapper.updateById(w);
+        } else {
+            // wxpay 通道：已受理，结果待定
+            w.setStatus(PROCESSING);
+            w.setTransferBatchNo(result.batchNo());
+            withdrawalMapper.updateById(w);
+        }
+    }
+
+    /** 回调/查询确认到账：扣减冻结余额并置 PAID（幂等，仅 PROCESSING 可转）。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmPaid(String withdrawNo) {
+        Withdrawal w = findByNo(withdrawNo);
+        if (w == null || PAID.equals(w.getStatus())) {
+            return;
+        }
+        if (!PROCESSING.equals(w.getStatus())) {
+            log.warn("提现确认到账被拒绝 no={} status={}", withdrawNo, w.getStatus());
+            return;
+        }
+        settlePaid(w);
+        w.setStatus(PAID);
+        w.setPayTime(LocalDateTime.now());
+        w.setCallbackTime(LocalDateTime.now());
+        withdrawalMapper.updateById(w);
+    }
+
+    /** 回调/查询确认失败：解冻并置 FAILED（幂等，仅 PROCESSING 可转）。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmFailed(String withdrawNo, String reason) {
+        Withdrawal w = findByNo(withdrawNo);
+        if (w == null || FAILED.equals(w.getStatus()) || PAID.equals(w.getStatus())) {
+            return;
+        }
+        if (!PROCESSING.equals(w.getStatus())) {
+            log.warn("提现确认失败被拒绝 no={} status={}", withdrawNo, w.getStatus());
+            return;
+        }
+        w.setStatus(FAILED);
+        w.setFailureReason(reason);
+        w.setTransferFailMsg(reason);
+        withdrawalMapper.updateById(w);
+        unfreeze(w, "提现出款失败，金额已解冻");
+    }
+
+    /** 按提现单号查询（内部用）。 */
+    private Withdrawal findByNo(String withdrawNo) {
+        return withdrawalMapper.selectOne(new LambdaQueryWrapper<Withdrawal>()
+                .eq(Withdrawal::getWithdrawNo, withdrawNo));
     }
 
     /** 出款成功：冻结余额扣减，并写入统一台账快照。 */

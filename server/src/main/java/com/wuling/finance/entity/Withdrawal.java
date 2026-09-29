@@ -26,6 +26,12 @@ public class Withdrawal {
     private LocalDateTime payTime;
     private LocalDateTime callbackTime;
     private String failureReason;
+    /** 微信转账批次号（batch_id，对接「商家转账到零钱」后返回） */
+    private String transferBatchNo;
+    /** 微信转账状态（SUCCESS / FAILED / PROCESSING 等） */
+    private String transferStatus;
+    /** 微信转账失败原因 */
+    private String transferFailMsg;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 

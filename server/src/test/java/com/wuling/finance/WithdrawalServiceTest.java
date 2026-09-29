@@ -2,6 +2,7 @@ package com.wuling.finance;
 
 import com.wuling.finance.entity.Withdrawal;
 import com.wuling.finance.mapper.WithdrawalMapper;
+import com.wuling.finance.port.PayoutPort;
 import com.wuling.finance.service.LedgerService;
 import com.wuling.finance.service.WithdrawalService;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,13 +27,21 @@ class WithdrawalServiceTest {
 
     private WithdrawalMapper withdrawalMapper;
     private LedgerService ledgerService;
+    private PayoutPort payoutPort;
     private WithdrawalService withdrawalService;
 
     @BeforeEach
     void setUp() {
         withdrawalMapper = mock(WithdrawalMapper.class);
         ledgerService = mock(LedgerService.class);
-        withdrawalService = new WithdrawalService(withdrawalMapper, ledgerService);
+        payoutPort = mock(PayoutPort.class);
+        // 默认 mock 通道语义：出款即时到账（维持既有测试期望）
+        when(payoutPort.transfer(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new PayoutPort.PayoutResult(true, true, "MOCK-BATCH", null));
+        withdrawalService = new WithdrawalService(withdrawalMapper, ledgerService, payoutPort);
     }
 
     @Test
@@ -107,6 +116,78 @@ class WithdrawalServiceTest {
         verify(withdrawalMapper).updateById(withdrawal);
         LedgerService.Posting posting = captureSinglePosting();
         assertPosting(posting, 52L, "CHANNEL", "UNFREEZE", -19_000L, withdrawal.getWithdrawNo());
+    }
+
+    @Test
+    void applyInstantWxpayChannelMarksProcessingNotPaid() {
+        // wxpay 通道：受理成功但非即时到账 → 置 PROCESSING，不记账 PAID
+        when(payoutPort.transfer(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new PayoutPort.PayoutResult(true, false, "WX-BATCH-1", null));
+
+        Withdrawal result = withdrawalService.apply(12L, 22L, "SUPPLIER", WithdrawalService.INSTANT_LIMIT);
+
+        assertEquals(WithdrawalService.PROCESSING, result.getStatus(), "wxpay 通道受理后应置 PROCESSING，而非 PAID");
+        assertEquals("WX-BATCH-1", result.getTransferBatchNo());
+        verify(withdrawalMapper).updateById(result);
+        // 只有 FREEZE 一条流水，没有 WITHDRAW（等回调确认才扣减）
+        List<LedgerService.Posting> postings = capturePostingsOrOne();
+        assertEquals(1, postings.size());
+        assertEquals("FREEZE", postings.get(0).type());
+    }
+
+    @Test
+    void applyPayoutRejectedUnfreezesAndMarksFailed() {
+        // 出款受理失败 → FAILED + 解冻
+        when(payoutPort.transfer(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new PayoutPort.PayoutResult(false, false, null, "单笔超过 2000 元上限"));
+
+        Withdrawal result = withdrawalService.apply(12L, 22L, "SUPPLIER", WithdrawalService.INSTANT_LIMIT);
+
+        assertEquals(WithdrawalService.FAILED, result.getStatus());
+        assertEquals("单笔超过 2000 元上限", result.getFailureReason());
+        List<LedgerService.Posting> postings = capturePostings();
+        assertEquals(2, postings.size(), "FREEZE + UNFREEZE 两条");
+        assertEquals("FREEZE", postings.get(0).type());
+        assertEquals("UNFREEZE", postings.get(1).type());
+    }
+
+    @Test
+    void confirmPaidConvergesProcessingToPaid() {
+        Withdrawal processing = withdrawal(61L, 62L, "STORE", 10_000L, WithdrawalService.PROCESSING);
+        when(withdrawalMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(processing);
+
+        withdrawalService.confirmPaid(processing.getWithdrawNo());
+
+        assertEquals(WithdrawalService.PAID, processing.getStatus());
+        verify(withdrawalMapper).updateById(processing);
+        LedgerService.Posting posting = captureSinglePosting();
+        assertEquals("WITHDRAW", posting.type());
+        assertEquals(-10_000L, posting.changeAmount());
+    }
+
+    @Test
+    void confirmFailedUnfreezesProcessing() {
+        Withdrawal processing = withdrawal(71L, 72L, "STORE", 10_000L, WithdrawalService.PROCESSING);
+        when(withdrawalMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(processing);
+
+        withdrawalService.confirmFailed(processing.getWithdrawNo(), "微信转账失败");
+
+        assertEquals(WithdrawalService.FAILED, processing.getStatus());
+        assertEquals("微信转账失败", processing.getFailureReason());
+        LedgerService.Posting posting = captureSinglePosting();
+        assertEquals("UNFREEZE", posting.type());
+    }
+
+    private List<LedgerService.Posting> capturePostingsOrOne() {
+        ArgumentCaptor<LedgerService.Posting> captor = ArgumentCaptor.forClass(LedgerService.Posting.class);
+        verify(ledgerService, org.mockito.Mockito.atLeast(1)).post(captor.capture());
+        return captor.getAllValues();
     }
 
     private Withdrawal withdrawal(Long id, Long subjectId, String roleType, long amount, String status) {
