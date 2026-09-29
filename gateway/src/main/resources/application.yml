@@ -45,9 +45,9 @@ spring:
 
     # ---------- 路由 ----------
     gateway:
-      # 启用 Redis 支持的过滤器（RequestRateLimiter 等），默认关闭需显式开启
-      redis:
-        enabled: true
+      # 注意：不用内置 RequestRateLimiter，限流走自定义 RateLimitGlobalFilter（filter 包），
+      # 因此不开启 spring.cloud.gateway.redis（否则 GatewayRedisAutoConfiguration 会
+      # 因 ReactiveStringRedisTemplate 多 bean 而启动失败）。
       # 路由定义见下方 routes
       routes:
         # 认证路由：登录 / 刷新令牌

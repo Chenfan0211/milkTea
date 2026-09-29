@@ -5,8 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
@@ -30,45 +28,21 @@ import java.time.Duration;
  * 自动装配链，在 gateway 与 common 的 Redis 依赖叠加下，ReactiveRedisConnectionFactory
  * 的自动配置存在条件竞争，导致 ReactiveRedisTemplate bean 未创建，整条链断裂。
  *
- * <p>这里显式声明限流专用的 ReactiveStringRedisTemplate bean，并用独立的 GlobalFilter
- * 做固定窗口计数限流，完全绕开内置过滤器的自动装配，可控、可调试。
+ * <p><b>为什么不声明独立的 ReactiveStringRedisTemplate bean</b>：
+ * 若手动 @Bean 一个 ReactiveStringRedisTemplate，会与 Spring Boot 自动配置的
+ * reactiveStringRedisTemplate 同时存在（两个同类型 bean），导致
+ * GatewayRedisAutoConfiguration#redisRateLimiter 注入歧义而启动失败。
+ * 因此这里【不声明 bean】，改为在过滤器内用注入的 ReactiveRedisConnectionFactory
+ * 现场构建一个指向独立 db 的模板，既隔离 db，又避免多 bean 冲突。
  *
  * <p><b>db/key 定位（排查 429 的关键）</b>：
  * <ul>
  *   <li>限流数据写入<b>独立 db（默认 db4，可用 {@code RATE_LIMIT_REDIS_DB} 覆盖）</b>，
- *       与业务命名空间（AUTH=db0 / SMS=db1 / CACHE=db2 / BIZ=db3）完全隔离，便于按库监控与清理；</li>
+ *       与业务命名空间（AUTH=db0 / SMS=db1 / CACHE=db2 / BIZ=db3）完全隔离；</li>
  *   <li>key 形如 {@code wuling:ratelimit:{group}:{ip}}，其中 group 为路径分组前缀；</li>
  *   <li>启动与每次 429 判定均打印 db 索引与完整 key，可直接用 redis-cli 定位。</li>
  * </ul>
  */
-@Configuration
-public class RateLimitConfig {
-
-    /** 显式声明响应式 Redis 模板，避免依赖 ReactiveRedisTemplate 的自动装配条件。 */
-    @Bean
-    public ReactiveStringRedisTemplate rateLimitRedisTemplate(
-            @Value("${app.rate-limit.redis-db:4}") int database,
-            ReactiveRedisConnectionFactory factory) {
-        // 为限流创建独立 db 连接：单机/主从模式下显式 SELECT db，与业务 db 隔离。
-        if (factory instanceof LettuceConnectionFactory lettuce) {
-            LettuceConnectionFactory clone = new LettuceConnectionFactory(
-                    lettuce.getStandaloneConfiguration(), lettuce.getClientConfiguration());
-            clone.setDatabase(database);
-            clone.setShareNativeConnection(false);
-            clone.afterPropertiesSet();
-            LoggerFactory.getLogger(RateLimitConfig.class)
-                    .info("[限流] Redis 独立连接已创建 database={}", database);
-            return new ReactiveStringRedisTemplate(clone);
-        }
-        // cluster 模式仅支持 db0，退化为默认连接（key 前缀已保证隔离）
-        LoggerFactory.getLogger(RateLimitConfig.class)
-                .warn("[限流] 非 Lettuce 单机连接，限流退化为默认 db0（key 前缀隔离）");
-        return new ReactiveStringRedisTemplate(factory);
-    }
-
-}
-
-/** 限流过滤器实现（GlobalFilter + Ordered）。 */
 @Component
 class RateLimitGlobalFilter implements GlobalFilter, Ordered {
 
@@ -81,12 +55,30 @@ class RateLimitGlobalFilter implements GlobalFilter, Ordered {
     private final ReactiveStringRedisTemplate redis;
     private final int database;
 
-    RateLimitGlobalFilter(ReactiveStringRedisTemplate redis,
+    RateLimitGlobalFilter(ReactiveRedisConnectionFactory factory,
                           @Value("${app.rate-limit.redis-db:4}") int database) {
-        this.redis = redis;
         this.database = database;
+        this.redis = buildTemplate(factory, database);
         log.info("[限流] 初始化完成 database={} keyPrefix={} qps={} window={}s",
                 database, KEY_PREFIX, RATE_LIMIT_QPS, WINDOW_SECONDS);
+    }
+
+    /**
+     * 现场构建指向独立 db 的响应式模板（不注册为 bean，避免与自动配置的多 bean 冲突）。
+     * 单机/主从模式下显式 SELECT db；cluster 模式仅支持 db0，退化为默认连接（key 前缀已隔离）。
+     */
+    private static ReactiveStringRedisTemplate buildTemplate(ReactiveRedisConnectionFactory factory, int database) {
+        if (factory instanceof LettuceConnectionFactory lettuce) {
+            LettuceConnectionFactory clone = new LettuceConnectionFactory(
+                    lettuce.getStandaloneConfiguration(), lettuce.getClientConfiguration());
+            clone.setDatabase(database);
+            clone.setShareNativeConnection(false);
+            clone.afterPropertiesSet();
+            log.info("[限流] Redis 独立连接已创建 database={}", database);
+            return new ReactiveStringRedisTemplate(clone);
+        }
+        log.warn("[限流] 非 Lettuce 单机连接，限流退化为默认 db0（key 前缀隔离）");
+        return new ReactiveStringRedisTemplate(factory);
     }
 
     @Override
