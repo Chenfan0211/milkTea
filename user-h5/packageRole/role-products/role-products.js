@@ -139,7 +139,7 @@ Page(
             loadingMore: false,
             loadError: ''
           });
-          this.refreshStats(page, total);
+          this.refreshStats(page);
           this.syncSelectionSummary();
         })
         .catch(() => {
@@ -148,7 +148,7 @@ Page(
             loadingMore: false,
             loadError: '商品加载失败，请下拉重试'
           });
-          if (!append) this.refreshStats(null, 0);
+          if (!append) this.refreshStats(null);
         });
     },
     /** 触底加载下一页。 */
@@ -173,13 +173,16 @@ Page(
      *      导致「全部」走筛选口径、两个档位走全量口径，三者永不自洽
      *      （线上实测 全部 1 / 已上架 27 / 已下架 1，而 27+1=28≠1）。
      */
-    refreshStats(page, total) {
+    refreshStats(page) {
       const source = page || {};
       const listed = Number(source.listedTotal) || 0;
       const unlisted = Number(source.unlistedTotal) || 0;
+      // 「全部」必须恒等于两个档位之和，**不能**用分页的 total ——
+      // 切到「已上架」档时后端 total 会变成已上架条数（26），
+      // 若直接当「全部」用就会显示 26 而非 28。
       this.setData({
         stats: {
-          total: Number(total) || 0,
+          total: listed + unlisted,
           listed,
           unlisted
         }
@@ -205,7 +208,7 @@ Page(
           });
         }
       });
-      const catTabs = [{ id: 'all', label: '全部', count: this.data.total }].concat(
+      const catTabs = [{ id: 'all', label: '全部', count: this.data.stats.total }].concat(
         seen.map(entry => ({
           id: entry.id,
           label: entry.label,
@@ -214,7 +217,8 @@ Page(
         }))
       );
       const statusTabs = STATUS_TABS.map(item => {
-        let count = this.data.total;
+        // 「全部」用分布总和（自动剔除档位筛选）；另两档用各自计数
+        let count = this.data.stats.total;
         if (item.id === 'listed') count = this.data.stats.listed;
         if (item.id === 'unlisted') count = this.data.stats.unlisted;
         return { id: item.id, label: item.label, count };
@@ -304,12 +308,21 @@ Page(
 
       if (typeof beforeListed === 'boolean' && beforeListed !== patch.listed) {
         const delta = patch.listed ? 1 : -1;
+        const stats = {
+          // 总数不变，只是一条从「已上架/已下架」挪到另一档
+          total: this.data.stats.total,
+          listed: Math.max(0, this.data.stats.listed + delta),
+          unlisted: Math.max(0, this.data.stats.unlisted - delta)
+        };
+        // 若当前正按状态筛选，该商品已不再属于本档：同步收窄分页 total，
+        // 否则「触底加载」会一直以为还有下一页（列表已无更多数据）。
+        const inListedTab = this.data.activeStatusId === 'listed';
+        const inUnlistedTab = this.data.activeStatusId === 'unlisted';
+        const leavesCurrentTab = (inListedTab && !patch.listed) || (inUnlistedTab && patch.listed);
         this.setData({
-          stats: {
-            total: this.data.stats.total,
-            listed: Math.max(0, this.data.stats.listed + delta),
-            unlisted: Math.max(0, this.data.stats.unlisted - delta)
-          }
+          stats,
+          total: leavesCurrentTab ? Math.max(0, this.data.total - 1) : this.data.total,
+          hasMore: leavesCurrentTab ? false : this.data.hasMore
         });
       }
       this.rebuildTabs(products);
