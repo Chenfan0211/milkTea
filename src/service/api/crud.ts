@@ -445,7 +445,6 @@ export async function uploadGiftCardImage(file: File): Promise<GiftImageUploadRe
   return unwrap<GiftImageUploadResult>(res);
 }
 
-
 /** 礼品卡订单列表（联表补齐卡种/面额/购买人，金额单位为分） */
 export async function fetchAdminGiftCardOrders(params?: Record<string, any>): Promise<CrudPage> {
   const res = await request<CrudPage>({
@@ -467,8 +466,6 @@ export async function fetchAdminExchangeRecords(params?: Record<string, any>): P
 }
 
 // ---------------- 财务查询 ----------------
-
-
 
 export async function fetchFinancePool(): Promise<any[]> {
   const res = await request<any[]>({ url: '/api/v1/admin/finance/pool', method: 'get' });

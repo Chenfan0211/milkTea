@@ -104,9 +104,8 @@ Page(
       api
         .signIn()
         .then(result => {
-          const balance = result && Number.isFinite(Number(result.balance))
-            ? Number(result.balance)
-            : previousPoints + 1;
+          const balance =
+            result && Number.isFinite(Number(result.balance)) ? Number(result.balance) : previousPoints + 1;
           // 统一广播：缓存 + globalData + 订阅者（我的页 / 商城）一起刷新
           notifyPointsChanged(balance, { source: 'signin' });
           const now = new Date();

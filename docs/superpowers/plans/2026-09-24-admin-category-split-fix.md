@@ -22,30 +22,30 @@
 真实表 `product_category`：`id, parent_id, code, name, type, sort, create_time, update_time, deleted`。
 **没有 `enabled`，没有 `tag`，`type` 为 NOT NULL 且无默认值。**
 
-| 现象 | 根因 |
-|------|------|
-| 状态列恒为「—」 | 前端读 `row.enabled`，表无此列 → `undefined` → renderTag 兜底「—」 |
-| 分类标签列恒为「—」 | 前端读 `row.tag`，表无此列 |
+| 现象                  | 根因                                                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 状态列恒为「—」       | 前端读 `row.enabled`，表无此列 → `undefined` → renderTag 兜底「—」                                                                     |
+| 分类标签列恒为「—」   | 前端读 `row.tag`，表无此列                                                                                                             |
 | 新增/修改后页面不显示 | 白名单 `parent_id, code, name, type, sort` 不含 `tag`/`enabled` → 静默丢弃；且表单无 `type` 字段，而 DB `type` NOT NULL → 新增必然失败 |
-| 按状态查询无效 | `enabled` 不在 `searchable`/`filterable` → 条件被丢弃 → 返回全部 |
-| 排序全为 0 | 8 条数据 `sort` 均为 0，`order by sort asc` 下顺序不稳定 |
+| 按状态查询无效        | `enabled` 不在 `searchable`/`filterable` → 条件被丢弃 → 返回全部                                                                       |
+| 排序全为 0            | 8 条数据 `sort` 均为 0，`order by sort asc` 下顺序不稳定                                                                               |
 
 ### 问题二：分账规则
 
 真实表 `split_rule` 为**万分比五方**：`platform_ratio=1000, store_ratio=5000, channel_ratio=1500, investor_ratio=1500, supplier_ratio=1000`（合计 10000）。
 
-| 现象 | 根因 |
-|------|------|
-| 作用范围显示 `GLOBAL`/`PRODUCT` | 前端列直接输出原值，无中文映射（`COMMON_STATUS_LABELS` 也未收录） |
+| 现象                             | 根因                                                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 作用范围显示 `GLOBAL`/`PRODUCT`  | 前端列直接输出原值，无中文映射（`COMMON_STATUS_LABELS` 也未收录）                                                               |
 | 门店金额/资源方金额/投资人比例空 | 前端读 `storePerItem`/`channelPerItem`/`investorPercent`，后端返回 `storeRatio`/`channelRatio`/`investorRatio` → 全 `undefined` |
-| 「改了没反应」 | 反证：`SR-1001.update_time=21:18:32` 晚于 `create_time=21:16:48`，写其实已落库，仅前端字段名对不上 |
+| 「改了没反应」                   | 反证：`SR-1001.update_time=21:18:32` 晚于 `create_time=21:16:48`，写其实已落库，仅前端字段名对不上                              |
 
 ### 问题三：按钮是否都写库
 
-| 层次 | 问题 |
-|------|------|
-| 后端无审计 | `audit_log` 33 行全为 `AUTH_LOGIN_FAIL`/`WITHDRAW_ADMIN_APPLY`/`PAY_CALLBACK_REJECT`，**0 条 CRUD 记录**；`CrudController` 不写审计 |
-| 静默丢弃 | 见上文统一病灶，白名单外字段被丢弃但仍返回成功 |
+| 层次       | 问题                                                                                                                                                                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 后端无审计 | `audit_log` 33 行全为 `AUTH_LOGIN_FAIL`/`WITHDRAW_ADMIN_APPLY`/`PAY_CALLBACK_REJECT`，**0 条 CRUD 记录**；`CrudController` 不写审计                                                                      |
+| 静默丢弃   | 见上文统一病灶，白名单外字段被丢弃但仍返回成功                                                                                                                                                           |
 | 纯本地动作 | `toggleFeature()`、`enableSplitRule()` 只改 localStorage + 本地 `audit()`，**不调后端**。同页 `SR-1000 停用`走 `patch`（真写库）、`SR-1001 启用`走 `enableSplitRule`（假写）→ 观感「有的同步有的没同步」 |
 
 ---
@@ -65,17 +65,17 @@
 
 ### `product_category`（分类管理）
 
-| 新增列 | 类型 | 默认 | 用途 | 对应界面 |
-|--------|------|------|------|---------|
-| `tag` | `VARCHAR(64) NULL` | NULL | 分类标签 | 图一「分类标签」列 + 新增/编辑表单 |
-| `enabled` | `TINYINT NOT NULL` | `1` | 状态：1 启用 / 0 停用 | 图一「状态」列 + 状态查询 + 停用/启用按钮 |
+| 新增列    | 类型               | 默认 | 用途                  | 对应界面                                  |
+| --------- | ------------------ | ---- | --------------------- | ----------------------------------------- |
+| `tag`     | `VARCHAR(64) NULL` | NULL | 分类标签              | 图一「分类标签」列 + 新增/编辑表单        |
+| `enabled` | `TINYINT NOT NULL` | `1`  | 状态：1 启用 / 0 停用 | 图一「状态」列 + 状态查询 + 停用/启用按钮 |
 
 ### `split_rule`（分账规则）
 
-| 新增列 | 类型 | 默认 | 用途 | 对应界面 |
-|--------|------|------|------|---------|
-| `investor_threshold_amount` | `BIGINT NOT NULL` | `0` | 投资人当月累计分账达标额（分），0 = 不启用阈值规则 | 图二新增表单项 |
-| `investor_ratio_after` | `INT NOT NULL` | `0` | 达标后的投资人比例（万分比） | 图二新增列 + 表单项 |
+| 新增列                      | 类型              | 默认 | 用途                                               | 对应界面            |
+| --------------------------- | ----------------- | ---- | -------------------------------------------------- | ------------------- |
+| `investor_threshold_amount` | `BIGINT NOT NULL` | `0`  | 投资人当月累计分账达标额（分），0 = 不启用阈值规则 | 图二新增表单项      |
+| `investor_ratio_after`      | `INT NOT NULL`    | `0`  | 达标后的投资人比例（万分比）                       | 图二新增列 + 表单项 |
 
 > 说明：图二的「门店/件(元)」「资源方/件(元)」「投资人比例」三列**不需要加字段**——
 > 库中 `store_ratio`/`channel_ratio`/`investor_ratio` 已存在，问题是前端字段名写错了，
@@ -146,15 +146,15 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 实测结果（均已通过）：
 
-| 校验项 | 结果 |
-|--------|------|
-| `product_category.tag` | `varchar(64)` NULL `分类标签` ✅ |
-| `product_category.enabled` | `tinyint` NOT NULL default 1 `状态 1启用 0停用` ✅ |
-| `product_category` 8 条 | `enabled` 全为 1；`sort` 由全 0 变为 1~8 ✅ |
-| `split_rule.investor_threshold_amount` | `bigint` NOT NULL default 0 ✅ |
-| `split_rule.investor_ratio_after` | `int` NOT NULL default 0 ✅ |
-| `split_rule` 回填 | `investor_ratio_after` = 原 `investor_ratio`（1500/1500/1000）✅ |
-| 五方合计 | SR-1000/1001/1002 均仍为 10000 ✅ |
+| 校验项                                 | 结果                                                             |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `product_category.tag`                 | `varchar(64)` NULL `分类标签` ✅                                 |
+| `product_category.enabled`             | `tinyint` NOT NULL default 1 `状态 1启用 0停用` ✅               |
+| `product_category` 8 条                | `enabled` 全为 1；`sort` 由全 0 变为 1~8 ✅                      |
+| `split_rule.investor_threshold_amount` | `bigint` NOT NULL default 0 ✅                                   |
+| `split_rule.investor_ratio_after`      | `int` NOT NULL default 0 ✅                                      |
+| `split_rule` 回填                      | `investor_ratio_after` = 原 `investor_ratio`（1500/1500/1000）✅ |
+| 五方合计                               | SR-1000/1001/1002 均仍为 10000 ✅                                |
 
 回滚备份：`.tmp_backup_before_v30.json`（含两表迁移前的 `SHOW CREATE TABLE` 与全量数据）
 
@@ -162,13 +162,13 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 ## 四之二、后续阶段进度
 
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| 1 | 补齐数据库字段（V30 迁移） | ✅ 已完成 |
-| 2 | 后端 `CrudRegistry` 白名单放行新字段 | ✅ 已完成 |
-| 3 | 前端分类页 / 分账规则页对齐新字段 | ✅ 已完成 |
-| 4 | 消灭「假写库」+ 补审计 | ✅ 已完成 |
-| 5 | 分账引擎接入投资人阈值 | ✅ 已完成（TDD，13 项新单测） |
+| 阶段 | 内容                                 | 状态                          |
+| ---- | ------------------------------------ | ----------------------------- |
+| 1    | 补齐数据库字段（V30 迁移）           | ✅ 已完成                     |
+| 2    | 后端 `CrudRegistry` 白名单放行新字段 | ✅ 已完成                     |
+| 3    | 前端分类页 / 分账规则页对齐新字段    | ✅ 已完成                     |
+| 4    | 消灭「假写库」+ 补审计               | ✅ 已完成                     |
+| 5    | 分账引擎接入投资人阈值               | ✅ 已完成（TDD，13 项新单测） |
 
 ### 阶段 5 完成记录（2026-09-24）
 
@@ -188,10 +188,10 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 新增两个字段（V30 已加列）：`investorThresholdAmount`、`investorRatioAfter`，以及：
 
-| 方法 | 职责 |
-|------|------|
+| 方法                           | 职责                                                                |
+| ------------------------------ | ------------------------------------------------------------------- |
 | `resolveInvestorRatio(累计额)` | 解析本单生效的投资人比例：未启用/未配置 → 原比例；达标 → 达标后比例 |
-| `resolvePlatformRatio(累计额)` | 平台 = 原平台 − (达标比例 − 原投资人比例)，保证五方合计恒为 10000 |
+| `resolvePlatformRatio(累计额)` | 平台 = 原平台 − (达标比例 − 原投资人比例)，保证五方合计恒为 10000   |
 
 边界口径：**累计额恰好等于阈值即视为达标**（阈值语义是「达到」）。
 
@@ -215,24 +215,24 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 #### 测试覆盖（13 项）
 
-| 场景 | 用例 |
-|------|------|
-| 未达标 | 累计 99999 用原比例；金额与基准完全一致 |
-| 达标当单 | 累计恰好 = 阈值即启用新比例 |
-| 达标后 | 投资人增量 == 平台减量；五方之和仍等于实付 |
-| 阈值为 0 | 累计再大也不触发，与原行为一致 |
-| 达标比例为 0 | 视为未配置，退回原比例 |
-| 边界 | 累计额为 null 按 0；跨阈值四档取值正确 |
-| 非法配置 | 平台比例被让成负数时抛错 |
+| 场景         | 用例                                       |
+| ------------ | ------------------------------------------ |
+| 未达标       | 累计 99999 用原比例；金额与基准完全一致    |
+| 达标当单     | 累计恰好 = 阈值即启用新比例                |
+| 达标后       | 投资人增量 == 平台减量；五方之和仍等于实付 |
+| 阈值为 0     | 累计再大也不触发，与原行为一致             |
+| 达标比例为 0 | 视为未配置，退回原比例                     |
+| 边界         | 累计额为 null 按 0；跨阈值四档取值正确     |
+| 非法配置     | 平台比例被让成负数时抛错                   |
 
 #### 验证
 
-| 验证项 | 结果 |
-|--------|------|
-| `mvn -pl server test` | **40 tests, 0 failures**（原 27 + 新增 13）✅ |
-| 实体字段 ↔ 库列映射 | 16 个字段全部对上，无缺失列 ✅ |
+| 验证项                 | 结果                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| `mvn -pl server test`  | **40 tests, 0 failures**（原 27 + 新增 13）✅            |
+| 实体字段 ↔ 库列映射    | 16 个字段全部对上，无缺失列 ✅                           |
 | 当月累计查询（真实库） | subject 201=5765 分、202=477 分、203=0 分，SQL 可执行 ✅ |
-| 前端 `vue-tsc` | exit=0 ✅ |
+| 前端 `vue-tsc`         | exit=0 ✅                                                |
 
 > **上线注意**：阈值默认 0（不启用），达标比例默认等于原比例，
 > 因此本次上线**不改变任何既有订单的分账结果**，需人工配置后才生效。
@@ -273,13 +273,13 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 以下 5 个函数已无任何页面调用，属「留着重容易被误用」的死代码，一并删除：
 
-| 函数 | 问题 |
-|------|------|
-| `enableSplitRule` | 本地做「同范围唯一启用」，与后端规则不一致（页面已改走 patch） |
-| `bindInvestorToStore` | 写 `subjects` 的 `investorId`/`investorRelatedStoreIds`，**这些列在 biz_subject 中不存在**，必然被白名单丢弃 |
-| `unbindInvestorFromStore` | 同上 |
-| `bindResourceToStore` | 写 `boundStoreIds`/`boundStoreCount`，同样不存在于 biz_subject |
-| `unbindResourceFromStore` | 同上 |
+| 函数                      | 问题                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `enableSplitRule`         | 本地做「同范围唯一启用」，与后端规则不一致（页面已改走 patch）                                               |
+| `bindInvestorToStore`     | 写 `subjects` 的 `investorId`/`investorRelatedStoreIds`，**这些列在 biz_subject 中不存在**，必然被白名单丢弃 |
+| `unbindInvestorFromStore` | 同上                                                                                                         |
+| `bindResourceToStore`     | 写 `boundStoreIds`/`boundStoreCount`，同样不存在于 biz_subject                                               |
+| `unbindResourceFromStore` | 同上                                                                                                         |
 
 > 正确链路是 `bindStoreInvestor` / `bindChannelStore`（走 dedicated 接口，
 > 落 `store_profile.investor_subject_id` 与 `channel_store` 表），页面已在用。
@@ -287,14 +287,14 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 #### 验证
 
-| 验证项 | 结果 |
-|--------|------|
-| 后端 `mvn -pl server -am compile` | exit=0 ✅ |
-| 后端 `mvn -pl server test` | 27 tests, 0 failures ✅ |
-| 前端 `vue-tsc --noEmit` | exit=0 ✅ |
-| `oxlint` 目标文件 | 0 错误（store 文件由 11 降为 10 个历史告警）✅ |
-| 审计写入链路 | 模拟写入并回读成功，事务回滚后库中无残留 ✅ |
-| 失效函数残留 | 全库检索确认无调用方残留 ✅ |
+| 验证项                            | 结果                                           |
+| --------------------------------- | ---------------------------------------------- |
+| 后端 `mvn -pl server -am compile` | exit=0 ✅                                      |
+| 后端 `mvn -pl server test`        | 27 tests, 0 failures ✅                        |
+| 前端 `vue-tsc --noEmit`           | exit=0 ✅                                      |
+| `oxlint` 目标文件                 | 0 错误（store 文件由 11 降为 10 个历史告警）✅ |
+| 审计写入链路                      | 模拟写入并回读成功，事务回滚后库中无残留 ✅    |
+| 失效函数残留                      | 全库检索确认无调用方残留 ✅                    |
 
 ### 阶段 2 完成记录（2026-09-24）
 
@@ -399,17 +399,17 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 ## 五、验收标准
 
-| 项 | 验收方式 |
-|----|---------|
+| 项             | 验收方式                                                                               |
+| -------------- | -------------------------------------------------------------------------------------- |
 | **字段已入库** | `SHOW COLUMNS` 可见 `tag`/`enabled`/`investor_threshold_amount`/`investor_ratio_after` |
-| 分类新增/编辑 | 落库后 `SELECT * FROM product_category` 可见 `tag`/`enabled`/`sort` 为表单值 |
-| 分类状态查询 | 选「启用」只返回 `enabled=1`，选「停用」只返回 `enabled=0` |
-| 分账规则显示 | 列表门店比例为 `50%`（5000 万分比），范围为「全局」而非 `GLOBAL` |
-| 分账新增/编辑 | `investor_threshold_amount`/`investor_ratio_after` 落库 |
-| 五方合计校验 | 合计非 10000 时前端拦截，后端 `SplitCalculator` 也抛错 |
-| 全量按钮 | 每个写操作后查库，字段值与界面一致 |
-| 审计 | `SELECT COUNT(*) FROM audit_log WHERE module != "AUTH"` 随操作增长 |
-| 投资人阈值 | 单测覆盖「未达标」「达标当单」「达标后」三种场景 |
+| 分类新增/编辑  | 落库后 `SELECT * FROM product_category` 可见 `tag`/`enabled`/`sort` 为表单值           |
+| 分类状态查询   | 选「启用」只返回 `enabled=1`，选「停用」只返回 `enabled=0`                             |
+| 分账规则显示   | 列表门店比例为 `50%`（5000 万分比），范围为「全局」而非 `GLOBAL`                       |
+| 分账新增/编辑  | `investor_threshold_amount`/`investor_ratio_after` 落库                                |
+| 五方合计校验   | 合计非 10000 时前端拦截，后端 `SplitCalculator` 也抛错                                 |
+| 全量按钮       | 每个写操作后查库，字段值与界面一致                                                     |
+| 审计           | `SELECT COUNT(*) FROM audit_log WHERE module != "AUTH"` 随操作增长                     |
+| 投资人阈值     | 单测覆盖「未达标」「达标当单」「达标后」三种场景                                       |
 
 ---
 
@@ -432,19 +432,19 @@ SELECT id, code, name, tag, sort, enabled FROM product_category WHERE deleted = 
 
 ### 部署内容
 
-| 项 | 内容 |
-|----|------|
+| 项       | 内容                                              |
+| -------- | ------------------------------------------------- |
 | 后端镜像 | `wuling/server:20260924-235934`（tag 为 `local`） |
-| 前端 | `prod-ip` 模式构建，部署至 `/opt/wuling/web` |
-| 数据库 | V30 字段已存在（早前手工执行） |
+| 前端     | `prod-ip` 模式构建，部署至 `/opt/wuling/web`      |
+| 数据库   | V30 字段已存在（早前手工执行）                    |
 
 ### 回滚点
 
-| 项 | 位置 |
-|----|------|
-| 旧后端镜像 | `wuling/server:pre-v30-20260924-235528` |
-| 旧前端目录 | `/opt/wuling/web.prev-20260925-000636` |
-| 旧 jar | `/opt/wuling/build/server/target/server.jar.bak-20260924-235528` |
+| 项         | 位置                                                             |
+| ---------- | ---------------------------------------------------------------- |
+| 旧后端镜像 | `wuling/server:pre-v30-20260924-235528`                          |
+| 旧前端目录 | `/opt/wuling/web.prev-20260925-000636`                           |
+| 旧 jar     | `/opt/wuling/build/server/target/server.jar.bak-20260924-235528` |
 
 ### 部署中遇到并解决的两个问题（重要，供后人参考）
 
@@ -486,17 +486,17 @@ Flyway 报错修复后，它竟成功启动并占用了端口，与 Docker 容�
 
 ### 生产验证结果
 
-| 验证项 | 结果 |
-|--------|------|
-| 内置冒烟测试 `deploy-backend.sh verify` | 通过 7 项，失败 0 项 ✅ |
-| 容器健康 | `wuling-server` healthy ✅ |
-| 问题一：tag/enabled 字段 | 新增/编辑均落库并回读一致 ✅ |
-| 问题一：状态等值查询 | `enabled=1` → 8 条；`enabled=0` → 0 条（正确区分）✅ |
-| 问题二：作用范围中文 | GLOBAL→全局、PRODUCT→商品 ✅ |
-| 问题二：三列比例 | 50%/15%、45%/10%、45%/25% 正常显示 ✅ |
-| 问题二：范围等值查询 | GLOBAL→1 条、PRODUCT→2 条 ✅ |
-| 问题三：审计留痕 | 新增/编辑/删除均入库，`operator=super` 正确 ✅ |
-| 前端资源 | 首页与两个新页面 bundle 均 HTTP 200 ✅ |
+| 验证项                                  | 结果                                                 |
+| --------------------------------------- | ---------------------------------------------------- |
+| 内置冒烟测试 `deploy-backend.sh verify` | 通过 7 项，失败 0 项 ✅                              |
+| 容器健康                                | `wuling-server` healthy ✅                           |
+| 问题一：tag/enabled 字段                | 新增/编辑均落库并回读一致 ✅                         |
+| 问题一：状态等值查询                    | `enabled=1` → 8 条；`enabled=0` → 0 条（正确区分）✅ |
+| 问题二：作用范围中文                    | GLOBAL→全局、PRODUCT→商品 ✅                         |
+| 问题二：三列比例                        | 50%/15%、45%/10%、45%/25% 正常显示 ✅                |
+| 问题二：范围等值查询                    | GLOBAL→1 条、PRODUCT→2 条 ✅                         |
+| 问题三：审计留痕                        | 新增/编辑/删除均入库，`operator=super` 正确 ✅       |
+| 前端资源                                | 首页与两个新页面 bundle 均 HTTP 200 ✅               |
 
 ### 遗留项处理记录（2026-09-25）
 
@@ -532,9 +532,9 @@ Flyway 报错修复后，它竟成功启动并占用了端口，与 Docker 容�
 发现 102 个镜像、11.96GB 可回收（80%），主要是历史构建 tag 堆积。
 按保守策略清理（保留在用镜像 + `local`/`latest` + 本次与回滚点）：
 
-| 指标 | 清理前 | 清理后 |
-|------|--------|--------|
-| 镜像数 | 102 | 17 |
+| 指标     | 清理前  | 清理后  |
+| -------- | ------- | ------- |
+| 镜像数   | 102     | 17      |
 | 镜像占用 | 14.88GB | 3.713GB |
 
 **保留的关键回滚镜像**：
@@ -544,11 +544,11 @@ Flyway 报错修复后，它竟成功启动并占用了端口，与 Docker 容�
 
 #### 最终状态
 
-| 验证项 | 结果 |
-|--------|------|
-| 后台首页 | HTTP 200 ✅ |
-| 分类页 / 分账页 bundle | HTTP 200 ✅ |
-| 小程序菜单 API | HTTP 200 ✅ |
-| 网关健康 | HTTP 200 ✅ |
-| 12 个容器 | 全部运行，`wuling-server` / `wuling-product-service` / `wuling-mysql` / `wuling-rabbitmq` healthy ✅ |
-| nginx | active ✅ |
+| 验证项                 | 结果                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| 后台首页               | HTTP 200 ✅                                                                                          |
+| 分类页 / 分账页 bundle | HTTP 200 ✅                                                                                          |
+| 小程序菜单 API         | HTTP 200 ✅                                                                                          |
+| 网关健康               | HTTP 200 ✅                                                                                          |
+| 12 个容器              | 全部运行，`wuling-server` / `wuling-product-service` / `wuling-mysql` / `wuling-rabbitmq` healthy ✅ |
+| nginx                  | active ✅                                                                                            |

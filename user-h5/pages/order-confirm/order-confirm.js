@@ -20,7 +20,9 @@ function sameId(left, right) {
 }
 
 function parseDateTime(value) {
-  const text = String(value || '').trim().replace('T', ' ');
+  const text = String(value || '')
+    .trim()
+    .replace('T', ' ');
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   if (!match) return null;
   const date = new Date(
@@ -41,7 +43,9 @@ function isCouponExpired(coupon, now) {
 }
 
 function parseTimeToSeconds(value) {
-  const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  const match = String(value || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (!match) return null;
   const hour = Number(match[1]);
   const minute = Number(match[2]);
@@ -68,9 +72,7 @@ function isSceneMatched(scenes, orderMode) {
   const text = value.trim().toLowerCase();
   if (!text) return true;
   const aliases =
-    orderMode === 'dinein'
-      ? ['dinein', '店内就餐', '门店就餐', '堂食']
-      : ['pickup', '打包外带', '外带', '打包'];
+    orderMode === 'dinein' ? ['dinein', '店内就餐', '门店就餐', '堂食'] : ['pickup', '打包外带', '外带', '打包'];
   return aliases.some(alias => text.indexOf(alias.toLowerCase()) !== -1);
 }
 
@@ -111,9 +113,7 @@ function calculateOrder(items, paymentMethod, coupon) {
   });
 
   const amountBeforeCouponFen = Math.max(0, memberTotalFen - storedValueDiscountFen);
-  const couponDiscountFen = coupon
-    ? Math.min(couponAmountFen(coupon), amountBeforeCouponFen)
-    : 0;
+  const couponDiscountFen = coupon ? Math.min(couponAmountFen(coupon), amountBeforeCouponFen) : 0;
   const paidAmountFen = Math.max(0, amountBeforeCouponFen - couponDiscountFen);
 
   return {
@@ -142,9 +142,7 @@ function isCouponUsable(coupon, items, store, orderMode, amountBeforeCouponFen) 
 
   const productIds = Array.isArray(coupon.applicableProductIds) ? coupon.applicableProductIds : [];
   if (productIds.length) {
-    const matched = (items || []).some(item =>
-      productIds.some(id => sameId(id, item.productId || item.id))
-    );
+    const matched = (items || []).some(item => productIds.some(id => sameId(id, item.productId || item.id)));
     if (!matched) return false;
   }
   return true;
@@ -170,9 +168,8 @@ function backendCouponId(coupon) {
 function pickBestCoupon(coupons) {
   const list = Array.isArray(coupons) ? coupons : [];
   if (!list.length) return null;
-  return list
-    .slice()
-    .sort((a, b) => {
+  return (
+    list.slice().sort((a, b) => {
       const diff = couponAmountFen(b) - couponAmountFen(a);
       if (diff !== 0) return diff;
       const aEnd = parseDateTime(a.validityEnd || a.expireAt);
@@ -183,7 +180,8 @@ function pickBestCoupon(coupons) {
         return aEnd.getTime() - bEnd.getTime();
       }
       return 0;
-    })[0] || null;
+    })[0] || null
+  );
 }
 
 Page(
@@ -281,8 +279,7 @@ Page(
     refreshSummary() {
       const usableCoupons = this.getUsableCoupons();
       const current = this.data.selectedCoupon;
-      let selectedCoupon =
-        current && usableCoupons.some(coupon => sameId(coupon.id, current.id)) ? current : null;
+      let selectedCoupon = current && usableCoupons.some(coupon => sameId(coupon.id, current.id)) ? current : null;
       if (!this.data.couponManuallyChanged) {
         selectedCoupon = pickBestCoupon(usableCoupons);
       }
@@ -520,4 +517,3 @@ Page(
     }
   })
 );
-

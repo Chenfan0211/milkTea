@@ -122,7 +122,6 @@ async function handleQuickLogin(account: QuickLoginAccount) {
     pendingQuickKey.value = null;
   }
 }
-
 </script>
 
 <template>
@@ -188,5 +187,3 @@ async function handleQuickLogin(account: QuickLoginAccount) {
   color: #9b9b96;
 }
 </style>
-
-

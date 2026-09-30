@@ -7,30 +7,116 @@ const catalog = require('./data/menu-catalog.cjs');
 // 积分商品 / 礼品卡等「展示元数据」原先只存在于 user-h5/data/mock.js。
 // 阶段 C 后 mock.js 已清空业务数据，这里改为内置常量，生成结果落到 V16。
 const POINTS_PRODUCTS = [
-  { id: 'points-pet-food', category: 'pet', purchaseLimit: 0, displayType: 'fixed', amount: 0, condition: '不限', badgeInImage: false },
-  { id: 'points-matcha-buy-one', category: 'coupon', purchaseLimit: 1, displayType: 'buyone', amount: 0, condition: '不限', badgeInImage: false },
-  { id: 'points-single-cup', category: 'coupon', purchaseLimit: 1, displayType: 'fixed', amount: 3, condition: '不限', badgeInImage: true },
-  { id: 'points-second-cup-half', category: 'coupon', purchaseLimit: 1, displayType: 'halfprice', amount: 0, condition: '不限', badgeInImage: true }
+  {
+    id: 'points-pet-food',
+    category: 'pet',
+    purchaseLimit: 0,
+    displayType: 'fixed',
+    amount: 0,
+    condition: '不限',
+    badgeInImage: false
+  },
+  {
+    id: 'points-matcha-buy-one',
+    category: 'coupon',
+    purchaseLimit: 1,
+    displayType: 'buyone',
+    amount: 0,
+    condition: '不限',
+    badgeInImage: false
+  },
+  {
+    id: 'points-single-cup',
+    category: 'coupon',
+    purchaseLimit: 1,
+    displayType: 'fixed',
+    amount: 3,
+    condition: '不限',
+    badgeInImage: true
+  },
+  {
+    id: 'points-second-cup-half',
+    category: 'coupon',
+    purchaseLimit: 1,
+    displayType: 'halfprice',
+    amount: 0,
+    condition: '不限',
+    badgeInImage: true
+  }
 ];
 
 // 需要补入的积分商品（V6 已含 points-pet-food 与 points-coupon-3）
 const EXTRA_POINTS_PRODUCTS = [
-  [100, "'points-matcha-buy-one'", "'超浓抹茶系列买一送一券'", "'/assets/images/3x/points-product-matcha.jpg'", 300, 51, "'限时抢兑'", "'*每人仅可兑换一次'",
-    "'超浓抹茶系列买一送一券，兑换后可在指定饮品结算时使用，具体适用范围和有效期以券面说明为准。'", "'enabled'", "'coupon'", 1, "'buyone'", 0, "'不限'", 0],
-  [101, "'points-single-cup'", "'超浓抹茶系列单杯3元券'", "'/assets/images/3x/points-product-single.jpg'", 300, 51, "'限时抢兑'", "'*每人仅可兑换一次'",
-    "'超浓抹茶系列单杯3元优惠券，兑换后可在指定饮品结算时抵扣，具体适用范围和有效期以券面说明为准。'", "'enabled'", "'coupon'", 1, "'fixed'", 300, "'不限'", 1],
-  [102, "'points-second-cup-half'", "'超浓抹茶系列第2杯半价券'", "'/assets/images/3x/points-product-half.jpg'", 300, 51, "'限时抢兑'", "'*每人仅可兑换一次'",
-    "'超浓抹茶系列第2杯半价券，兑换后可在指定饮品结算时使用，具体适用范围和有效期以券面说明为准。'", "'enabled'", "'coupon'", 1, "'halfprice'", 0, "'不限'", 1]
+  [
+    100,
+    "'points-matcha-buy-one'",
+    "'超浓抹茶系列买一送一券'",
+    "'/assets/images/3x/points-product-matcha.jpg'",
+    300,
+    51,
+    "'限时抢兑'",
+    "'*每人仅可兑换一次'",
+    "'超浓抹茶系列买一送一券，兑换后可在指定饮品结算时使用，具体适用范围和有效期以券面说明为准。'",
+    "'enabled'",
+    "'coupon'",
+    1,
+    "'buyone'",
+    0,
+    "'不限'",
+    0
+  ],
+  [
+    101,
+    "'points-single-cup'",
+    "'超浓抹茶系列单杯3元券'",
+    "'/assets/images/3x/points-product-single.jpg'",
+    300,
+    51,
+    "'限时抢兑'",
+    "'*每人仅可兑换一次'",
+    "'超浓抹茶系列单杯3元优惠券，兑换后可在指定饮品结算时抵扣，具体适用范围和有效期以券面说明为准。'",
+    "'enabled'",
+    "'coupon'",
+    1,
+    "'fixed'",
+    300,
+    "'不限'",
+    1
+  ],
+  [
+    102,
+    "'points-second-cup-half'",
+    "'超浓抹茶系列第2杯半价券'",
+    "'/assets/images/3x/points-product-half.jpg'",
+    300,
+    51,
+    "'限时抢兑'",
+    "'*每人仅可兑换一次'",
+    "'超浓抹茶系列第2杯半价券，兑换后可在指定饮品结算时使用，具体适用范围和有效期以券面说明为准。'",
+    "'enabled'",
+    "'coupon'",
+    1,
+    "'halfprice'",
+    0,
+    "'不限'",
+    1
+  ]
 ];
 
 const GIFT_CARD_GROUPS = [
-  { id: 'popular', title: '人气礼品卡', cards: [
-    { id: 'gift-001', name: '超浓抹茶', image: '/assets/images/3x/gift-card-matcha.jpg' },
-    { id: 'gift-002', name: '相遇很美好', image: '/assets/images/3x/gift-card-jasmine.jpg' }
-  ] },
-  { id: 'limited', title: '限定心意卡', cards: [
-    { id: 'gift-003', name: '限定心意', image: '/assets/images/3x/gift-card-limited.jpg' }
-  ] }
+  {
+    id: 'popular',
+    title: '人气礼品卡',
+    cards: [
+      { id: 'gift-001', name: '超浓抹茶', image: '/assets/images/3x/gift-card-matcha.jpg' },
+      { id: 'gift-002', name: '相遇很美好', image: '/assets/images/3x/gift-card-jasmine.jpg' }
+    ]
+  },
+  {
+    id: 'limited',
+    title: '限定心意卡',
+    cards: [{ id: 'gift-003', name: '限定心意', image: '/assets/images/3x/gift-card-limited.jpg' }]
+  }
 ];
 
 const POINTS_SIGNIN_WEEK_DATES = [
@@ -52,8 +138,12 @@ function esc(v) {
   if (v === null || v === undefined) return 'NULL';
   return "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "''") + "'";
 }
-function json(v) { return esc(JSON.stringify(v)); }
-function cents(v) { return Math.round((Number(v) || 0) * 100); }
+function json(v) {
+  return esc(JSON.stringify(v));
+}
+function cents(v) {
+  return Math.round((Number(v) || 0) * 100);
+}
 
 const L = [];
 const push = (...xs) => xs.forEach(x => L.push(x));
@@ -82,7 +172,8 @@ push('    ADD COLUMN badge_icon       VARCHAR(255) NULL COMMENT "商品角标图
 push('');
 
 const products = [];
-for (const tab of catalog.menuTabs) for (const g of tab.groups) for (const c of g.categories) for (const p of c.products) products.push(p);
+for (const tab of catalog.menuTabs)
+  for (const g of tab.groups) for (const c of g.categories) for (const p of c.products) products.push(p);
 
 /** 生成 "col = CASE code WHEN .. THEN .. ELSE col END" 片段（积分商品用 code 关联）。 */
 function caseByCode(column, list, pick) {
@@ -101,15 +192,17 @@ function caseBlock(column, pick) {
 }
 
 push('UPDATE product SET');
-push([
-  caseBlock('gallery_image', p => esc(p.specDetail.galleryImage || p.image)),
-  caseBlock('image_disclaimer', p => esc(p.specDetail.imageDisclaimer || '')),
-  caseBlock('promotion_text', p => esc(p.specDetail.promotionText || '')),
-  caseBlock('price_label', p => esc(p.specDetail.priceLabel || '')),
-  caseBlock('discount_rate', p => String(Math.round((Number(p.specDetail.discountRate) || 1) * 10000))),
-  caseBlock('spec_tag', p => esc(p.specDetail.tag || '')),
-  caseBlock('badge_icon', p => esc(p.badgeIcon || ''))
-].join(',\n'));
+push(
+  [
+    caseBlock('gallery_image', p => esc(p.specDetail.galleryImage || p.image)),
+    caseBlock('image_disclaimer', p => esc(p.specDetail.imageDisclaimer || '')),
+    caseBlock('promotion_text', p => esc(p.specDetail.promotionText || '')),
+    caseBlock('price_label', p => esc(p.specDetail.priceLabel || '')),
+    caseBlock('discount_rate', p => String(Math.round((Number(p.specDetail.discountRate) || 1) * 10000))),
+    caseBlock('spec_tag', p => esc(p.specDetail.tag || '')),
+    caseBlock('badge_icon', p => esc(p.badgeIcon || ''))
+  ].join(',\n')
+);
 push(';');
 push('');
 
@@ -135,22 +228,30 @@ push('    ADD COLUMN badge_in_image   TINYINT      NOT NULL DEFAULT 0 COMMENT "�
 push('');
 push('-- V6 已初始化 2 行（points-pet-food / points-coupon-3），这里补齐分类与券字段。');
 push('UPDATE points_product SET');
-push([
-  caseByCode('category', POINTS_PRODUCTS, p => esc(p.category)),
-  caseByCode('purchase_limit', POINTS_PRODUCTS, p => String(Number(p.purchaseLimit) || 0)),
-  caseByCode('display_type', POINTS_PRODUCTS, p => esc(p.displayType || 'fixed')),
-  caseByCode('coupon_amount', POINTS_PRODUCTS, p => String(cents(p.amount))),
-  caseByCode('coupon_condition', POINTS_PRODUCTS, p => esc(p.condition || '不限')),
-  caseByCode('badge_in_image', POINTS_PRODUCTS, p => (p.badgeInImage ? '1' : '0'))
-].join(',\n'));
+push(
+  [
+    caseByCode('category', POINTS_PRODUCTS, p => esc(p.category)),
+    caseByCode('purchase_limit', POINTS_PRODUCTS, p => String(Number(p.purchaseLimit) || 0)),
+    caseByCode('display_type', POINTS_PRODUCTS, p => esc(p.displayType || 'fixed')),
+    caseByCode('coupon_amount', POINTS_PRODUCTS, p => String(cents(p.amount))),
+    caseByCode('coupon_condition', POINTS_PRODUCTS, p => esc(p.condition || '不限')),
+    caseByCode('badge_in_image', POINTS_PRODUCTS, p => (p.badgeInImage ? '1' : '0'))
+  ].join(',\n')
+);
 push(';');
 push('');
 push('-- 补充小程序展出的兑换商品（与设计稿 4 张商品卡一致）');
-push('INSERT INTO points_product (id, code, name, image, points, stock, badge, limit_text, description, status, category, purchase_limit, display_type, coupon_amount, coupon_condition, badge_in_image) VALUES');
+push(
+  'INSERT INTO points_product (id, code, name, image, points, stock, badge, limit_text, description, status, category, purchase_limit, display_type, coupon_amount, coupon_condition, badge_in_image) VALUES'
+);
 push(EXTRA_POINTS_PRODUCTS.map(row => '(' + row.join(', ') + ')').join(',\n'));
 push('ON DUPLICATE KEY UPDATE name=VALUES(name), image=VALUES(image), points=VALUES(points), stock=VALUES(stock),');
-push('  badge=VALUES(badge), limit_text=VALUES(limit_text), description=VALUES(description), category=VALUES(category),');
-push('  purchase_limit=VALUES(purchase_limit), display_type=VALUES(display_type), coupon_amount=VALUES(coupon_amount),');
+push(
+  '  badge=VALUES(badge), limit_text=VALUES(limit_text), description=VALUES(description), category=VALUES(category),'
+);
+push(
+  '  purchase_limit=VALUES(purchase_limit), display_type=VALUES(display_type), coupon_amount=VALUES(coupon_amount),'
+);
 push('  coupon_condition=VALUES(coupon_condition), badge_in_image=VALUES(badge_in_image);');
 push('');
 // ---------- 4. gift_card_denomination ----------
@@ -166,7 +267,9 @@ push('');
 push('-- 原 3 条按面额的占位数据改为「分组 x 面额」的完整卡面清单，先移除旧占位行。');
 push("DELETE FROM gift_card_denomination WHERE code IN ('gift-value-100', 'gift-value-200', 'gift-value-500');");
 push('');
-push('INSERT INTO gift_card_denomination (code, group_id, group_title, card_name, card_image, name, amount, sale_price, status, sort) VALUES');
+push(
+  'INSERT INTO gift_card_denomination (code, group_id, group_title, card_name, card_image, name, amount, sale_price, status, sort) VALUES'
+);
 const gcRows = [];
 let gcSort = 0;
 for (const g of GIFT_CARD_GROUPS) {
@@ -176,13 +279,32 @@ for (const g of GIFT_CARD_GROUPS) {
       const faceCents = cents(face);
       const code = card.id + '-' + face;
       const name = card.name + ' ' + face + '元礼品卡';
-      gcRows.push('(' + [esc(code), esc(g.id), esc(g.title), esc(card.name), esc(card.image), esc(name), faceCents, faceCents, esc('enabled'), gcSort++].join(', ') + ')');
+      gcRows.push(
+        '(' +
+          [
+            esc(code),
+            esc(g.id),
+            esc(g.title),
+            esc(card.name),
+            esc(card.image),
+            esc(name),
+            faceCents,
+            faceCents,
+            esc('enabled'),
+            gcSort++
+          ].join(', ') +
+          ')'
+      );
     }
   }
 }
 push(gcRows.join(',\n'));
-push('ON DUPLICATE KEY UPDATE group_id=VALUES(group_id), group_title=VALUES(group_title), card_name=VALUES(card_name),');
-push('  card_image=VALUES(card_image), name=VALUES(name), amount=VALUES(amount), sale_price=VALUES(sale_price), sort=VALUES(sort);');
+push(
+  'ON DUPLICATE KEY UPDATE group_id=VALUES(group_id), group_title=VALUES(group_title), card_name=VALUES(card_name),'
+);
+push(
+  '  card_image=VALUES(card_image), name=VALUES(name), amount=VALUES(amount), sale_price=VALUES(sale_price), sort=VALUES(sort);'
+);
 push('');
 
 // ---------- 5. app_config ----------
@@ -191,12 +313,27 @@ push('-- home_shortcuts / menu_activity / profile_functions / signin_rules / sig
 push('-- 已由 V10 初始化，这里仅补签到日历基准数据。');
 push('');
 push('INSERT INTO app_config (config_key, config_name, value, sort, remark) VALUES');
-push("('points_signin', '签到日历与奖励', " + json({
-  year: 2026, month: 9, today: '2026-09-17', todayLabel: '9.17',
-  weekDates: POINTS_SIGNIN_WEEK_DATES
-}) + ", 7, '签到页日历基准数据')");
-push('ON DUPLICATE KEY UPDATE config_name=VALUES(config_name), value=VALUES(value), sort=VALUES(sort), remark=VALUES(remark);');
+push(
+  "('points_signin', '签到日历与奖励', " +
+    json({
+      year: 2026,
+      month: 9,
+      today: '2026-09-17',
+      todayLabel: '9.17',
+      weekDates: POINTS_SIGNIN_WEEK_DATES
+    }) +
+    ", 7, '签到页日历基准数据')"
+);
+push(
+  'ON DUPLICATE KEY UPDATE config_name=VALUES(config_name), value=VALUES(value), sort=VALUES(sort), remark=VALUES(remark);'
+);
 push('');
 
-fs.writeFileSync(path.join(__dirname, '../src/main/resources/db/migration/V16__seed_app_data.sql'), L.join('\n') + '\n', 'utf8');
-console.log('V16 written. products=' + products.length + ', points=' + POINTS_PRODUCTS.length + ', giftCards=' + gcRows.length);
+fs.writeFileSync(
+  path.join(__dirname, '../src/main/resources/db/migration/V16__seed_app_data.sql'),
+  L.join('\n') + '\n',
+  'utf8'
+);
+console.log(
+  'V16 written. products=' + products.length + ', points=' + POINTS_PRODUCTS.length + ', giftCards=' + gcRows.length
+);

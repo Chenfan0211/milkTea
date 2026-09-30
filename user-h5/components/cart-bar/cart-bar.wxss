@@ -20,7 +20,7 @@
   height: 96rpx;
   padding: 0 7rpx 0 40rpx;
   color: #ffffff;
-  background: #2D2D2D;
+  background: #2d2d2d;
   border-radius: 999rpx;
 }
 

@@ -17,12 +17,13 @@
 
 微信小程序「授权登录」分两层，能力完全不同：
 
-| 层级 | 微信 API | 用户动作 | 能否强制 | 能拿到什么 |
-|------|---------|---------|---------|-----------|
-| A. 登录态 | `wx.login()` → `code` → 后端换 token | 无感，不需要点击 | ✅ 可以，不违规 | openid / unionid，能长期标识用户 |
-| B. 手机号 / 头像昵称 | `<button open-type="getPhoneNumber">`、`chooseAvatar` | 必须用户点击确认 | ❌ **不能** | 手机号、微信头像昵称 |
+| 层级                 | 微信 API                                              | 用户动作         | 能否强制        | 能拿到什么                       |
+| -------------------- | ----------------------------------------------------- | ---------------- | --------------- | -------------------------------- |
+| A. 登录态            | `wx.login()` → `code` → 后端换 token                  | 无感，不需要点击 | ✅ 可以，不违规 | openid / unionid，能长期标识用户 |
+| B. 手机号 / 头像昵称 | `<button open-type="getPhoneNumber">`、`chooseAvatar` | 必须用户点击确认 | ❌ **不能**     | 手机号、微信头像昵称             |
 
 两条硬约束：
+
 1. `getPhoneNumber` / `chooseAvatar` 必须由用户点击行为触发，无法在 `onLaunch` 里程序化调起；
 2. 小程序禁止在用户未使用服务前强制授权，强弹授权会被审核驳回甚至封禁「诱导授权」。
 
@@ -54,21 +55,21 @@
 
 ## 四、改动清单（文件结构）
 
-| 文件 | 动作 | 职责 |
-|------|------|------|
-| `user-h5/utils/entry-login.js` | 新增 | 入口静默登录（超时兜底）+ 引导去重 + 入口还原 |
-| `user-h5/utils/entry-login.test` 对应 `scripts/entry-login.test.mjs` | 新增 | 上述能力单测 |
-| `user-h5/pages/launch/*`（js/json/wxml/wxss） | 新增 | 极简启动页，唯一冷启动入口 |
-| `user-h5/app.json` | 修改 | 注册启动页 + `entryPagePath` |
-| `user-h5/app.js` | 修改 | `onLaunch` 改用 `ensureEntryLogin()` |
-| `user-h5/pages/auth-login/*` | 修改 | 新增 `mode=entry` 引导态与 `from=launch` 返回逻辑 |
-| `user-h5/pages/profile/profile.wxml|wxss|js` | 修改 | 未绑手机号时展示常驻引导条 |
-| `user-h5/pages/home/home.wxml` | 修改 | 未登录时昵称位置显示「点击登录」并跳授权页 |
-| `user-h5/utils/share.js` | 修改 | 启动页列入私密页（不参与分享） |
-| `user-h5/scripts/check-project.mjs` | 修改 | `expectedPages` 补启动页 |
-| `user-h5/scripts/role-function-pages.test.mjs` | 修改 | 补启动页 + 引导去重 + `entryPagePath` 断言 |
-| `user-h5/package.json` | 修改 | `check` 链加入新测试 |
-| `docs/login-authorization.md` | 修改 | 追加「进入即登录」章节 |
+| 文件                                                                 | 动作 | 职责                                              |
+| -------------------------------------------------------------------- | ---- | ------------------------------------------------- | ---- | -------------------------- |
+| `user-h5/utils/entry-login.js`                                       | 新增 | 入口静默登录（超时兜底）+ 引导去重 + 入口还原     |
+| `user-h5/utils/entry-login.test` 对应 `scripts/entry-login.test.mjs` | 新增 | 上述能力单测                                      |
+| `user-h5/pages/launch/*`（js/json/wxml/wxss）                        | 新增 | 极简启动页，唯一冷启动入口                        |
+| `user-h5/app.json`                                                   | 修改 | 注册启动页 + `entryPagePath`                      |
+| `user-h5/app.js`                                                     | 修改 | `onLaunch` 改用 `ensureEntryLogin()`              |
+| `user-h5/pages/auth-login/*`                                         | 修改 | 新增 `mode=entry` 引导态与 `from=launch` 返回逻辑 |
+| `user-h5/pages/profile/profile.wxml                                  | wxss | js`                                               | 修改 | 未绑手机号时展示常驻引导条 |
+| `user-h5/pages/home/home.wxml`                                       | 修改 | 未登录时昵称位置显示「点击登录」并跳授权页        |
+| `user-h5/utils/share.js`                                             | 修改 | 启动页列入私密页（不参与分享）                    |
+| `user-h5/scripts/check-project.mjs`                                  | 修改 | `expectedPages` 补启动页                          |
+| `user-h5/scripts/role-function-pages.test.mjs`                       | 修改 | 补启动页 + 引导去重 + `entryPagePath` 断言        |
+| `user-h5/package.json`                                               | 修改 | `check` 链加入新测试                              |
+| `docs/login-authorization.md`                                        | 修改 | 追加「进入即登录」章节                            |
 
 ---
 
@@ -77,12 +78,14 @@
 ### Task 1: 入口登录工具 `utils/entry-login.js`
 
 **Files:**
+
 - Create: `user-h5/utils/entry-login.js`
 - Test: `user-h5/scripts/entry-login.test.mjs`
 - Modify: `user-h5/utils/login-guard.js`（新增 `__resetForTest()` 测试钩子）
 - Modify: `user-h5/package.json`
 
 **Interfaces:**
+
 - Consumes: `utils/login-guard.js#ensureSilentLogin()`、`utils/auth-state.js#getAuthState()`、`utils/user-profile.js#refreshUserProfileFromRemote()`。
 - Produces:
   - `ENTRY_PROMPT_KEY = 'milkTea:auth:entry-prompted-at'`
@@ -188,11 +191,7 @@ assert.equal(entry.shouldPromptEntry(1000), true, '未引导过时必须引导')
 entry.markEntryPrompted(1000);
 assert.equal(entry.shouldPromptEntry(1000 + entry.ENTRY_PROMPT_COOLDOWN - 1), false, '冷却期内不得重复引导');
 entry.__resetForTest();
-assert.equal(
-  entry.shouldPromptEntry(1000 + entry.ENTRY_PROMPT_COOLDOWN + 1),
-  true,
-  '冷却期结束后可再次引导'
-);
+assert.equal(entry.shouldPromptEntry(1000 + entry.ENTRY_PROMPT_COOLDOWN + 1), true, '冷却期结束后可再次引导');
 
 // 6. 开关关闭时永不引导（合规兜底）
 entry.setPromptEnabled(false);
@@ -232,6 +231,7 @@ console.log('入口静默登录、超时兜底与引导去重测试通过');
 ```powershell
 cd user-h5; node scripts/entry-login.test.mjs
 ```
+
 Expected: FAIL — `Cannot find module 'utils/entry-login.js'`
 
 - [x] **Step 2: 实现 `utils/entry-login.js`**
@@ -402,6 +402,7 @@ module.exports = {
 ```powershell
 cd user-h5; node scripts/entry-login.test.mjs
 ```
+
 Expected: PASS — `入口静默登录、超时兜底与引导去重测试通过`
 
 - [x] **Step 4: 接入 `npm run check`**
@@ -430,10 +431,12 @@ git commit -m "feat(user-h5): 新增入口静默登录与引导去重工具"
 ### Task 2: 启动页 `pages/launch/launch`
 
 **Files:**
+
 - Create: `user-h5/pages/launch/launch.js`、`.json`、`.wxml`、`.wxss`
 - Modify: `user-h5/app.json`、`user-h5/utils/share.js`、`user-h5/scripts/check-project.mjs`
 
 **Interfaces:**
+
 - Consumes: Task 1 的 `ensureEntryLogin()`、`shouldPromptEntry()`、`resolveEntryTarget()`。
 - Produces: 路由 `pages/launch/launch`，query 形如 `?from=<encodeURIComponent(route)>&query=<encodeURIComponent(k=v&k2=v2)>`。
 
@@ -616,6 +619,7 @@ Page(
 ```powershell
 cd user-h5; node scripts/check-project.mjs
 ```
+
 Expected: PASS — `项目结构校验通过: 51 个页面、5 个 Tab`
 
 - [x] **Step 5: 提交**
@@ -630,9 +634,11 @@ git commit -m "feat(user-h5): 新增启动页统一冷启动登录入口"
 ### Task 3: `app.js` 接入入口登录
 
 **Files:**
+
 - Modify: `user-h5/app.js`
 
 **Interfaces:**
+
 - Consumes: Task 1 的 `ensureEntryLogin()`。
 - Produces: `globalData.loginFailed / loginError` 语义不变（`profile` 页依赖）。
 
@@ -641,20 +647,18 @@ git commit -m "feat(user-h5): 新增启动页统一冷启动登录入口"
 将 `app.js` 中 `loginGuard.ensureSilentLogin().then(...).then(...).catch(...)` 整段替换为：
 
 ```js
-    // 入口静默登录：wx.login 换 token，用户无感；带超时兜底，失败不阻塞启动。
-    // 失败时记录 loginFailed 供页面感知（避免「静默 401 一片红」而无任何提示），
-    // 真正需要登录的操作仍由 loginGuard 引导授权。
-    entryLogin
-      .ensureEntryLogin()
-      .then(result => {
-        this.globalData.loginFailed = !result.ok;
-        this.globalData.loginError = result.ok ? '' : (result.error && result.error.message) || '登录失败';
-        // 资料拉取已在 ensureEntryLogin 内部完成，此处直接同步登录态
-        this.syncAuthState();
-        if (!result.ok && !result.timedOut) {
-          console.warn('[login] 静默登录失败：', this.globalData.loginError);
-        }
-      });
+// 入口静默登录：wx.login 换 token，用户无感；带超时兜底，失败不阻塞启动。
+// 失败时记录 loginFailed 供页面感知（避免「静默 401 一片红」而无任何提示），
+// 真正需要登录的操作仍由 loginGuard 引导授权。
+entryLogin.ensureEntryLogin().then(result => {
+  this.globalData.loginFailed = !result.ok;
+  this.globalData.loginError = result.ok ? '' : (result.error && result.error.message) || '登录失败';
+  // 资料拉取已在 ensureEntryLogin 内部完成，此处直接同步登录态
+  this.syncAuthState();
+  if (!result.ok && !result.timedOut) {
+    console.warn('[login] 静默登录失败：', this.globalData.loginError);
+  }
+});
 ```
 
 并在文件顶部 `require` 区新增：
@@ -670,6 +674,7 @@ const entryLogin = require('./utils/entry-login');
 ```powershell
 cd user-h5; node --check app.js; node scripts/check-project.mjs; node scripts/entry-login.test.mjs
 ```
+
 Expected: 三条命令均无输出/通过
 
 - [x] **Step 3: 提交**
@@ -684,10 +689,12 @@ git commit -m "refactor(user-h5): 入口静默登录改由 entry-login 统一编
 ### Task 4: 授权页 `mode=entry` 引导态
 
 **Files:**
+
 - Modify: `user-h5/pages/auth-login/auth-login.js`、`auth-login.wxml`
 - Test: `user-h5/scripts/role-function-pages.test.mjs`
 
 **Interfaces:**
+
 - Consumes: 启动页传入的 `mode=entry&target=<encoded>&from=<encoded>&query=<encoded>`。
 - Produces: 授权成功后 `reLaunch` 到 `target`（而非 `navigateBack`），保证页面栈干净。
 
@@ -697,31 +704,19 @@ git commit -m "refactor(user-h5): 入口静默登录改由 entry-login 统一编
 
 ```js
 // 启动页引导态：进入即登录的入口编排
+assert.ok(authJs.includes('isEntryMode') && authJs.includes("mode === 'entry'"), 'auth page must detect entry mode');
 assert.ok(
-  authJs.includes("isEntryMode") && authJs.includes("mode === 'entry'"),
-  'auth page must detect entry mode'
-);
-assert.ok(
-  authJs.includes("wx.reLaunch") && authJs.includes('entryTarget'),
+  authJs.includes('wx.reLaunch') && authJs.includes('entryTarget'),
   'entry mode must reLaunch to the resolved target instead of navigateBack'
 );
-assert.ok(
-  authWxml.includes('entryTip'),
-  'entry mode must show the lighter entry prompt copy'
-);
+assert.ok(authWxml.includes('entryTip'), 'entry mode must show the lighter entry prompt copy');
 assert.ok(
   fs.existsSync(path.join(root, 'pages/launch/launch.js')) &&
     fs.existsSync(path.join(root, 'pages/launch/launch.wxml')),
   'launch page must exist as the single cold-start entry'
 );
-assert.ok(
-  appJson.entryPagePath === 'pages/launch/launch',
-  'app.json must set entryPagePath to the launch page'
-);
-assert.ok(
-  appJson.pages[0] === 'pages/launch/launch',
-  'launch page must be the first registered page'
-);
+assert.ok(appJson.entryPagePath === 'pages/launch/launch', 'app.json must set entryPagePath to the launch page');
+assert.ok(appJson.pages[0] === 'pages/launch/launch', 'launch page must be the first registered page');
 const launchJs = fs.readFileSync(path.join(root, 'pages/launch/launch.js'), 'utf8');
 assert.ok(
   launchJs.includes('ensureEntryLogin') && launchJs.includes('shouldPromptEntry'),
@@ -731,10 +726,7 @@ assert.ok(
   launchJs.includes('markEntryPrompted'),
   'launch page must mark the entry prompt to avoid repeat interruption'
 );
-assert.ok(
-  !launchJs.includes('getPhoneNumber'),
-  'launch page must never trigger phone authorization programmatically'
-);
+assert.ok(!launchJs.includes('getPhoneNumber'), 'launch page must never trigger phone authorization programmatically');
 ```
 
 运行确认失败：
@@ -742,6 +734,7 @@ assert.ok(
 ```powershell
 cd user-h5; node scripts/role-function-pages.test.mjs
 ```
+
 Expected: FAIL — `auth page must detect entry mode`
 
 - [x] **Step 2: 实现引导态**
@@ -757,14 +750,14 @@ Expected: FAIL — `auth page must detect entry mode`
 `onLoad` 内解析：
 
 ```js
-      const isEntryMode = (opts.mode || '') === 'entry';
-      this.entryTarget = opts.target ? decodeURIComponent(opts.target) : '/pages/home/home';
-      this.setData({
-        reason: this.reason,
-        entryMode: isEntryMode,
-        entryTip: isEntryMode ? '登录后可下单、领券并同步会员权益' : '',
-        entryTarget: this.entryTarget
-      });
+const isEntryMode = (opts.mode || '') === 'entry';
+this.entryTarget = opts.target ? decodeURIComponent(opts.target) : '/pages/home/home';
+this.setData({
+  reason: this.reason,
+  entryMode: isEntryMode,
+  entryTip: isEntryMode ? '登录后可下单、领券并同步会员权益' : '',
+  entryTarget: this.entryTarget
+});
 ```
 
 `afterBound()` 改为按模式分流（保留原有 `flushPendingAction` 语义，测试契约不变）：
@@ -835,6 +828,7 @@ Expected: FAIL — `auth page must detect entry mode`
 ```powershell
 cd user-h5; node scripts/role-function-pages.test.mjs; node scripts/profile-data-page.test.mjs
 ```
+
 Expected: 两条均 PASS（后者校验 `navigateBack + complete + flushPendingAction` 契约仍存在）
 
 - [x] **Step 4: 提交**
@@ -849,10 +843,12 @@ git commit -m "feat(user-h5): 授权页支持进入即登录的引导态"
 ### Task 5: 我的页与首页的二级引导
 
 **Files:**
+
 - Modify: `user-h5/pages/profile/profile.js`、`profile.wxml`
 - Modify: `user-h5/pages/home/home.wxml`
 
 **Interfaces:**
+
 - Consumes: 现有 `handleBindPhone()`（`loginGuard.requirePhone`）、`authStateLevel`。
 - Produces: 无新接口。
 
@@ -940,6 +936,7 @@ git commit -m "feat(user-h5): 授权页支持进入即登录的引导态"
 ```powershell
 cd user-h5; node scripts/check-project.mjs; node scripts/acceptance-check.test.mjs
 ```
+
 Expected: 均通过
 
 - [x] **Step 4: 提交**
@@ -954,6 +951,7 @@ git commit -m "feat(user-h5): 我的页与首页补充绑手机号引导入口"
 ### Task 6: 全量回归与文档
 
 **Files:**
+
 - Modify: `docs/login-authorization.md`
 
 - [x] **Step 1: 全量校验**
@@ -961,6 +959,7 @@ git commit -m "feat(user-h5): 我的页与首页补充绑手机号引导入口"
 ```powershell
 cd user-h5; npm run check; npm run test:acceptance
 ```
+
 Expected: `npm run check` 全部脚本通过（含新增 `entry-login.test.mjs`），`项目结构校验通过: 51 个页面、5 个 Tab`；`test:acceptance` 输出 `高清首页、点单页与素材验收测试通过`
 
 - [x] **Step 2: 文档补充**
@@ -978,18 +977,18 @@ git commit -m "test(user-h5): 进入即登录全量回归与文档更新"
 
 ## 六、验收标准
 
-| 编号 | 场景 | 期望 |
-|------|------|------|
-| A1 | 冷启动（图标进） | 启动页 → 无感拿到 token → 授权页引导一次 → reLaunch 首页 |
-| A2 | 扫码 / 分享卡片进 | 同上，且白名单来源可还原到对应页 |
-| A3 | 冷启动时后端不可用 | 1.5s 内放行，正常进入首页，我的页显示「登录失败，点击重试」 |
-| A4 | 授权页点「暂不登录」 | 正常进入首页，本次会话不再弹引导 |
-| A5 | 再次冷启动（12h 内） | 不再弹引导，仅静默登录 |
-| A6 | 已绑手机号用户冷启动 | 不弹引导，直接进首页 |
-| A7 | 首页显示 | 昵称位显示「点击登录」，点击可拉起授权页 |
-| A8 | 我的页 | `authorized` 态显示绑手机号引导条，点击可拉起授权页 |
-| A9 | 交易拦截（下单 / 兑换 / 提现） | 行为与改造前完全一致，授权后自动续跑原操作 |
-| A10 | 合规 | 启动页与 `app.js` 均无 `getPhoneNumber` 程序化调用；授权页保留「暂不登录」 |
+| 编号 | 场景                           | 期望                                                                       |
+| ---- | ------------------------------ | -------------------------------------------------------------------------- |
+| A1   | 冷启动（图标进）               | 启动页 → 无感拿到 token → 授权页引导一次 → reLaunch 首页                   |
+| A2   | 扫码 / 分享卡片进              | 同上，且白名单来源可还原到对应页                                           |
+| A3   | 冷启动时后端不可用             | 1.5s 内放行，正常进入首页，我的页显示「登录失败，点击重试」                |
+| A4   | 授权页点「暂不登录」           | 正常进入首页，本次会话不再弹引导                                           |
+| A5   | 再次冷启动（12h 内）           | 不再弹引导，仅静默登录                                                     |
+| A6   | 已绑手机号用户冷启动           | 不弹引导，直接进首页                                                       |
+| A7   | 首页显示                       | 昵称位显示「点击登录」，点击可拉起授权页                                   |
+| A8   | 我的页                         | `authorized` 态显示绑手机号引导条，点击可拉起授权页                        |
+| A9   | 交易拦截（下单 / 兑换 / 提现） | 行为与改造前完全一致，授权后自动续跑原操作                                 |
+| A10  | 合规                           | 启动页与 `app.js` 均无 `getPhoneNumber` 程序化调用；授权页保留「暂不登录」 |
 
 **验证命令（缺一不可）**
 
@@ -1005,13 +1004,13 @@ npm run test:acceptance
 
 ## 七、风险与回滚
 
-| 风险 | 影响 | 应对 |
-|------|------|------|
-| `entryPagePath` 让冷启动多一跳 | 首页首屏慢约 1 帧 | 启动页纯静态无接口，登录最多等 1.5s；超时立即放行 |
-| 静默登录失败卡启动页 | 用户无法进入 | `ensureEntryLogin` 永不 reject + 硬超时；`goTarget` fail 回落首页 |
-| 引导被用户视为打扰 | 体验下降 | 只引导一次 + 12h 冷却 + 可跳过；`setPromptEnabled(false)` 可一键关闭 |
-| 审核判定诱导授权 | 版本被驳回 | 严格不强制，保留「暂不登录」，不做阻断式授权 |
-| 页面栈异常 | reLaunch 失败白屏 | 全部跳转走 `reLaunch` + `fail` 回落首页 |
+| 风险                           | 影响              | 应对                                                                 |
+| ------------------------------ | ----------------- | -------------------------------------------------------------------- |
+| `entryPagePath` 让冷启动多一跳 | 首页首屏慢约 1 帧 | 启动页纯静态无接口，登录最多等 1.5s；超时立即放行                    |
+| 静默登录失败卡启动页           | 用户无法进入      | `ensureEntryLogin` 永不 reject + 硬超时；`goTarget` fail 回落首页    |
+| 引导被用户视为打扰             | 体验下降          | 只引导一次 + 12h 冷却 + 可跳过；`setPromptEnabled(false)` 可一键关闭 |
+| 审核判定诱导授权               | 版本被驳回        | 严格不强制，保留「暂不登录」，不做阻断式授权                         |
+| 页面栈异常                     | reLaunch 失败白屏 | 全部跳转走 `reLaunch` + `fail` 回落首页                              |
 
 **回滚**：`app.json` 删除 `entryPagePath` 字段即可立刻退回「无启动页」行为，其余新增文件不生效、无副作用。
 
@@ -1022,12 +1021,6 @@ npm run test:acceptance
 - ❌ 不改后端接口、不动 `security-common` 鉴权范围（当前已满足）；
 - ❌ 不引入第三方 UI 库、不写死色值、不新增非 Lucide 图标。
 
-
-
-
-
-
-
 ---
 
 # 九、启动页暂时隐藏（2026-09-24 追加）
@@ -1037,9 +1030,9 @@ npm run test:acceptance
 
 ## 9.1 变更内容
 
-| 文件 | 改动 |
-|------|------|
-| `user-h5/app.json` | `entryPagePath` 由 `pages/launch/launch` 改回 **`pages/home/home`** |
+| 文件                                           | 改动                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------- |
+| `user-h5/app.json`                             | `entryPagePath` 由 `pages/launch/launch` 改回 **`pages/home/home`** |
 | `user-h5/scripts/role-function-pages.test.mjs` | 断言改为「entryPagePath = home」+「launch 页仍注册在 pages 列表里」 |
 
 启动页文件 `pages/launch/*` **全部保留**，不删除。静默登录逻辑（`app.js onLaunch → entryLogin.ensureEntryLogin()`）**不受影响**，照常在后台执行。

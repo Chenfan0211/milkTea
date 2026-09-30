@@ -32,10 +32,12 @@
 ## Task 1: 修正今日 / 历史订单归属
 
 **Files:**
+
 - Modify: `user-h5/utils/orders.js`
 - Test: `user-h5/scripts/orders-pending-payment.test.mjs` 或新增 `user-h5/scripts/orders-time-group.test.mjs`
 
 **Interfaces:**
+
 - Consumes: 订单 `createTime` / `orderInfo.createdAt`。
 - Produces: `resolveTimeGroup(timeText, now)`；`refreshOrdersFromRemote()` 返回的订单 `timeGroup` 必须与创建时间一致。
 
@@ -66,9 +68,11 @@ node user-h5/scripts/orders-time-group.test.mjs
 
 ```js
 function isSameLocalDay(left, right) {
-  return left.getFullYear() === right.getFullYear() &&
+  return (
+    left.getFullYear() === right.getFullYear() &&
     left.getMonth() === right.getMonth() &&
-    left.getDate() === right.getDate();
+    left.getDate() === right.getDate()
+  );
 }
 
 function resolveTimeGroup(value, now = Date.now()) {
@@ -100,24 +104,29 @@ git commit -m "fix(orders): derive today group from order time"
 ## Task 2: 储值订单展示封面图和待支付态
 
 **Files:**
+
 - Modify: `user-h5/utils/orders.js`
 - Modify: `user-h5/pages/orders/orders.wxss`
 - Test: `user-h5/scripts/orders-pending-payment.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `normalizeAuxOrder(order, 'stored-value')`。
 - Produces: 储值订单装饰字段 `coverImage`、`isPendingPayment`、`countdownText`。
 
 - [ ] **Step 1: 写失败测试**
 
 ```js
-const stored = normalizeAuxOrder({
-  id: 1,
-  orderNo: 'CZ20260927001',
-  amount: 20000,
-  payStatus: 'UNPAID',
-  createTime: '2026-09-27 17:00:00'
-}, 'stored-value');
+const stored = normalizeAuxOrder(
+  {
+    id: 1,
+    orderNo: 'CZ20260927001',
+    amount: 20000,
+    payStatus: 'UNPAID',
+    createTime: '2026-09-27 17:00:00'
+  },
+  'stored-value'
+);
 
 const decorated = orderStore.decorateOrder(stored, NOW);
 assert.equal(decorated.coverImage, '/assets/images/3x/stored-value-banner.jpg');
@@ -171,12 +180,14 @@ git commit -m "feat(orders): render stored value cover and pending state"
 ## Task 3: 后端提供储值订单取消接口
 
 **Files:**
+
 - Modify: `marketing-service/src/main/java/com/wuling/marketing/entity/StoredValueOrder.java`
 - Modify: `marketing-service/src/main/java/com/wuling/marketing/service/StoredValueService.java`
 - Modify: `marketing-service/src/main/java/com/wuling/marketing/controller/AppMarketingController.java`
 - Test: `marketing-service/src/test/java/com/wuling/marketing/service/StoredValueOrderCancelTest.java`
 
 **Interfaces:**
+
 - Consumes: 当前登录用户 ID、储值订单号。
 - Produces: `POST /api/v1/app/stored-value/orders/{orderNo}/cancel`；订单返回 `packageImage`、`status=CANCELED`。
 
@@ -263,12 +274,14 @@ git commit -m "feat(marketing): cancel unpaid stored value orders"
 ## Task 4: 前端接入取消和立即支付
 
 **Files:**
+
 - Modify: `user-h5/utils/api.js`
 - Modify: `user-h5/utils/orders.js`
 - Modify: `user-h5/pages/orders/orders.js`
 - Test: `user-h5/scripts/orders-pending-payment.test.mjs`
 
 **Interfaces:**
+
 - Consumes: 后端取消接口、`api.prepayStoredValue(orderNo)`、`api.fetchStoredValueOrder(orderNo)`。
 - Produces: 页面方法 `payOrder(event)`；`cancelOrder(event)` 可取消储值订单。
 
@@ -277,7 +290,7 @@ git commit -m "feat(marketing): cancel unpaid stored value orders"
 验证：
 
 ```js
-assert.ok(apiJs.includes("cancelStoredValueOrder"));
+assert.ok(apiJs.includes('cancelStoredValueOrder'));
 assert.ok(ordersWxml.includes('catchtap="payOrder"'));
 assert.ok(ordersPageJs.includes('payOrder(event)'));
 ```
@@ -344,6 +357,7 @@ git commit -m "feat(orders): add stored value pay and cancel actions"
 ## Task 5: 回归验证与验收
 
 **Files:**
+
 - No new production files.
 
 - [ ] **Step 1: 检查 UI 规范**

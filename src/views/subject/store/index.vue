@@ -169,9 +169,9 @@ const formFields: FormField[] = [
   },
   {
     key: 'city',
-    label: '城市',
+    label: '活动城市',
     type: 'select',
-    options: () => store.cities.map((c: any) => ({ label: c.name, value: String(c.id) })),
+    options: () => store.activityCities.map((c: any) => ({ label: c.cityName, value: String(c.id) })),
     rules: [requiredRule]
   },
   { key: 'manager', label: '负责人', rules: [requiredRule] },
@@ -191,8 +191,8 @@ const config: AdminListConfig = {
   remoteKey: 'subjects',
   // 「可提现余额」列按 subjectId 从 subjectAccounts 取数，需预加载该资源，否则恒显示 0.00
   // subjectAccounts：供「可提现余额」列取数
-  // storeTypes：供「门店类型」下拉选项；cities：供「城市」下拉选项（缺它会恒为空）
-  remoteDeps: ['subjectAccounts', 'storeTypes', 'cities'],
+  // storeTypes：供「门店类型」下拉选项；activityCities：供「活动城市」下拉选项（缺它会恒为空）
+  remoteDeps: ['subjectAccounts', 'storeTypes', 'activityCities'],
   title: '门店管理',
   columns,
   searchFields,
@@ -209,7 +209,7 @@ const config: AdminListConfig = {
     toFormData: (row: any) => ({
       name: row.name,
       storeType: row.storeType,
-      city: row.cityId != null ? String(row.cityId) : (row.city || ''),
+      city: row.activityCityId != null ? String(row.activityCityId) : '',
       manager: row.manager,
       address: row.location,
       phone: row.phone,
@@ -236,13 +236,15 @@ const config: AdminListConfig = {
       if (data.latitude == null || data.longitude == null || data.latitude === '' || data.longitude === '') {
         throw new Error('请先填写详细地址并点击「按地址解析经纬度」');
       }
-      const cityRow = store.cities.find((c: any) => String(c.id) === String(data.city));
-      const cityName = cityRow ? cityRow.name : data.city;
+      // 活动城市：选中值即 activity_city.id，据此回填冗余 city/cityId 以兼容旧链路。
+      const cityRow = store.activityCities.find((c: any) => String(c.id) === String(data.city));
+      const cityName = cityRow ? cityRow.cityName : '';
       const payload = {
         name: data.name,
         storeType: data.storeType,
         city: cityName,
-        cityId: Number(data.city),
+        cityId: cityRow ? Number(cityRow.regionId) : null,
+        activityCityId: Number(data.city),
         manager: data.manager,
         location: data.address,
         phone: data.phone,

@@ -68,10 +68,23 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   marketing_coupon: { title: '优惠券管理', order: 1, roles: op, featureFlag: 'ENABLE_COUPON', keepAlive: true },
   marketing_stored: { title: '储值套餐', order: 2, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
   marketing_gift: { title: '礼品卡', order: 3, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
-  'marketing_points-category': { title: '积分商城分类', order: 4, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
+  'marketing_points-category': {
+    title: '积分商城分类',
+    order: 4,
+    roles: op,
+    featureFlag: 'ENABLE_STORED_VALUE',
+    keepAlive: true
+  },
   marketing_points: { title: '积分商城', order: 5, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
+  'marketing_points-rule': { title: '签到规则', icon: 'mdi:calendar-check', roles: op, keepAlive: true },
   marketing_member: { title: '会员等级', order: 6, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
-  'marketing_gift-order': { title: '礼品卡订单', order: 8, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
+  'marketing_gift-order': {
+    title: '礼品卡订单',
+    order: 8,
+    roles: op,
+    featureFlag: 'ENABLE_STORED_VALUE',
+    keepAlive: true
+  },
   marketing_exchange: { title: '兑换记录', order: 9, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
   marketing_referral: { title: '分享有礼', order: 10, roles: op, keepAlive: true },
 
@@ -79,5 +92,5 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   system_audit: { title: '审计日志', order: 1, roles: audit, keepAlive: true },
   system_feature: { title: '功能开关', order: 2, roles: audit, keepAlive: true },
   system_dict: { title: '数据字典', order: 3, roles: op, keepAlive: true },
-  system_city: { title: '城市管理', order: 4, roles: op, keepAlive: true },
+  system_city: { title: '城市管理', order: 4, roles: op, keepAlive: true }
 };

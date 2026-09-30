@@ -6,9 +6,9 @@
 
 Redis 的硬约束：
 
-| 模式 | 多库支持 |
-|------|---------|
-| 单机 / 主从 | ✅ 支持 db0–db15 |
+| 模式        | 多库支持                                |
+| ----------- | --------------------------------------- |
+| 单机 / 主从 | ✅ 支持 db0–db15                        |
 | **Cluster** | ❌ **只支持 db 0**，`SELECT n` 直接报错 |
 
 所以「真分库」和「上集群」在 Redis 里是**互斥**的。路径 B 的解法是**逻辑命名空间 + 可切换后端**：
@@ -18,12 +18,12 @@ Redis 的硬约束：
 
 ## 二、命名空间设计
 
-| 命名空间 | Key 前缀 | 用途 | 默认库号 |
-|---------|---------|------|---------|
-| `AUTH` | `wuling:auth:` | 微信 session_key、用户定位 | db0 |
-| `SMS` | `wuling:sms:` | 验证码、重发间隔、日限计数 | db1 |
-| `CACHE` | `wuling:cache:` | 通用缓存（预留） | db2 |
-| `BIZ` | `wuling:biz:` | 业务数据（预留：库存锁、幂等键） | db3 |
+| 命名空间 | Key 前缀        | 用途                             | 默认库号 |
+| -------- | --------------- | -------------------------------- | -------- |
+| `AUTH`   | `wuling:auth:`  | 微信 session_key、用户定位       | db0      |
+| `SMS`    | `wuling:sms:`   | 验证码、重发间隔、日限计数       | db1      |
+| `CACHE`  | `wuling:cache:` | 通用缓存（预留）                 | db2      |
+| `BIZ`    | `wuling:biz:`   | 业务数据（预留：库存锁、幂等键） | db3      |
 
 > **前缀始终保留**，无论哪种模式——保证可观测性（可 `SCAN wuling:sms:*` 排查/清理）与集群兼容。
 
@@ -32,12 +32,12 @@ Redis 的硬约束：
 ```yaml
 app:
   redis:
-    mode: ${REDIS_MODE:single}   # single | cluster
+    mode: ${REDIS_MODE:single} # single | cluster
     database:
-      auth:  ${REDIS_DB_AUTH:0}
-      sms:   ${REDIS_DB_SMS:1}
+      auth: ${REDIS_DB_AUTH:0}
+      sms: ${REDIS_DB_SMS:1}
       cache: ${REDIS_DB_CACHE:2}
-      biz:   ${REDIS_DB_BIZ:3}
+      biz: ${REDIS_DB_BIZ:3}
 ```
 
 全部支持环境变量覆盖，部署时无需改代码。
@@ -62,6 +62,7 @@ redis.opsForValue().set(key, code, Duration.ofMinutes(5));
 ## 五、验证结果
 
 ### single 模式：数据真的分库
+
 ```
 --- db0 ---
     wuling:auth:user:location:1          ← 登录态
@@ -75,11 +76,13 @@ redis.opsForValue().set(key, code, Duration.ofMinutes(5));
 ```
 
 启动日志：
+
 ```
 RedisManager : Redis mode=single databaseMapping={sms=1, cache=2, biz=3, auth=0}
 ```
 
 ### cluster 模式：自动降级为 db0（集群安全）
+
 ```
 RedisManager : Redis mode=cluster databaseMapping={sms=1, cache=2, biz=3, auth=0}
 验证：所有 key 均落 db0，不报错、不丢数据
@@ -88,6 +91,7 @@ RedisManager : Redis mode=cluster databaseMapping={sms=1, cache=2, biz=3, auth=0
 > 这正是路径 B 的价值：**将来上集群只需改一个环境变量 `REDIS_MODE=cluster`**。
 
 ### 功能回归（8/8）
+
 ```
 未登录访问订单      code=8888 ✅
 登录后访问订单      code=0    ✅
@@ -100,10 +104,11 @@ RedisManager : Redis mode=cluster databaseMapping={sms=1, cache=2, biz=3, auth=0
 ```
 
 ### 回归
-| 项目 | 结果 |
-|------|------|
-| 后端 `mvn test` | 16/16 通过 |
-| 数据库一致性校验 | 3/3 通过 |
+
+| 项目             | 结果       |
+| ---------------- | ---------- |
+| 后端 `mvn test`  | 16/16 通过 |
+| 数据库一致性校验 | 3/3 通过   |
 
 ## 六、排查过程中的一个误判（已澄清）
 
@@ -119,20 +124,22 @@ TTL 差约 1 小时，说明 db0 那批是**改造前**旧代码写入的历史�
 ## 七、改动文件
 
 **新增**
+
 - `common/redis/RedisNamespace.java`（命名空间常量）
 - `common/redis/RedisProperties.java`（多库配置）
 - `common/redis/RedisManager.java`（多库模板管理）
 
 **修改**
+
 - `application.yml`（redis 配置块）
 - `user/service/SmsCodeService.java`（改用 SMS 命名空间）
 - `user/service/MiniAppAuthService.java`（改用 AUTH 命名空间）
 
 ## 八、后续扩展
 
-| 场景 | 做法 |
-|------|------|
-| 新增业务缓存 | 用 `RedisNamespace.CACHE`，无需改配置结构 |
-| 上 Redis 集群 | 设 `REDIS_MODE=cluster`，代码零改动 |
-| 调整库号分配 | 改环境变量 `REDIS_DB_*` |
-| 按前缀清理 | `SCAN` + `wuling:sms:*` |
+| 场景          | 做法                                      |
+| ------------- | ----------------------------------------- |
+| 新增业务缓存  | 用 `RedisNamespace.CACHE`，无需改配置结构 |
+| 上 Redis 集群 | 设 `REDIS_MODE=cluster`，代码零改动       |
+| 调整库号分配  | 改环境变量 `REDIS_DB_*`                   |
+| 按前缀清理    | `SCAN` + `wuling:sms:*`                   |

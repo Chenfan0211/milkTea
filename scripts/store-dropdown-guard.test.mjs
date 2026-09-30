@@ -15,7 +15,10 @@ const root = process.cwd();
 let failed = 0;
 function check(ok, msg) {
   if (ok) console.log(`  ✓ ${msg}`);
-  else { console.error(`  ✗ ${msg}`); failed += 1; }
+  else {
+    console.error(`  ✗ ${msg}`);
+    failed += 1;
+  }
 }
 
 for (const rel of ['src/views/subject/store/index.vue', 'src/views/subject/channel/index.vue']) {
@@ -23,19 +26,10 @@ for (const rel of ['src/views/subject/store/index.vue', 'src/views/subject/chann
   const s = readFileSync(join(root, rel), 'utf8');
 
   console.log('  1) 门店类型字段名');
-  check(
-    !/storeTypes[\s\S]{0,200}label:\s*t\.name/.test(s),
-    '不得再使用 t.name（sys_dict_item 无该字段）'
-  );
-  check(
-    /label:\s*t\.itemName/.test(s),
-    '必须使用 t.itemName 作为门店类型展示名'
-  );
+  check(!/storeTypes[\s\S]{0,200}label:\s*t\.name/.test(s), '不得再使用 t.name（sys_dict_item 无该字段）');
+  check(/label:\s*t\.itemName/.test(s), '必须使用 t.itemName 作为门店类型展示名');
   console.log('  2) 只取门店类型字典');
-  check(
-    /dictType\s*===\s*'store_type'/.test(s),
-    '必须按 dictType === store_type 过滤（sys_dict_item 混存所有字典）'
-  );
+  check(/dictType\s*===\s*'store_type'/.test(s), '必须按 dictType === store_type 过滤（sys_dict_item 混存所有字典）');
 }
 
 console.log('\n检查 门店页 remoteDeps');

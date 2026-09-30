@@ -85,7 +85,9 @@ export interface ImportConfig {
   parse: (rows: Record<string, string>[]) => { ok: Record<string, any>[]; errors: string[] };
   /** 批量提交（写入 store） */
   /** 批量提交。远端模式下为异步写库，故允许返回 Promise。 */
-  commit: (rows: Record<string, any>[]) => { added: number; skipped: number } | Promise<{ added: number; skipped: number }>;
+  commit: (
+    rows: Record<string, any>[]
+  ) => { added: number; skipped: number } | Promise<{ added: number; skipped: number }>;
 }
 export interface AdminListConfig {
   title: string;
@@ -124,4 +126,3 @@ export interface AdminListConfig {
 export function toSelectOptions(options: SelectOption[]): { label: string; value: string }[] {
   return options.map(item => ({ label: item.label, value: item.value }));
 }
-

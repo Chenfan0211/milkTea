@@ -88,7 +88,17 @@ Page(
       const records = income ? income.records || [] : [];
       const pendingCount = records.filter(item => item.status === 'pending').length;
       // income 为空（尚未拉到）时用空结构占位，保证页面结构仍在、只显示空值
-      const safe = income || { title: '', metricLabel: '收益', today: '', month: '', total: '¥0.00', pending: '¥0.00', settled: '¥0.00', trend: [], records: [] };
+      const safe = income || {
+        title: '',
+        metricLabel: '收益',
+        today: '',
+        month: '',
+        total: '¥0.00',
+        pending: '¥0.00',
+        settled: '¥0.00',
+        trend: [],
+        records: []
+      };
       const primary = safe.today || safe.month || '';
       this.setData({
         loading: false,

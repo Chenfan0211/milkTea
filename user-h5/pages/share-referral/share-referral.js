@@ -33,9 +33,7 @@ function buildReferralView(input) {
   const socialStarThreshold = toPositiveNumber(config.socialStarThreshold, 5);
   const recommenderThreshold = toPositiveNumber(config.recommenderThreshold, 10);
   const recommenderRebateRate = toPositiveNumber(config.recommenderRebateRate, 5);
-  const socialStarProduct = config.socialStarProduct
-    ? ` + ${config.socialStarProduct}`
-    : ' + 指定产品';
+  const socialStarProduct = config.socialStarProduct ? ` + ${config.socialStarProduct}` : ' + 指定产品';
   const firstOrderRewardText =
     points === 3 && couponAmount === 3
       ? DEFAULT_REFERRAL_REWARD_TEXT

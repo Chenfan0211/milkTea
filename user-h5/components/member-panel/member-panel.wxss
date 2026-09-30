@@ -194,7 +194,6 @@
   box-shadow: none;
 }
 
-
 .member-card__lock {
   width: 24rpx;
   height: 24rpx;

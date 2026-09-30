@@ -39,36 +39,20 @@ assert.ok(
 );
 
 // 3) service 分支不得包 loginGuard：客服是匿名可用的兜底渠道
-const homeServiceBlock = homeSource.match(
-  /id\s*===\s*'service'[\s\S]*?\n\s*\}/
-);
+const homeServiceBlock = homeSource.match(/id\s*===\s*'service'[\s\S]*?\n\s*\}/);
 assert.ok(homeServiceBlock, '未能定位首页 service 分支');
-assert.ok(
-  !/loginGuard/.test(homeServiceBlock[0]),
-  'service 分支不得做登录拦截：匿名用户也必须能联系客服'
-);
-const profileServiceBlock = profileSource.match(
-  /id\s*===\s*'service'[\s\S]*?\n\s*\}/
-);
+assert.ok(!/loginGuard/.test(homeServiceBlock[0]), 'service 分支不得做登录拦截：匿名用户也必须能联系客服');
+const profileServiceBlock = profileSource.match(/id\s*===\s*'service'[\s\S]*?\n\s*\}/);
 assert.ok(profileServiceBlock, '未能定位「我的」页 service 分支');
-assert.ok(
-  !/loginGuard/.test(profileServiceBlock[0]),
-  '「我的」页 service 分支同样不得做登录拦截（两边口径必须一致）'
-);
+assert.ok(!/loginGuard/.test(profileServiceBlock[0]), '「我的」页 service 分支同样不得做登录拦截（两边口径必须一致）');
 
 // 4) 兜底必须保留：后台新增未接入入口时仍要给出明确提示
-assert.ok(
-  /showUnavailable/.test(homeSource),
-  '首页必须保留未接入入口的兜底提示，不能静默无反应'
-);
+assert.ok(/showUnavailable/.test(homeSource), '首页必须保留未接入入口的兜底提示，不能静默无反应');
 
 // 5) 客服页必须存在，且不依赖登录态
 const servicePage = path.join(root, 'pages/service/service.js');
 assert.ok(fs.existsSync(servicePage), '客服页 pages/service/service 必须存在');
 const serviceSource = fs.readFileSync(servicePage, 'utf8');
-assert.ok(
-  !/loginGuard/.test(serviceSource),
-  '客服页不得引入登录拦截，否则首页客服入口会在匿名态被拦下'
-);
+assert.ok(!/loginGuard/.test(serviceSource), '客服页不得引入登录拦截，否则首页客服入口会在匿名态被拦下');
 
 console.log('首页客服入口跳转（与「我的」页一致且不拦截登录）测试通过');

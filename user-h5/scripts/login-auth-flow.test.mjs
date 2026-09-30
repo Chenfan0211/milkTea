@@ -84,19 +84,35 @@ assert.match(wxml, /bindtap="handleSkip"/, '必须保留跳过入口');
 assert.match(wxml, /bindtap="handleClose"/, '必须保留关闭入口');
 assert.match(wxss, /z-index:\s*12000;/, '弹层层级必须高于 custom-tab-bar 的 10000');
 assert.match(wxss, /height:\s*88rpx;/, '主按钮高度必须为 88rpx（对齐参考图）');
-assert.match(wxss, /\.login-sheet__primary\s*\{[\s\S]*?border-radius:\s*var\(--radius-pill\);/, '主按钮必须使用胶囊圆角（对齐参考图）');
-assert.match(wxss, /padding:\s*40rpx 32rpx calc\(var\(--tabbar-height\) \+ 32rpx \+ env\(safe-area-inset-bottom\)\)/, '面板左右保留边距（按钮不铺满），底部内缩让开 TabBar');
+assert.match(
+  wxss,
+  /\.login-sheet__primary\s*\{[\s\S]*?border-radius:\s*var\(--radius-pill\);/,
+  '主按钮必须使用胶囊圆角（对齐参考图）'
+);
+assert.match(
+  wxss,
+  /padding:\s*40rpx 32rpx calc\(var\(--tabbar-height\) \+ 32rpx \+ env\(safe-area-inset-bottom\)\)/,
+  '面板左右保留边距（按钮不铺满），底部内缩让开 TabBar'
+);
 // 等宽约束：原生 button 会被框架注入默认样式导致宽度与跳过按钮不一致，
 // 必须用 wrap 容器锁定满宽，两个按钮才等宽。
 assert.match(wxml, /login-sheet__primary-wrap/, '主按钮必须包裹满宽容器，保证与跳过按钮等宽');
 assert.match(wxss, /\.login-sheet__primary-wrap\s*\{[\s\S]*?width:\s*100%/, '主按钮容器必须满宽');
 assert.match(wxss, /\.login-sheet__skip\s*\{[\s\S]*?width:\s*100%/, '跳过按钮必须满宽，与主按钮一致');
-assert.match(wxss, /\.login-sheet__primary\s*\{[\s\S]*?flex:\s*1;/, '主按钮必须用 flex:1 撑满容器（原生 button 的固有宽度会抵抗 width:100%）');
+assert.match(
+  wxss,
+  /\.login-sheet__primary\s*\{[\s\S]*?flex:\s*1;/,
+  '主按钮必须用 flex:1 撑满容器（原生 button 的固有宽度会抵抗 width:100%）'
+);
 assert.match(wxss, /\.login-sheet__primary::after\s*\{\s*border:\s*none;\s*\}/, '原生授权按钮必须重置 ::after 边框');
 // 面板必须贴底 + 只做上圆角（脱离底边后四角圆角会呈「椭圆胶囊」观感），并用底部内边距让开 TabBar。
 assert.match(wxss, /max-height:\s*calc\(100vh/, '登录面板必须限高，避免内容超出屏幕');
 assert.match(wxss, /bottom:\s*0;/, '登录面板必须贴屏幕底部');
-assert.match(wxss, /border-radius:\s*var\(--radius-lg\) var\(--radius-lg\) 0 0;/, '登录面板只能做上圆角，避免呈椭圆观感');
+assert.match(
+  wxss,
+  /border-radius:\s*var\(--radius-lg\) var\(--radius-lg\) 0 0;/,
+  '登录面板只能做上圆角，避免呈椭圆观感'
+);
 assert.match(wxml, /login-sheet__body/, '登录面板必须包裹内容滚动容器');
 assert.match(wxss, /\.login-sheet__body\s*\{[\s\S]*?overflow-y:\s*auto/, '登录面板内容区必须可滚动，保证协议区可达');
 // 品牌还原约束：logo 与主题色必须保留自有品牌，不照搬参考图（图 2）的第三方 logo 与配色。
@@ -104,11 +120,7 @@ assert.match(wxml, /leaf-white\.svg/, '登录弹层 logo 必须使用自有叶�
 assert.match(wxss, /var\(--brand-green\)/, '登录弹层主按钮必须使用自有主题色 token，不得写死参考图第三方色值');
 const requestSource = fs.readFileSync(path.join(root, 'utils/request.js'), 'utf8');
 const authSource = fs.readFileSync(path.join(root, 'utils/auth.js'), 'utf8');
-assert.match(
-  requestSource,
-  /options\.retryAuth !== false/,
-  '请求层必须允许加密数据请求关闭自动重登重试'
-);
+assert.match(requestSource, /options\.retryAuth !== false/, '请求层必须允许加密数据请求关闭自动重登重试');
 assert.match(
   authSource,
   /function bindPhone\([\s\S]*?retryAuth:\s*false/,

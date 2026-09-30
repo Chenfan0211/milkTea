@@ -35,10 +35,9 @@ function walk(directory) {
   });
 }
 
-const targets = [
-  ...walk(path.join(root, 'pages')),
-  ...walk(path.join(root, 'components'))
-].filter(file => file.endsWith('.js'));
+const targets = [...walk(path.join(root, 'pages')), ...walk(path.join(root, 'components'))].filter(file =>
+  file.endsWith('.js')
+);
 
 const violations = [];
 for (const file of targets) {
@@ -61,17 +60,8 @@ assert.deepEqual(
 
 // 启动页必须存在可调用的引导方法，且不得再叫 route
 const launchSource = fs.readFileSync(path.join(root, 'pages/launch/launch.js'), 'utf8');
-assert.ok(
-  /^\s{4}bootstrap\s*\(/m.test(launchSource),
-  '启动页必须用非保留名（bootstrap）定义路由方法'
-);
-assert.ok(
-  !/^\s{4}route\s*\(/m.test(launchSource),
-  '启动页不得再用 route 作为方法名（与微信页面实例保留属性冲突）'
-);
-assert.ok(
-  launchSource.includes('this.bootstrap()'),
-  '启动页 onLoad 必须调用 bootstrap'
-);
+assert.ok(/^\s{4}bootstrap\s*\(/m.test(launchSource), '启动页必须用非保留名（bootstrap）定义路由方法');
+assert.ok(!/^\s{4}route\s*\(/m.test(launchSource), '启动页不得再用 route 作为方法名（与微信页面实例保留属性冲突）');
+assert.ok(launchSource.includes('this.bootstrap()'), '启动页 onLoad 必须调用 bootstrap');
 
 console.log('页面/组件保留属性名冲突扫描通过');

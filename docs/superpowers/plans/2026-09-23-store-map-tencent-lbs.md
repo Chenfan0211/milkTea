@@ -27,13 +27,13 @@
 
 排查中发现项目**已具备**腾讯位置服务服务端代理能力，可直接复用，无需新建：
 
-| 组件 | 位置 | 现状 |
-|------|------|------|
-| 密钥存储 | `app_config.config_key = 'tencent_map_key'`，值 `{ key, sk }` | 迁移 `V11__tencent_map_config.sql` 已建占位，**真实值待注入** |
-| 缓存层 | `AppConfigCacheService` | Redis 优先 + 回源 MySQL，TTL 1 个月，`evict()` 主动失效 |
-| 代理服务 | `GeoCodeService` | 已实现腾讯 SN 签名（字典序 + 追加 SK + MD5），调用 `/ws/geocoder/v1/` |
-| 管理端接口 | `AdminGeoController` | `POST /api/v1/admin/geo/geocode` 地址转经纬度 |
-| 敏感键防护 | `AppConfigController#SENSITIVE_KEYS` | 已确保 `tencent_map_key` **不对外下发** |
+| 组件       | 位置                                                          | 现状                                                                  |
+| ---------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 密钥存储   | `app_config.config_key = 'tencent_map_key'`，值 `{ key, sk }` | 迁移 `V11__tencent_map_config.sql` 已建占位，**真实值待注入**         |
+| 缓存层     | `AppConfigCacheService`                                       | Redis 优先 + 回源 MySQL，TTL 1 个月，`evict()` 主动失效               |
+| 代理服务   | `GeoCodeService`                                              | 已实现腾讯 SN 签名（字典序 + 追加 SK + MD5），调用 `/ws/geocoder/v1/` |
+| 管理端接口 | `AdminGeoController`                                          | `POST /api/v1/admin/geo/geocode` 地址转经纬度                         |
+| 敏感键防护 | `AppConfigController#SENSITIVE_KEYS`                          | 已确保 `tencent_map_key` **不对外下发**                               |
 
 **缺口**：`GeoCodeService` 只暴露了「地址→经纬度」（geocoder），
 且仅管理端可用；小程序端既没有代理接口，也没有消费方。
@@ -161,22 +161,22 @@ mvn -q -pl server -am compile
 
 **第 1 层：地图体验修正**
 
-| 文件 | 改动 |
-| --- | --- |
-| `user-h5/pages/menu/menu.wxml` | 删除 129–147 行「假地图」占位块（`store-picker__map--entry`） |
+| 文件                           | 改动                                                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `user-h5/pages/menu/menu.wxml` | 删除 129–147 行「假地图」占位块（`store-picker__map--entry`）                                                                              |
 | `user-h5/pages/menu/menu.wxss` | 删除 8 个失效选择器；`.store-picker__panel` 的 `top: 770rpx` 改为 `0`（原值是为让位已删除的 Banner）；`.store-picker__filter` 补导航栏避让 |
-| `user-h5/app.wxss` | 新增尺寸 token `--nav-bar-height: 88rpx`（与 navigation-bar.js 口径一致，避免硬编码间距字面量） |
-| `user-h5/pages/menu/menu.js` | 删除死方法 `openStoreMap` |
+| `user-h5/app.wxss`             | 新增尺寸 token `--nav-bar-height: 88rpx`（与 navigation-bar.js 口径一致，避免硬编码间距字面量）                                            |
+| `user-h5/pages/menu/menu.js`   | 删除死方法 `openStoreMap`                                                                                                                  |
 
 **第 2 层：服务端 LBS 代理**
 
-| 文件 | 改动 |
-| --- | --- |
-| `server/.../cache/GeoCodeService.java` | 抽出 `callTencent(path, params)` 统一签名与请求；新增 `reverseGeocode()`、`distanceMatrix()` |
-| `server/.../cache/AppGeoController.java` | 新增 `POST /api/v1/app/geo/regeo`、`POST /api/v1/app/geo/distance` |
-| `user-h5/utils/api.js` | 新增 `fetchReverseGeocode()`、`fetchStoreDistances()` |
-| `user-h5/utils/store.js` | 新增 `decorateStoresWithRealDistance()`，真实距离优先、直线估算兜底 |
-| `user-h5/pages/menu/menu.js` | 新增 `refreshPickerRealDistance()`，先渲染直线距离再异步替换为真实驾车距离 |
+| 文件                                     | 改动                                                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `server/.../cache/GeoCodeService.java`   | 抽出 `callTencent(path, params)` 统一签名与请求；新增 `reverseGeocode()`、`distanceMatrix()` |
+| `server/.../cache/AppGeoController.java` | 新增 `POST /api/v1/app/geo/regeo`、`POST /api/v1/app/geo/distance`                           |
+| `user-h5/utils/api.js`                   | 新增 `fetchReverseGeocode()`、`fetchStoreDistances()`                                        |
+| `user-h5/utils/store.js`                 | 新增 `decorateStoresWithRealDistance()`，真实距离优先、直线估算兜底                          |
+| `user-h5/pages/menu/menu.js`             | 新增 `refreshPickerRealDistance()`，先渲染直线距离再异步替换为真实驾车距离                   |
 
 **测试**
 

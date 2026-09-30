@@ -104,7 +104,7 @@
 
 .user-card__vip {
   padding: 4rpx 20rpx;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-sm);
   line-height: 32rpx;
   background: var(--brand-green);
@@ -126,14 +126,6 @@
   width: 78rpx;
   height: 78rpx;
 }
-
-
-
-
-
-
-
-
 
 /**
  * 会员等级进度（置于用户卡片内）。
@@ -197,47 +189,6 @@
   font-size: var(--font-sm);
 }
 
-.role-entry {
-  display: flex;
-  align-items: center;
-  margin-top: 20rpx;
-  padding: 24rpx;
-}
-
-.role-entry__icon {
-  flex: none;
-  width: 54rpx;
-  height: 54rpx;
-}
-
-.role-entry__body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  margin-left: 20rpx;
-}
-
-.role-entry__title {
-  color: var(--text-main);
-  font-size: var(--font-md);
-  font-weight: 600;
-}
-
-.role-entry__desc {
-  margin-top: 4rpx;
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
-  line-height: 36rpx;
-}
-
-.role-entry__arrow {
-  flex: none;
-  width: 26rpx;
-  height: 26rpx;
-  margin-left: 12rpx;
-}
-
 .stats {
   display: flex;
   height: 132rpx;
@@ -261,7 +212,7 @@
   left: 0;
   width: 1rpx;
   background: var(--line-color);
-  content: "";
+  content: '';
 }
 
 .stats__value {
@@ -395,7 +346,6 @@
 .user-card__phone--bind {
   color: var(--brand-green);
 }
-
 
 /* 静默登录失败提示条：非阻塞，点击可重试 */
 .profile-login-tip {

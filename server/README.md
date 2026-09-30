@@ -3,9 +3,11 @@
 第一批：框架 + 全量表结构 + 数据初始化 + 样板接口。
 
 ## 技术栈
+
 Java 17（本机 JDK 18 以 release 17 编译）、Spring Boot 3.3.5、MyBatis-Plus 3.5.7、MySQL 8、Redis 7、RabbitMQ 3、Flyway、jjwt。
 
 ## 本地启动
+
 1. 启动中间件（需 Docker Desktop）：
    ```bash
    docker compose -f deploy/dev/docker-compose.yml up -d
@@ -28,13 +30,16 @@ Java 17（本机 JDK 18 以 release 17 编译）、Spring Boot 3.3.5、MyBatis-P
    ```
 
 ## 种子账号
+
 - 后台初始账号：`admin`（密码为 BCrypt 哈希，初始密码见部署文档，首次登录后请立即修改）
 
 ## 约定
+
 - 成功码 `code=0`；金额 `BIGINT`（分）；分账比例 `INT`（万分比）。
 - 统一响应 `{ code, message, data }`，分页 `{ records, current, size, total }`。
 
 ## 重新生成商品菜单 seed
+
 ```bash
 node server/scripts/gen-product-seed.cjs
 ```

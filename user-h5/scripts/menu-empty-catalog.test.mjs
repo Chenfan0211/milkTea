@@ -70,7 +70,11 @@ assert.ok(emptyMenu && Array.isArray(emptyMenu.groups), '菜单镜像为空时�
 assert.equal(emptyMenu.groups.length, 0, '空菜单的 groups 必须为空数组');
 
 setMenuCatalogForTest([
-  { id: 'menu', label: '菜单', groups: [{ id: 'all', label: '全部', categories: [{ id: 'herbal', label: '草本养生茶', products: [] }] }] }
+  {
+    id: 'menu',
+    label: '菜单',
+    groups: [{ id: 'all', label: '全部', categories: [{ id: 'herbal', label: '草本养生茶', products: [] }] }]
+  }
 ]);
 const readyMenu = getMergedMenuTab('store-001');
 assert.equal(readyMenu.groups[0].categories[0].id, 'herbal', '菜单就绪时必须能取到首个分类');
@@ -99,10 +103,7 @@ page.setData({
 });
 
 setMenuCatalogForTest([]);
-assert.doesNotThrow(
-  () => page.syncCurrentStore(),
-  '菜单为空时 syncCurrentStore 不得抛异常（原崩溃点）'
-);
+assert.doesNotThrow(() => page.syncCurrentStore(), '菜单为空时 syncCurrentStore 不得抛异常（原崩溃点）');
 assert.deepEqual(page.data.activeMenu, { groups: [] }, '空菜单时 activeMenu 必须回落为空骨架');
 assert.equal(page.data.selectedCategoryId, '', '空菜单时必须清空选中分类');
 assert.equal(page.data.selectedGroupId, '', '空菜单时必须清空选中分组');
@@ -126,7 +127,9 @@ setMenuCatalogForTest([
           {
             id: 'herbal',
             label: '草本养生茶',
-            products: [{ id: 'classic-001', name: '五窨茉莉抹茶', price: 1390, image: '/assets/images/3x/menu-product.jpg' }]
+            products: [
+              { id: 'classic-001', name: '五窨茉莉抹茶', price: 1390, image: '/assets/images/3x/menu-product.jpg' }
+            ]
           }
         ]
       }
@@ -171,10 +174,7 @@ const menuDto = fs.readFileSync(
   path.join(root, '..', 'product-service/src/main/java/com/wuling/product/dto/MenuDTO.java'),
   'utf8'
 );
-assert.ok(
-  /private String tag;/.test(menuDto),
-  '菜单接口 DTO 必须保留分类 tag 字段，否则小程序拿不到标签'
-);
+assert.ok(/private String tag;/.test(menuDto), '菜单接口 DTO 必须保留分类 tag 字段，否则小程序拿不到标签');
 // 迁移必须真的写入 tag 数据：tag 字段建了但没种子数据，标签同样不会显示
 const migrationDir = path.join(root, '..', 'server/src/main/resources/db/migration');
 const tagSeed = fs
@@ -198,10 +198,7 @@ assert.ok(
   !/openStorePicker\(/.test(onShowBody[1]),
   'onShow 不得保留「无门店时只开门店层、不发请求」的分支（门店层应由 catalog 状态自动决定）'
 );
-assert.ok(
-  /this\.refreshThenSync\(\)/.test(onShowBody[1]),
-  'onShow 必须统一走 refreshThenSync（先拉接口再渲染）'
-);
+assert.ok(/this\.refreshThenSync\(\)/.test(onShowBody[1]), 'onShow 必须统一走 refreshThenSync（先拉接口再渲染）');
 assert.ok(
   /onTabItemTap\(\)\s*\{\s*this\.onShow\(\);/.test(menuJs),
   'onTabItemTap 必须复用 onShow，避免再次出现只开层不请求的岔路'
@@ -219,7 +216,9 @@ assert.ok(
 );
 
 // ---------- 7. 菜单同步状态：区分「首次失败」与「刷新失败」 ----------
-const { getMenuSyncState, refreshMenuFromRemote, getMenuCatalog } = require(path.join(root, 'utils/product-listing.js'));
+const { getMenuSyncState, refreshMenuFromRemote, getMenuCatalog } = require(
+  path.join(root, 'utils/product-listing.js')
+);
 assert.equal(typeof getMenuSyncState, 'function', 'product-listing 必须导出 getMenuSyncState');
 
 // 首次失败：loaded=false + 有 error -> 页面据此提示用户可下拉重试
@@ -234,9 +233,23 @@ assert.equal(sync.loaded, false, '首次加载失败时 loaded 必须为 false')
 
 // 已有镜像时失败：loaded 保持 true -> 静默保留旧数据，不打扰用户
 globalThis.wx.request = opts => {
-  setTimeout(() => opts.success({ statusCode: 200, data: { code: 0, data: [
-    { id: 'menu', label: '菜单', groups: [{ id: 'all', label: '全部', categories: [{ id: 'herbal', label: '草本养生茶', products: [] }] }] }
-  ] } }), 0);
+  setTimeout(
+    () =>
+      opts.success({
+        statusCode: 200,
+        data: {
+          code: 0,
+          data: [
+            {
+              id: 'menu',
+              label: '菜单',
+              groups: [{ id: 'all', label: '全部', categories: [{ id: 'herbal', label: '草本养生茶', products: [] }] }]
+            }
+          ]
+        }
+      }),
+    0
+  );
 };
 await refreshMenuFromRemote();
 assert.equal(getMenuSyncState().loaded, true, '成功加载后 loaded 必须为 true');
@@ -329,8 +342,8 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
 // onLoad 自己渲染会和 onShow 的异步链抢 setData（谁后返回谁覆盖），
 // 曾导致「门店已缓存，选择层却又被打开」的竞态。渲染必须只由 onShow 负责。
 {
-  const onLoadBody = menuJs.match(/onLoad\(options\)\s*\{([\s\S]*?)\n    \},/) ||
-                     menuJs.match(/onLoad\(\)\s*\{([\s\S]*?)\n    \},/);
+  const onLoadBody =
+    menuJs.match(/onLoad\(options\)\s*\{([\s\S]*?)\n    \},/) || menuJs.match(/onLoad\(\)\s*\{([\s\S]*?)\n    \},/);
   assert.ok(onLoadBody, '必须能定位到 onLoad 函数体');
   // 先去注释再断言：函数体里的历史说明也提到了 renderMenu()，不能误判
   const onLoadCode = onLoadBody[1].replace(/\/\/[^\n]*/g, '');
@@ -344,43 +357,19 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
 // 参考图 1170px 宽 = 750rpx，换算系数 0.641；数值均取整到 design-system 档位。
 {
   const scrollRule = menuWxss.match(/\.category-scroll\s*\{([\s\S]*?)\}/)?.[1] || '';
-  assert.ok(
-    /width:\s*195rpx/.test(scrollRule),
-    '分类栏宽度必须为 195rpx（参考图实测 304px 换算）'
-  );
+  assert.ok(/width:\s*195rpx/.test(scrollRule), '分类栏宽度必须为 195rpx（参考图实测 304px 换算）');
 
   const itemRule = menuWxss.match(/\.category-item\s*\{([\s\S]*?)\}/)?.[1] || '';
-  assert.ok(
-    /min-height:\s*88rpx/.test(itemRule),
-    '分类项高度必须为 88rpx（参考图实测两项行距 137px 换算）'
-  );
-  assert.ok(
-    /flex-direction:\s*column/.test(itemRule),
-    '分类项必须竖向排列，复现「标签在上、分类名在下」的两行结构'
-  );
+  assert.ok(/min-height:\s*88rpx/.test(itemRule), '分类项高度必须为 88rpx（参考图实测两项行距 137px 换算）');
+  assert.ok(/flex-direction:\s*column/.test(itemRule), '分类项必须竖向排列，复现「标签在上、分类名在下」的两行结构');
 
   // 标签必须是「独立占位」而非 absolute 叠字，否则会与分类名重叠
   const tagRule = menuWxss.match(/\.category-item__tag\s*\{([\s\S]*?)\}/)?.[1] || '';
-  assert.ok(
-    !/position:\s*absolute/.test(tagRule),
-    '分类标签必须占独立一行，不得使用 absolute 叠在分类名上'
-  );
-  assert.ok(
-    /align-self:\s*flex-start/.test(tagRule),
-    '分类标签必须左贴边（align-self: flex-start）'
-  );
-  assert.ok(
-    /line-height:\s*29rpx/.test(tagRule),
-    '分类标签高度必须为 29rpx（参考图实测 45px 换算）'
-  );
-  assert.ok(
-    /margin-top:\s*20rpx/.test(tagRule),
-    '分类标签距顶必须为 20rpx（参考图实测 21rpx 归到规范档位）'
-  );
-  assert.ok(
-    /border-radius:\s*0\s+8rpx\s+8rpx\s+0/.test(tagRule),
-    '分类标签必须左侧贴边、仅右侧圆角'
-  );
+  assert.ok(!/position:\s*absolute/.test(tagRule), '分类标签必须占独立一行，不得使用 absolute 叠在分类名上');
+  assert.ok(/align-self:\s*flex-start/.test(tagRule), '分类标签必须左贴边（align-self: flex-start）');
+  assert.ok(/line-height:\s*29rpx/.test(tagRule), '分类标签高度必须为 29rpx（参考图实测 45px 换算）');
+  assert.ok(/margin-top:\s*20rpx/.test(tagRule), '分类标签距顶必须为 20rpx（参考图实测 21rpx 归到规范档位）');
+  assert.ok(/border-radius:\s*0\s+8rpx\s+8rpx\s+0/.test(tagRule), '分类标签必须左侧贴边、仅右侧圆角');
 
   // 无标签的分类不得凭空多出间隙：间隙只能用相邻兄弟选择器给
   assert.ok(
@@ -397,34 +386,22 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
 {
   const couponBlock = menuWxml.match(/<view[^>]*class="coupon-row"[\s\S]*?<\/view>\s*<\/view>/);
   assert.ok(couponBlock, '必须能定位到活动优惠行结构（隐藏也应保留代码）');
-  assert.ok(
-    /wx:if="\{\{false\}\}"/.test(couponBlock[0].split('\n')[0]),
-    '活动优惠行必须用 wx:if="{{false}}" 隐藏'
-  );
+  assert.ok(/wx:if="\{\{false\}\}"/.test(couponBlock[0].split('\n')[0]), '活动优惠行必须用 wx:if="{{false}}" 隐藏');
 
   const adTitleTag = menuWxml.match(/<text[^>]*class="ad-title"[^>]*>/);
   assert.ok(adTitleTag, '必须保留广告标题结构（本版隐藏，不删除）');
-  assert.ok(
-    /wx:if="\{\{false\}\}"/.test(adTitleTag[0]),
-    '广告标题必须用 wx:if="{{false}}" 隐藏'
-  );
+  assert.ok(/wx:if="\{\{false\}\}"/.test(adTitleTag[0]), '广告标题必须用 wx:if="{{false}}" 隐藏');
 
   const adBannerTag = menuWxml.match(/<image[^>]*class="ad-banner"[^>]*>/);
   assert.ok(adBannerTag, '必须保留广告图结构（本版隐藏，不删除）');
-  assert.ok(
-    /wx:if="\{\{false\}\}"/.test(adBannerTag[0]),
-    '广告图必须用 wx:if="{{false}}" 隐藏'
-  );
+  assert.ok(/wx:if="\{\{false\}\}"/.test(adBannerTag[0]), '广告图必须用 wx:if="{{false}}" 隐藏');
 
   // 首屏滚动锚点不能跟着隐藏：scrollIntoView 初始值依赖它存在
   assert.ok(
     /<list-item id="product-top"/.test(menuWxml),
     '必须保留 id="product-top" 锚点，否则首屏 scrollIntoView 定位失效'
   );
-  assert.ok(
-    !/wx:if="\{\{false\}\}"[^>]*id="product-top"/.test(menuWxml),
-    'id="product-top" 锚点自身不得被隐藏'
-  );
+  assert.ok(!/wx:if="\{\{false\}\}"[^>]*id="product-top"/.test(menuWxml), 'id="product-top" 锚点自身不得被隐藏');
 }
 
 // ---------- 13. 下单不得由前端提交价格或会员等级 ----------
@@ -438,10 +415,7 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
   const payload = payloadMatch[1];
 
   // clientAmount/clientPaidAmount 允许携带（交叉校验），但都是校验输入，不是客户端成交价。
-  assert.ok(
-    !/vipLevel/.test(payload),
-    '下单请求体不得携带 vipLevel（等级由后端查库，前端传入可被改包提升）'
-  );
+  assert.ok(!/vipLevel/.test(payload), '下单请求体不得携带 vipLevel（等级由后端查库，前端传入可被改包提升）');
   assert.ok(/storeSubjectId/.test(payload), '下单请求体必须包含门店');
   assert.ok(/mealType/.test(payload), '下单请求体必须包含用餐方式');
   assert.ok(/items/.test(payload), '下单请求体必须包含商品明细');
@@ -460,10 +434,7 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
     /function toFen\(/.test(confirmJs) && /Math\.round\(Number\(yuan \|\| 0\) \* 100\)/.test(confirmJs),
     'toFen 必须按「元 × 100」并四舍五入换算为分'
   );
-  assert.ok(
-    /memberTotalFen/.test(confirmJs),
-    'clientAmount 必须使用已经换算为分的会员价总额'
-  );
+  assert.ok(/memberTotalFen/.test(confirmJs), 'clientAmount 必须使用已经换算为分的会员价总额');
 
   // 储值支付有额外立减，clientAmount 传 null；最终实付用 clientPaidAmount 校验。
   assert.ok(
@@ -514,19 +485,13 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
     profileJs.includes('Object.assign({}, userProfile, {'),
     'profile 页资料回写必须基于当前缓存合并（Object.assign({}, userProfile, ...)），不得重建导致资产字段清零'
   );
-  assert.ok(
-    profileJs.includes('remote.points'),
-    '资料回写必须包含远端 points 字段'
-  );
+  assert.ok(profileJs.includes('remote.points'), '资料回写必须包含远端 points 字段');
 
   // 礼品卡订单页必须兼容 PageResult（{records:[...]}）：
   // 后端 myOrders 返回分页对象，Array.isArray 判断会把有数据的分页当空数组，
   // 表现为「订单页永远无数据」，与「我的礼品卡」的 3 条对不上。
   const ordersJs = fs.readFileSync(path.join(root, 'pages/gift-card-orders/gift-card-orders.js'), 'utf8');
-  assert.ok(
-    /orders\.records/.test(ordersJs),
-    '礼品卡订单页必须兼容 PageResult.records 形态，否则订单永远显示为空'
-  );
+  assert.ok(/orders\.records/.test(ordersJs), '礼品卡订单页必须兼容 PageResult.records 形态，否则订单永远显示为空');
 
   // 「我的」页优惠券数量必须来自统一远端刷新方法，且只统计 UNUSED 可用券
   assert.ok(
@@ -544,8 +509,7 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
   const giftOrdersWxml = fs.readFileSync(path.join(root, 'pages/gift-card-orders/gift-card-orders.wxml'), 'utf8');
 
   assert.ok(
-    couponListJs.includes('refreshCouponsFromRemote(status)') &&
-      couponListJs.includes("activeTab: 'UNUSED'"),
+    couponListJs.includes('refreshCouponsFromRemote(status)') && couponListJs.includes("activeTab: 'UNUSED'"),
     '优惠券列表 onShow 必须按当前 Tab 刷新后端券，不能只读旧缓存（默认未使用）'
   );
   assert.ok(couponListJs.includes('loadError'), '优惠券列表必须记录加载失败状态');
@@ -555,10 +519,7 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
     /id:\s*item\.id\s*!=\s*null/.test(couponUtils),
     '优惠券展示 ID 必须以用户券主键为准，避免模板 code 重复导致列表覆盖'
   );
-  assert.ok(
-    /expiryText:[\s\S]*expireAt/.test(couponUtils),
-    '优惠券有效期展示必须使用后端 expireAt 字段'
-  );
+  assert.ok(/expiryText:[\s\S]*expireAt/.test(couponUtils), '优惠券有效期展示必须使用后端 expireAt 字段');
 
   assert.ok(giftOrdersJs.includes('fetchGiftCardOrders'), '礼品卡页必须加载购买订单');
   assert.ok(giftOrdersJs.includes('fetchMyGiftCards'), '礼品卡页必须加载持有卡（仅用于合并卡号）');
@@ -573,5 +534,6 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
   assert.ok(!/名称或订单号/.test(giftOrdersWxml), '搜索占位文案必须同时提示卡名、卡号和订单号');
 }
 
-console.log('点单页空菜单健壮性、分类标签、onShow 统一刷新、底部留白、分类栏几何、隐藏入口、下单安全口径、clientAmount 单位、确认页金额口径与资产字段合并回写回归测试通过');
-
+console.log(
+  '点单页空菜单健壮性、分类标签、onShow 统一刷新、底部留白、分类栏几何、隐藏入口、下单安全口径、clientAmount 单位、确认页金额口径与资产字段合并回写回归测试通过'
+);

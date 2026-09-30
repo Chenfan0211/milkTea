@@ -24,9 +24,11 @@
 ### Task 1: 数据库迁移 — 物理删除旧层级、分类必绑
 
 **Files:**
+
 - Create: `server/src/main/resources/db/migration/V38__flatten_category_hierarchy.sql`
 
 **Interfaces:**
+
 - Consumes: 现有表结构 `product_category`（`id/parent_id/code/name/type/sort/tag/enabled`）、`product`（`category_id BIGINT UNSIGNED NULL`）。
 - Produces: 迁移后 `product_category` 仅剩 `type='CATEGORY'` 的行，`product.category_id` 变为 `NOT NULL`。
 
@@ -101,11 +103,13 @@ git commit -m "feat(category): 迁移拍平分类层级并令商品必绑分类"
 ### Task 2: 后端 DTO/实体补齐 tag/enabled 字段
 
 **Files:**
+
 - Modify: `product-service/src/main/java/com/wuling/product/entity/ProductCategory.java`
 - Modify: `product-service/src/main/java/com/wuling/product/dto/CategoryDTO.java`
 - Modify: `product-service/src/main/java/com/wuling/product/dto/MenuDTO.java`
 
 **Interfaces:**
+
 - Consumes: 现有字段（`id/parentId/code/name/type/sort`）。
 - Produces:
   - `ProductCategory` 新增 `private String tag;`、`private Integer enabled;`
@@ -158,9 +162,11 @@ git commit -m "feat(category): 实体与 DTO 补齐 tag/enabled 字段"
 ### Task 3: 后端 getMenu 改为单层扁平
 
 **Files:**
+
 - Modify: `product-service/src/main/java/com/wuling/product/service/ProductQueryService.java`（`getMenu()` 方法，约 2501–5525 字节处）
 
 **Interfaces:**
+
 - Consumes: Task 2 的 `MenuDTO.MenuCategory#tag`、`ProductCategory#tag/enabled`。
 - Produces: `getMenu()` 返回单层菜单：`List<MenuTab>` 只含 1 个 tab（`id="menu"`, `label="菜单"`），tab 下 1 个 group（`id="all"`, `label="全部"`），group 下直接是分类列表，每个分类带 `id/code`、`label/name`、`tag`、`products`。
 
@@ -266,9 +272,11 @@ git commit -m "feat(category): 菜单组装改为单层扁平并下发分类标�
 ### Task 4: 后端商品写操作校验 categoryId 必填
 
 **Files:**
+
 - Modify: `product-service/src/main/java/com/wuling/product/service/AdminProductWriteService.java`
 
 **Interfaces:**
+
 - Consumes: 现有 `create(Map)` / `update(Long, Map)`、`applyEditable`、`number(...)`。
 - Produces: 新增/编辑商品时 `categoryId` 缺失或非法（不存在/非 CATEGORY）即抛 `BusinessException(BAD_REQUEST, ...)`。
 
@@ -328,9 +336,11 @@ git commit -m "feat(category): 新增/编辑商品强制校验分类必填"
 ### Task 5: 运营后台分类管理页去掉层级
 
 **Files:**
+
 - Modify: `src/views/product/category/index.vue`
 
 **Interfaces:**
+
 - Consumes: `AdminListConfig` / `FormField` 类型、`useAdminStore`。
 - Produces: 表单不再出现「层级类型」下拉，提交时 `type` 固定写 `'CATEGORY'`，`tag` 文案改为「左上角标签」。
 
@@ -381,13 +391,13 @@ const TYPE_OPTIONS = [
 将 `onSubmit` 中的 payload 构造改为固定 `type: 'CATEGORY'`：
 
 ```ts
-      const payload = {
-        ...data,
-        type: 'CATEGORY',
-        tag: data.tag ? String(data.tag).trim() : '',
-        enabled: Number(data.enabled) === 0 ? 0 : 1,
-        sort: Number(data.sort) || 0
-      };
+const payload = {
+  ...data,
+  type: 'CATEGORY',
+  tag: data.tag ? String(data.tag).trim() : '',
+  enabled: Number(data.enabled) === 0 ? 0 : 1,
+  sort: Number(data.sort) || 0
+};
 ```
 
 - [ ] **Step 5: 更新顶部注释**
@@ -406,9 +416,11 @@ git commit -m "feat(category): 分类管理页去掉层级，type 固定为 CATE
 ### Task 6: 运营后台商品管理页分类必填（已基本具备，仅优化提示文案）
 
 **Files:**
+
 - Modify: `src/views/product/list/index.vue`
 
 **Interfaces:**
+
 - Consumes: `categoryOptions()`（已过滤 CATEGORY）。
 - Produces: 商品表单 `categoryId` 必填提示文案更明确。
 
@@ -444,10 +456,12 @@ git commit -m "feat(category): 优化商品分类必填提示文案"
 ### Task 7: 小程序菜单页去掉分组、渲染分类左上角标签
 
 **Files:**
+
 - Modify: `user-h5/pages/menu/menu.wxml`
 - Modify: `user-h5/pages/menu/menu.wxss`
 
 **Interfaces:**
+
 - Consumes: Task 3 后端下发的单层菜单（`activeMenu.groups[0].categories[]` 每个 `category` 带 `tag`）。
 - Produces: 左侧分类栏直接渲染分类列表（无 group 分组标题），每个分类项左上角显示 `tag` 角标。
 
@@ -536,4 +550,3 @@ git commit -m "feat(menu): 菜单改为单层分类并渲染分类左上角标�
 - **类型一致性**：`tag` 字段在 `ProductCategory`、`CategoryDTO`、`MenuDTO.MenuCategory` 三处统一为 `String`；`enabled` 在 `ProductCategory`/`CategoryDTO` 为 `Integer`；`categoryId` 全链路 `Long`。
 - **遗留确认点**：`V38` 已按本文件的 SQL 实施并实测通过（本地库 Flyway 执行成功，TAB/GROUP 清空、`category_id` 为 `NOT NULL`）；`product-catalog.js` 中的硬编码 `PLATFORM_PRODUCTS` 为历史遗留，本次不改（不影响菜单接口主链路），后续可另行清理。
 - **已知遗留（可选清理）**：拍平后保留的分类其 `parent_id` 仍指向已删除的 TAB/GROUP 行（悬空引用）。当前后端按 `type = 'CATEGORY'` 过滤、前端分类页无层级 UI，故功能无影响；如需清理，可在迁移第 3 步后追加 `UPDATE product_category SET parent_id = 0 WHERE deleted = 0 AND parent_id <> 0;`。
-

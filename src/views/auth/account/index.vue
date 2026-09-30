@@ -317,9 +317,7 @@ const config: AdminListConfig = {
               :checked="rolePicked.includes(opt.value)"
               @update:checked="
                 (checked: boolean) => {
-                  rolePicked = checked
-                    ? [...rolePicked, opt.value]
-                    : rolePicked.filter(code => code !== opt.value);
+                  rolePicked = checked ? [...rolePicked, opt.value] : rolePicked.filter(code => code !== opt.value);
                 }
               "
             >
@@ -370,4 +368,3 @@ const config: AdminListConfig = {
   line-height: 1.6;
 }
 </style>
-

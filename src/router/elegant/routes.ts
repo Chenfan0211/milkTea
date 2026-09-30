@@ -331,7 +331,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.marketing_points-rule',
         meta: {
           title: '签到规则',
-          i18nKey: 'route.marketing_points-rule'
+          icon: 'mdi:calendar-check',
+          i18nKey: 'route.marketing_points-rule',
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true
         }
       },
       {

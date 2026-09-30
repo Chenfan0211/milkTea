@@ -114,7 +114,6 @@ declare namespace Api {
       order: number;
     }
 
-
     interface SplitRule {
       code: string;
       name: string;

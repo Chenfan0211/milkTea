@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'FinanceSnapshot'
 });
@@ -18,13 +17,55 @@ const columns: DataTableColumns<any> = [
   { title: '快照号', key: 'snapshotNo', width: 140 },
   { title: '订单号', key: 'orderNo', width: 150 },
   { title: '商品信息', key: 'summary', minWidth: 130, render: (row: any) => row.summary || '—' },
-  { title: '供应商', key: 'supplierAmount', width: 90, align: 'right', render: (row: any) => `¥${(row.supplierAmount ?? 0).toFixed(2)}` },
-  { title: '门店', key: 'storeAmount', width: 90, align: 'right', render: (row: any) => `¥${(row.storeAmount ?? 0).toFixed(2)}` },
-  { title: '资源方', key: 'channelAmount', width: 90, align: 'right', render: (row: any) => `¥${(row.channelAmount ?? 0).toFixed(2)}` },
-  { title: '投资人', key: 'investorAmount', width: 90, align: 'right', render: (row: any) => `¥${(row.investorAmount ?? 0).toFixed(2)}` },
-  { title: '平台分佣', key: 'platformCommission', width: 88, align: 'right', render: (row: any) => `¥${(row.platformCommission ?? 0).toFixed(2)}` },
-  { title: '平台提成', key: 'platformBonus', width: 88, align: 'right', render: (row: any) => `¥${(row.platformBonus ?? 0).toFixed(2)}` },
-  { title: '平台合计', key: 'platformAmount', width: 88, align: 'right', render: (row: any) => `¥${(row.platformAmount ?? 0).toFixed(2)}` },
+  {
+    title: '供应商',
+    key: 'supplierAmount',
+    width: 90,
+    align: 'right',
+    render: (row: any) => `¥${(row.supplierAmount ?? 0).toFixed(2)}`
+  },
+  {
+    title: '门店',
+    key: 'storeAmount',
+    width: 90,
+    align: 'right',
+    render: (row: any) => `¥${(row.storeAmount ?? 0).toFixed(2)}`
+  },
+  {
+    title: '资源方',
+    key: 'channelAmount',
+    width: 90,
+    align: 'right',
+    render: (row: any) => `¥${(row.channelAmount ?? 0).toFixed(2)}`
+  },
+  {
+    title: '投资人',
+    key: 'investorAmount',
+    width: 90,
+    align: 'right',
+    render: (row: any) => `¥${(row.investorAmount ?? 0).toFixed(2)}`
+  },
+  {
+    title: '平台分佣',
+    key: 'platformCommission',
+    width: 88,
+    align: 'right',
+    render: (row: any) => `¥${(row.platformCommission ?? 0).toFixed(2)}`
+  },
+  {
+    title: '平台提成',
+    key: 'platformBonus',
+    width: 88,
+    align: 'right',
+    render: (row: any) => `¥${(row.platformBonus ?? 0).toFixed(2)}`
+  },
+  {
+    title: '平台合计',
+    key: 'platformAmount',
+    width: 88,
+    align: 'right',
+    render: (row: any) => `¥${(row.platformAmount ?? 0).toFixed(2)}`
+  },
   {
     title: '合计校验',
     key: 'totalCheck',
@@ -53,9 +94,9 @@ const searchFields: SearchField[] = [
 ];
 const toolbar: RowAction[] = [];
 
-const snapshotStatusLabel = (v: string) => ({ valid: '有效', invalid: '已作废' } as Record<string, string>)[v] ?? v;
+const snapshotStatusLabel = (v: string) => (({ valid: '有效', invalid: '已作废' }) as Record<string, string>)[v] ?? v;
 const totalCheckLabel = (v: string) =>
-  ({ 一致: '一致', 不一致: '不一致', ok: '一致', mismatch: '不一致' } as Record<string, string>)[v] ?? v;
+  (({ 一致: '一致', 不一致: '不一致', ok: '一致', mismatch: '不一致' }) as Record<string, string>)[v] ?? v;
 const money = (v: any) => `¥${(Number(v) || 0).toFixed(2)}`;
 
 /** 分账快照详情弹层字段（原 /finance/snapshot-detail 页面口径） */
@@ -115,4 +156,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

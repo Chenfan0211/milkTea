@@ -52,7 +52,9 @@ globalThis.Page = config => {
   capturedPage = config;
 };
 
-const { selectCity, toggleFavoriteStore, refreshStoreCatalogFromRemote, refreshCitiesFromRemote } = require(path.join(root, 'utils/store.js'));
+const { selectCity, toggleFavoriteStore, refreshStoreCatalogFromRemote, refreshCitiesFromRemote } = require(
+  path.join(root, 'utils/store.js')
+);
 await refreshCitiesFromRemote();
 await refreshStoreCatalogFromRemote();
 selectCity('4301', 1000);

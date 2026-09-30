@@ -15,23 +15,21 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  */
 
 const pageJs = fs.readFileSync(path.join(root, 'pages/order-confirm/order-confirm.js'), 'utf8');
-assert.ok(
-  pageJs.includes('resolveStoreSubjectId'),
-  '下单页必须通过 resolveStoreSubjectId 取数字主键'
-);
+assert.ok(pageJs.includes('resolveStoreSubjectId'), '下单页必须通过 resolveStoreSubjectId 取数字主键');
 assert.ok(
   /storeSubjectId:\s*this\.resolveStoreSubjectId\(\)/.test(pageJs),
   'buildOrderPayload 的 storeSubjectId 必须来自 resolveStoreSubjectId'
 );
-assert.ok(
-  !/storeSubjectId:\s*storeId\b/.test(pageJs),
-  '不得直接把前端门店 id（code）当作 storeSubjectId'
-);
+assert.ok(!/storeSubjectId:\s*storeId\b/.test(pageJs), '不得直接把前端门店 id（code）当作 storeSubjectId');
 
 // 行为验证：resolveStoreSubjectId 返回数字主键
 globalThis.getApp = () => ({ globalData: {} });
 globalThis.wx = {
-  showToast() {}, showModal() {}, navigateTo() {}, navigateBack() {}, showShareMenu() {}
+  showToast() {},
+  showModal() {},
+  navigateTo() {},
+  navigateBack() {},
+  showShareMenu() {}
 };
 
 let pageDefinition;
@@ -50,9 +48,6 @@ const ctxNoSubject = {
   data: { store: { id: 'ST-9999', code: 'ST-9999' } }
 };
 const fallback = pageDefinition.resolveStoreSubjectId.call(ctxNoSubject);
-assert.ok(
-  fallback === null || typeof fallback === 'number',
-  '查不到数字主键时不得返回字符串 code（避免后端 500）'
-);
+assert.ok(fallback === null || typeof fallback === 'number', '查不到数字主键时不得返回字符串 code（避免后端 500）');
 
 console.log('下单 storeSubjectId 数字主键测试通过');

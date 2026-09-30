@@ -15,6 +15,7 @@
 ```
 
 关键点：
+
 1. **key 前缀始终保留**（无论哪种模式）——保证可观测性（`SCAN prefix:*`）与集群兼容。
 2. **库号仅单机/主从模式生效**——Redis Cluster 只支持 db0，`SELECT n` 会报错，所以必须留 cluster 降级路径。
 3. **每个库号缓存独立的模板/连接**——避免重复建连。
@@ -136,30 +137,32 @@ redis.opsForValue().set(key, code, Duration.ofMinutes(5));
 ```yaml
 app:
   redis:
-    mode: ${REDIS_MODE:single}        # single | cluster
+    mode: ${REDIS_MODE:single} # single | cluster
     database:
-      auth:  ${REDIS_DB_AUTH:0}
-      sms:   ${REDIS_DB_SMS:1}
+      auth: ${REDIS_DB_AUTH:0}
+      sms: ${REDIS_DB_SMS:1}
       cache: ${REDIS_DB_CACHE:2}
-      biz:   ${REDIS_DB_BIZ:3}
+      biz: ${REDIS_DB_BIZ:3}
 ```
 
 ## 三、关键决策与权衡
 
-| 决策点 | 选择 | 理由 |
-|--------|------|------|
-| 分库 vs 集群 | 命名空间 + 可切换后端 | Redis Cluster 只支持 db0，物理分库与集群互斥 |
-| key 前缀 | 始终保留 | 保证 `SCAN` 可观测 + 集群兼容 |
-| cluster 降级 | 库号失效，走前缀隔离 | 零改造上集群，改一个环境变量即可 |
-| 模板复用 | ConcurrentHashMap 缓存 | 每个库号只建一次连接，避免重复建连 |
+| 决策点       | 选择                   | 理由                                         |
+| ------------ | ---------------------- | -------------------------------------------- |
+| 分库 vs 集群 | 命名空间 + 可切换后端  | Redis Cluster 只支持 db0，物理分库与集群互斥 |
+| key 前缀     | 始终保留               | 保证 `SCAN` 可观测 + 集群兼容                |
+| cluster 降级 | 库号失效，走前缀隔离   | 零改造上集群，改一个环境变量即可             |
+| 模板复用     | ConcurrentHashMap 缓存 | 每个库号只建一次连接，避免重复建连           |
 
 ## 四、适用 / 不适用
 
 **适用**：
+
 - 单机/主从 Redis，希望物理隔离不同业务的数据
 - 计划将来迁移 Redis Cluster
 
 **注意**：
+
 - 一旦上 Cluster，db 隔离自动失效，只能靠 key 前缀——所以**从一开始就规范 key 前缀**最重要。
 
 ## 五、验证方法

@@ -385,13 +385,14 @@ function getSortOrigin(city, location) {
 function resolveStoreCatalog(now = Date.now()) {
   const preference = resolveStorePreference(now);
   // 城市数据来自接口，拉取失败时降级为安全空对象，避免下游访问 null 崩溃
-  const city = getCityByCode(preference.cityCode) || getDefaultCity() || {
-    code: DEFAULT_CITY_CODE,
-    name: '长沙市',
-    initial: 'C',
-    latitude: 0,
-    longitude: 0
-  };
+  const city = getCityByCode(preference.cityCode) ||
+    getDefaultCity() || {
+      code: DEFAULT_CITY_CODE,
+      name: '长沙市',
+      initial: 'C',
+      latitude: 0,
+      longitude: 0
+    };
   const location = resolveLocationContext();
   const origin = getSortOrigin(city, location);
   const cityStores = city ? sortStoresByDistance(getStoresByCity(city.code), origin) : [];
@@ -441,4 +442,3 @@ module.exports = {
   toggleFavoriteStore,
   useDeviceLocation
 };
-

@@ -44,13 +44,16 @@
 7. Task 7：全链路回归验证
 
 ---
+
 ### Task 1: V58 迁移 —— store_profile 增加唯一资源方列
 
 **Files:**
+
 - Create: `server/src/main/resources/db/migration/V58__store_single_channel.sql`
 - Test: `server/src/test/java/com/wuling/common/StoreSingleChannelMigrationV58Test.java`
 
 **Interfaces:**
+
 - Consumes: 现有表 `store_profile(id, subject_id, ...)`、`channel_store(id, channel_subject_id, store_subject_id, deleted)`。
 - Produces: 列 `store_profile.channel_subject_id BIGINT UNSIGNED NULL`；索引 `idx_store_profile_channel (channel_subject_id)`。
 
@@ -220,9 +223,11 @@ git commit -m "feat(db): V58 门店唯一资源方列与回填"
 ```
 
 ---
+
 ### Task 2: 分佣归因读路径统一切到 store_profile
 
 **Files:**
+
 - Modify: `trade-service/src/main/java/com/wuling/trade/mapper/OrderMapper.java:12-14`
 - Modify: `server/src/main/java/com/wuling/subject/mapper/BizSubjectMapper.java:16-18`
 - Modify: `server/src/main/java/com/wuling/subject/port/SubjectQueryPort.java`
@@ -231,6 +236,7 @@ git commit -m "feat(db): V58 门店唯一资源方列与回填"
 - Test: `server/src/test/java/com/wuling/common/ChannelAttributionSourceTest.java`
 
 **Interfaces:**
+
 - Consumes: Task 1 的 `store_profile.channel_subject_id`。
 - Produces: `SubjectQueryPort.findChannelOfStore(Long storeSubjectId): Long`；`BizSubjectMapper.selectChannelOfStore(Long)`；`BizSubjectMapper.selectStoreIdsByChannel` 语义不变但改读 `store_profile`。
 
@@ -411,14 +417,17 @@ git commit -m "fix(finance): 渠道归因统一读 store_profile.channel_subject
 ```
 
 ---
+
 ### Task 3: 绑定/解绑双写 + 占用校验 + 可绑门店接口
 
 **Files:**
+
 - Modify: `server/src/main/java/com/wuling/subject/entity/StoreProfile.java`
 - Modify: `server/src/main/java/com/wuling/subject/controller/SubjectBindingController.java`
 - Test: `server/src/test/java/com/wuling/subject/StoreChannelBindingRuleTest.java`
 
 **Interfaces:**
+
 - Consumes: Task 1 列、Task 2 读路径。
 - Produces: `POST /api/v1/admin/subject/binding/store/{storeSubjectId}/channel/{channelSubjectId}`、`DELETE /api/v1/admin/subject/binding/store/{storeSubjectId}/channel`、`GET /api/v1/admin/subject/binding/channel/{channelSubjectId}/bindable-stores`；`StoreProfile.channelSubjectId`。
 
@@ -676,14 +685,17 @@ git commit -m "feat(subject): 门店资源方唯一绑定与双写落地"
 ```
 
 ---
+
 ### Task 4: 门店列表 / 资源方列表暴露资源方信息
 
 **Files:**
+
 - Modify: `server/src/main/java/com/wuling/subject/dto/AdminStoreDTO.java`
 - Modify: `server/src/main/java/com/wuling/subject/service/StoreService.java`（`toAdminStore`）
 - Test: `server/src/test/java/com/wuling/subject/AdminStoreChannelFieldTest.java`
 
 **Interfaces:**
+
 - Consumes: Task 1 列、Task 3 `StoreProfile.channelSubjectId`。
 - Produces: `AdminStoreDTO.channelSubjectId: Long`、`AdminStoreDTO.channelName: String`（未绑定为 `"未绑定"`）。
 
@@ -786,11 +798,13 @@ git commit -m "feat(subject): 门店列表回填关联资源方"
 ### Task 5: 前端门店页 —— 资源方列与绑定/解绑
 
 **Files:**
+
 - Modify: `src/service/api/subject.ts`
 - Modify: `src/views/subject/store/index.vue`
 - Test: `scripts/store-channel-ui.test.mjs`
 
 **Interfaces:**
+
 - Consumes: Task 3 三个后端接口、Task 4 `channelName/channelSubjectId`。
 - Produces: `bindStoreChannel(storeSubjectId, channelSubjectId)`、`unbindStoreChannel(storeSubjectId)`、`fetchBindableStores(channelSubjectId)`。
 
@@ -931,13 +945,16 @@ git commit -m "feat(web): 门店管理页资源方列与绑定解绑"
 ```
 
 ---
+
 ### Task 6: 前端资源方弹窗 —— 下拉过滤已占用门店
 
 **Files:**
+
 - Modify: `src/views/subject/channel/ChannelStoreDialog.vue`
 - Test: `scripts/channel-store-dialog.test.mjs`
 
 **Interfaces:**
+
 - Consumes: Task 5 `fetchBindableStores`。
 - Produces: 绑定下拉数据源改为后端 `bindable-stores`，不再依赖 `store.subjects` 镜像。
 
@@ -949,19 +966,13 @@ git commit -m "feat(web): 门店管理页资源方列与绑定解绑"
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const dialog = readFileSync(
-  new URL('../src/views/subject/channel/ChannelStoreDialog.vue', import.meta.url),
-  'utf8'
-);
+const dialog = readFileSync(new URL('../src/views/subject/channel/ChannelStoreDialog.vue', import.meta.url), 'utf8');
 
 // 1) 下拉数据源必须走后端可绑门店接口，避免镜像分页导致漏过滤
 assert.ok(dialog.includes('fetchBindableStores'), '下拉应使用 fetchBindableStores');
 
 // 2) 不得再仅靠 store.subjects 镜像过滤
-assert.ok(
-  !/const bindOptions[\s\S]{0,400}?store\.subjects/.test(dialog),
-  'bindOptions 不应再依赖 store.subjects 镜像'
-);
+assert.ok(!/const bindOptions[\s\S]{0,400}?store\.subjects/.test(dialog), 'bindOptions 不应再依赖 store.subjects 镜像');
 
 // 3) 保留已绑定门店过滤（同店不重复出现）
 assert.ok(dialog.includes('boundIds'), '应继续排除已绑定门店');
@@ -1007,7 +1018,7 @@ async function reloadBindable() {
 3c. 在 `watch` 的 `if (props.show) { ... }` 分支内，`reload();` 之后补：
 
 ```ts
-      reloadBindable();
+reloadBindable();
 ```
 
 3d. 替换 `bindOptions` 计算属性为：
@@ -1030,12 +1041,12 @@ const bindOptions = computed(() => {
 3e. 在 `doBind` 的 `await reload();` 之后补 `await reloadBindable();`：
 
 ```ts
-    await bindChannelStore(props.channel.id, Number(pickedStoreId.value));
-    window.$message?.success('绑定成功');
-    pickedStoreId.value = null;
-    await reload();
-    await reloadBindable();
-    emit('changed');
+await bindChannelStore(props.channel.id, Number(pickedStoreId.value));
+window.$message?.success('绑定成功');
+pickedStoreId.value = null;
+await reload();
+await reloadBindable();
+emit('changed');
 ```
 
 - [ ] **Step 4: 运行测试确认通过**
@@ -1066,9 +1077,11 @@ git commit -m "fix(web): 资源方绑定门店下拉过滤已占用门店"
 ### Task 7: 全链路回归验证
 
 **Files:**
+
 - Create: `server/src/test/java/com/wuling/finance/StoreChannelSplitAttributionIT.java`
 
 **Interfaces:**
+
 - Consumes: Task 1-6 全部产出。
 - Produces: 归因切换 / 漏算防护 / 守恒三组回归证据。
 
@@ -1212,20 +1225,20 @@ git commit -m "test(finance): 门店资源方归因与守恒回归"
 
 ## 交付清单
 
-| 层 | 文件 | 改动 |
-|---|---|---|
-| DB | `V58__store_single_channel.sql` | 新增列 + 回填 + 索引 |
-| 后端 | `OrderMapper.java` | 归因改读 `store_profile` ⭐ |
-| 后端 | `BizSubjectMapper.java` | 渠道门店列表改源 + 新增 `selectChannelOfStore` |
-| 后端 | `SubjectQueryPort.java` / `LocalSubjectQueryAdapter.java` | +`findChannelOfStore` |
-| 后端 | `AdminSubjectProfileController.java` | 资源方门店数改源 |
-| 后端 | `StoreProfile.java` | +`channelSubjectId` |
-| 后端 | `AdminStoreDTO.java` / `StoreService.java` | +`channelName`/`channelSubjectId` 并回填 |
-| 后端 | `SubjectBindingController.java` | 双写 + 占用校验 + 门店侧绑定/解绑 + 可绑门店接口 |
-| 前端 | `src/service/api/subject.ts` | +3 接口 |
-| 前端 | `src/views/subject/store/index.vue` | +资源方列 +绑定/解绑 |
-| 前端 | `src/views/subject/channel/ChannelStoreDialog.vue` | 下拉改走后端过滤 |
-| 测试 | 5 个 Java 测试 + 2 个 Node 脚本 | 静态规则 + 计算方法回归 |
+| 层   | 文件                                                      | 改动                                             |
+| ---- | --------------------------------------------------------- | ------------------------------------------------ |
+| DB   | `V58__store_single_channel.sql`                           | 新增列 + 回填 + 索引                             |
+| 后端 | `OrderMapper.java`                                        | 归因改读 `store_profile` ⭐                      |
+| 后端 | `BizSubjectMapper.java`                                   | 渠道门店列表改源 + 新增 `selectChannelOfStore`   |
+| 后端 | `SubjectQueryPort.java` / `LocalSubjectQueryAdapter.java` | +`findChannelOfStore`                            |
+| 后端 | `AdminSubjectProfileController.java`                      | 资源方门店数改源                                 |
+| 后端 | `StoreProfile.java`                                       | +`channelSubjectId`                              |
+| 后端 | `AdminStoreDTO.java` / `StoreService.java`                | +`channelName`/`channelSubjectId` 并回填         |
+| 后端 | `SubjectBindingController.java`                           | 双写 + 占用校验 + 门店侧绑定/解绑 + 可绑门店接口 |
+| 前端 | `src/service/api/subject.ts`                              | +3 接口                                          |
+| 前端 | `src/views/subject/store/index.vue`                       | +资源方列 +绑定/解绑                             |
+| 前端 | `src/views/subject/channel/ChannelStoreDialog.vue`        | 下拉改走后端过滤                                 |
+| 测试 | 5 个 Java 测试 + 2 个 Node 脚本                           | 静态规则 + 计算方法回归                          |
 
 ## 不做的事（明确排除）
 

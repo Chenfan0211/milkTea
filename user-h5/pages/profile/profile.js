@@ -1,8 +1,23 @@
 const { withShare } = require('../../utils/share');
-const { DEFAULT_AVATAR, getUserProfile, maskPhone, roundMoney, saveUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
+const {
+  DEFAULT_AVATAR,
+  getUserProfile,
+  maskPhone,
+  roundMoney,
+  saveUserProfile,
+  refreshUserProfileFromRemote
+} = require('../../utils/user-profile');
 const { getPoints, notifyPointsChanged } = require('../../utils/points');
 const { buildLevelMeta, refreshMemberLevelsFromRemote } = require('../../utils/member-level');
-const { getCurrentBusinessRole, getPendingRoles, getDashboard, syncRolesFromRemote } = require('../../utils/roles');
+const {
+  getActiveRoles,
+  getCurrentBusinessRole,
+  getPendingRoles,
+  getDashboard,
+  switchRole,
+  switchToConsumer,
+  syncRolesFromRemote
+} = require('../../utils/roles');
 const loginGuard = require('../../utils/login-guard');
 const auth = require('../../utils/auth');
 const authState = require('../../utils/auth-state');
@@ -20,6 +35,15 @@ const initialMeta = buildLevelMeta(initialProfile);
 function formatBalance(value) {
   return roundMoney(Number(value) || 0).toFixed(2);
 }
+
+/**
+ * 「我的功能」暂缓上线的入口（前端隐藏名单）。
+ *
+ * 收货地址、活动报名功能尚未开发完成，先不展示入口；
+ * 后端 profile_functions 配置仍保留这两项，便于后台继续维护图标与文案。
+ * 后续功能开发完成后，把对应 id 从本数组移除即可恢复展示。
+ */
+const HIDDEN_PROFILE_FUNCTIONS = ['address', 'activity'];
 
 function buildRoleFunctions(roleId) {
   if (!roleId) return [];
@@ -45,7 +69,12 @@ Page(
       giftCards: [],
       stats: [
         { id: 'coupon', label: '优惠券', value: initialProfile.couponCount },
-        { id: 'balance', label: '储值余额', value: initialProfile.balance, display: formatBalance(initialProfile.balance) },
+        {
+          id: 'balance',
+          label: '储值余额',
+          value: initialProfile.balance,
+          display: formatBalance(initialProfile.balance)
+        },
         { id: 'points', label: '时光币', value: initialProfile.points },
         { id: 'gift', label: '礼品卡', value: 0 }
       ],
@@ -101,8 +130,7 @@ Page(
         if (item.id === 'balance')
           return Object.assign({}, item, { value: userProfile.balance, display: formatBalance(userProfile.balance) });
         if (item.id === 'coupon') return Object.assign({}, item, { value: userProfile.couponCount });
-        if (item.id === 'gift')
-          return Object.assign({}, item, { value: userProfile.giftCards.length });
+        if (item.id === 'gift') return Object.assign({}, item, { value: userProfile.giftCards.length });
         return item;
       });
       this.setData({
@@ -229,11 +257,14 @@ Page(
       if (typeof this.syncUserCard === 'function') this.syncUserCard();
 
       // 运营配置：我的页功能宫格（后台可编辑）
+      // 取到后按 HIDDEN_PROFILE_FUNCTIONS 过滤，未开发完成的入口不渲染。
       api
         .fetchProfileConfig()
         .then(cfg => {
           if (cfg && Array.isArray(cfg.functions) && cfg.functions.length) {
-            this.setData({ profileFunctions: cfg.functions });
+            this.setData({
+              profileFunctions: cfg.functions.filter(item => !HIDDEN_PROFILE_FUNCTIONS.includes(item.id))
+            });
           }
         })
         .catch(() => null);
@@ -247,7 +278,6 @@ Page(
     },
 
     /** 打开授权弹层（供 login-guard 调用） */
-
 
     /**
      * 用户卡片点击分流：
@@ -351,16 +381,16 @@ Page(
       );
     },
     /**
-     * 打开「我的礼品卡」。
+     * 打开「礼品卡」页。
      *
-     * 必须带 ?tab=mine：gift-card 页的默认 tab 是「buy（购买）」，
-     * 不带参数会落到购买页，用户会以为「点进去没有我的卡」。
-     * 该页 onLoad 已支持 tab=mine 直接切到「我的」。
+     * 不带 ?tab 参数：gift-card 页 onLoad 的默认 tab 是「buy（购买礼品卡）」。
+     * 从「我的」页点卡面 /「查看更多」进入时直接落在购买 Tab，点卡面即可继续下单；
+     * 「我的礼品卡」仍可在页面内切换 Tab 查看。
      */
     openGiftCards() {
       loginGuard.requireLogin(
         () => {
-          wx.navigateTo({ url: '/pages/gift-card/gift-card?tab=mine' });
+          wx.navigateTo({ url: '/pages/gift-card/gift-card' });
         },
         { reason: '登录后可查看礼品卡' }
       );
@@ -376,8 +406,53 @@ Page(
     openMenu() {
       wx.switchTab({ url: '/pages/menu/menu' });
     },
-    openRoleCenter() {
-      wx.navigateTo({ url: '/packageRole/role-center/role-center' });
+    /**
+     * 切换身份：在「消费者」与已开通的经营角色（门店/投资人/资源方）之间切换。
+     * 角色中心入口已移除，身份切换收敛到用户卡片上的角色徽章。
+     * 复用 roles.switchRole / switchToConsumer，开通状态仍以后端 /roles/mine 为准。
+     */
+    switchIdentity() {
+      const currentRoleId = this.data.businessRole && this.data.businessRole.id;
+      const activeRoles = getActiveRoles();
+      const items = ['消费者'];
+      activeRoles.forEach(role => {
+        if (role.id === currentRoleId) {
+          items.push(role.label + '（当前）');
+        } else {
+          items.push(role.label);
+        }
+      });
+      wx.showActionSheet({
+        itemList: items,
+        success: ({ tapIndex }) => {
+          if (tapIndex === 0) {
+            if (currentRoleId) {
+              switchToConsumer();
+              this.syncBusinessRole();
+              wx.showToast({ title: '已切回消费端', icon: 'none' });
+            }
+            return;
+          }
+          const target = activeRoles[tapIndex - 1];
+          if (!target) return;
+          if (target.id === currentRoleId) return;
+          const role = switchRole(target.id);
+          if (!role) {
+            wx.showToast({ title: '该角色尚未开通', icon: 'none' });
+            return;
+          }
+          this.syncBusinessRole();
+          wx.showToast({ title: '已切换为' + role.label, icon: 'none' });
+        }
+      });
+    },
+    /** 切换后回填 businessRole 与角色功能入口。 */
+    syncBusinessRole() {
+      const businessRole = getCurrentBusinessRole();
+      this.setData({
+        businessRole,
+        roleFunctions: buildRoleFunctions(businessRole && businessRole.id)
+      });
     },
     openRoleApply() {
       wx.navigateTo({ url: '/packageRole/role-apply/role-apply' });
@@ -454,7 +529,3 @@ Page(
     }
   })
 );
-
-
-
-

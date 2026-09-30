@@ -150,14 +150,8 @@ assert.equal(location.hasDeviceLocation(), false, '清除后不得再判定为�
 
 // 8. 隐私合规：本模块不得程序化调起 getPhoneNumber / 静默采集
 const source = require('node:fs').readFileSync(path.join(root, 'utils/location.js'), 'utf8');
-assert.ok(
-  !/getPhoneNumber|chooseAvatar|getUserProfile/.test(source),
-  '定位模块不得涉及手机号/头像授权'
-);
-assert.ok(
-  source.includes('scope.userLocation'),
-  '定位模块必须显式使用 scope.userLocation'
-);
+assert.ok(!/getPhoneNumber|chooseAvatar|getUserProfile/.test(source), '定位模块不得涉及手机号/头像授权');
+assert.ok(source.includes('scope.userLocation'), '定位模块必须显式使用 scope.userLocation');
 
 // 9. app.json 必须已声明权限（与 location-permission.test.mjs 呼应）
 const appJson = JSON.parse(require('node:fs').readFileSync(path.join(root, 'app.json'), 'utf8'));
@@ -165,9 +159,6 @@ assert.ok(
   appJson.permission && appJson.permission['scope.userLocation'],
   'app.json 必须声明 permission.scope.userLocation'
 );
-assert.ok(
-  appJson.requiredPrivateInfos.includes('getLocation'),
-  'requiredPrivateInfos 必须包含 getLocation'
-);
+assert.ok(appJson.requiredPrivateInfos.includes('getLocation'), 'requiredPrivateInfos 必须包含 getLocation');
 
 console.log('设备定位授权、降级与就近城市匹配测试通过');

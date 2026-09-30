@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'FinanceAccount'
 });
@@ -13,12 +12,23 @@ import { renderMoney } from '@/views/_shared/render';
 const store = useAdminStore();
 
 const roleLabel = (v: string) =>
-  (({ platform: '平台', store: '门店', resource: '资源方', investor: '投资人', supplier: '供应商' }) as Record<string, string>)[v] ?? v;
+  (
+    ({ platform: '平台', store: '门店', resource: '资源方', investor: '投资人', supplier: '供应商' }) as Record<
+      string,
+      string
+    >
+  )[v] ?? v;
 
 const columns: DataTableColumns<any> = [
   { title: '经营方', key: 'subjectName', width: 150 },
   { title: '角色', key: 'roleType', width: 100, render: (row: any) => roleLabel(row.roleType) },
-  { title: '可提现余额(元)', key: 'availableBalance', width: 140, align: 'right', render: renderMoney('availableBalance') },
+  {
+    title: '可提现余额(元)',
+    key: 'availableBalance',
+    width: 140,
+    align: 'right',
+    render: renderMoney('availableBalance')
+  },
   { title: '冻结余额(元)', key: 'frozenBalance', width: 120, align: 'right', render: renderMoney('frozenBalance') },
   { title: '累计应得(元)', key: 'totalIncome', width: 130, align: 'right', render: renderMoney('totalIncome') },
   { title: '累计已提现(元)', key: 'totalWithdrawn', width: 140, align: 'right', render: renderMoney('totalWithdrawn') }
@@ -73,4 +83,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

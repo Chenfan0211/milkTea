@@ -240,9 +240,7 @@ function locate(options = {}) {
   if (!opts.force) {
     const cached = readCachedCoordinate();
     if (cached) {
-      return Promise.resolve(
-        Object.assign({}, cached, { source: LOCATION_SOURCE.CACHE, granted: true })
-      );
+      return Promise.resolve(Object.assign({}, cached, { source: LOCATION_SOURCE.CACHE, granted: true }));
     }
   }
 

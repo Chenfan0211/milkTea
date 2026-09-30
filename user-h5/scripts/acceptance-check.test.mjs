@@ -207,14 +207,8 @@ assert.ok(
   homeJs.includes('selectOrderMode(event)') && /selectOrderMode[\s\S]*?requireLogin/.test(homeJs),
   '堂食/自提入口必须走 requireLogin'
 );
-assert.ok(
-  /handleShortcut[\s\S]*?stored-value[\s\S]*?requireLogin/.test(homeJs),
-  '储值快捷入口必须走 requireLogin'
-);
-assert.ok(
-  /handleShortcut[\s\S]*?points-mall[\s\S]*?requireLogin/.test(homeJs),
-  '积分商城快捷入口必须走 requireLogin'
-);
+assert.ok(/handleShortcut[\s\S]*?stored-value[\s\S]*?requireLogin/.test(homeJs), '储值快捷入口必须走 requireLogin');
+assert.ok(/handleShortcut[\s\S]*?points-mall[\s\S]*?requireLogin/.test(homeJs), '积分商城快捷入口必须走 requireLogin');
 assert.ok(
   /openJoinApply\(\)\s*\{\s*wx\.navigateTo\(\{ url: '\/packageRole\/role-apply\/role-apply' \}\)/.test(homeJs),
   '加盟合作入口不得要求登录（提交时由 role-apply 拦截）'
@@ -247,7 +241,6 @@ assert.ok(
   '我的页不得锁住原生纵向滚动'
 );
 
-
 // 用户卡片点击分流：头像/昵称 → 个人资料（未登录仍弹登录层）；成长值进度条 → 会员权益。
 assert.ok(
   profileWxml.includes('bindtap="handleUserCardTap"'),
@@ -258,10 +251,7 @@ assert.ok(
     !/user-card__avatar"[^>]*bindtap="openLogin"/.test(profileWxml),
   '我的页用户卡片不得直接绑定 openLogin，必须经 handleUserCardTap 分流'
 );
-assert.ok(
-  profileWxml.includes('class="progress" bindtap="openMemberRights"'),
-  '我的页成长值进度条必须跳转会员权益'
-);
+assert.ok(profileWxml.includes('class="progress" bindtap="openMemberRights"'), '我的页成长值进度条必须跳转会员权益');
 // 手机号必须独立点击（catchtap 阻止冒泡），点它才走手机号授权，不触发整卡跳转。
 assert.ok(
   profileWxml.includes('class="user-card__phone-row" catchtap="handlePhoneTap"'),
@@ -331,32 +321,42 @@ const { orderCategories, exchangeRecordCategories, formatOrderAmount } = require
 
 // 优惠券：V6 seed
 const marketingSeed = readSeed('V6__seed_marketing.sql');
-const coupons = [...marketingSeed.match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
-  .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+)/g)]
-  .map(m => ({
-    id: m[2],
-    title: m[3],
-    type: m[4],
-    amount: Math.round(Number(m[5]) / 100),
-    threshold: Math.round(Number(m[6]) / 100),
-    condition: '满' + Math.round(Number(m[6]) / 100) + '可用',
-    quantity: 1,
-    applicableStoreIds: [],
-    applicableProductIds: []
-  }));
+const coupons = [
+  ...marketingSeed
+    .match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
+    .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+)/g)
+].map(m => ({
+  id: m[2],
+  title: m[3],
+  type: m[4],
+  amount: Math.round(Number(m[5]) / 100),
+  threshold: Math.round(Number(m[6]) / 100),
+  condition: '满' + Math.round(Number(m[6]) / 100) + '可用',
+  quantity: 1,
+  applicableStoreIds: [],
+  applicableProductIds: []
+}));
 
 // 礼品卡分组（V16 seed）
-const giftCardGroups = [...new Set((readSeed('V16__seed_app_data.sql')
-  .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
-  .matchAll(/\('[^']+',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g))
-  .map(m => m[0]))].map(str => {
+const giftCardGroups = [
+  ...new Set(
+    readSeed('V16__seed_app_data.sql')
+      .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
+      .matchAll(/\('[^']+',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)
+      .map(m => m[0])
+  )
+].map(str => {
   const m = str.match(/'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/);
   return { groupId: m[1], groupTitle: m[2], cardName: m[3], cardImage: m[4] };
 });
-const giftCardDenominations = [...new Set((readSeed('V16__seed_app_data.sql')
-  .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
-  .matchAll(/\('[^']+',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*(\d+),\s*(\d+),/g))
-  .map(m => Number(m[1])))].map(fen => ({ faceValue: fen / 100, salePrice: fen / 100 }));
+const giftCardDenominations = [
+  ...new Set(
+    readSeed('V16__seed_app_data.sql')
+      .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
+      .matchAll(/\('[^']+',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*(\d+),\s*(\d+),/g)
+      .map(m => Number(m[1]))
+  )
+].map(fen => ({ faceValue: fen / 100, salePrice: fen / 100 }));
 const initialCartItems = require('../data/mock.js').initialCartItems;
 
 const ordersJs = fs.readFileSync(path.join(root, 'pages/orders/orders.js'), 'utf8');
@@ -438,8 +438,6 @@ assert.ok(
     !orderDetailWxss.includes('round-action'),
   '订单详情不得再显示电话与分享装饰图标'
 );
-
-
 
 assert.ok(
   orderDetailWxml.includes('wx:if="{{item.badgeIcon}}"') &&
@@ -532,7 +530,10 @@ assert.ok(
     !couponPageWxss.includes('coupon-footer'),
   '优惠券页必须移除顶部提醒行与底部三个入口'
 );
-assert.ok(couponPageWxml.includes('coupon-tabs') && couponPageWxml.includes('bindtap="switchTab"'), '优惠券列表必须渲染状态 Tab');
+assert.ok(
+  couponPageWxml.includes('coupon-tabs') && couponPageWxml.includes('bindtap="switchTab"'),
+  '优惠券列表必须渲染状态 Tab'
+);
 assert.ok(
   couponPageJs.includes('switchTab') &&
     couponPageJs.includes("value: 'UNUSED'") &&
@@ -729,7 +730,9 @@ assert.ok(
 );
 assert.ok(!profileWxml.includes('background-color: {{item.color}}'), '我的页礼品卡不得再使用纯色色块');
 assert.ok(
-  profileWxss.includes('.gift-list') && profileWxss.includes('flex-wrap: wrap') && profileWxss.includes('nth-child(2n)'),
+  profileWxss.includes('.gift-list') &&
+    profileWxss.includes('flex-wrap: wrap') &&
+    profileWxss.includes('nth-child(2n)'),
   '我的页礼品卡列表必须为一行两个的网格布局'
 );
 assert.ok(
@@ -744,10 +747,7 @@ assert.ok(
     profileGiftJs.includes('openGiftCards'),
   '我的页礼品卡区块必须跳转礼品卡页'
 );
-assert.ok(
-  true,
-  '个人中心礼品卡必须为卡面图结构'
-);
+assert.ok(true, '个人中心礼品卡必须为卡面图结构');
 
 const giftOrdersWxml = fs.readFileSync(path.join(root, 'pages/gift-card-orders/gift-card-orders.wxml'), 'utf8');
 const giftOrdersWxss = fs.readFileSync(path.join(root, 'pages/gift-card-orders/gift-card-orders.wxss'), 'utf8');
@@ -772,7 +772,9 @@ assert.ok(
   '礼品卡订单必须统一使用 orderNo 完成继续支付、取消和退款'
 );
 assert.ok(
-  !giftOrdersWxml.includes('<qrcode') && !giftOrdersWxml.includes('核销码') && !giftOrdersWxml.includes('请向门店出示此二维码核销'),
+  !giftOrdersWxml.includes('<qrcode') &&
+    !giftOrdersWxml.includes('核销码') &&
+    !giftOrdersWxml.includes('请向门店出示此二维码核销'),
   '礼品卡订单列表不得直接展示核销码与二维码'
 );
 assert.ok(
@@ -882,7 +884,7 @@ assert.ok(
 );
 assert.ok(pointsExchangeWxml.includes('wx:if="{{item.limitText}}"'), '兑换详情限制提示必须允许为空且按条件渲染');
 assert.ok(
-    pointsExchangeJs.includes('decreaseQuantity') &&
+  pointsExchangeJs.includes('decreaseQuantity') &&
     pointsExchangeJs.includes('increaseQuantity') &&
     pointsExchangeJs.includes('handleExchange') &&
     /String\((?:item|product)\.id\)/.test(pointsExchangeJs) &&
@@ -1225,13 +1227,9 @@ assert.ok(
 // 储值余额支付改为「服务端扣款」：
 // 页面不得再本地扣余额（nextBalance 必须已移除），否则换设备余额复原、
 // 且可篡改本地存储超支；余额不足由后端返回业务错误、页面展示其文案。
+assert.ok(!confirmJs.includes('nextBalance'), '储值支付不得在本地扣减余额（必须改由服务端原子扣款）');
 assert.ok(
-  !confirmJs.includes('nextBalance'),
-  '储值支付不得在本地扣减余额（必须改由服务端原子扣款）'
-);
-assert.ok(
-  confirmJs.includes('payOrderByBalance') &&
-    confirmJs.includes('refreshUserProfileFromRemote'),
+  confirmJs.includes('payOrderByBalance') && confirmJs.includes('refreshUserProfileFromRemote'),
   '储值支付必须调用服务端余额支付接口，并在支付后回读服务端余额'
 );
 // 阶段 C：商品储值价由菜单接口提供，不再内置于 data/mock.js
@@ -1239,13 +1237,10 @@ assert.ok(
   confirmJs.includes('refreshCouponsFromRemote') &&
     confirmJs.includes('userCouponId') &&
     confirmJs.includes('clientPaidAmount') &&
-    confirmJs.includes("STORED_VALUE"),
+    confirmJs.includes('STORED_VALUE'),
   '订单确认页必须加载可用券并传递后端计价参数'
 );
-assert.ok(
-  !confirmJs.includes('prepay') && !confirmJs.includes('requestPayment'),
-  '储值余额支付不得调用微信预支付接口'
-);
+assert.ok(!confirmJs.includes('prepay') && !confirmJs.includes('requestPayment'), '储值余额支付不得调用微信预支付接口');
 
 assert.ok(
   !confirmWxml.includes('isGiftCardOrder') &&
@@ -1381,7 +1376,9 @@ assert.ok(!giftPurchaseWxml.includes('tabbar-safe-space'), '礼品卡购买页�
 
 const profileWxssSource = fs.readFileSync(path.join(root, 'pages/profile/profile.wxss'), 'utf8');
 const profileLiterals = [
-  ...new Set([...profileWxssSource.matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0]).filter(c => c.toUpperCase() !== '#FFFFFF'))
+  ...new Set(
+    [...profileWxssSource.matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0]).filter(c => c.toUpperCase() !== '#FFFFFF')
+  )
 ];
 assert.ok(profileLiterals.length === 0, '个人中心样式不得使用颜色字面量（白色除外）');
 const profileBadFonts = [
@@ -1410,7 +1407,10 @@ assert.ok(
     couponStoresJs.includes('showUnavailable'),
   '门店页必须支持券号筛选和未接入提示'
 );
-assert.ok(couponStoresJs.includes('catalog.city ? catalog.city.name'), '券适用门店页必须同步当前城市名称（含城市为空时的降级）');
+assert.ok(
+  couponStoresJs.includes('catalog.city ? catalog.city.name'),
+  '券适用门店页必须同步当前城市名称（含城市为空时的降级）'
+);
 assert.ok(couponStoresWxss.includes('var(--page-gutter)'), '适用门店页必须遵守设计系统页边距 token');
 assert.ok(
   couponStoresWxml.includes('bind:select="handleSelectStore"') &&
@@ -1527,14 +1527,8 @@ const menuJs = fs.readFileSync(path.join(root, 'pages/menu/menu.js'), 'utf8');
 assert.ok(menuWxml.includes('/assets/icons/lucide/map-pin.svg'), '门店距离必须使用 Lucide 定位图标');
 assert.ok(!menuWxml.includes('product-section__title'), '商品区不得显示设计稿外的分类标题');
 assert.ok(menuWxml.includes('count="{{cartCount}}" total="{{cartTotal}}"'), '购物车条必须使用动态数量和金额');
-assert.ok(
-  menuWxml.includes('wx:for="{{activeMenu.groups[0].categories}}"'),
-  '左侧栏必须直接渲染单层分类列表'
-);
-assert.ok(
-  menuWxml.includes('class="category-item {{selectedCategoryId === category.id'),
-  '分类项必须绑定选中状态'
-);
+assert.ok(menuWxml.includes('wx:for="{{activeMenu.groups[0].categories}}"'), '左侧栏必须直接渲染单层分类列表');
+assert.ok(menuWxml.includes('class="category-item {{selectedCategoryId === category.id'), '分类项必须绑定选中状态');
 assert.ok(
   menuWxml.includes('category-item__tag') && menuWxml.includes('{{category.tag}}'),
   '分类项必须渲染左上角标签角标'
@@ -1588,10 +1582,7 @@ assert.ok(
   const mapJson = JSON.parse(fs.readFileSync(path.join(root, 'pages/store-map/store-map.json'), 'utf8'));
   assert.equal(mapJson.renderer, 'webview', '独立地图页必须显式使用 webview 渲染器');
   const mapWxml = fs.readFileSync(path.join(root, 'pages/store-map/store-map.wxml'), 'utf8');
-  assert.ok(
-    mapWxml.includes('<map') && mapWxml.includes('markers="{{markers}}"'),
-    '独立地图页必须渲染地图与 marker'
-  );
+  assert.ok(mapWxml.includes('<map') && mapWxml.includes('markers="{{markers}}"'), '独立地图页必须渲染地图与 marker');
 }
 const menuJsonSource = fs.readFileSync(path.join(root, 'pages/menu/menu.json'), 'utf8');
 // 点单页门店态内嵌原生 <map>（顶部真实地图），Skyline 对原生组件支持受限会白屏，
@@ -1658,10 +1649,7 @@ assert.ok(
   '公共门店卡必须使用白底与 16/20rpx 内边距'
 );
 assert.ok(/\.store-page__filter[\s\S]*?height:\s*104rpx/.test(menuWxss), '门店筛选条必须按参考图增高到 104rpx');
-assert.ok(
-  /\.store-page__list-inner\s*\{[\s\S]*?padding:\s*20rpx/.test(menuWxss),
-  '门店列表必须使用 20rpx 页面边距'
-);
+assert.ok(/\.store-page__list-inner\s*\{[\s\S]*?padding:\s*20rpx/.test(menuWxss), '门店列表必须使用 20rpx 页面边距');
 assert.ok(
   // 门店页是 Tab 页的无门店态，TabBar 常显，因此必须保留 tabbar-safe-space
   menuWxml.includes('tabbar-safe-space'),
@@ -1985,7 +1973,9 @@ assert.ok(
 // 立即购买必须直连结算页，且只带当前选中的这一件商品
 assert.ok(
   !menuJs.includes('立即购买暂未接入') &&
-    /handleSpecBuy\(event\)\s*\{[\s\S]*?globalData\.pendingOrder[\s\S]*?\/pages\/order-confirm\/order-confirm/.test(menuJs),
+    /handleSpecBuy\(event\)\s*\{[\s\S]*?globalData\.pendingOrder[\s\S]*?\/pages\/order-confirm\/order-confirm/.test(
+      menuJs
+    ),
   '立即购买必须直接跳转确认订单页'
 );
 assert.ok(

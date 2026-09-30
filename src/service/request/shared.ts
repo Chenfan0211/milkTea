@@ -30,7 +30,8 @@ export function toChineseError(message?: string | null): string {
   if (lower.includes('timeout') || lower.includes('timed out')) return '请求超时，请稍后重试';
   if (lower.includes('canceled') || lower.includes('cancelled')) return '请求已取消';
   if (lower.includes('status code 500')) return '服务异常，请稍后重试';
-  if (lower.includes('status code 502') || lower.includes('status code 503') || lower.includes('status code 504')) return '服务暂时不可用，请稍后重试';
+  if (lower.includes('status code 502') || lower.includes('status code 503') || lower.includes('status code 504'))
+    return '服务暂时不可用，请稍后重试';
   if (lower.includes('status code 404')) return '请求的资源不存在';
   if (lower.includes('status code 401')) return '登录已过期，请重新登录';
   if (lower.includes('status code 403')) return '没有权限执行该操作';

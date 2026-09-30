@@ -44,21 +44,13 @@ const withImage = decorateGiftCardOrder({
   cardName: '春日抹茶卡',
   cardImage: '/assets/images/3x/gift-card-matcha.jpg'
 });
-assert.equal(
-  withImage.coverImage,
-  '/assets/images/3x/gift-card-matcha.jpg',
-  '礼品卡封面必须取自 cardImage'
-);
+assert.equal(withImage.coverImage, '/assets/images/3x/gift-card-matcha.jpg', '礼品卡封面必须取自 cardImage');
 assert.equal(withImage.title, '春日抹茶卡', '礼品卡标题必须取自 cardName，不能退化成「订单」');
 
 // 2) 缺卡面：必须回落到默认卡面，绝不能是空串（空 src 会渲染成灰块）
 const withoutImage = decorateGiftCardOrder({ cardName: '春日抹茶卡' });
 assert.notEqual(withoutImage.coverImage, '', '卡面缺失时封面不得为空串');
-assert.equal(
-  withoutImage.coverImage,
-  giftCard.DEFAULT_GIFT_CARD_IMAGE,
-  '卡面缺失时必须回落到默认卡面'
-);
+assert.equal(withoutImage.coverImage, giftCard.DEFAULT_GIFT_CARD_IMAGE, '卡面缺失时必须回落到默认卡面');
 
 // 3) 后台远程卡面：必须解析成小程序可访问的绝对地址
 const remoteImage = '/api/v1/files/public/11111111-1111-1111-1111-111111111111.jpg';

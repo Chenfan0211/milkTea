@@ -4,11 +4,7 @@
     "suspicious": "error"
   },
   "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "vue"],
-  "ignorePatterns": [
-    "node_modules/**",
-    "dist/**",
-    "user-h5/**"
-  ],
+  "ignorePatterns": ["node_modules/**", "dist/**", "user-h5/**"],
   "rules": {
     "import/no-unassigned-import": "off",
     "unicorn/consistent-function-scoping": "off",

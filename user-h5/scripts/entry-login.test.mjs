@@ -86,11 +86,7 @@ assert.equal(entry.shouldPromptEntry(1000), true, '未引导过时必须引导')
 entry.markEntryPrompted(1000);
 assert.equal(entry.shouldPromptEntry(1000 + entry.ENTRY_PROMPT_COOLDOWN - 1), false, '冷却期内不得重复引导');
 entry.__resetForTest();
-assert.equal(
-  entry.shouldPromptEntry(1000 + entry.ENTRY_PROMPT_COOLDOWN + 1),
-  true,
-  '冷却期结束后可再次引导'
-);
+assert.equal(entry.shouldPromptEntry(1000 + entry.ENTRY_PROMPT_COOLDOWN + 1), true, '冷却期结束后可再次引导');
 
 // 6. 开关关闭时永不引导（合规兜底）
 entry.setPromptEnabled(false);
@@ -121,7 +117,6 @@ assert.equal(
   'from=pages%2Fcoupon-stores%2Fcoupon-stores&query=couponId%3D9',
   '跳启动页的上下文必须编码'
 );
-
 
 // 8. 登录失败 / 超时时必须标记 ok=false，调用方据此跳过引导（不跳授权页）
 //    这是启动页「登录失败直接放行」判定的契约来源。
@@ -163,13 +158,9 @@ assert.equal(registerResult.ok, true, '未注册态 ok 必须为 true');
 assert.equal(registerResult.needsRegister, true, '未注册态必须标记 needsRegister');
 assert.equal(registerResult.state.hasToken, false, '未注册态不得建立登录态');
 assert.equal(auth.isLoggedIn(), false, '未注册态不得写入 token');
-assert.ok(
-  auth.getRegisterContext() && auth.getRegisterContext().registerToken,
-  '未注册态必须保留一次性注册凭证'
-);
+assert.ok(auth.getRegisterContext() && auth.getRegisterContext().registerToken, '未注册态必须保留一次性注册凭证');
 assert.equal(meCalled, false, '未注册态不得请求 /me');
 wx.request = origRequest;
 console.log('未注册态（registerToken）分支测试通过');
 
 console.log('入口静默登录、超时兜底与引导去重测试通过');
-

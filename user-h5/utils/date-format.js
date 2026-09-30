@@ -30,8 +30,12 @@ function parseDate(value) {
   const matched = text.match(FULL_PATTERN);
   if (matched) {
     return new Date(
-      Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]),
-      Number(matched[4]), Number(matched[5]), Number(matched[6])
+      Number(matched[1]),
+      Number(matched[2]) - 1,
+      Number(matched[3]),
+      Number(matched[4]),
+      Number(matched[5]),
+      Number(matched[6])
     );
   }
   const dateOnly = text.match(DATE_PATTERN);

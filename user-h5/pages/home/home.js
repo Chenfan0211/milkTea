@@ -76,14 +76,18 @@ Page(
       const { id, label } = event.currentTarget.dataset;
       if (id === 'stored-value') {
         loginGuard.requireLogin(
-          () => { wx.navigateTo({ url: '/pages/stored-value/stored-value' }); },
+          () => {
+            wx.navigateTo({ url: '/pages/stored-value/stored-value' });
+          },
           { reason: '登录后即可储值' }
         );
         return;
       }
       if (id === 'points-mall') {
         loginGuard.requireLogin(
-          () => { wx.navigateTo({ url: '/pages/points-mall/points-mall' }); },
+          () => {
+            wx.navigateTo({ url: '/pages/points-mall/points-mall' });
+          },
           { reason: '登录后即可兑换时光币好礼' }
         );
         return;

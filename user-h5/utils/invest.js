@@ -74,8 +74,17 @@ function pad(value) {
 function formatStamp(timestamp) {
   const date = new Date(timestamp);
   return (
-    date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
-    ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds())
+    date.getFullYear() +
+    '-' +
+    pad(date.getMonth() + 1) +
+    '-' +
+    pad(date.getDate()) +
+    ' ' +
+    pad(date.getHours()) +
+    ':' +
+    pad(date.getMinutes()) +
+    ':' +
+    pad(date.getSeconds())
   );
 }
 
@@ -83,7 +92,8 @@ function formatStamp(timestamp) {
 function normalizeRemoteApplication(item) {
   let extra = {};
   try {
-    extra = (item.extra_form && typeof item.extra_form === 'object') ? item.extra_form : JSON.parse(item.extra_form || '{}');
+    extra =
+      item.extra_form && typeof item.extra_form === 'object' ? item.extra_form : JSON.parse(item.extra_form || '{}');
   } catch (error) {
     extra = {};
   }
@@ -92,7 +102,7 @@ function normalizeRemoteApplication(item) {
     id: item.id,
     orderNo: String(item.id),
     investorId: null, // 不再有前端写死的投资人 id；申请人由后端 JWT 识别
-    storeId: item.subject_id == null ? (extra.storeId || null) : item.subject_id,
+    storeId: item.subject_id == null ? extra.storeId || null : item.subject_id,
     storeName: extra.storeName || '',
     cityName: extra.cityName || '',
     address: extra.address || '',
@@ -130,12 +140,15 @@ function refreshInvestCatalog() {
           investorId: store.investorSubjectId || null
         }));
       }
-      return api.fetchCities().then(cities => {
-        if (Array.isArray(cities) && cities.length) {
-          cityCatalog = cities.map(c => ({ code: c.code, name: c.name }));
-        }
-        return { stores: storeCatalog, cities: cityCatalog };
-      }).catch(() => ({ stores: storeCatalog, cities: cityCatalog }));
+      return api
+        .fetchCities()
+        .then(cities => {
+          if (Array.isArray(cities) && cities.length) {
+            cityCatalog = cities.map(c => ({ code: c.code, name: c.name }));
+          }
+          return { stores: storeCatalog, cities: cityCatalog };
+        })
+        .catch(() => ({ stores: storeCatalog, cities: cityCatalog }));
     })
     .catch(() => ({ stores: storeCatalog, cities: cityCatalog }));
 }
@@ -157,19 +170,21 @@ function refreshInvestApplications() {
 
 /** 直接注入门店/城市目录（仅供测试使用，绕过 api 调用）。 */
 function setInvestCatalogForTest(stores, cities) {
-  storeCatalog = Array.isArray(stores) ? stores.map(s => ({
-    id: s.code || String(s.id),
-    subjectId: Number(s.subjectId || s.id) || null,
-    name: s.name,
-    city: s.city || '',
-    cityCode: s.cityCode || (s.city === '广州市' ? 'guangzhou' : s.city === '深圳市' ? 'shenzhen' : 'changsha'),
-    address: s.address || '',
-    phone: s.phone || '',
-    businessHours: s.businessHours || '10:00-22:00',
-    status: s.status || 'enabled',
-    investorSubjectId: s.investorSubjectId || null,
-    investorId: s.investorId || s.investorSubjectId || null
-  })) : [];
+  storeCatalog = Array.isArray(stores)
+    ? stores.map(s => ({
+        id: s.code || String(s.id),
+        subjectId: Number(s.subjectId || s.id) || null,
+        name: s.name,
+        city: s.city || '',
+        cityCode: s.cityCode || (s.city === '广州市' ? 'guangzhou' : s.city === '深圳市' ? 'shenzhen' : 'changsha'),
+        address: s.address || '',
+        phone: s.phone || '',
+        businessHours: s.businessHours || '10:00-22:00',
+        status: s.status || 'enabled',
+        investorSubjectId: s.investorSubjectId || null,
+        investorId: s.investorId || s.investorSubjectId || null
+      }))
+    : [];
   cityCatalog = Array.isArray(cities) ? cities.map(c => ({ code: c.code, name: c.name })) : [];
   return storeCatalog;
 }
@@ -188,8 +203,11 @@ function getCityName(cityCode) {
 // 是否已签约：门店绑定的投资人主体 id 等于当前投资人主体 id。
 // investorSubjectId 是数字（biz_subject.investor_subject_id），需与当前用户一致才算「我签的」。
 function isSignedByMe(store, investorSubjectId) {
-  return Boolean(investorSubjectId) && Boolean(store.investorSubjectId) &&
-    Number(store.investorSubjectId) === Number(investorSubjectId);
+  return (
+    Boolean(investorSubjectId) &&
+    Boolean(store.investorSubjectId) &&
+    Number(store.investorSubjectId) === Number(investorSubjectId)
+  );
 }
 
 // 点位主列表：展示所有启用门店，按申请人视角标记可申请 / 审核中 / 已签约 / 已停用。
@@ -198,7 +216,9 @@ function isSignedByMe(store, investorSubjectId) {
 function getSpots(investorSubjectId) {
   const applications = applicationList;
   return storeCatalog.map(store => {
-    const pending = applications.find(item => Number(item.storeId) === Number(store.subjectId) && item.status === 'pending');
+    const pending = applications.find(
+      item => Number(item.storeId) === Number(store.subjectId) && item.status === 'pending'
+    );
     const signedByMe = isSignedByMe(store, investorSubjectId);
     let spotStatus = 'available';
     if (store.status !== 'enabled') {
@@ -231,9 +251,11 @@ function getSpotById(storeId, investorSubjectId) {
 }
 
 function listApplications() {
-  return applicationList.map(item => Object.assign({}, item, {
-    statusLabel: INVEST_STATUS_TEXT[item.status.toUpperCase()] || item.status
-  }));
+  return applicationList.map(item =>
+    Object.assign({}, item, {
+      statusLabel: INVEST_STATUS_TEXT[item.status.toUpperCase()] || item.status
+    })
+  );
 }
 
 // 申请统计：可投点位 / 已签约 / 审核中 / 已驳回

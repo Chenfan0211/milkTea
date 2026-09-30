@@ -99,9 +99,7 @@ function normalizeRemoteCoupon(item) {
     paymentRestriction: '',
     description: source.description || '',
     source: source.source || '',
-    effectiveDelayDays: Number.isFinite(Number(source.effectiveDelayDays))
-      ? Number(source.effectiveDelayDays)
-      : 0,
+    effectiveDelayDays: Number.isFinite(Number(source.effectiveDelayDays)) ? Number(source.effectiveDelayDays) : 0,
     effectiveDelayText: buildEffectiveDelayText(source),
     expired: source.usable === false || Boolean(source.expired),
     usable: source.usable !== false,

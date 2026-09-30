@@ -64,7 +64,12 @@ for (const [label, wxml, json] of [
 }
 assert.ok(panelWxml.includes('等级说明'), '会员面板必须包含等级说明入口');
 assert.ok(panelWxml.includes('当前等级'), '会员卡必须标记当前等级');
-assert.ok(panelWxss.includes('.member-card__badge') && panelWxss.includes('background: var(--brand-green)') && panelWxss.includes('font-weight: 600'), '当前等级角标必须使用品牌绿高对比样式');
+assert.ok(
+  panelWxss.includes('.member-card__badge') &&
+    panelWxss.includes('background: var(--brand-green)') &&
+    panelWxss.includes('font-weight: 600'),
+  '当前等级角标必须使用品牌绿高对比样式'
+);
 assert.ok(panelWxml.includes('永久有效'), '会员卡必须展示永久有效');
 assert.ok(panelWxml.includes('member-card__badge--permanent'), '永久有效必须改为胶囊标签');
 assert.ok(panelWxml.includes('wx:if="{{item.isReached}}"'), '永久有效只应在已达成等级显示');
@@ -77,12 +82,16 @@ assert.ok(panelWxml.includes('lock-muted.svg'), '未达成等级卡片必须使�
 assert.ok(!panelWxml.includes('真茶屋'), '会员卡不得照搬参考图品牌');
 
 // 横向卡组与进度轴
-assert.ok(panelWxml.includes('class="member-cards"') && panelWxml.includes('scroll-x') && panelWxml.includes('show-scrollbar="{{false}}"'), '会员卡必须使用 scroll-view 横向滑动且关闭滚动条');
+assert.ok(
+  panelWxml.includes('class="member-cards"') &&
+    panelWxml.includes('scroll-x') &&
+    panelWxml.includes('show-scrollbar="{{false}}"'),
+  '会员卡必须使用 scroll-view 横向滑动且关闭滚动条'
+);
 assert.ok(panelWxml.includes('member-cards__track'), '会员卡必须为横向滑动卡组');
 const memberCardsRule = panelWxss.match(/\.member-cards\s*\{[\s\S]*?\}/)?.[0] || '';
 assert.ok(
-  memberCardsRule.includes('width: 100%') &&
-    memberCardsRule.includes('white-space: nowrap'),
+  memberCardsRule.includes('width: 100%') && memberCardsRule.includes('white-space: nowrap'),
   '会员卡横向容器必须为全宽且不换行'
 );
 assert.ok(panelWxml.includes('wx:for="{{axis}}"'), '会员面板必须渲染成长值进度轴');
@@ -186,13 +195,15 @@ assert.ok(!lv3Benefits.some(text => text.includes('3张')), 'Lv3 不得叠加 Lv
 const { calcMemberPrice, getUserLevel } = require(path.join(root, 'utils/member-level.js'));
 const { buildLevelMeta, setMemberLevels } = require(path.join(root, 'utils/member-level.js'));
 // 等级数据来自数据库 seed：同步注入后再做成长值判定
-setMemberLevels(memberLevels.map(item => ({
-  levelCode: item.level,
-  name: item.name,
-  amountTarget: item.amountTarget * 100,
-  discount: item.discount,
-  benefits: JSON.stringify(item.benefits)
-})));
+setMemberLevels(
+  memberLevels.map(item => ({
+    levelCode: item.level,
+    name: item.name,
+    amountTarget: item.amountTarget * 100,
+    discount: item.discount,
+    benefits: JSON.stringify(item.benefits)
+  }))
+);
 const cases = [
   [{ totalSpend: 10 }, '时光卡'],
   [{ totalSpend: 320 }, '星享卡'],

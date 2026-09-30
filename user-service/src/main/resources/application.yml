@@ -93,4 +93,4 @@ logging:
     REQUEST: INFO
   # 日志输出格式：带 traceId 便于串联同一次调用的多行日志
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n'

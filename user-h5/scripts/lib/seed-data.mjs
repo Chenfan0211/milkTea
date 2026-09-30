@@ -25,7 +25,7 @@ export function readAppConfig(key, sql) {
   const idx = source.indexOf(marker);
   if (idx < 0) return null;
   // marker 之后是 '显示名', 再往后是 JSON 值
-  const afterName = source.indexOf(",", source.indexOf("'", idx + marker.length + 1));
+  const afterName = source.indexOf(',', source.indexOf("'", idx + marker.length + 1));
   if (afterName < 0) return null;
   return extractJson(source, afterName + 1);
 }
@@ -64,7 +64,11 @@ export function loadStores() {
     names[Number(m[1])] = { name: m[2], type: m[3] };
   }
   const profileInsert = sql.match(/INSERT INTO store_profile \([\s\S]*?;/)[0];
-  return [...profileInsert.matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+|NULL),\s*'([^']+)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\)/g)].map(m => ({
+  return [
+    ...profileInsert.matchAll(
+      /\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+|NULL),\s*'([^']+)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\)/g
+    )
+  ].map(m => ({
     id: STORE_CODES[Number(m[1])],
     code: STORE_CODES[Number(m[1])],
     name: (names[Number(m[1])] || {}).name || '',
@@ -91,9 +95,11 @@ export function loadStores() {
 /** 解析菜单（product_category + product），结构与 /api/v1/app/menu 一致。 */
 export function loadMenu() {
   const sql = readSeed('V4__seed_product.sql');
-  const cats = [...sql.match(/INSERT INTO product_category[\s\S]*?;/)[0]
-    .matchAll(/\((\d+),\s*(\d+),\s*'([^']+)',\s*'([^']+)',\s*'(TAB|GROUP|CATEGORY)',\s*\d+\)/g)]
-    .map(m => ({ id: Number(m[1]), parentId: Number(m[2]), code: m[3], name: m[4], type: m[5] }));
+  const cats = [
+    ...sql
+      .match(/INSERT INTO product_category[\s\S]*?;/)[0]
+      .matchAll(/\((\d+),\s*(\d+),\s*'([^']+)',\s*'([^']+)',\s*'(TAB|GROUP|CATEGORY)',\s*\d+\)/g)
+  ].map(m => ({ id: Number(m[1]), parentId: Number(m[2]), code: m[3], name: m[4], type: m[5] }));
 
   // V4 的 product INSERT 列顺序：
   //   id, product_id, code, name, category_id, tags, description, price,
@@ -149,7 +155,9 @@ export function loadMenu() {
   }
   // V4 的 product_spec.product_id 引用 product.id（数字主键），这里映射为业务 ID
   const productIdByPk = {};
-  rows.forEach((values, index) => { productIdByPk[index + 1] = values[1]; });
+  rows.forEach((values, index) => {
+    productIdByPk[index + 1] = values[1];
+  });
   for (const prod of prods) {
     const pk = Object.keys(productIdByPk).find(key => productIdByPk[key] === prod.id);
     prod.specGroups = (specGroupsByProduct[Number(pk)] || []).map(g => ({
@@ -193,7 +201,10 @@ function splitSqlRows(block) {
   const rows = [];
   let i = 0;
   while (i < block.length) {
-    if (block[i] !== '(') { i += 1; continue; }
+    if (block[i] !== '(') {
+      i += 1;
+      continue;
+    }
     const values = [];
     let current = '';
     let inString = false;
@@ -201,14 +212,32 @@ function splitSqlRows(block) {
     for (; i < block.length; i += 1) {
       const ch = block[i];
       if (inString) {
-        if (ch === "'" && block[i + 1] === "'") { current += "'"; i += 1; continue; }
-        if (ch === "'") { inString = false; continue; }
+        if (ch === "'" && block[i + 1] === "'") {
+          current += "'";
+          i += 1;
+          continue;
+        }
+        if (ch === "'") {
+          inString = false;
+          continue;
+        }
         current += ch;
         continue;
       }
-      if (ch === "'") { inString = true; continue; }
-      if (ch === ',') { values.push(normalizeValue(current)); current = ''; continue; }
-      if (ch === ')') { values.push(normalizeValue(current)); i += 1; break; }
+      if (ch === "'") {
+        inString = true;
+        continue;
+      }
+      if (ch === ',') {
+        values.push(normalizeValue(current));
+        current = '';
+        continue;
+      }
+      if (ch === ')') {
+        values.push(normalizeValue(current));
+        i += 1;
+        break;
+      }
       current += ch;
     }
     rows.push(values);
@@ -238,4 +267,3 @@ export function loadMemberLevels() {
     sort: Number(m[6])
   }));
 }
-

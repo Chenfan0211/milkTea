@@ -14,7 +14,10 @@ const MIGRATION = 'server/src/main/resources/db/migration/V59__points_earning_ru
 let failed = 0;
 function check(ok, msg) {
   if (ok) console.log(`  ✓ ${msg}`);
-  else { console.error(`  ✗ ${msg}`); failed += 1; }
+  else {
+    console.error(`  ✗ ${msg}`);
+    failed += 1;
+  }
 }
 
 console.log('检查 1：V59 迁移存在且含结构化字段');

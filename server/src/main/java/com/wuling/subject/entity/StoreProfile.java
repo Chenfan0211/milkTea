@@ -20,6 +20,8 @@ public class StoreProfile {
     private String code;
     private String city;
     private Long cityId;
+    /** 绑定的活动城市 id（V71 新增，强约束白名单） */
+    private Long activityCityId;
     private String address;
     private String phone;
     private BigDecimal latitude;

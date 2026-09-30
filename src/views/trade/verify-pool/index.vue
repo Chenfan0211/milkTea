@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'TradeVerifyPool'
 });
@@ -74,4 +73,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

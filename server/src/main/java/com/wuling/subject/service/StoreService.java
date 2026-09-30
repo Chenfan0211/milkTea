@@ -62,6 +62,11 @@ public class StoreService {
             if (profile == null) {
                 continue;
             }
+            // 活动城市白名单：门店必须绑定 enabled 的活动城市才对外返回，
+            // 杜绝「有门店但城市未开通」的矛盾（V71）。
+            if (!isActivityCityEnabled(profile.getActivityCityId())) {
+                continue;
+            }
             AppStoreDTO dto = new AppStoreDTO();
             dto.setId(subject.getId());
             dto.setCode(subject.getCode());
@@ -121,6 +126,7 @@ public class StoreService {
         if (profile != null) {
             dto.setCity(profile.getCity());
             dto.setCityId(profile.getCityId());
+            dto.setActivityCityId(profile.getActivityCityId());
             dto.setBusinessStatus(profile.getBusinessStatus());
             dto.setManager(profile.getManager());
             dto.setLocation(profile.getAddress());
@@ -210,6 +216,7 @@ public class StoreService {
         if (!StringUtils.hasText(profile.getCode())) profile.setCode(fallbackCode);
         profile.setCity(upsert.getCity());
         profile.setCityId(upsert.getCityId());
+        if (upsert.getActivityCityId() != null) profile.setActivityCityId(upsert.getActivityCityId());
         profile.setAddress(upsert.getLocation());
         profile.setPhone(upsert.getPhone());
         profile.setStoreType(upsert.getStoreType());
@@ -247,6 +254,23 @@ public class StoreService {
     }
 
     /** 按 city_id 反查 region.code（国标行政区划码），供前端就近排序与城市过滤使用。 */
+    /**
+     * 判断门店绑定的活动城市是否 enabled（V71 白名单）。
+     * activity_city_id 为空视为未绑定，不对外返回。
+     */
+    private boolean isActivityCityEnabled(Long activityCityId) {
+        if (activityCityId == null) return false;
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                    "select count(*) from activity_city where id = ? and status = 'enabled' and deleted = 0",
+                    Integer.class, activityCityId);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.warn("查询活动城市失败 id={} err={}", activityCityId, e.getMessage());
+            return false;
+        }
+    }
+
     private String resolveCityCode(Long cityId) {
         if (cityId == null) return null;
         try {
@@ -281,6 +305,7 @@ public class StoreService {
         private String name;
         private String city;
         private Long cityId;
+        private Long activityCityId;
         private String manager;
         private String location;
         private String phone;

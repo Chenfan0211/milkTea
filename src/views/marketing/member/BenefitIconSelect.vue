@@ -64,7 +64,12 @@ const iconModules = import.meta.glob('/src/assets/lucide/*.svg', {
 }) as Record<string, string>;
 
 function iconNameFromPath(path: string) {
-  return path.split('/').pop()?.replace(/\.svg$/, '') ?? '';
+  return (
+    path
+      .split('/')
+      .pop()
+      ?.replace(/\.svg$/, '') ?? ''
+  );
 }
 
 const iconUrlMap = Object.fromEntries(

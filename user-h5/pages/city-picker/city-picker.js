@@ -1,5 +1,11 @@
 const { withShare } = require('../../utils/share');
-const { getCityByCode, getCityList, refreshCitiesFromRemote, resolveStoreCatalog, selectCity } = require('../../utils/store');
+const {
+  getCityByCode,
+  getCityList,
+  refreshCitiesFromRemote,
+  resolveStoreCatalog,
+  selectCity
+} = require('../../utils/store');
 
 /** 城市名首字 -> 分组键（省份名，或直辖市用「直辖市」） */
 function provinceKey(city) {
@@ -50,7 +56,7 @@ Page(
       const currentGroup = groups.find(group => group.cities.some(c => c.code === currentCityCode));
       this.setData({
         currentCityCode,
-        currentLetter: currentGroup ? currentGroup.letter : (currentCity ? currentCity.name.slice(0, 1) : '湖')
+        currentLetter: currentGroup ? currentGroup.letter : currentCity ? currentCity.name.slice(0, 1) : '湖'
       });
     },
     scrollToLetter(event) {

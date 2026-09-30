@@ -27,10 +27,10 @@
 项目里还有 5 个页面同样是「列表 + 弹窗」结构，但它们都用 `<div class="page-root">` 包了一层，
 所以是单根。**只有 `channel` 页漏了这个容器** —— 这正是本项目已确立的写法约定：
 
-| 页面 | 是否包裹 |
-|------|---------|
+| 页面                                                                                    | 是否包裹                        |
+| --------------------------------------------------------------------------------------- | ------------------------------- |
 | `marketing/gift`、`marketing/member`、`marketing/stored`、`product/list`、`trade/order` | ✅ 有 `<div class="page-root">` |
-| `subject/channel` | ❌ **缺失（本次修复）** |
+| `subject/channel`                                                                       | ❌ **缺失（本次修复）**         |
 
 ---
 
@@ -51,7 +51,7 @@
 ```html
 <template>
   <!-- 说明注释 -->
-  <div class="page-root"> ... </div>
+  <div class="page-root">...</div>
 </template>
 ```
 
@@ -60,10 +60,10 @@
 原因：Vue 会把模板内的**顶层注释也算作一个根节点**，与 `<div>` 并列 → 仍是多根。
 实测对照：
 
-| 模板内容 | 编译后根节点 |
-|---------|-------------|
-| 顶层有注释 + 1 个 div | **Fragment** ❌ |
-| 去掉注释，只有 1 个 div | 单个 div ✅ |
+| 模板内容                | 编译后根节点    |
+| ----------------------- | --------------- |
+| 顶层有注释 + 1 个 div   | **Fragment** ❌ |
+| 去掉注释，只有 1 个 div | 单个 div ✅     |
 
 **修正**：注释移到 `<template>` **外面**。
 
@@ -73,20 +73,20 @@
 
 ## 四、新增 CI 守卫
 
-| 文件 | 说明 |
-|------|------|
-| `scripts/vue-single-root.test.mjs` | 用真实 Vue 编译器判定每个页面的根节点 |
-| `.github/workflows/vue-single-root.yml` | PR / push 时自动运行 |
-| `package.json` | 新增 `check:vue-root`，并加入 `pre-commit` 钩子 |
+| 文件                                    | 说明                                            |
+| --------------------------------------- | ----------------------------------------------- |
+| `scripts/vue-single-root.test.mjs`      | 用真实 Vue 编译器判定每个页面的根节点           |
+| `.github/workflows/vue-single-root.yml` | PR / push 时自动运行                            |
+| `package.json`                          | 新增 `check:vue-root`，并加入 `pre-commit` 钩子 |
 
 ### 判定方式（写错过一版，故记录）
 
 只看 **render 函数首个 `return` 实际创建的是什么**：
 
-| 产物 | 含义 |
-|------|------|
-| `createElementBlock(_Fragment, ...)` | 多根 ❌ |
-| `createElementBlock("div", ...)` | 单元素根 ✅ |
+| 产物                                 | 含义        |
+| ------------------------------------ | ----------- |
+| `createElementBlock(_Fragment, ...)` | 多根 ❌     |
+| `createElementBlock("div", ...)`     | 单元素根 ✅ |
 
 **不能全文搜 `Fragment`**：模板里只要用了 `v-for`，编译器就会
 `import { Fragment as _Fragment }`，全文匹配会**大面积误报**
@@ -96,24 +96,24 @@
 
 ## 五、验证
 
-| 验证项 | 结果 |
-|--------|------|
-| **守卫有效性（双实验）** | 还原成双根 → 如期失败并报「2 个并列根元素」；模板内加注释 → 如期失败并报「顶层非元素节点」；恢复后 SHA256 一致 ✅ |
-| Vue 编译器判定（dev + prod 模式） | 根节点均为 `createElementBlock("div", ...)`，非 Fragment ✅ |
-| dev server 实际编译产物 | 无 Fragment，render 首行为 `_createElementBlock("div", _hoisted_1, [...])` ✅ |
-| 扫描全部页面 | **59/59 通过，零误报** ✅ |
-| `npm run typecheck` | exit 0 ✅ |
-| oxlint（改动文件）| 0 错误 0 警告 ✅ |
-| 生产构建 | 成功；channel chunk 含 `page-root` ✅ |
+| 验证项                            | 结果                                                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **守卫有效性（双实验）**          | 还原成双根 → 如期失败并报「2 个并列根元素」；模板内加注释 → 如期失败并报「顶层非元素节点」；恢复后 SHA256 一致 ✅ |
+| Vue 编译器判定（dev + prod 模式） | 根节点均为 `createElementBlock("div", ...)`，非 Fragment ✅                                                       |
+| dev server 实际编译产物           | 无 Fragment，render 首行为 `_createElementBlock("div", _hoisted_1, [...])` ✅                                     |
+| 扫描全部页面                      | **59/59 通过，零误报** ✅                                                                                         |
+| `npm run typecheck`               | exit 0 ✅                                                                                                         |
+| oxlint（改动文件）                | 0 错误 0 警告 ✅                                                                                                  |
+| 生产构建                          | 成功；channel chunk 含 `page-root` ✅                                                                             |
 
 ---
 
 ## 六、部署
 
-| 项 | 内容 |
-|----|------|
-| 前端 | `/opt/wuling/web`（仅前端，后端与数据库未动）|
-| 备份 | `/opt/wuling/backup/web-pre-rootfix-20260925-151628.tar.gz` |
+| 项   | 内容                                                                                                                 |
+| ---- | -------------------------------------------------------------------------------------------------------------------- |
+| 前端 | `/opt/wuling/web`（仅前端，后端与数据库未动）                                                                        |
+| 备份 | `/opt/wuling/backup/web-pre-rootfix-20260925-151628.tar.gz`                                                          |
 | 回滚 | `rm -rf /opt/wuling/web && mv /opt/wuling/web.old-rootfix-20260925-151628 /opt/wuling/web && systemctl reload nginx` |
 
 ---

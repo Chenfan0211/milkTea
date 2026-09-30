@@ -19,6 +19,7 @@ if (generic.isEmpty()) continue;   // 走专用接口的页面直接跳过
 也不被原测试扫描 —— **恰好落在盲区里**。
 
 这与 `docs/superpowers/plans/2026-09-25-field-write-audit.md` 第 8 节自己记录的覆盖缺口一致：
+
 > 只校验 onSubmit 内真正走通用 CRUD 的写入……走专用接口的页面不参与校验，避免误报。
 
 **「避免误报」的代价就是「真实问题被漏掉」。** 本检查补齐该路径。
@@ -27,30 +28,30 @@ if (generic.isEmpty()) continue;   // 走专用接口的页面直接跳过
 
 ## 二、新增内容
 
-| 文件 | 说明 |
-|------|------|
-| `server/src/test/java/com/wuling/common/DedicatedEndpointConsistencyTest.java` | 新增检查（3 个用例）|
-| `.github/workflows/field-write-consistency.yml` | 改为同时运行两个测试类，并补充触发路径 |
-| `server/src/test/java/com/wuling/common/FieldWriteConsistencyTest.java` | 补充 javadoc，指向新检查（说明盲区已补）|
+| 文件                                                                           | 说明                                     |
+| ------------------------------------------------------------------------------ | ---------------------------------------- |
+| `server/src/test/java/com/wuling/common/DedicatedEndpointConsistencyTest.java` | 新增检查（3 个用例）                     |
+| `.github/workflows/field-write-consistency.yml`                                | 改为同时运行两个测试类，并补充触发路径   |
+| `server/src/test/java/com/wuling/common/FieldWriteConsistencyTest.java`        | 补充 javadoc，指向新检查（说明盲区已补） |
 
 ### 三个用例
 
-| 用例 | 校验内容 |
-|------|---------|
-| `directColumnKeysMustBeReturnedByBackend` | 专用接口页面的表格列**直读字段**必须被后端实现真实返回 |
+| 用例                                       | 校验内容                                                             |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| `directColumnKeysMustBeReturnedByBackend`  | 专用接口页面的表格列**直读字段**必须被后端实现真实返回               |
 | `pagesCallingDedicatedApiMustBeRegistered` | 调用专用接口的页面必须登记在 `COVERED_PAGES`，防止新页面游离在检查外 |
-| `columnParserMustActuallyFindColumns` | 自检：解析器必须真能提取到列，否则测试形同虚设 |
+| `columnParserMustActuallyFindColumns`      | 自检：解析器必须真能提取到列，否则测试形同虚设                       |
 
 ### 已覆盖页面（6 个）
 
-| 页面 | 专用接口 | 后端实现 |
-|------|---------|---------|
-| `subject/channel/index.vue` | `createSubjectChannel` / `updateSubjectChannel` | `AdminSubjectProfileController` |
-| `subject/investor/index.vue` | `createSubjectInvestor` / `updateSubjectInvestor` | 同上 |
-| `subject/supplier/index.vue` | `createSubjectSupplier` / `updateSubjectSupplier` | 同上 |
-| `subject/platform/index.vue` | `fetchPlatformProfile` / `savePlatformProfile` | `PlatformProfileController` |
-| `subject/channel/ChannelStoreDialog.vue` | `fetchChannelStores` / `unbindChannelStores` | `SubjectBindingController` |
-| `marketing/points-rule/index.vue` | `fetchSigninRule` | `AdminMarketingConfigController`（**marketing-service**）|
+| 页面                                     | 专用接口                                          | 后端实现                                                  |
+| ---------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| `subject/channel/index.vue`              | `createSubjectChannel` / `updateSubjectChannel`   | `AdminSubjectProfileController`                           |
+| `subject/investor/index.vue`             | `createSubjectInvestor` / `updateSubjectInvestor` | 同上                                                      |
+| `subject/supplier/index.vue`             | `createSubjectSupplier` / `updateSubjectSupplier` | 同上                                                      |
+| `subject/platform/index.vue`             | `fetchPlatformProfile` / `savePlatformProfile`    | `PlatformProfileController`                               |
+| `subject/channel/ChannelStoreDialog.vue` | `fetchChannelStores` / `unbindChannelStores`      | `SubjectBindingController`                                |
+| `marketing/points-rule/index.vue`        | `fetchSigninRule`                                 | `AdminMarketingConfigController`（**marketing-service**） |
 
 > 注意：签到规则的后端实现在 `marketing-service` 模块，不在 `server`。
 > 测试按<b>仓库相对路径</b>直接读文件（不依赖 Maven 模块），故 CI 用 `-pl server` 即可。
@@ -62,11 +63,11 @@ if (generic.isEmpty()) continue;   // 走专用接口的页面直接跳过
 这是本检查最大的风险 —— 静态分析极易误报，误报一多就会被人为忽略，检查等于失效。
 过程中实测踩到并处理了 3 类误报：
 
-| # | 误报情形 | 处理 |
-|---|---------|------|
-| 1 | **有自定义 `render` 的列**：如平台页 `key:'appId'` 实际读 `row.appid`，列 key 只是展示标识 | 有 render 的列**不按 key 校验** |
-| 2 | **本地派生字段**：如 `balance` 由 `subjectAccounts` 镜像本地算出，本就不来自专用接口 | 白名单 `LOCAL_DERIVED_FIELDS`，**每条必须注明理由** |
-| 3 | **多接口页面**：平台页同时用平台档案接口 + 通用 CRUD | 后端字段取<b>并集</b>判断 |
+| #   | 误报情形                                                                                   | 处理                                                |
+| --- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| 1   | **有自定义 `render` 的列**：如平台页 `key:'appId'` 实际读 `row.appid`，列 key 只是展示标识 | 有 render 的列**不按 key 校验**                     |
+| 2   | **本地派生字段**：如 `balance` 由 `subjectAccounts` 镜像本地算出，本就不来自专用接口       | 白名单 `LOCAL_DERIVED_FIELDS`，**每条必须注明理由** |
+| 3   | **多接口页面**：平台页同时用平台档案接口 + 通用 CRUD                                       | 后端字段取<b>并集</b>判断                           |
 
 > 白名单刻意要求「注明理由」，避免它退化成「万能兜底」而让检查失去意义。
 
@@ -76,11 +77,11 @@ if (generic.isEmpty()) continue;   // 走专用接口的页面直接跳过
 
 为避免「永远通过的空壳检查」，**故意注入错误验证测试真的会失败**：
 
-| 实验 | 操作 | 结果 |
-|------|------|------|
-| 1 | 把 `supplier` 页列 key 改为后端不存在的 `productCountTypo` | ✅ 测试失败，报错精确到文件与字段名 |
-| 2 | 从 `COVERED_PAGES` 移除 `investor/index.vue` | ✅ 测试报「未登记」并列出该文件 |
-| 3 | 实验后恢复文件 | ✅ SHA256 与实验前**完全一致**，无残留改动 |
+| 实验 | 操作                                                       | 结果                                       |
+| ---- | ---------------------------------------------------------- | ------------------------------------------ |
+| 1    | 把 `supplier` 页列 key 改为后端不存在的 `productCountTypo` | ✅ 测试失败，报错精确到文件与字段名        |
+| 2    | 从 `COVERED_PAGES` 移除 `investor/index.vue`               | ✅ 测试报「未登记」并列出该文件            |
+| 3    | 实验后恢复文件                                             | ✅ SHA256 与实验前**完全一致**，无残留改动 |
 
 实验 1 的实际报错输出：
 
@@ -95,12 +96,12 @@ if (generic.isEmpty()) continue;   // 走专用接口的页面直接跳过
 
 ## 五、验证结果
 
-| 验证项 | 结果 |
-|--------|------|
-| `server` 模块全量测试 | **51/51 通过**（48 原有 + 3 新增）|
-| CI 精确命令（`-pl server -am -Dtest=...,...`）| **5/5 通过**（2 原有 + 3 新增）|
-| 测试自身有效性 | 2 个注入实验均如期失败，恢复后字节一致 ✅ |
-| 页面登记完整性 | 6 个专用接口页面全部登记，无遗漏 ✅ |
+| 验证项                                         | 结果                                      |
+| ---------------------------------------------- | ----------------------------------------- |
+| `server` 模块全量测试                          | **51/51 通过**（48 原有 + 3 新增）        |
+| CI 精确命令（`-pl server -am -Dtest=...,...`） | **5/5 通过**（2 原有 + 3 新增）           |
+| 测试自身有效性                                 | 2 个注入实验均如期失败，恢复后字节一致 ✅ |
+| 页面登记完整性                                 | 6 个专用接口页面全部登记，无遗漏 ✅       |
 
 ---
 

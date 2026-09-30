@@ -304,25 +304,30 @@ const pointsSignIn = readAppConfig('points_signin', readSeed('V16__seed_app_data
 
 // 优惠券：V6 seed
 const marketingSeed = readSeed('V6__seed_marketing.sql');
-const coupons = [...marketingSeed.match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
-  .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+)/g)]
-  .map(m => ({
-    id: m[2],
-    title: m[3],
-    type: m[4],
-    amount: Math.round(Number(m[5]) / 100),
-    threshold: Math.round(Number(m[6]) / 100),
-    condition: '满' + Math.round(Number(m[6]) / 100) + '可用',
-    quantity: 1,
-    applicableStoreIds: [],
-    applicableProductIds: []
-  }));
+const coupons = [
+  ...marketingSeed
+    .match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
+    .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+)/g)
+].map(m => ({
+  id: m[2],
+  title: m[3],
+  type: m[4],
+  amount: Math.round(Number(m[5]) / 100),
+  threshold: Math.round(Number(m[6]) / 100),
+  condition: '满' + Math.round(Number(m[6]) / 100) + '可用',
+  quantity: 1,
+  applicableStoreIds: [],
+  applicableProductIds: []
+}));
 
 // 积分商品与礼品卡：V6 / V16 seed
 // 积分商品：V6 初始化 2 条，V16 补齐为 4 条（与小程序展出商品一致）
 // V6 初始化 2 条，V16 补齐 3 条（并把分类/券字段回填）
-const pointsProductSql = readSeed('V6__seed_marketing.sql').match(/INSERT INTO points_product \(id, code[\s\S]*?;/)[0]
-  + readSeed('V16__seed_app_data.sql').match(/INSERT INTO points_product \(id, code[\s\S]*?badge_in_image=VALUES\(badge_in_image\);/)[0];
+const pointsProductSql =
+  readSeed('V6__seed_marketing.sql').match(/INSERT INTO points_product \(id, code[\s\S]*?;/)[0] +
+  readSeed('V16__seed_app_data.sql').match(
+    /INSERT INTO points_product \(id, code[\s\S]*?badge_in_image=VALUES\(badge_in_image\);/
+  )[0];
 // 列顺序：id, code, name, image, points, stock, ...（后续列用惰性匹配，避免正则在
 // description 含单引号时错位）。
 const POINTS_ROW_RE = /\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+),/g;
@@ -335,15 +340,21 @@ const pointsProducts = [...pointsProductSql.matchAll(POINTS_ROW_RE)]
     stock: Number(m[6])
   }))
   .filter((item, index, list) => list.findIndex(x => x.id === item.id) === index);
-const giftCardDenominations = [...readSeed('V16__seed_app_data.sql')
-  .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
-  .matchAll(/\([^,]+,\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*(\d+),\s*(\d+),/g)]
+const giftCardDenominations = [
+  ...readSeed('V16__seed_app_data.sql')
+    .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
+    .matchAll(/\([^,]+,\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*(\d+),\s*(\d+),/g)
+]
   .map(m => ({ faceValue: Math.round(Number(m[1]) / 100), salePrice: Math.round(Number(m[2]) / 100) }))
   .filter((item, index, list) => list.findIndex(x => x.faceValue === item.faceValue) === index);
-const giftCardGroups = [...new Set((readSeed('V16__seed_app_data.sql')
-  .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
-  .matchAll(/\('[^']+',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g))
-  .map(m => m[0]))].map(str => {
+const giftCardGroups = [
+  ...new Set(
+    readSeed('V16__seed_app_data.sql')
+      .match(/INSERT INTO gift_card_denomination \(code, group_id[\s\S]*?;/)[0]
+      .matchAll(/\('[^']+',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)
+      .map(m => m[0])
+  )
+].map(str => {
   const m = str.match(/'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/);
   return { groupId: m[1], groupTitle: m[2], cardName: m[3], cardImage: m[4] };
 });
@@ -351,7 +362,16 @@ const initialCartItems = require('../data/mock.js').initialCartItems;
 
 // 已删除的业务假数据不得回归到 data/mock.js
 const mockExports = Object.keys(require('../data/mock.js'));
-for (const removed of ['orders', 'userProfile', 'coupons', 'stores', 'menuTabs', 'memberLevels', 'pointsProducts', 'pointsCategories']) {
+for (const removed of [
+  'orders',
+  'userProfile',
+  'coupons',
+  'stores',
+  'menuTabs',
+  'memberLevels',
+  'pointsProducts',
+  'pointsCategories'
+]) {
   assert.ok(!mockExports.includes(removed), `data/mock.js 不得再导出业务假数据: ${removed}`);
 }
 const ordersJs = fs.readFileSync(path.join(root, 'pages/orders/orders.js'), 'utf8');
@@ -511,7 +531,10 @@ assert.ok(
     !couponPageWxss.includes('coupon-footer'),
   '优惠券页必须移除顶部提醒行与底部三个入口'
 );
-assert.ok(couponPageWxml.includes('coupon-tabs') && couponPageWxml.includes('bindtap="switchTab"'), '优惠券列表必须渲染状态 Tab');
+assert.ok(
+  couponPageWxml.includes('coupon-tabs') && couponPageWxml.includes('bindtap="switchTab"'),
+  '优惠券列表必须渲染状态 Tab'
+);
 assert.ok(
   couponPageJs.includes('switchTab') &&
     couponPageJs.includes("value: 'UNUSED'") &&
@@ -710,10 +733,7 @@ assert.ok(
     profileGiftJs.includes('openGiftCards'),
   '我的页礼品卡区块必须跳转礼品卡页'
 );
-assert.ok(
-  true,
-  '个人中心礼品卡必须为卡面图结构'
-);
+assert.ok(true, '个人中心礼品卡必须为卡面图结构');
 
 assert.ok(appJson.pages.includes('pages/points-mall/points-mall'), 'app.json 必须注册积分商城主页');
 assert.ok(appJson.pages.includes('pages/points-exchange/points-exchange'), 'app.json 必须注册兑换详情页');
@@ -839,8 +859,14 @@ assert.ok(
   '积分商品字段必须完整'
 );
 // 分类与券字段由 V16 回填，这里校验 seed 中确实写入了这些列
-assert.ok(/ADD COLUMN category\s+VARCHAR/.test(readSeed('V16__seed_app_data.sql')), 'V16 必须为 points_product 增加 category 列');
-assert.ok(!pointsProducts.some(item => item.id === 'points-coupon-3' && item.points <= 0), 'V6 的兑换券商品必须保留有效积分');
+assert.ok(
+  /ADD COLUMN category\s+VARCHAR/.test(readSeed('V16__seed_app_data.sql')),
+  'V16 必须为 points_product 增加 category 列'
+);
+assert.ok(
+  !pointsProducts.some(item => item.id === 'points-coupon-3' && item.points <= 0),
+  'V6 的兑换券商品必须保留有效积分'
+);
 // 时光币流水与兑换记录均为「按用户动态生成」，本地不再有演示数据；
 // 页面改为接口驱动，这里校验页面确实走接口而非本地假数据。
 const pointsDetailSource = fs.readFileSync(path.join(root, 'pages/points-detail/points-detail.js'), 'utf8');
@@ -1241,7 +1267,9 @@ assert.ok(!giftPurchaseWxml.includes('tabbar-safe-space'), '礼品卡购买页�
 
 const profileWxssSource = fs.readFileSync(path.join(root, 'pages/profile/profile.wxss'), 'utf8');
 const profileLiterals = [
-  ...new Set([...profileWxssSource.matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0]).filter(c => c.toUpperCase() !== '#FFFFFF'))
+  ...new Set(
+    [...profileWxssSource.matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0]).filter(c => c.toUpperCase() !== '#FFFFFF')
+  )
 ];
 assert.ok(profileLiterals.length === 0, '个人中心样式不得使用颜色字面量（白色除外）');
 const profileBadFonts = [
@@ -1270,7 +1298,10 @@ assert.ok(
     couponStoresJs.includes('showUnavailable'),
   '门店页必须支持券号筛选和未接入提示'
 );
-assert.ok(couponStoresJs.includes('catalog.city ? catalog.city.name'), '券适用门店页必须同步当前城市名称（含城市为空时的降级）');
+assert.ok(
+  couponStoresJs.includes('catalog.city ? catalog.city.name'),
+  '券适用门店页必须同步当前城市名称（含城市为空时的降级）'
+);
 assert.ok(couponStoresWxss.includes('var(--page-gutter)'), '适用门店页必须遵守设计系统页边距 token');
 
 const tabBarWxml = fs.readFileSync(path.join(root, 'custom-tab-bar/index.wxml'), 'utf8');
@@ -1362,14 +1393,8 @@ const menuJs = fs.readFileSync(path.join(root, 'pages/menu/menu.js'), 'utf8');
 assert.ok(menuWxml.includes('/assets/icons/lucide/map-pin.svg'), '门店距离必须使用 Lucide 定位图标');
 assert.ok(!menuWxml.includes('product-section__title'), '商品区不得显示设计稿外的分类标题');
 assert.ok(menuWxml.includes('count="{{cartCount}}" total="{{cartTotal}}"'), '购物车条必须使用动态数量和金额');
-assert.ok(
-  menuWxml.includes('wx:for="{{activeMenu.groups[0].categories}}"'),
-  '左侧栏必须直接渲染单层分类列表'
-);
-assert.ok(
-  menuWxml.includes('class="category-item {{selectedCategoryId === category.id'),
-  '分类项必须绑定选中状态'
-);
+assert.ok(menuWxml.includes('wx:for="{{activeMenu.groups[0].categories}}"'), '左侧栏必须直接渲染单层分类列表');
+assert.ok(menuWxml.includes('class="category-item {{selectedCategoryId === category.id'), '分类项必须绑定选中状态');
 assert.ok(
   menuWxml.includes('category-item__tag') && menuWxml.includes('{{category.tag}}'),
   '分类项必须渲染左上角标签角标'
@@ -1424,10 +1449,7 @@ assert.ok(
   const mapJson = JSON.parse(fs.readFileSync(path.join(root, 'pages/store-map/store-map.json'), 'utf8'));
   assert.equal(mapJson.renderer, 'webview', '独立地图页必须显式使用 webview 渲染器');
   const mapWxml = fs.readFileSync(path.join(root, 'pages/store-map/store-map.wxml'), 'utf8');
-  assert.ok(
-    mapWxml.includes('<map') && mapWxml.includes('markers="{{markers}}"'),
-    '独立地图页必须渲染地图与 marker'
-  );
+  assert.ok(mapWxml.includes('<map') && mapWxml.includes('markers="{{markers}}"'), '独立地图页必须渲染地图与 marker');
 }
 const menuJsonSource = fs.readFileSync(path.join(root, 'pages/menu/menu.json'), 'utf8');
 // 点单页门店态内嵌原生 <map>（顶部真实地图），Skyline 对原生组件支持受限会白屏，
@@ -1495,10 +1517,7 @@ assert.ok(
   '公共门店卡必须使用白底、内容撑高与 16/20rpx 内边距'
 );
 assert.ok(/\.store-page__filter[\s\S]*?height:\s*104rpx/.test(menuWxss), '门店筛选条必须按参考图增高到 104rpx');
-assert.ok(
-  /\.store-page__list-inner\s*\{[\s\S]*?padding:\s*20rpx/.test(menuWxss),
-  '门店列表必须使用 20rpx 页面边距'
-);
+assert.ok(/\.store-page__list-inner\s*\{[\s\S]*?padding:\s*20rpx/.test(menuWxss), '门店列表必须使用 20rpx 页面边距');
 assert.ok(
   // 门店页是 Tab 页的无门店态，TabBar 常显，因此必须保留 tabbar-safe-space
   menuWxml.includes('tabbar-safe-space'),
@@ -1659,7 +1678,14 @@ assert.ok(
 );
 {
   const { normalizeSpecProduct } = require(path.join(root, 'utils/spec-sheet.js'));
-  const normalized = normalizeSpecProduct({ id: 'classic-005', name: '红苹果乌龙冰奶', price: 1490, originalPrice: 1600, storedValuePrice: 1390, specGroups: [] });
+  const normalized = normalizeSpecProduct({
+    id: 'classic-005',
+    name: '红苹果乌龙冰奶',
+    price: 1490,
+    originalPrice: 1600,
+    storedValuePrice: 1390,
+    specGroups: []
+  });
   assert.equal(normalized.originalPrice, 16, '商品原价必须按分转元（1600 分 -> 16 元）');
   assert.equal(normalized.price, 14.9, '商品售价必须按分转元（1490 分 -> 14.9 元）');
   assert.equal(normalized.storedValuePrice, 13.9, '储值立减金额必须按分转元（1390 分 -> 13.9 元）');
@@ -1837,7 +1863,9 @@ assert.ok(
 // 立即购买必须直连结算页，且只带当前选中的这一件商品
 assert.ok(
   !menuJs.includes('立即购买暂未接入') &&
-    /handleSpecBuy\(event\)\s*\{[\s\S]*?globalData\.pendingOrder[\s\S]*?\/pages\/order-confirm\/order-confirm/.test(menuJs),
+    /handleSpecBuy\(event\)\s*\{[\s\S]*?globalData\.pendingOrder[\s\S]*?\/pages\/order-confirm\/order-confirm/.test(
+      menuJs
+    ),
   '立即购买必须直接跳转确认订单页'
 );
 assert.ok(
@@ -1889,10 +1917,7 @@ assert.ok(
   !/height:\s*calc\(88vh/.test(specScrollRule),
   '规格弹层滚动区不得写死高度猜测底部操作栏高度，否则底部会残留空白'
 );
-assert.ok(
-  !/--spec-action-height|200rpx/.test(specScrollRule),
-  '规格弹层滚动区不得依赖写死的操作栏高度常量'
-);
+assert.ok(!/--spec-action-height|200rpx/.test(specScrollRule), '规格弹层滚动区不得依赖写死的操作栏高度常量');
 /*
  * 历史 bug（第二层）：scroll-view 用 flex:1 拿走剩余高度后，内部 .spec-sheet__content
  * 仍是 height:auto，内容短（edit 模式无商品大图）时撑不满，底部残留大片空白。

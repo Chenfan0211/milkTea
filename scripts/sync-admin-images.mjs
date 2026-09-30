@@ -36,7 +36,7 @@ if (!fs.existsSync(sourceDir)) {
 }
 fs.mkdirSync(targetDir, { recursive: true });
 
-const files = fs.readdirSync(sourceDir).filter((name) => ALLOW_EXT.has(path.extname(name).toLowerCase()));
+const files = fs.readdirSync(sourceDir).filter(name => ALLOW_EXT.has(path.extname(name).toLowerCase()));
 
 let copied = 0;
 let unchanged = 0;

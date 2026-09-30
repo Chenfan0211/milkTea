@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'ProductSplit'
 });
@@ -91,9 +90,7 @@ const columns: DataTableColumns<any> = [
   }
 ];
 
-const searchFields: SearchField[] = [
-  { key: 'name', label: '规则', placeholder: '规则名称' }
-];
+const searchFields: SearchField[] = [{ key: 'name', label: '规则', placeholder: '规则名称' }];
 
 /** 百分比（如 15） -> 万分比（1500） */
 function percentToBp(v: any): number {

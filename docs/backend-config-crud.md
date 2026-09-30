@@ -18,46 +18,46 @@
 
 登记「资源名 → 表名 / 可写字段 / 可搜索字段 / 排序」：
 
-| 资源名 | 表 | 说明 |
-|--------|-----|------|
-| `dictEntries` | sys_dict_item | 数据字典 |
-| `cities` / `provinces` | region | 城市 / 省份 |
-| `features` | feature_flag | 功能开关 |
-| `subjects` | biz_subject | 经营主体 |
-| `storeTypes` | sys_dict_item | 门店类型 |
-| `users` | app_user | 小程序用户 |
+| 资源名                 | 表            | 说明        |
+| ---------------------- | ------------- | ----------- |
+| `dictEntries`          | sys_dict_item | 数据字典    |
+| `cities` / `provinces` | region        | 城市 / 省份 |
+| `features`             | feature_flag  | 功能开关    |
+| `subjects`             | biz_subject   | 经营主体    |
+| `storeTypes`           | sys_dict_item | 门店类型    |
+| `users`                | app_user      | 小程序用户  |
 
 ### 2. 安全设计（重点）
 
-| 风险 | 防护 |
-|------|------|
-| SQL 注入 | 表名/列名**只取自白名单**，值全部走占位符绑定 |
-| 越权改敏感列 | 只写 `writable` 白名单内的列，`id`/`deleted`/`create_time` 不可写 |
-| 访问未登记资源 | 返回 404「不支持的资源」 |
-| 未授权访问 | 沿用 JWT，`/api/v1/admin/**` 必须登录 |
+| 风险           | 防护                                                              |
+| -------------- | ----------------------------------------------------------------- |
+| SQL 注入       | 表名/列名**只取自白名单**，值全部走占位符绑定                     |
+| 越权改敏感列   | 只写 `writable` 白名单内的列，`id`/`deleted`/`create_time` 不可写 |
+| 访问未登记资源 | 返回 404「不支持的资源」                                          |
+| 未授权访问     | 沿用 JWT，`/api/v1/admin/**` 必须登录                             |
 
 ### 3. 接口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/admin/crud/meta/resources` | 资源清单 |
-| GET | `/api/v1/admin/crud/{resource}` | 分页（支持白名单字段模糊搜索） |
-| GET | `/api/v1/admin/crud/{resource}/{id}` | 详情 |
-| POST | `/api/v1/admin/crud/{resource}` | 新增 |
-| PUT | `/api/v1/admin/crud/{resource}/{id}` | 更新 |
-| DELETE | `/api/v1/admin/crud/{resource}/{id}` | 逻辑删除 |
+| 方法   | 路径                                 | 说明                           |
+| ------ | ------------------------------------ | ------------------------------ |
+| GET    | `/api/v1/admin/crud/meta/resources`  | 资源清单                       |
+| GET    | `/api/v1/admin/crud/{resource}`      | 分页（支持白名单字段模糊搜索） |
+| GET    | `/api/v1/admin/crud/{resource}/{id}` | 详情                           |
+| POST   | `/api/v1/admin/crud/{resource}`      | 新增                           |
+| PUT    | `/api/v1/admin/crud/{resource}/{id}` | 更新                           |
+| DELETE | `/api/v1/admin/crud/{resource}/{id}` | 逻辑删除                       |
 
 ### 4. 主体绑定关系接口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST/DELETE | `/subject/binding/store/{id}/investor[/{investorId}]` | 门店 ↔ 投资人 |
-| POST/DELETE | `/subject/binding/channel/{id}/store/{storeId}` | 渠道 ↔ 门店 |
-| POST/DELETE | `/subject/binding/subject/{id}/user[/{userId}]` | 主体 ↔ 用户 |
+| 方法        | 路径                                                    | 说明            |
+| ----------- | ------------------------------------------------------- | --------------- |
+| POST/DELETE | `/subject/binding/store/{id}/investor[/{investorId}]`   | 门店 ↔ 投资人   |
+| POST/DELETE | `/subject/binding/channel/{id}/store/{storeId}`         | 渠道 ↔ 门店     |
+| POST/DELETE | `/subject/binding/subject/{id}/user[/{userId}]`         | 主体 ↔ 用户     |
 | POST/DELETE | `/subject/binding/user/{uid}/role/{role}/subject/{sid}` | 用户 ↔ 业务角色 |
-| POST | `/subject/binding/application/{id}/review` | 角色申请审核 |
-| GET | `/subject/binding/summary` | 主体用量概览 |
-| GET | `/subject/binding/list/{type}` | 按类型查主体 |
+| POST        | `/subject/binding/application/{id}/review`              | 角色申请审核    |
+| GET         | `/subject/binding/summary`                              | 主体用量概览    |
+| GET         | `/subject/binding/list/{type}`                          | 按类型查主体    |
 
 ## 三、前端实现
 
@@ -65,8 +65,13 @@
 
 ```ts
 const REMOTE_RESOURCES = {
-  dictEntries: 'dictEntries', cities: 'cities', provinces: 'provinces',
-  features: 'features', subjects: 'subjects', storeTypes: 'storeTypes', users: 'users'
+  dictEntries: 'dictEntries',
+  cities: 'cities',
+  provinces: 'provinces',
+  features: 'features',
+  subjects: 'subjects',
+  storeTypes: 'storeTypes',
+  users: 'users'
 };
 ```
 
@@ -90,15 +95,16 @@ const config: AdminListConfig = {
 
 ### 3. 配置修正
 
-| 项 | 原值 | 新值 | 原因 |
-|----|------|------|------|
-| `VITE_SERVICE_SUCCESS_CODE` | `0000` | `0` | 后端统一返回 `code:0`，不改会导致所有请求被判失败 |
-| `.env.test` BASE_URL | Apifox mock | `http://127.0.0.1:8080` | 指向本地后端 |
-| `.env.prod` BASE_URL | Apifox mock | `https://api.wulingshiguang.top` | 生产域名 |
+| 项                          | 原值        | 新值                             | 原因                                              |
+| --------------------------- | ----------- | -------------------------------- | ------------------------------------------------- |
+| `VITE_SERVICE_SUCCESS_CODE` | `0000`      | `0`                              | 后端统一返回 `code:0`，不改会导致所有请求被判失败 |
+| `.env.test` BASE_URL        | Apifox mock | `http://127.0.0.1:8080`          | 指向本地后端                                      |
+| `.env.prod` BASE_URL        | Apifox mock | `https://api.wulingshiguang.top` | 生产域名                                          |
 
 ## 四、验证结果
 
 ### CRUD 读
+
 ```
 dictEntries -> total=4   字段: id,dictTypeId,dictType,itemCode,itemName,sort
 cities      -> total=5
@@ -109,6 +115,7 @@ users       -> total=2
 ```
 
 ### CRUD 写 + 安全
+
 ```
 新增       : code=0 id=5 name=CRUD测试项 sort=99
 更新       : code=0 name=CRUD测试项-已改 sort=88
@@ -119,6 +126,7 @@ users       -> total=2
 ```
 
 ### 主体绑定
+
 ```
 用量概览   : 主体=15 门店=5 渠道=3 投资人=3 供应商=3
 按类型查询 : STORE=5 CHANNEL=3 INVESTOR=3 SUPPLIER=3 PLATFORM=1
@@ -128,13 +136,14 @@ users       -> total=2
 ```
 
 ### 回归
-| 项目 | 结果 |
-|------|------|
-| 后台 `vue-tsc` | 通过 |
-| 后台 `oxlint` | 0 error |
-| 后端 `mvn test` | 16/16 通过 |
-| 数据库一致性校验 | 3/3 通过 |
-| 小程序 `npm run check` | 22 项通过 |
+
+| 项目                   | 结果       |
+| ---------------------- | ---------- |
+| 后台 `vue-tsc`         | 通过       |
+| 后台 `oxlint`          | 0 error    |
+| 后端 `mvn test`        | 16/16 通过 |
+| 数据库一致性校验       | 3/3 通过   |
+| 小程序 `npm run check` | 22 项通过  |
 
 ## 五、本批修复的缺陷
 
@@ -144,16 +153,17 @@ users       -> total=2
 
 ## 六、尚未接入（第 3、4 批）
 
-| 批次 | 模块 | 页面数 | 主要内容 |
-|------|------|--------|---------|
-| 第 3 批 | 商品配置 | 4 | 分类 / 规格 / 分账规则 / 商品编辑 |
-| 第 4 批 | 营销配置 | 10 | 优惠券 / 储值 / 积分规则 / 礼品卡 |
+| 批次    | 模块     | 页面数 | 主要内容                          |
+| ------- | -------- | ------ | --------------------------------- |
+| 第 3 批 | 商品配置 | 4      | 分类 / 规格 / 分账规则 / 商品编辑 |
+| 第 4 批 | 营销配置 | 10     | 优惠券 / 储值 / 积分规则 / 礼品卡 |
 
 其余模块（授权管理、审计日志、财务资金池/对账、审核）按需后续补充。
 
 ## 七、改动文件
 
 **后端新增**
+
 - `common/.../system/crud/CrudRegistry.java`
 - `common/.../system/crud/CrudService.java`
 - `common/.../system/crud/CrudController.java`
@@ -161,9 +171,11 @@ users       -> total=2
 - `db/migration/V8__crud_schema_fix.sql`
 
 **前端新增**
+
 - `src/service/api/crud.ts`
 
 **前端修改**
+
 - `src/store/modules/admin/index.ts`（双模 CRUD + loadRemote）
 - `src/views/_shared/types.ts`（remoteKey / remoteDeps）
 - `src/views/_shared/AdminListPage.vue`（远端预加载）

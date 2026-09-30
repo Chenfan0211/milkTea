@@ -58,25 +58,29 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
 const { loadMenu, readSeed } = await import('./lib/seed-data.mjs');
 const menuTabs = loadMenu();
 const marketingSeed = readSeed('V6__seed_marketing.sql');
-const coupons = [...marketingSeed.match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
-  .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)]
-  .map(m => ({
-    id: m[2],
-    title: m[3],
-    type: m[4],
-    // 数据库中券模板未按商品限定时，视为全部商品可用
-    applicableProductIds: menuTabs
-      .flatMap(tab => tab.groups)
-      .flatMap(group => group.categories)
-      .flatMap(category => category.products.map(product => product.id)),
-    applicableStoreIds: []
-  }));
+const coupons = [
+  ...marketingSeed
+    .match(/INSERT INTO coupon \(id, code[\s\S]*?;/)[0]
+    .matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)
+].map(m => ({
+  id: m[2],
+  title: m[3],
+  type: m[4],
+  // 数据库中券模板未按商品限定时，视为全部商品可用
+  applicableProductIds: menuTabs
+    .flatMap(tab => tab.groups)
+    .flatMap(group => group.categories)
+    .flatMap(category => category.products.map(product => product.id)),
+  applicableStoreIds: []
+}));
 const coupon = coupons.find(item => item.id === 'coupon-001');
 assert.ok(coupon, 'V6 seed 必须包含 coupon-001');
 // 券模板未限定商品（app_config / 券表均无 applicable_product_ids 数据）时，视为全部商品可用
 assert.ok(Array.isArray(coupon.applicableProductIds), '优惠券必须声明适用商品 ID 字段');
 const allMenuProductsForCount = [];
-for (const menu of menuTabs) for (const group of menu.groups) for (const category of group.categories) allMenuProductsForCount.push(...category.products);
+for (const menu of menuTabs)
+  for (const group of menu.groups)
+    for (const category of group.categories) allMenuProductsForCount.push(...category.products);
 const applicableIds = coupon.applicableProductIds;
 
 const allMenuProducts = [];
@@ -95,8 +99,12 @@ for (const productId of applicableIds) {
 }
 
 // 门店/菜单改为接口数据源：先刷新内存镜像再渲染
-const { loadStores, refreshMenuFromRemote } = await import('./lib/seed-data.mjs').then(m => ({ loadStores: m.loadStores }));
-const { refreshStoreCatalogFromRemote, refreshCitiesFromRemote, selectStore } = require(path.join(root, 'utils/store.js'));
+const { loadStores, refreshMenuFromRemote } = await import('./lib/seed-data.mjs').then(m => ({
+  loadStores: m.loadStores
+}));
+const { refreshStoreCatalogFromRemote, refreshCitiesFromRemote, selectStore } = require(
+  path.join(root, 'utils/store.js')
+);
 const { refreshMenuFromRemote: refreshMenu } = require(path.join(root, 'utils/product-listing.js'));
 globalThis.wx.request = function request(options) {
   const url = String(options.url || '');
@@ -138,11 +146,7 @@ for (const id of coupon.applicableProductIds) {
   }
 }
 assert.ok(expectedNames.length > 0, '适用商品页必须至少展示一款在售商品');
-assert.equal(
-  productPage.data.products.length,
-  expectedNames.length,
-  '适用商品页必须与点单页在售商品保持一致'
-);
+assert.equal(productPage.data.products.length, expectedNames.length, '适用商品页必须与点单页在售商品保持一致');
 assert.equal(
   new Set(productPage.data.products.map(product => product.name)).size,
   productPage.data.products.length,

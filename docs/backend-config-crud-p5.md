@@ -5,69 +5,73 @@
 ## 一、补齐的后端接口
 
 ### 财务查询（`AdminFinanceQueryController`）
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/admin/finance/pool` | 资金池（无记录时返回汇总视图） |
-| GET | `/api/v1/admin/finance/flows` | 资金流水（分页，支持 subjectId/type） |
-| GET | `/api/v1/admin/finance/snapshots` | 分账快照（支持 orderNo） |
-| GET | `/api/v1/admin/finance/reconcile` | 对账异常 |
-| GET | `/api/v1/admin/finance/accounts/page` | 主体账户分页 |
-| POST | `/api/v1/admin/finance/accounts/{subjectId}/freeze` | 冻结（余额不足返回 400） |
-| POST | `/api/v1/admin/finance/accounts/{subjectId}/unfreeze` | 解冻 |
+
+| 方法 | 路径                                                  | 说明                                  |
+| ---- | ----------------------------------------------------- | ------------------------------------- |
+| GET  | `/api/v1/admin/finance/pool`                          | 资金池（无记录时返回汇总视图）        |
+| GET  | `/api/v1/admin/finance/flows`                         | 资金流水（分页，支持 subjectId/type） |
+| GET  | `/api/v1/admin/finance/snapshots`                     | 分账快照（支持 orderNo）              |
+| GET  | `/api/v1/admin/finance/reconcile`                     | 对账异常                              |
+| GET  | `/api/v1/admin/finance/accounts/page`                 | 主体账户分页                          |
+| POST | `/api/v1/admin/finance/accounts/{subjectId}/freeze`   | 冻结（余额不足返回 400）              |
+| POST | `/api/v1/admin/finance/accounts/{subjectId}/unfreeze` | 解冻                                  |
 
 ### 交易查询（`AdminTradeQueryController`）
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/admin/trade/payments` | 支付单 |
-| GET | `/api/v1/admin/trade/refunds` | 退款单 |
-| GET | `/api/v1/admin/trade/verify-records/page` | 核销记录 |
-| GET | `/api/v1/admin/trade/verify-pool/page` | 核销池（含商品摘要聚合） |
+
+| 方法 | 路径                                      | 说明                     |
+| ---- | ----------------------------------------- | ------------------------ |
+| GET  | `/api/v1/admin/trade/payments`            | 支付单                   |
+| GET  | `/api/v1/admin/trade/refunds`             | 退款单                   |
+| GET  | `/api/v1/admin/trade/verify-records/page` | 核销记录                 |
+| GET  | `/api/v1/admin/trade/verify-pool/page`    | 核销池（含商品摘要聚合） |
 
 ### 授权 / 审计（`AdminAuthQueryController`）
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/admin/auth/roles` | 后台角色 |
-| GET | `/api/v1/admin/auth/grants` | 用户-角色授权（联表带主体名/用户名） |
-| GET | `/api/v1/admin/auth/wechat` | 微信绑定 |
-| GET | `/api/v1/admin/auth/audit` | 审计日志 |
-| POST | `/api/v1/admin/auth/audit` | 写入审计日志 |
+
+| 方法 | 路径                        | 说明                                 |
+| ---- | --------------------------- | ------------------------------------ |
+| GET  | `/api/v1/admin/auth/roles`  | 后台角色                             |
+| GET  | `/api/v1/admin/auth/grants` | 用户-角色授权（联表带主体名/用户名） |
+| GET  | `/api/v1/admin/auth/wechat` | 微信绑定                             |
+| GET  | `/api/v1/admin/auth/audit`  | 审计日志                             |
+| POST | `/api/v1/admin/auth/audit`  | 写入审计日志                         |
 
 ## 二、CRUD 白名单继续扩展
 
 资源从 21 个扩展到 **42 个**，新增：
 
-| 分类 | 资源 |
-|------|------|
-| 授权 | `roles`、`grants` |
-| 交易 | `orders`、`payments`、`refunds`、`verifies`、`verifyPool`、`verifyRecords`、`exchangeRecords` |
-| 财务 | `fundPool`、`fundFlows`、`snapshots`、`reconciles`、`subjectAccounts`、`withdrawals` |
-| 审核/系统 | `roleApplications`、`comments`、`commentsAdmin`、`auditLogs` |
-| 营销 | `referralConfig`、`signinRules` |
+| 分类      | 资源                                                                                          |
+| --------- | --------------------------------------------------------------------------------------------- |
+| 授权      | `roles`、`grants`                                                                             |
+| 交易      | `orders`、`payments`、`refunds`、`verifies`、`verifyPool`、`verifyRecords`、`exchangeRecords` |
+| 财务      | `fundPool`、`fundFlows`、`snapshots`、`reconciles`、`subjectAccounts`、`withdrawals`          |
+| 审核/系统 | `roleApplications`、`comments`、`commentsAdmin`、`auditLogs`                                  |
+| 营销      | `referralConfig`、`signinRules`                                                               |
 
 ## 三、页面接入（16 个）
 
-| 模块 | 页面 | remoteKey |
-|------|------|-----------|
-| 交易 | order | orders |
-| | payment | payments |
-| | refund | refunds |
-| | verify | verifies |
-| | verify-pool | verifyPool |
-| 授权 | auth/role | roles |
-| | auth/grant | grants |
-| | auth/wechat | users |
-| 审核 | review/role | roleApplications |
-| 系统 | system/audit | auditLogs |
-| 财务 | finance/account | subjectAccounts |
-| | finance/flow | fundFlows |
-| | finance/reconcile | reconciles |
-| | finance/snapshot | snapshots |
-| | finance/withdraw | withdrawals |
-| | finance/pool | （自定义页，onMounted 加载 fundPool + subjectAccounts） |
+| 模块 | 页面              | remoteKey                                               |
+| ---- | ----------------- | ------------------------------------------------------- |
+| 交易 | order             | orders                                                  |
+|      | payment           | payments                                                |
+|      | refund            | refunds                                                 |
+|      | verify            | verifies                                                |
+|      | verify-pool       | verifyPool                                              |
+| 授权 | auth/role         | roles                                                   |
+|      | auth/grant        | grants                                                  |
+|      | auth/wechat       | users                                                   |
+| 审核 | review/role       | roleApplications                                        |
+| 系统 | system/audit      | auditLogs                                               |
+| 财务 | finance/account   | subjectAccounts                                         |
+|      | finance/flow      | fundFlows                                               |
+|      | finance/reconcile | reconciles                                              |
+|      | finance/snapshot  | snapshots                                               |
+|      | finance/withdraw  | withdrawals                                             |
+|      | finance/pool      | （自定义页，onMounted 加载 fundPool + subjectAccounts） |
 
 ## 四、验证结果
 
 ### 资源与查询
+
 ```
 资源总数   : 42 个
 
@@ -77,12 +81,19 @@
 ```
 
 ### 核销池（含商品摘要）
+
 ```json
-{ "orderNo": "WX202609212012558608", "pickupCode": "0002",
-  "paidAmount": 1390, "status": "PAID", "summary": "金桂轻乳茶 x1" }
+{
+  "orderNo": "WX202609212012558608",
+  "pickupCode": "0002",
+  "paidAmount": 1390,
+  "status": "PAID",
+  "summary": "金桂轻乳茶 x1"
+}
 ```
 
 ### 账户冻结/解冻
+
 ```
 冻结 100 : code=0
 解冻 100 : code=0
@@ -90,12 +101,13 @@
 ```
 
 ### 回归
-| 项目 | 结果 |
-|------|------|
-| 后台 `vue-tsc` | 通过 |
-| 后台 `oxlint`（212 文件） | 0 error |
-| 后端 `mvn test` | 16/16 通过 |
-| 数据库一致性校验 | 3/3 通过 |
+
+| 项目                      | 结果       |
+| ------------------------- | ---------- |
+| 后台 `vue-tsc`            | 通过       |
+| 后台 `oxlint`（212 文件） | 0 error    |
+| 后端 `mvn test`           | 16/16 通过 |
+| 数据库一致性校验          | 3/3 通过   |
 
 ## 五、本批修复的缺陷
 
@@ -105,30 +117,34 @@
 ## 六、改动文件
 
 **后端新增**
+
 - `finance/controller/AdminFinanceQueryController.java`
 - `trade/controller/AdminTradeQueryController.java`
 - `auth/controller/AdminAuthQueryController.java`
 
 **后端修改**
+
 - `system/crud/CrudRegistry.java`（资源 21 → 42）
 
 **前端修改**
+
 - `src/service/api/crud.ts`（新增 18 个查询/动作函数）
 - `src/store/modules/admin/index.ts`（资源映射扩展）
 - 16 个页面（remoteKey / onMounted）
 
 ## 七、后台接入完成度
 
-| 批次 | 模块 | 页面数 | 状态 |
-|------|------|--------|------|
-| 1 | 系统配置 | 4 | ✅ |
-| 2 | 主体管理 | 5 | ✅ |
-| 3 | 商品配置 | 4 | ✅ |
-| 4 | 营销配置 | 10 | ✅ |
-| 5 | 授权 / 交易 / 财务 / 审核 | 16 | ✅ |
-| **合计** | | **39** | 已接入 |
+| 批次     | 模块                      | 页面数 | 状态   |
+| -------- | ------------------------- | ------ | ------ |
+| 1        | 系统配置                  | 4      | ✅     |
+| 2        | 主体管理                  | 5      | ✅     |
+| 3        | 商品配置                  | 4      | ✅     |
+| 4        | 营销配置                  | 10     | ✅     |
+| 5        | 授权 / 交易 / 财务 / 审核 | 16     | ✅     |
+| **合计** |                           | **39** | 已接入 |
 
 剩余未接入：
+
 - 详情页（order-detail / verify-detail / snapshot-detail / role-detail）复用列表页数据，无需单独接口
 - `review/role-detail` 的角色申请审核动作已具备接口（`/subject/binding/application/{id}/review`）
 

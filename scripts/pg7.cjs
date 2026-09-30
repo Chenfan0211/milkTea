@@ -6,7 +6,10 @@ const startMark = '// 4. 数据源：商品角标指向实心图标';
 const endMark = "assert.ok(badgedProducts.length > 0, 'there must be at least one badged product');";
 const a = s.indexOf(startMark);
 const b = s.indexOf(endMark);
-if (a < 0 || b < 0) { console.error('anchors missing', a, b); process.exit(1); }
+if (a < 0 || b < 0) {
+  console.error('anchors missing', a, b);
+  process.exit(1);
+}
 
 const block = [
   '// 4. 数据源：商品角标来自数据库 seed（V16 的 product.badge_icon）',
@@ -23,12 +26,12 @@ const block = [
   "  'badge_icon must point at the solid gold icon'",
   ');',
   'assert.ok(',
-  "  !badgeBlock[1].includes(\"/assets/icons/lucide/member.svg'\"),",
+  '  !badgeBlock[1].includes("/assets/icons/lucide/member.svg\'"),',
   "  'badge_icon must not point at the old outline icon'",
   ');',
   '',
   '// 角标商品：seed 中标记了 badge_icon 的商品',
-  'const badgedIds = [...badgeBlock[1].matchAll(/WHEN \'([^\']+)\' THEN \'([^\']+)\'/g)]',
+  "const badgedIds = [...badgeBlock[1].matchAll(/WHEN '([^']+)' THEN '([^']+)'/g)]",
   '  .filter(m => m[2])',
   '  .map(m => m[1]);',
   'const menuTabs = loadMenu();',

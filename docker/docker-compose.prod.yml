@@ -33,8 +33,8 @@
 x-logging: &default-logging
   driver: json-file
   options:
-    max-size: "20m"
-    max-file: "5"
+    max-size: '20m'
+    max-file: '5'
 
 x-common: &common
   restart: unless-stopped
@@ -44,28 +44,27 @@ x-common: &common
   extra_hosts:
     # 容器内 127.0.0.1 指向容器自身，而中间件在宿主机上，
     # 因此提供 host-gateway 别名，便于统一把中间件地址写成 host.docker.internal
-    - "host.docker.internal:host-gateway"
+    - 'host.docker.internal:host-gateway'
 
 x-backend-env: &backend-env
   TZ: Asia/Shanghai
   # 数据源与中间件：指向同一 Docker 网络内的容器名
   MYSQL_HOST: wuling-mysql
-  MYSQL_PORT: "3306"
+  MYSQL_PORT: '3306'
   REDIS_HOST: wuling-redis
-  REDIS_PORT: "6379"
+  REDIS_PORT: '6379'
   RABBITMQ_HOST: wuling-rabbitmq
-  RABBITMQ_PORT: "5672"
+  RABBITMQ_PORT: '5672'
   NACOS_ADDR: wuling-nacos:8848
   # 注册到 Nacos 的 IP：用容器名，让网关能解析到本网络的各服务
-  NACOS_REGISTER_IP: ""
+  NACOS_REGISTER_IP: ''
   REDIS_MODE: single
-  SMS_ENABLED: "false"
+  SMS_ENABLED: 'false'
 
 x-env-file: &env-file
   - /opt/wuling/app/secrets.env
 
 services:
-
   # ---------------- 网关（对外唯一入口）----------------
   gateway:
     <<: *common
@@ -80,15 +79,15 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
     ports:
       # 仅监听回环：由宿主机 Nginx 反代，不经公网直连
-      - "127.0.0.1:8080:8080"
+      - '127.0.0.1:8080:8080'
     volumes:
       - /opt/wuling/config/gateway:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8080/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10
@@ -108,14 +107,14 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
     ports:
-      - "127.0.0.1:8081:8081"
+      - '127.0.0.1:8081:8081'
     volumes:
       - /opt/wuling/config/auth-service:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8081/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10
@@ -135,21 +134,21 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms128m -Xmx256m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms128m -Xmx256m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
       FILE_STORAGE_ROOT: /data/wuling/uploads
       FILE_PUBLIC_BASE_URL: /api/v1/files/public
       # ClamAV 病毒扫描（P2）：生产启用，clamd 由中间件 compose 提供（容器名 wuling-clamav）
-      CLAMAV_ENABLED: "true"
+      CLAMAV_ENABLED: 'true'
       CLAMAV_HOST: wuling-clamav
-      CLAMAV_PORT: "3310"
+      CLAMAV_PORT: '3310'
     ports:
-      - "127.0.0.1:8082:8082"
+      - '127.0.0.1:8082:8082'
     volumes:
       - /opt/wuling/config/file-service:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
       - file-uploads:/data/wuling/uploads
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8082/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10
@@ -169,14 +168,14 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
     ports:
-      - "127.0.0.1:8083:8083"
+      - '127.0.0.1:8083:8083'
     volumes:
       - /opt/wuling/config/marketing-service:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8083/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10
@@ -196,16 +195,16 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms256m -Xmx768m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms256m -Xmx768m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
     ports:
-      - "127.0.0.1:8084:8084"
+      - '127.0.0.1:8084:8084'
     volumes:
       - /opt/wuling/config/trade-service:/app/config:ro
       # 微信支付 APIv3 私钥/公钥只读挂载；容器内路径需与 WXPAY_*_KEY_PATH 一致。
       - /opt/wuling/app/certs:/opt/wuling/app/certs:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8084/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10
@@ -225,14 +224,14 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
     ports:
-      - "127.0.0.1:8085:8085"
+      - '127.0.0.1:8085:8085'
     volumes:
       - /opt/wuling/config/user-service:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8085/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8085/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10
@@ -252,14 +251,14 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
     ports:
-      - "127.0.0.1:8091:8091"
+      - '127.0.0.1:8091:8091'
     volumes:
       - /opt/wuling/config/product-service:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8091/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8091/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10
@@ -279,14 +278,14 @@ services:
     env_file: *env-file
     environment:
       <<: *backend-env
-      JAVA_OPTS: "-Xms256m -Xmx1024m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+      JAVA_OPTS: '-Xms256m -Xmx1024m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
     ports:
-      - "127.0.0.1:8090:8090"
+      - '127.0.0.1:8090:8090'
     volumes:
       - /opt/wuling/config/server:/app/config:ro
       - /opt/wuling/logs:/opt/wuling/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8090/actuator/health"]
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8090/actuator/health']
       interval: 15s
       timeout: 5s
       retries: 10

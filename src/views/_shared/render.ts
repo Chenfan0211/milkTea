@@ -124,8 +124,12 @@ function parseDateValue(value: any): Date | null {
   const full = text.match(DATE_FULL_PATTERN);
   if (full) {
     return new Date(
-      Number(full[1]), Number(full[2]) - 1, Number(full[3]),
-      Number(full[4]), Number(full[5]), Number(full[6])
+      Number(full[1]),
+      Number(full[2]) - 1,
+      Number(full[3]),
+      Number(full[4]),
+      Number(full[5]),
+      Number(full[6])
     );
   }
   const only = text.match(DATE_ONLY_PATTERN);

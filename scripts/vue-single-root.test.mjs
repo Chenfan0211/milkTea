@@ -63,7 +63,9 @@ function checkSingleRoot(file) {
   // 只看 render 函数体，避免被 import 里的 Fragment 干扰
   const renderIdx = code.indexOf('_sfc_render');
   const renderBody = renderIdx >= 0 ? code.slice(renderIdx) : code;
-  const m = renderBody.match(/return\s*\(?\s*_?openBlock\(\)\s*,\s*_?(?:createElementBlock|createBlock)\s*\(\s*_?([\w$"']+)/);
+  const m = renderBody.match(
+    /return\s*\(?\s*_?openBlock\(\)\s*,\s*_?(?:createElementBlock|createBlock)\s*\(\s*_?([\w$"']+)/
+  );
   const root = m ? m[1] : '';
   const fragmentRoot = root === 'Fragment';
 

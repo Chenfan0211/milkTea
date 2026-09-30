@@ -29,10 +29,7 @@ assert.ok(
 // 4. 数据源：商品角标来自数据库 seed（V16 的 product.badge_icon）
 const { loadMenu, readSeed } = await import('./lib/seed-data.mjs');
 const seedSql = readSeed('V16__seed_app_data.sql');
-assert.ok(
-  /ADD COLUMN badge_icon\s+VARCHAR/.test(seedSql),
-  'V16 must add product.badge_icon column'
-);
+assert.ok(/ADD COLUMN badge_icon\s+VARCHAR/.test(seedSql), 'V16 must add product.badge_icon column');
 const badgeBlock = seedSql.match(/badge_icon = CASE product_id([\s\S]*?)ELSE badge_icon END/);
 assert.ok(badgeBlock, 'V16 must initialize product badges');
 assert.ok(
@@ -45,9 +42,7 @@ assert.ok(
 );
 
 // 角标商品：seed 中标记了 badge_icon 的商品
-const badgedIds = [...badgeBlock[1].matchAll(/WHEN '([^']+)' THEN '([^']+)'/g)]
-  .filter(m => m[2])
-  .map(m => m[1]);
+const badgedIds = [...badgeBlock[1].matchAll(/WHEN '([^']+)' THEN '([^']+)'/g)].filter(m => m[2]).map(m => m[1]);
 const menuTabs = loadMenu();
 const badgedProducts = [];
 for (const tab of menuTabs) {

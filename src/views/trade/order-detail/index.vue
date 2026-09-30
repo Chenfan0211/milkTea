@@ -10,14 +10,25 @@ import { formatFen, formatDateTime } from '@/views/_shared/render';
 const store = useAdminStore();
 const route = useRoute();
 
-const payStatusLabel = (v: string) =>
-  ({ UNPAID: '未支付', PAID: '已支付', REFUNDED: '已退款' })[v] ?? v;
+const payStatusLabel = (v: string) => ({ UNPAID: '未支付', PAID: '已支付', REFUNDED: '已退款' })[v] ?? v;
 const mealTypeLabel = (v: string) =>
-  ({ dinein: '堂食', DINEIN: '堂食', DINE_IN: '堂食', pickup: '自取', PICKUP: '自取', takeout: '自取', TAKEOUT: '自取' } as Record<string, string>)[v] ?? v ?? '—';
+  (
+    ({
+      dinein: '堂食',
+      DINEIN: '堂食',
+      DINE_IN: '堂食',
+      pickup: '自取',
+      PICKUP: '自取',
+      takeout: '自取',
+      TAKEOUT: '自取'
+    }) as Record<string, string>
+  )[v] ??
+  v ??
+  '—';
 const refundStatusLabel = (v: string) =>
-  ({ PENDING: '退款中', REFUNDED: '已退款' } as Record<string, string>)[v] ?? v;
+  (({ PENDING: '退款中', REFUNDED: '已退款' }) as Record<string, string>)[v] ?? v;
 const statusLabel = (v: string) =>
-  ({ CREATED: '待支付', PAID: '待核销', COMPLETED: '已完成', CANCELED: '已取消' } as Record<string, string>)[v] ?? v;
+  (({ CREATED: '待支付', PAID: '待核销', COMPLETED: '已完成', CANCELED: '已取消' }) as Record<string, string>)[v] ?? v;
 
 /** 商品明细：图片 + 名称 x数量 + 规格 + 单价 */
 function renderItems(row: any) {
@@ -29,8 +40,21 @@ function renderItems(row: any) {
     items.map((it: any) =>
       h('div', { style: 'display:flex;align-items:center;gap:10px' }, [
         it.image
-          ? h(NImage, { src: it.image, width: 40, height: 40, objectFit: 'cover', style: 'border-radius:6px;flex-shrink:0' })
-          : h('div', { style: 'width:40px;height:40px;border-radius:6px;background:#f0f0f0;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#9b9b96;font-size:12px' }, '无图'),
+          ? h(NImage, {
+              src: it.image,
+              width: 40,
+              height: 40,
+              objectFit: 'cover',
+              style: 'border-radius:6px;flex-shrink:0'
+            })
+          : h(
+              'div',
+              {
+                style:
+                  'width:40px;height:40px;border-radius:6px;background:#f0f0f0;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#9b9b96;font-size:12px'
+              },
+              '无图'
+            ),
         h('div', { style: 'display:flex;flex-direction:column;gap:2px' }, [
           h('div', { style: 'font-size:14px;color:#333' }, `${it.name} x${it.quantity}`),
           h('div', { style: 'font-size:12px;color:#9b9b96' }, it.spec || ''),

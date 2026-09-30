@@ -17,7 +17,10 @@ const root = process.cwd();
 let failed = 0;
 function check(ok, msg) {
   if (ok) console.log(`  ✓ ${msg}`);
-  else { console.error(`  ✗ ${msg}`); failed += 1; }
+  else {
+    console.error(`  ✗ ${msg}`);
+    failed += 1;
+  }
 }
 
 const src = readFileSync(join(root, 'src/store/modules/route/shared.ts'), 'utf8');
@@ -29,14 +32,8 @@ check(
 );
 
 console.log('检查 2：缓存「有 component 且非 hideInMenu」的叶子路由');
-check(
-  /child\.component/.test(src),
-  '必须仍有 child.component 判定'
-);
-check(
-  /hideInMenu/.test(src),
-  '必须排除 hideInMenu 的详情页（详情页每次进入应重新加载）'
-);
+check(/child\.component/.test(src), '必须仍有 child.component 判定');
+check(/hideInMenu/.test(src), '必须排除 hideInMenu 的详情页（详情页每次进入应重新加载）');
 
 if (failed > 0) {
   console.error(`\n失败 ${failed} 项`);

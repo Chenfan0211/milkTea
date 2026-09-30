@@ -57,7 +57,7 @@ function hasGiftCardDisplayMetadata(item) {
   const source = item || {};
   return Boolean(
     (readText(source, 'cardName') || readText(source, 'name')) &&
-      (readText(source, 'cardImage') || readText(source, 'image'))
+    (readText(source, 'cardImage') || readText(source, 'image'))
   );
 }
 
@@ -99,14 +99,10 @@ function selectGiftCardDenominations(source, selection) {
   }
   if (!legacyId) return result;
 
-  const legacyCardMatches = result.filter(
-    item => queryText(item && (item.cardName || item.name)) === legacyId
-  );
+  const legacyCardMatches = result.filter(item => queryText(item && (item.cardName || item.name)) === legacyId);
   if (legacyCardMatches.length) return legacyCardMatches;
 
-  return result.filter(
-    item => queryText(item && item.id) === legacyId || queryText(item && item.code) === legacyId
-  );
+  return result.filter(item => queryText(item && item.id) === legacyId || queryText(item && item.code) === legacyId);
 }
 
 module.exports = {

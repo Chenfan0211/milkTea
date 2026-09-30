@@ -17,10 +17,7 @@ const confirmJs = fs.readFileSync(path.join(root, 'pages/order-confirm/order-con
 const detailJs = fs.readFileSync(path.join(root, 'pages/order-detail/order-detail.js'), 'utf8');
 
 // 确认页跳转必须携带 orderNo
-assert.ok(
-  confirmJs.includes('pay-success/pay-success?orderNo='),
-  '支付成功后必须跳支付成功页并携带 orderNo'
-);
+assert.ok(confirmJs.includes('pay-success/pay-success?orderNo='), '支付成功后必须跳支付成功页并携带 orderNo');
 
 // 详情页必须同时解析 orderNo 与 id 两种入口
 assert.ok(

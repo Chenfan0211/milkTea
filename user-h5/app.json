@@ -67,9 +67,7 @@
       "desc": "用于按距离排序附近门店、估算到店距离"
     }
   },
-  "requiredPrivateInfos": [
-    "getLocation"
-  ],
+  "requiredPrivateInfos": ["getLocation"],
   "window": {
     "navigationBarTextStyle": "black",
     "navigationStyle": "custom",
@@ -120,5 +118,3 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents"
 }
-
-

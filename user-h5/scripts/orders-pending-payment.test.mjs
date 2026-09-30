@@ -105,32 +105,69 @@ assert.equal(typeof refreshOrdersFromRemote, 'function', '订单必须支持从�
 assert.equal(orderStore.formatCountdown(244), '04:04', '待支付倒计时必须格式化为mm:ss');
 // 测试夹具：与后端返回结构一致的订单（注入到 orderStore 的本地镜像）
 function makeOrder(overrides) {
-  return Object.assign({
-    category: 'gift-card',
-    orderStatus: 'pending_verify',
-    status: '待核销',
-    timeGroup: 'history',
-    // 后端订单金额以「分」下发（OrderDTO.totalAmount 等），前端统一换算为「元」展示
-    totalAmount: 2000,
-    discountAmount: 0,
-    pickupCode: 'CZ20260101000001',
-    payTime: '2026-09-17 10:00:00',
-    items: [{ id: 'i1', name: '五零时光礼品卡', spec: '100元', unitPrice: 10000, originalPrice: 10000, quantity: 1 }],
-    orderInfo: { orderNo: 'T20260917001', createdAt: '2026-09-17 09:00:00', payMethod: '微信支付' }
-  }, overrides || {});
+  return Object.assign(
+    {
+      category: 'gift-card',
+      orderStatus: 'pending_verify',
+      status: '待核销',
+      timeGroup: 'history',
+      // 后端订单金额以「分」下发（OrderDTO.totalAmount 等），前端统一换算为「元」展示
+      totalAmount: 2000,
+      discountAmount: 0,
+      pickupCode: 'CZ20260101000001',
+      payTime: '2026-09-17 10:00:00',
+      items: [{ id: 'i1', name: '五零时光礼品卡', spec: '100元', unitPrice: 10000, originalPrice: 10000, quantity: 1 }],
+      orderInfo: { orderNo: 'T20260917001', createdAt: '2026-09-17 09:00:00', payMethod: '微信支付' }
+    },
+    overrides || {}
+  );
 }
 
 const FIXTURES = [
-  makeOrder({ id: 'order-009', category: 'stored-value', timeGroup: 'today', orderStatus: 'pending_payment', remainingSeconds: 300, status: '待支付', payTime: '', orderInfo: { orderNo: 'T-ST-009', createdAt: '2026-09-17 09:00:00', payMethod: '未支付' } }),
-  makeOrder({ id: 'order-010', category: 'store', timeGroup: 'today', orderStatus: 'pending_payment', remainingSeconds: 244, status: '待支付', payTime: '', orderInfo: { orderNo: 'T-ST-010', createdAt: '2026-09-17 09:10:00', payMethod: '未支付' } }),
+  makeOrder({
+    id: 'order-009',
+    category: 'stored-value',
+    timeGroup: 'today',
+    orderStatus: 'pending_payment',
+    remainingSeconds: 300,
+    status: '待支付',
+    payTime: '',
+    orderInfo: { orderNo: 'T-ST-009', createdAt: '2026-09-17 09:00:00', payMethod: '未支付' }
+  }),
+  makeOrder({
+    id: 'order-010',
+    category: 'store',
+    timeGroup: 'today',
+    orderStatus: 'pending_payment',
+    remainingSeconds: 244,
+    status: '待支付',
+    payTime: '',
+    orderInfo: { orderNo: 'T-ST-010', createdAt: '2026-09-17 09:10:00', payMethod: '未支付' }
+  }),
   makeOrder({ id: 'order-011' }),
-  makeOrder({ id: 'order-014', category: 'gift-card', timeGroup: 'history', orderStatus: 'pending_payment', remainingSeconds: 200, status: '待支付', payTime: '', orderInfo: { orderNo: 'T-GC-014', createdAt: '2026-09-17 09:20:00', payMethod: '未支付' } }),
+  makeOrder({
+    id: 'order-014',
+    category: 'gift-card',
+    timeGroup: 'history',
+    orderStatus: 'pending_payment',
+    remainingSeconds: 200,
+    status: '待支付',
+    payTime: '',
+    orderInfo: { orderNo: 'T-GC-014', createdAt: '2026-09-17 09:20:00', payMethod: '未支付' }
+  }),
   makeOrder({ id: 'order-013', orderStatus: 'canceled', status: '已取消', cancelType: 'paid', refundAmount: 10000 })
 ];
 
 // 幂等性：decorateOrder 被重复调用时金额不得被反复除以 100
 {
-  orderStore.setOrdersForTest([{ id: 'order-idem', orderNo: 'T-I', totalAmount: 2560, items: [{ productId: 'p1', name: '抹茶', unitPrice: 1280, quantity: 2 }] }]);
+  orderStore.setOrdersForTest([
+    {
+      id: 'order-idem',
+      orderNo: 'T-I',
+      totalAmount: 2560,
+      items: [{ productId: 'p1', name: '抹茶', unitPrice: 1280, quantity: 2 }]
+    }
+  ]);
   const first = orderStore.getOrderById('order-idem');
   const second = orderStore.getOrderById('order-idem');
   const third = orderStore.getOrderById('order-idem');
@@ -148,14 +185,28 @@ const FIXTURES = [
 
 // 后端扁平字段 -> 前端结构 的适配（createTime/orderNo/payStatus/store）
 {
-  orderStore.setOrdersForTest([{
-    id: 'order-flat', orderNo: 'T20260917001', store: '五零时光·五一广场店',
-    status: '待核销', payStatus: '已支付', createTime: '2026-09-17 09:00:00',
-    totalAmount: 2000, category: undefined, items: [{ productId: 'p1', name: '抹茶', unitPrice: 2000, quantity: 1 }]
-  }]);
+  orderStore.setOrdersForTest([
+    {
+      id: 'order-flat',
+      orderNo: 'T20260917001',
+      store: '五零时光·五一广场店',
+      status: '待核销',
+      payStatus: '已支付',
+      createTime: '2026-09-17 09:00:00',
+      totalAmount: 2000,
+      category: undefined,
+      items: [{ productId: 'p1', name: '抹茶', unitPrice: 2000, quantity: 1 }]
+    }
+  ]);
   const decorated = orderStore.getOrderById('order-flat');
-  assert.ok(decorated.orderInfo && decorated.orderInfo.orderNo === 'T20260917001', '后端扁平 orderNo 必须映射进 orderInfo.orderNo');
-  assert.ok(decorated.orderInfo.createdAt === '2026-09-17 09:00:00', '后端扁平 createTime 必须映射进 orderInfo.createdAt');
+  assert.ok(
+    decorated.orderInfo && decorated.orderInfo.orderNo === 'T20260917001',
+    '后端扁平 orderNo 必须映射进 orderInfo.orderNo'
+  );
+  assert.ok(
+    decorated.orderInfo.createdAt === '2026-09-17 09:00:00',
+    '后端扁平 createTime 必须映射进 orderInfo.createdAt'
+  );
   assert.ok(decorated.createdAtText, '订单创建时间文案必须可生成');
   assert.equal(decorated.storeName, '五零时光·五一广场店', '后端扁平 store 必须映射为 storeName');
   assert.equal(decorated.category, 'store', '未显式提供 category 时必须按门店订单兜底');
@@ -176,10 +227,7 @@ const FIXTURES = [
   );
   assert.ok(ordersJs.includes('ORDER_PAGE_SIZE = 20'), '订单分页大小必须为 20');
   assert.ok(ordersJs.includes('pickRecords'), '必须兼容 PageResult.records 结构');
-  assert.ok(
-    pageJs.includes('onReachBottom') && pageJs.includes('append: true'),
-    '订单页必须支持上拉加载更多'
-  );
+  assert.ok(pageJs.includes('onReachBottom') && pageJs.includes('append: true'), '订单页必须支持上拉加载更多');
 }
 {
   const { pickRecords, ORDER_PAGE_SIZE } = require(path.join(root, 'utils/orders.js'));
@@ -198,17 +246,25 @@ const FIXTURES = [
     '订单数据层必须支持按当前页签和分类请求'
   );
   assert.ok(
-    ordersPageJs.includes('onShow') && ordersPageJs.includes('loadOrders') && ordersPageJs.includes('refreshOrdersFromRemote'),
+    ordersPageJs.includes('onShow') &&
+      ordersPageJs.includes('loadOrders') &&
+      ordersPageJs.includes('refreshOrdersFromRemote'),
     '订单页必须在 onShow 通过 loadOrders 真实刷新'
   );
 }
 {
   const { normalizeAuxOrder } = require(path.join(root, 'utils/orders.js'));
   assert.equal(typeof normalizeAuxOrder, 'function', '必须导出储值/礼品卡订单适配函数');
-  const stored = normalizeAuxOrder({ id: 1, orderNo: 'S1', amount: 20000, payStatus: 'PAID', createTime: '2026-09-17 10:00:00' }, 'stored-value');
+  const stored = normalizeAuxOrder(
+    { id: 1, orderNo: 'S1', amount: 20000, payStatus: 'PAID', createTime: '2026-09-17 10:00:00' },
+    'stored-value'
+  );
   assert.equal(stored.category, 'stored-value', '储值订单必须标记 category');
   assert.equal(stored.totalAmount, 20000, '储值订单 amount 必须映射为统一金额字段（分）');
-  const gift = normalizeAuxOrder({ id: 2, orderNo: 'G1', amount: 10000, payStatus: 'UNPAID', status: 'CREATED' }, 'gift-card');
+  const gift = normalizeAuxOrder(
+    { id: 2, orderNo: 'G1', amount: 10000, payStatus: 'UNPAID', status: 'CREATED' },
+    'gift-card'
+  );
   assert.equal(gift.category, 'gift-card', '礼品卡订单必须标记 category');
   assert.equal(gift.orderStatus, 'pending_payment', '未支付礼品卡订单必须归一为待支付');
 }
@@ -216,7 +272,16 @@ const FIXTURES = [
 // 储值订单取消后必须显示「已取消」（原 bug：pay_status=CANCELED 被归一成 unpaid，界面恒为未支付）
 {
   const { normalizeAuxOrder } = require(path.join(root, 'utils/orders.js'));
-  const canceledStored = normalizeAuxOrder({ id: 901, orderNo: 'CZ202609272359003004', amount: 20000, payStatus: 'CANCELED', createTime: '2026-09-27 23:59:00' }, 'stored-value');
+  const canceledStored = normalizeAuxOrder(
+    {
+      id: 901,
+      orderNo: 'CZ202609272359003004',
+      amount: 20000,
+      payStatus: 'CANCELED',
+      createTime: '2026-09-27 23:59:00'
+    },
+    'stored-value'
+  );
   assert.equal(canceledStored.orderStatus, 'canceled', '储值取消订单的 orderStatus 必须归一为 canceled，而非 unpaid');
   orderStore.setOrdersForTest([canceledStored]);
   const decoratedCanceled = orderStore.getOrderById('901');
@@ -290,8 +355,16 @@ assert.ok(
 // 并等待「取消 -> 重新拉取列表」异步链完成后再断言状态。
 remoteOrders.splice(0, remoteOrders.length, ...FIXTURES);
 orderStore.setOrdersForTest(FIXTURES);
-const giftPendingId = (orderStore.getOrders().find(order => order.isPendingPayment && order.category === 'gift-card') || orderStore.getOrders().find(order => order.isPendingPayment) || ordersPage.data.orders.find(order => order.isPendingPayment) || ordersPage.data.filteredOrders.find(order => order.isPendingPayment)).id;
-const cancelTargetOrderNo = (orderStore.getOrderById(giftPendingId) || {}).orderNo || ((orderStore.getOrderById(giftPendingId) || {}).orderInfo || {}).orderNo || '';
+const giftPendingId = (
+  orderStore.getOrders().find(order => order.isPendingPayment && order.category === 'gift-card') ||
+  orderStore.getOrders().find(order => order.isPendingPayment) ||
+  ordersPage.data.orders.find(order => order.isPendingPayment) ||
+  ordersPage.data.filteredOrders.find(order => order.isPendingPayment)
+).id;
+const cancelTargetOrderNo =
+  (orderStore.getOrderById(giftPendingId) || {}).orderNo ||
+  ((orderStore.getOrderById(giftPendingId) || {}).orderInfo || {}).orderNo ||
+  '';
 ordersDefinition.cancelOrder.call(ordersPage, { currentTarget: { dataset: { id: giftPendingId } } });
 await new Promise(resolve => setTimeout(resolve, 50));
 assert.ok(
@@ -372,8 +445,7 @@ assert.ok(
 const actionsStart = giftWxml.indexOf('class="gift-order-card__actions"');
 const cardClose = giftWxml.indexOf('</view>', giftWxml.indexOf('aria-label="继续支付"'));
 assert.ok(
-  actionsStart > giftWxml.indexOf('class="gift-order-card__main"') &&
-    actionsStart < cardClose,
+  actionsStart > giftWxml.indexOf('class="gift-order-card__main"') && actionsStart < cardClose,
   '待支付操作按钮必须位于卡片内部'
 );
 
@@ -405,13 +477,15 @@ assert.ok(
   '订单夹具必须覆盖已支付与未支付订单'
 );
 assert.ok(
-  FIXTURES.filter(order => order.orderStatus !== 'pending_payment' && order.orderInfo.payMethod !== '未支付')
-    .every(order => order.payTime),
+  FIXTURES.filter(order => order.orderStatus !== 'pending_payment' && order.orderInfo.payMethod !== '未支付').every(
+    order => order.payTime
+  ),
   '已支付订单数据必须提供支付时间'
 );
 assert.ok(
-  FIXTURES.filter(order => order.orderStatus === 'pending_payment' || order.orderInfo.payMethod === '未支付')
-    .every(order => !order.payTime),
+  FIXTURES.filter(order => order.orderStatus === 'pending_payment' || order.orderInfo.payMethod === '未支付').every(
+    order => !order.payTime
+  ),
   '未支付订单数据不得提供支付时间'
 );
 assert.ok(
@@ -523,26 +597,36 @@ assert.ok(
   assert.equal(giftHistoryState.denominationCalls, cardDenominationCalls, '卡自带完整元数据时不得回落到面额接口');
 
   giftHistoryState.cards = [];
-  giftHistoryState.orders = [{
-    id: 'gift-order-history',
-    orderNo: 'G-HISTORY',
-    denominationId: staleDenomination.id,
-    amount: historicalCard.amount,
-    payStatus: 'PAID',
-    status: 'CREATED',
-    cardName: historicalCard.cardName,
-    cardImage: historicalCard.cardImage,
-    groupTitle: historicalCard.groupTitle,
-    salePrice: historicalCard.salePrice
-  }];
+  giftHistoryState.orders = [
+    {
+      id: 'gift-order-history',
+      orderNo: 'G-HISTORY',
+      denominationId: staleDenomination.id,
+      amount: historicalCard.amount,
+      payStatus: 'PAID',
+      status: 'CREATED',
+      cardName: historicalCard.cardName,
+      cardImage: historicalCard.cardImage,
+      groupTitle: historicalCard.groupTitle,
+      salePrice: historicalCard.salePrice
+    }
+  ];
   const orderDenominationCalls = giftHistoryState.denominationCalls;
   const giftOrdersRoot = path.join(root, 'pages/gift-card-orders/gift-card-orders');
   const giftOrdersDefinition = loadPage(giftOrdersRoot);
   const giftOrdersPage = createPageInstance(giftOrdersDefinition);
   giftOrdersDefinition.refresh.call(giftOrdersPage);
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(giftOrdersPage.data.allOrders[0].title, historicalCard.cardName, '订单列表必须优先使用 records.cardName');
-  assert.equal(giftOrdersPage.data.allOrders[0].coverImage, historicalCard.cardImage, '订单列表必须优先使用 records.cardImage');
+  assert.equal(
+    giftOrdersPage.data.allOrders[0].title,
+    historicalCard.cardName,
+    '订单列表必须优先使用 records.cardName'
+  );
+  assert.equal(
+    giftOrdersPage.data.allOrders[0].coverImage,
+    historicalCard.cardImage,
+    '订单列表必须优先使用 records.cardImage'
+  );
   assert.equal(giftHistoryState.denominationCalls, orderDenominationCalls, '订单自带完整元数据时不得回落到面额接口');
 
   giftHistoryState.cards = [historicalCard];
@@ -554,9 +638,21 @@ assert.ok(
   const profileDenominationCalls = giftHistoryState.denominationCalls;
   profileDefinition.onShow.call(profilePage);
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(profilePage.data.giftCards[0].name, historicalCard.cardName, '我的页历史礼品卡必须优先使用卡自带 cardName');
-  assert.equal(profilePage.data.giftCards[0].image, historicalCard.cardImage, '我的页历史礼品卡必须优先使用卡自带 cardImage');
-  assert.equal(giftHistoryState.denominationCalls, profileDenominationCalls, '我的页卡自带完整元数据时不得回落到面额接口');
+  assert.equal(
+    profilePage.data.giftCards[0].name,
+    historicalCard.cardName,
+    '我的页历史礼品卡必须优先使用卡自带 cardName'
+  );
+  assert.equal(
+    profilePage.data.giftCards[0].image,
+    historicalCard.cardImage,
+    '我的页历史礼品卡必须优先使用卡自带 cardImage'
+  );
+  assert.equal(
+    giftHistoryState.denominationCalls,
+    profileDenominationCalls,
+    '我的页卡自带完整元数据时不得回落到面额接口'
+  );
   delete storage['milkTea:auth:token'];
   delete storage['milkTea:auth:user'];
 }

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'SystemFeature'
 });
@@ -69,4 +68,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

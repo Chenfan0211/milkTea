@@ -131,7 +131,7 @@ Page(
       const expected = this.data.order.pickupCode;
       if (!expected) return;
       wx.scanCode({
-        success: (res) => {
+        success: res => {
           const scanned = String((res && res.result) || '').trim();
           if (!scanned) {
             wx.showToast({ title: '未识别到核销码', icon: 'none' });
@@ -169,5 +169,3 @@ Page(
     }
   })
 );
-
-

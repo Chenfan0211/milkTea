@@ -198,7 +198,12 @@ const ruleColumns = [
     render: (row: any) => actionLabelOf(row.action)
   },
   { title: '奖励', key: 'reward', width: 180, render: (row: any) => rewardTextOf(row) },
-  { title: '每日上限', key: 'dailyLimit', width: 100, render: (row: any) => (row.dailyLimit == null ? '不限' : `${row.dailyLimit} 次`) },
+  {
+    title: '每日上限',
+    key: 'dailyLimit',
+    width: 100,
+    render: (row: any) => (row.dailyLimit == null ? '不限' : `${row.dailyLimit} 次`)
+  },
   {
     title: '状态',
     key: 'enabled',
@@ -272,12 +277,7 @@ const ruleColumns = [
       />
     </NCard>
 
-    <NModal
-      v-model:show="ruleModalVisible"
-      preset="card"
-      title="编辑奖励"
-      class="w-480px"
-    >
+    <NModal v-model:show="ruleModalVisible" preset="card" title="编辑奖励" class="w-480px">
       <NForm label-placement="left" :label-width="96">
         <!-- 行为：来自字典 points_action，只读，不允许在本页修改 -->
         <NFormItem label="行为">
@@ -303,7 +303,13 @@ const ruleColumns = [
         </NFormItem>
 
         <NFormItem label="每日上限">
-          <NInputNumber v-model:value="ruleForm.dailyLimit" :min="0" :precision="0" class="w-160px" placeholder="留空表示不限" />
+          <NInputNumber
+            v-model:value="ruleForm.dailyLimit"
+            :min="0"
+            :precision="0"
+            class="w-160px"
+            placeholder="留空表示不限"
+          />
         </NFormItem>
 
         <NFormItem label="说明"><NInput v-model:value="ruleForm.note" /></NFormItem>

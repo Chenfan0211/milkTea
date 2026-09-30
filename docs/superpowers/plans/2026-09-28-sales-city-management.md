@@ -46,10 +46,12 @@
 ### Task 1: V59 迁移 —— sales_city 表 + 现有 3 城迁移
 
 **Files:**
+
 - Create: `server/src/main/resources/db/migration/V59__sales_city.sql`
 - Test: `server/src/test/java/com/wuling/common/SalesCityMigrationV59Test.java`
 
 **Interfaces:**
+
 - Consumes: 现有 `region` 表、`app_config` 表（`app_cities` 键）。
 - Produces: 表 `sales_city(id, province_code, city_code, name, initial, enabled, sort, create_time, update_time, deleted)`。
 
@@ -174,11 +176,13 @@ git commit -m "feat(db): V59 销售城市表结构 + 现有3城迁移"
 ### Task 2: 数据生成脚本 —— 从 modood 拉取并生成全量省市 SQL
 
 **Files:**
+
 - Create: `scripts/gen-region-seed.mjs`
 - Create: `server/src/main/resources/db/migration/V59__seed_region_full.sql`（脚本产出）
 - Test: `scripts/gen-region-seed.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `provinces.json` 与 `cities.json`（modood 仓库 raw）。
 - Produces: `V59__seed_region_full.sql`（`region` 表 INSERT，省 + 市，直辖市合并）。
 
@@ -246,18 +250,14 @@ function initialOf(chinese) {
   const c = chinese.charCodeAt(0);
   if (c < 0x4e00 || c > 0x9fa5) return '#';
   const bounds = [
-    0xb0a1, 0xb0c5, 0xb2c1, 0xb4ee, 0xb6ea, 0xb7a2, 0xb8c1, 0xb9fe,
-    0xbbf7, 0xbfa6, 0xc0ac, 0xc2e8, 0xc4c3, 0xc5b6, 0xc5be, 0xc6da,
-    0xc8bb, 0xc8f6, 0xcbfa, 0xcdda, 0xcef4, 0xd1b9, 0xd4d1
+    0xb0a1, 0xb0c5, 0xb2c1, 0xb4ee, 0xb6ea, 0xb7a2, 0xb8c1, 0xb9fe, 0xbbf7, 0xbfa6, 0xc0ac, 0xc2e8, 0xc4c3, 0xc5b6,
+    0xc5be, 0xc6da, 0xc8bb, 0xc8f6, 0xcbfa, 0xcdda, 0xcef4, 0xd1b9, 0xd4d1
   ];
   const idx = Math.min(22, Math.floor((c - 0x4e00) / 500));
   return 'ABCDEFGHJKLMNOPQRSTWXYZ'[idx] || '#';
 }
 
-const [provinces, cities] = await Promise.all([
-  fetchJson('provinces.json'),
-  fetchJson('cities.json')
-]);
+const [provinces, cities] = await Promise.all([fetchJson('provinces.json'), fetchJson('cities.json')]);
 
 const lines = [];
 lines.push('-- V59 全量省市候选库（modood/Administrative-divisions-of-China）');
@@ -286,7 +286,9 @@ for (const c of cities) {
 lines[lines.length - 1] = lines[lines.length - 1].replace(/,$/, ';');
 lines.push('');
 
-const out = fileURLToPath(new URL('../server/src/main/resources/db/migration/V59__seed_region_full.sql', import.meta.url));
+const out = fileURLToPath(
+  new URL('../server/src/main/resources/db/migration/V59__seed_region_full.sql', import.meta.url)
+);
 writeFileSync(out, lines.join('\n'), 'utf8');
 console.log(`generated ${out}: ${lines.length - 4} rows`);
 ```
@@ -315,11 +317,13 @@ git commit -m "feat(db): 全量省市候选库生成脚本与种子数据"
 ```
 
 ---
+
 ---
 
 ### Task 3: 后端 —— salesCity CRUD 资源 + sales-cities 接口 + 门店返回 cityCode
 
 **Files:**
+
 - Create: `server/src/main/java/com/wuling/system/entity/SalesCity.java`
 - Create: `server/src/main/java/com/wuling/system/mapper/SalesCityMapper.java`
 - Modify: `server/src/main/java/com/wuling/system/crud/CrudRegistry.java`
@@ -328,6 +332,7 @@ git commit -m "feat(db): 全量省市候选库生成脚本与种子数据"
 - Test: `server/src/test/java/com/wuling/common/SalesCityBackendTest.java`
 
 **Interfaces:**
+
 - Consumes: Task 1 的 `sales_city` 表。
 - Produces: CRUD 资源 `salesCity`；接口 `GET /api/v1/app/sales-cities`（返回 `enabled=1`）；门店 DTO 增加 `cityCode`。
 
@@ -522,10 +527,12 @@ git commit -m "feat(subject): 销售城市 CRUD + 小程序选城接口 + 门店
 ### Task 4: 后台城市管理页 —— 改读 salesCity + 省市级联 + 去经纬度排序
 
 **Files:**
+
 - Modify: `src/views/system/city/index.vue`
 - Test: `scripts/city-page.test.mjs`
 
 **Interfaces:**
+
 - Consumes: Task 3 的 `salesCity` 资源与 `provinces`/`cities` 候选库。
 - Produces: 城市管理页改读 `salesCity`，表单省→市级联，移除经纬度/排序列。
 
@@ -573,7 +580,12 @@ const columns: DataTableColumns<any> = [
   { title: '省份', key: 'provinceCode', width: 120, render: (row: any) => provinceNameByCode(row.provinceCode) },
   { title: '城市', key: 'name', width: 140 },
   { title: '城市编码', key: 'cityCode', width: 140 },
-  { title: '状态', key: 'enabled', width: 90, render: renderTag('enabled', statusMap({ 1: ['上架', 'success'], 0: ['停用', 'default'] })) }
+  {
+    title: '状态',
+    key: 'enabled',
+    width: 90,
+    render: renderTag('enabled', statusMap({ 1: ['上架', 'success'], 0: ['停用', 'default'] }))
+  }
 ];
 
 const formFields: FormField[] = [
@@ -588,14 +600,23 @@ const formFields: FormField[] = [
     key: 'cityCode',
     label: '城市',
     type: 'select',
-    options: (form: any) => store.cities
-      .filter((c: any) => String(c.parent_id) === String(provinceIdByCode(form.provinceCode)))
-      .map((c: any) => ({ label: c.name, value: String(c.code) })),
+    options: (form: any) =>
+      store.cities
+        .filter((c: any) => String(c.parent_id) === String(provinceIdByCode(form.provinceCode)))
+        .map((c: any) => ({ label: c.name, value: String(c.code) })),
     rules: [requiredRule]
   },
   { key: 'name', label: '展示名称', rules: [requiredRule] },
   { key: 'initial', label: '首字母', maxlength: 1 },
-  { key: 'enabled', label: '状态', type: 'select', options: [{ label: '上架', value: 1 }, { label: '停用', value: 0 }] }
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'select',
+    options: [
+      { label: '上架', value: 1 },
+      { label: '停用', value: 0 }
+    ]
+  }
 ];
 ```
 
@@ -630,11 +651,13 @@ git commit -m "feat(web): 城市管理改销售城市 + 省市级联 + 去经纬
 ### Task 5: 小程序 —— 去硬编码 + 读 sales-cities + 选城/定位适配
 
 **Files:**
+
 - Modify: `user-h5/utils/api.js`（新增 `fetchSalesCities`）
 - Modify: `user-h5/utils/store.js`（去三城硬编码，改读 sales-cities）
 - Test: `user-h5/scripts/sales-city.test.mjs`
 
 **Interfaces:**
+
 - Consumes: Task 3 的 `GET /api/v1/app/sales-cities`。
 - Produces: `store.js` 的 `refreshCitiesFromRemote` 改读 sales-cities；`normalizeRemoteStore` 用后端 `cityCode` 而非硬编码。
 
@@ -741,9 +764,11 @@ git commit -m "feat(h5): 小程序销售城市读接口并去三城硬编码"
 ### Task 6: 全链路回归验证
 
 **Files:**
+
 - Test: `server/src/test/java/com/wuling/common/SalesCityE2ETest.java`（静态断言汇总）
 
 **Interfaces:**
+
 - Consumes: Task 1-5 全部产出。
 
 - [ ] **Step 1: 写回归测试**
@@ -814,17 +839,17 @@ git commit -m "test: 销售城市全链路静态回归"
 
 ## 交付清单
 
-| 层 | 文件 | 改动 |
-|---|---|---|
-| DB | `V59__sales_city.sql` | 新增 sales_city 表 + 迁移现有 3 城 |
-| DB | `V59__seed_region_full.sql` | 全量省市候选库 |
-| 脚本 | `scripts/gen-region-seed.mjs` | modood 数据生成脚本 |
-| 后端 | `CrudRegistry.java` | 注册 salesCity 资源 |
-| 后端 | `AppConfigController.java` | +/sales-cities 接口 |
-| 后端 | `StoreService.java` + DTO | 门店返回 cityCode |
-| 前端 | `system/city/index.vue` | 改 salesCity + 省市级联 + 去经纬度排序 |
-| 小程序 | `api.js` / `store.js` | 去硬编码 + 读 sales-cities |
-| 测试 | 6 个 Java/Node 测试 | 静态规则 + 不变量 |
+| 层     | 文件                          | 改动                                   |
+| ------ | ----------------------------- | -------------------------------------- |
+| DB     | `V59__sales_city.sql`         | 新增 sales_city 表 + 迁移现有 3 城     |
+| DB     | `V59__seed_region_full.sql`   | 全量省市候选库                         |
+| 脚本   | `scripts/gen-region-seed.mjs` | modood 数据生成脚本                    |
+| 后端   | `CrudRegistry.java`           | 注册 salesCity 资源                    |
+| 后端   | `AppConfigController.java`    | +/sales-cities 接口                    |
+| 后端   | `StoreService.java` + DTO     | 门店返回 cityCode                      |
+| 前端   | `system/city/index.vue`       | 改 salesCity + 省市级联 + 去经纬度排序 |
+| 小程序 | `api.js` / `store.js`         | 去硬编码 + 读 sales-cities             |
+| 测试   | 6 个 Java/Node 测试           | 静态规则 + 不变量                      |
 
 ## 不做的事（明确排除）
 

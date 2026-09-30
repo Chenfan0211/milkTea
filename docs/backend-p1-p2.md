@@ -7,15 +7,15 @@
 
 > 数据按主体隔离，各角色使用独立路径前缀，避免路由歧义。
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/app/workbench/subject/{id}/overview` | 概览：可用余额/冻结/累计收入/今日订单/待结算/可结算 |
-| GET | `/api/v1/app/workbench/subject/{id}/flows` | 资金流水（收益、提成、结算明细） |
-| GET | `/api/v1/app/workbench/subject/{id}/settlements` | 结算台账 |
-| GET | `/api/v1/app/workbench/store/{id}/orders` | 门店订单 |
-| GET | `/api/v1/app/workbench/channel/{id}/stores` | 渠道绑定门店 |
-| GET | `/api/v1/app/workbench/channel/{id}/orders` | 渠道归因订单 |
-| GET | `/api/v1/app/workbench/investor/{id}/stores` | 投资人投资门店 |
+| 方法 | 路径                                             | 说明                                                |
+| ---- | ------------------------------------------------ | --------------------------------------------------- |
+| GET  | `/api/v1/app/workbench/subject/{id}/overview`    | 概览：可用余额/冻结/累计收入/今日订单/待结算/可结算 |
+| GET  | `/api/v1/app/workbench/subject/{id}/flows`       | 资金流水（收益、提成、结算明细）                    |
+| GET  | `/api/v1/app/workbench/subject/{id}/settlements` | 结算台账                                            |
+| GET  | `/api/v1/app/workbench/store/{id}/orders`        | 门店订单                                            |
+| GET  | `/api/v1/app/workbench/channel/{id}/stores`      | 渠道绑定门店                                        |
+| GET  | `/api/v1/app/workbench/channel/{id}/orders`      | 渠道归因订单                                        |
+| GET  | `/api/v1/app/workbench/investor/{id}/stores`     | 投资人投资门店                                      |
 
 验证结果：
 
@@ -32,13 +32,13 @@
 
 规则对齐 `user-h5/data/role-mock.js`：
 
-| 场景 | 行为 |
-|------|------|
-| 单笔 ≤ 100 元 | 小额即时到账（`PAID`），无需审核 |
-| 单笔 > 100 元 | 进入审核（`APPLIED`） |
-| 审核通过 | 出款，从冻结扣减，计入累计提现 |
+| 场景                | 行为                                      |
+| ------------------- | ----------------------------------------- |
+| 单笔 ≤ 100 元       | 小额即时到账（`PAID`），无需审核          |
+| 单笔 > 100 元       | 进入审核（`APPLIED`）                     |
+| 审核通过            | 出款，从冻结扣减，计入累计提现            |
 | 审核驳回 / 出款失败 | **自动解冻**回可用余额（`UNFREEZE` 流水） |
-| 余额不足 | 拒绝 |
+| 余额不足            | 拒绝                                      |
 
 验证记录（金额单位：分）：
 
@@ -52,6 +52,7 @@
 ### 优惠券（`CouponService`）
 
 状态机 `UNUSED → LOCKED → USED`，取消订单走 `releaseByOrder` 回退。
+
 - 领取扣库存，同一用户同一券只能持有一张未使用（重复领取返回 400）
 - 锁券校验使用门槛，抵扣金额不超过订单金额
 
@@ -79,11 +80,13 @@
 ## 四、验证总览
 
 ### 单元测试
+
 ```
 Tests run: 13, Failures: 0, Errors: 0  (BUILD SUCCESS)
 ```
 
 ### 数据库一致性校验（`LedgerConsistencyIT`，连真实库）
+
 ```
 分账快照五方之和 = 实付金额
 分账规则比例合计 = 10000
@@ -92,13 +95,14 @@ Tests run: 3, Failures: 0, Errors: 0  (BUILD SUCCESS)
 ```
 
 ### 数据核对
-| 项 | 结果 |
-|----|------|
-| 分账快照一致性 | 7/7 全部一致 |
-| 台账 SETTLEABLE | 23 条 / 26631 分 |
-| 提现 PAID | 3 笔 / 13000 分 |
-| 提现 REJECTED | 1 笔 / 11000 分（已解冻） |
-| 表数量 | 58 |
+
+| 项              | 结果                      |
+| --------------- | ------------------------- |
+| 分账快照一致性  | 7/7 全部一致              |
+| 台账 SETTLEABLE | 23 条 / 26631 分          |
+| 提现 PAID       | 3 笔 / 13000 分           |
+| 提现 REJECTED   | 1 笔 / 11000 分（已解冻） |
+| 表数量          | 58                        |
 
 ## 五、本批修复的缺陷
 

@@ -24,9 +24,7 @@ Page(
       this.setData({
         roles: getRoleDefinitions(),
         currentRoleId: state.currentRoleId,
-        activeRoleIds: state.roles
-          .filter(item => item.status === 'active')
-          .map(item => item.roleId)
+        activeRoleIds: state.roles.filter(item => item.status === 'active').map(item => item.roleId)
       });
     },
     // 仅允许切换到后端已开通（active）的角色。

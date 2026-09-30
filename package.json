@@ -28,7 +28,9 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/sync-benefit-icons.mjs && node scripts/generate-iconify-offline.mjs && vite build --mode prod",
+    "build:prod-ip": "node scripts/sync-benefit-icons.mjs && node scripts/generate-iconify-offline.mjs && vite build --mode prod-ip",
     "build:test": "node scripts/generate-iconify-offline.mjs && vite build --mode test",
+    "check:vue-root": "node scripts/vue-single-root.test.mjs",
     "cleanup": "sa cleanup",
     "commit": "sa git-commit",
     "commit:zh": "sa git-commit -l=zh-cn",
@@ -36,17 +38,15 @@
     "dev:prod": "vite --mode prod",
     "fmt": "oxfmt",
     "gen-route": "sa gen-route",
+    "icons:benefit": "node scripts/sync-benefit-icons.mjs",
+    "icons:offline": "node scripts/generate-iconify-offline.mjs",
     "lint": "oxlint --fix && eslint --fix .",
     "prepare": "simple-git-hooks",
     "preview": "vite preview",
     "release": "sa release",
-    "typecheck": "vue-tsc --noEmit --skipLibCheck",
-    "check:vue-root": "node scripts/vue-single-root.test.mjs",
     "sync:admin-images": "node scripts/sync-admin-images.mjs",
-    "icons:benefit": "node scripts/sync-benefit-icons.mjs",
-    "icons:offline": "node scripts/generate-iconify-offline.mjs",
-    "update-pkg": "sa update-pkg",
-    "build:prod-ip": "node scripts/sync-benefit-icons.mjs && node scripts/generate-iconify-offline.mjs && vite build --mode prod-ip"
+    "typecheck": "vue-tsc --noEmit --skipLibCheck",
+    "update-pkg": "sa update-pkg"
   },
   "dependencies": {
     "@better-scroll/core": "2.5.1",

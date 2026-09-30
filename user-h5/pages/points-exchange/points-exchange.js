@@ -45,7 +45,7 @@ Page(
             item: Object.assign({}, item, { points }),
             quantity: 1,
             stock,
-            maxQuantity: isCoupon ? 1 : (limit > 0 ? Math.min(limit, stockCap) : stockCap),
+            maxQuantity: isCoupon ? 1 : limit > 0 ? Math.min(limit, stockCap) : stockCap,
             insufficient: getPoints() < points,
             isCoupon
           });
@@ -133,4 +133,3 @@ Page(
     }
   })
 );
-

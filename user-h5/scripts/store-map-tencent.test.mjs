@@ -14,8 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // 由 GeoCodeService 带 SN 签名调用，小程序端只传坐标。
 const MINIPROGRAM_DIRS = ['pages', 'components', 'utils', 'data', 'scripts', 'custom-tab-bar'];
 const SECRET_PATTERNS = [
-  /DVIBZ-[A-Z0-9-]{10,}/,          // 腾讯地图 Key 形态
-  /tPEAfvpk[A-Za-z0-9]{5,}/,       // 已泄露的 SK（防止回填）
+  /DVIBZ-[A-Z0-9-]{10,}/, // 腾讯地图 Key 形态
+  /tPEAfvpk[A-Za-z0-9]{5,}/, // 已泄露的 SK（防止回填）
   /TENCENT_MAP_KEY\s*[:=]\s*['"][^'"]+['"]/,
   /TENCENT_MAP_SK\s*[:=]\s*['"][^'"]+['"]/
 ];
@@ -46,27 +46,15 @@ for (const file of files) {
   if (!TEXT_EXT.has(path.extname(file))) continue;
   const text = fs.readFileSync(file, 'utf8');
   for (const pattern of SECRET_PATTERNS) {
-    assert.ok(
-      !pattern.test(text),
-      `小程序包内不得出现腾讯地图密钥: ${path.relative(root, file)}`
-    );
+    assert.ok(!pattern.test(text), `小程序包内不得出现腾讯地图密钥: ${path.relative(root, file)}`);
   }
 }
 
 // ---------- 2. 小程序端必须通过自己的后端代理拿地理数据 ----------
 const apiJs = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');
-assert.ok(
-  apiJs.includes('/api/v1/app/geo/regeo'),
-  '小程序端必须通过后端代理做逆地址解析，不得直连腾讯接口'
-);
-assert.ok(
-  apiJs.includes('/api/v1/app/geo/distance'),
-  '小程序端必须通过后端代理取真实距离，不得直连腾讯接口'
-);
-assert.ok(
-  !/apis\.map\.qq\.com/.test(apiJs),
-  '小程序端不得直连腾讯位置服务域名（密钥会随包下发）'
-);
+assert.ok(apiJs.includes('/api/v1/app/geo/regeo'), '小程序端必须通过后端代理做逆地址解析，不得直连腾讯接口');
+assert.ok(apiJs.includes('/api/v1/app/geo/distance'), '小程序端必须通过后端代理取真实距离，不得直连腾讯接口');
+assert.ok(!/apis\.map\.qq\.com/.test(apiJs), '小程序端不得直连腾讯位置服务域名（密钥会随包下发）');
 
 // ---------- 3. 真实距离装饰器：有数据用服务端值，无数据回落直线估算 ----------
 const store = require(path.join(root, 'utils/store.js'));

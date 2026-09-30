@@ -29,7 +29,11 @@ const columns: DataTableColumns<any> = [
     key: 'enabled',
     width: 100,
     render: (row: any) =>
-      h(NTag, { type: isEnabled(row.enabled) ? 'success' : 'default', bordered: false }, { default: () => (isEnabled(row.enabled) ? '启用' : '停用') })
+      h(
+        NTag,
+        { type: isEnabled(row.enabled) ? 'success' : 'default', bordered: false },
+        { default: () => (isEnabled(row.enabled) ? '启用' : '停用') }
+      )
   },
   {
     title: '类型',
@@ -60,14 +64,14 @@ const formFields: FormField[] = [
   {
     key: 'name',
     label: '分类名称',
-    rules: [{ required: true, message: '请输入分类名称', trigger: ['input', 'blur'] }],
+    rules: [{ required: true, message: '请输入分类名称', trigger: ['input', 'blur'] }]
   },
   {
     key: 'code',
     label: '分类编码',
     rules: [{ required: true, message: '请输入分类编码', trigger: ['input', 'blur'] }],
     placeholder: '商品关联键，例如 pet',
-    disabled: form => Boolean(form.isEdit),
+    disabled: form => Boolean(form.isEdit)
   },
   { key: 'sort', label: '排序', type: 'number', placeholder: '数字越小越靠前' },
   {

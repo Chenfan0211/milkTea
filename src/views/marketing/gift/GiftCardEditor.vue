@@ -6,12 +6,7 @@ defineOptions({
 import { computed, reactive, ref, watch } from 'vue';
 import { NButton, NForm, NFormItem, NImage, NInput, NInputNumber, NModal, NSelect, NTag, NUpload } from 'naive-ui';
 import type { UploadCustomRequestOptions } from 'naive-ui';
-import {
-  createGiftCardFace,
-  fetchGiftCardGroups,
-  updateGiftCardFace,
-  uploadGiftCardImage
-} from '@/service/api/crud';
+import { createGiftCardFace, fetchGiftCardGroups, updateGiftCardFace, uploadGiftCardImage } from '@/service/api/crud';
 import type { GiftCardFace, GiftCardFacePayload } from '@/service/api/crud';
 
 interface DenominationDraft {
@@ -202,13 +197,7 @@ async function submit() {
 </script>
 
 <template>
-  <NModal
-    :show="show"
-    preset="card"
-    :title="title"
-    class="w-760px"
-    @update:show="emit('update:show', $event)"
-  >
+  <NModal :show="show" preset="card" :title="title" class="w-760px" @update:show="emit('update:show', $event)">
     <NForm label-placement="left" :label-width="96">
       <NFormItem label="卡种分组" required>
         <NSelect
@@ -235,11 +224,7 @@ async function submit() {
             class="image-preview"
           />
           <div v-else class="image-empty">暂无图片</div>
-          <NUpload
-            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-            :show-file-list="false"
-            :custom-request="handleUpload"
-          >
+          <NUpload accept=".jpg,.jpeg,.png,image/jpeg,image/png" :show-file-list="false" :custom-request="handleUpload">
             <NButton :loading="uploading">{{ form.cardImage ? '重新上传' : '上传图片' }}</NButton>
           </NUpload>
         </div>
@@ -267,12 +252,7 @@ async function submit() {
               />
               <NTag v-if="item.referenced" size="small" type="warning" :bordered="false">已引用 · 面值锁定</NTag>
             </div>
-            <NInputNumber
-              v-model:value="item.salePrice"
-              :min="0.01"
-              :precision="2"
-              placeholder="请输入售价"
-            />
+            <NInputNumber v-model:value="item.salePrice" :min="0.01" :precision="2" placeholder="请输入售价" />
             <NButton quaternary type="error" @click="removeDenomination(index)">删除</NButton>
           </div>
           <div class="denomination-tip">至少一条；售价必须大于 0 且不高于面值。已引用面额仅允许修改售价。</div>

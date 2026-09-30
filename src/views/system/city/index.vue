@@ -1,9 +1,9 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'SystemCity'
 });
 
+import { ref } from 'vue';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
@@ -13,32 +13,46 @@ import { renderTag, statusMap } from '@/views/_shared/render';
 const store = useAdminStore();
 
 /**
- * 城市管理。
+ * 活动城市管理（运营白名单）。
  *
- * 省-市关系（用户决策）：**沿用 region.parent_id 关联**，不新增 province_code 列。
- *   region.level=1 为省，level=2 为市，市的 parent_id 指向省的 id。
- *
- * 因此本页：
- *   - 表单「省份」选择的是省份的 **id**（写入 parent_id），数据来自 region level=1；
- *   - 城市名称/编码手工填写，level 固定为 2；
- *   - 经纬度不再对外维护（隐藏），由系统自行维护。
- *   - 支持启用/停用状态，仅停用状态可删除（逻辑删除）。
+ * region 是行政区划基础库（全国 337 个市，只读候选）；
+ * activity_city 是运营开城的白名单，只有 enabled 的活动城市才会在小程序端下发。
+ * 本页维护的是 activity_city：
+ *   - 列表 = activity_city（region_id/city_code/city_name/province_id/status/sort/remark）；
+ *   - 新增：从 region level=2 全量城市中「选一个」作为活动城市，选中后回填冗余字段；
+ *   - 启用/停用/删除只作用于 activity_city，不改动 region 基础数据。
  */
 
-/** 按 parent_id 反查省份名称 */
-function provinceName(parentId: any): string {
-  const p = store.provinces.find((x: any) => String(x.id) === String(parentId));
-  return p ? p.name : (parentId ? String(parentId) : '—');
+/** 候选城市（region level=2 全量），用于新增时下拉选择 */
+const cityOptions = ref<{ label: string; value: string }[]>([]);
+
+/** 懒加载候选城市（region 基础库，只读） */
+async function ensureCityOptions() {
+  if (cityOptions.value.length) return;
+  try {
+    const res = await store.queryRemote('cities', { eq_level: '2' }, 1, 1000);
+    cityOptions.value = (res.data || []).map((c: any) => ({
+      label: `${c.name}（${c.code}）`,
+      value: String(c.id)
+    }));
+  } catch {
+    cityOptions.value = [];
+  }
 }
 
-/** 省份下拉：value 用 id（对应 parent_id），数据来自 region level=1（省） */
-const provinceOptions = () =>
-  store.provinces.filter((p: any) => Number(p.level) === 1).map((p: any) => ({ label: p.name, value: String(p.id) }));
+/** 按 province_id 反查省份名称（region level=1） */
+function provinceName(provinceId: any): string {
+  const p = store.provinces.find((x: any) => String(x.id) === String(provinceId));
+  return p ? p.name : provinceId ? String(provinceId) : '—';
+}
+
+// 页面挂载即预加载候选城市，供新增下拉使用（异步完成后 ref 更新、下拉自动刷新）
+ensureCityOptions();
 
 const columns: DataTableColumns<any> = [
-  { title: '省份', key: 'parentId', width: 120, render: (row: any) => provinceName(row.parentId) },
-  { title: '城市', key: 'name', width: 140 },
-  { title: '城市编码', key: 'code', width: 140 },
+  { title: '省份', key: 'provinceId', width: 120, render: (row: any) => provinceName(row.provinceId) },
+  { title: '城市', key: 'cityName', width: 140 },
+  { title: '城市编码', key: 'cityCode', width: 140 },
   {
     title: '状态',
     key: 'status',
@@ -48,90 +62,95 @@ const columns: DataTableColumns<any> = [
   { title: '排序', key: 'sort', width: 80, align: 'right' }
 ];
 
-const searchFields: SearchField[] = [
-  { key: 'name', label: '城市', placeholder: '城市名称' }
-];
+const searchFields: SearchField[] = [{ key: 'cityName', label: '城市', placeholder: '城市名称' }];
 
 const formFields: FormField[] = [
   {
-    key: 'parentId',
-    label: '所属省份',
+    key: 'regionId',
+    label: '活动城市',
     type: 'select',
-    options: provinceOptions,
-    placeholder: '请选择省份',
-    rules: [{ required: true, message: '请选择所属省份', trigger: ['change', 'blur'] }]
+    options: () => cityOptions.value,
+    placeholder: '请从城市库中选择',
+    rules: [{ required: true, message: '请选择活动城市', trigger: ['change', 'blur'] }]
   },
-  { key: 'name', label: '城市名称', rules: [{ required: true, message: '请输入城市名称', trigger: ['input', 'blur'] }] },
-  { key: 'code', label: '城市编码', rules: [{ required: true, message: '请输入城市编码', trigger: ['input', 'blur'] }] },
-  { key: 'sort', label: '排序', type: 'number' }
+  { key: 'sort', label: '排序', type: 'number' },
+  { key: 'remark', label: '备注' }
 ];
 
-const toolbar: RowAction[] = [{ label: '新增城市', type: 'primary', modal: 'add' }];
+const toolbar: RowAction[] = [{ label: '新增活动城市', type: 'primary', modal: 'add' }];
 
 const rowActions: RowAction[] = [
-  { label: '编辑', type: 'primary', modal: 'edit' },
   {
     label: '停用',
     type: 'warning',
-    reasonPrompt: '确认停用该城市？（请填写备注）',
-    handler: async (row, _reason) => await store.update('cities', row.id, { status: 'disabled' }, '数据字典', 'name'),
+    reasonPrompt: '确认停用该活动城市？（停用后小程序不再下发该城市）',
+    handler: async (row, _reason) =>
+      await store.update('activityCities', row.id, { status: 'disabled' }, '活动城市', 'cityName'),
     visible: row => row.status !== 'disabled'
   },
   {
     label: '启用',
     type: 'success',
-    reasonPrompt: '确认启用该城市？（请填写备注）',
-    handler: async (row, _reason) => await store.update('cities', row.id, { status: 'enabled' }, '数据字典', 'name'),
+    reasonPrompt: '确认启用该活动城市？（启用后小程序下发该城市）',
+    handler: async (row, _reason) =>
+      await store.update('activityCities', row.id, { status: 'enabled' }, '活动城市', 'cityName'),
     visible: row => row.status === 'disabled'
   },
   {
     label: '删除',
     type: 'error',
-    reasonPrompt: '确认删除该城市？（停用状态才能删除，请填写备注）',
-    handler: async (row, reason) => await store.remove('cities', row.id, '数据字典', 'name', reason),
+    reasonPrompt: '确认删除该活动城市？（停用状态才能删除，请填写备注）',
+    handler: async (row, reason) => await store.remove('activityCities', row.id, '活动城市', 'cityName', reason),
     visible: row => row.status === 'disabled'
   }
 ];
 
 const config: AdminListConfig = {
-  title: '城市管理',
-  remoteKey: 'cities',
+  title: '活动城市管理',
+  remoteKey: 'activityCities',
   remoteDeps: ['provinces'],
   columns,
   searchFields,
   toolbar,
   rowActions,
   loadData: async ({ page, pageSize, search }) => {
-    // region 表含省(level=1)/市(level=2)/区县(level=3)，城市管理只维护市级数据。
-    // 通过 eq_level=2 走后端等值过滤（cities 资源的 filterable 白名单含 level），
-    // 避免前端过滤导致分页 total 错乱、省/区县混入列表。
-    return store.queryRemote('cities', { ...search, eq_level: '2' }, page, pageSize);
+    // 活动城市列表直接查 activity_city，搜索走 cityName 模糊匹配。
+    return store.queryRemote('activityCities', { ...search }, page, pageSize);
   },
   form: {
-    title: '城市',
+    title: '活动城市',
     fields: formFields,
     /**
-     * 编辑回填：只回填表单声明字段；parentId 可能为数字，统一转字符串以匹配下拉 value。
-     * 不再整行 {...row} 回填，避免 id/updateTime 等服务端字段进入 payload。
+     * 编辑回填：活动城市的 city_name/city_code/province_id 是冗余字段，编辑时不可改
+     * （要换城市应删除后新增），只回填 regionId/sort/remark。
      */
     toFormData: (row: any) => ({
-      parentId: row.parentId == null ? null : String(row.parentId),
-      name: row.name,
-      code: row.code,
-      sort: row.sort == null ? 0 : Number(row.sort)
+      regionId: row.regionId == null ? null : String(row.regionId),
+      sort: row.sort == null ? 0 : Number(row.sort),
+      remark: row.remark || ''
     }),
     onSubmit: async (data, editing) => {
+      // 选中 region 城市后，从候选库里回填冗余字段（city_code/city_name/province_id）。
+      await ensureCityOptions();
+      const regionId = Number(data.regionId);
       const payload: Record<string, any> = {
-        ...data,
-        // 城市固定为 level=2（省为 1），与既有数据口径一致
-        level: 2,
-        parentId: data.parentId == null ? null : Number(data.parentId),
-        sort: Number(data.sort) || 0
+        regionId,
+        sort: Number(data.sort) || 0,
+        remark: data.remark || ''
       };
-      // 新增默认启用；编辑不提交 status（避免误改状态，状态由「停用/启用」按钮单独切换）
-      if (!editing) payload.status = 'enabled';
-      if (editing) await store.update('cities', editing.id, payload, '数据字典', 'name');
-      else await store.add('cities', payload, '数据字典', 'name');
+      if (!editing) {
+        // 新增：必须回填冗余字段，否则列表「城市/编码」列为空。
+        const raw = (await store.queryRemote('cities', { eq_level: '2' }, 1, 1000)).data.find(
+          (c: any) => String(c.id) === String(regionId)
+        );
+        payload.cityCode = raw?.code ?? '';
+        payload.cityName = raw?.name ?? '';
+        payload.provinceId = raw?.parentId ?? null;
+        payload.status = 'enabled';
+        await store.add('activityCities', payload, '活动城市', 'cityName');
+      } else {
+        await store.update('activityCities', editing.id, payload, '活动城市', 'cityName');
+      }
     }
   }
 };

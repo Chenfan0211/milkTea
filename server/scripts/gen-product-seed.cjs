@@ -39,7 +39,14 @@ for (const tab of catalog.menuTabs || []) {
     for (const category of group.categories || []) {
       categoryId += 1;
       const catId = categoryId;
-      categories.push({ id: catId, parentId: groupId, code: category.id, name: category.label, type: 'CATEGORY', sort: 0 });
+      categories.push({
+        id: catId,
+        parentId: groupId,
+        code: category.id,
+        name: category.label,
+        type: 'CATEGORY',
+        sort: 0
+      });
       for (const p of category.products || []) {
         productId += 1;
         const pid = productId;
@@ -88,16 +95,40 @@ for (const tab of catalog.menuTabs || []) {
 }
 
 const lines = [];
-lines.push('-- 商品菜单 seed（由 server/scripts/gen-product-seed.cjs 自动生成，数据源 server/scripts/data/menu-catalog.cjs）');
+lines.push(
+  '-- 商品菜单 seed（由 server/scripts/gen-product-seed.cjs 自动生成，数据源 server/scripts/data/menu-catalog.cjs）'
+);
 lines.push('');
 lines.push('INSERT INTO product_category (id, parent_id, code, name, type, sort) VALUES');
-lines.push(categories.map(c => `(${c.id}, ${c.parentId}, ${esc(c.code)}, ${esc(c.name)}, ${esc(c.type)}, ${c.sort})`).join(',\n') + ';');
+lines.push(
+  categories
+    .map(c => `(${c.id}, ${c.parentId}, ${esc(c.code)}, ${esc(c.name)}, ${esc(c.type)}, ${c.sort})`)
+    .join(',\n') + ';'
+);
 lines.push('');
-lines.push('INSERT INTO product (id, product_id, code, name, category_id, tags, description, price, original_price, stored_value_price, image, ingredients, allergens, cup_capacity, tips, on_sale) VALUES');
-lines.push(products.map(p => `(${p.id}, ${esc(p.productId)}, ${esc(p.code)}, ${esc(p.name)}, ${p.categoryId}, ${json(p.tags)}, ${esc(p.description)}, ${p.price}, ${p.originalPrice}, ${p.storedValuePrice}, ${esc(p.image)}, ${esc(p.ingredients)}, ${esc(p.allergens)}, ${esc(p.cupCapacity)}, ${json(p.tips)}, ${p.onSale})`).join(',\n') + ';');
+lines.push(
+  'INSERT INTO product (id, product_id, code, name, category_id, tags, description, price, original_price, stored_value_price, image, ingredients, allergens, cup_capacity, tips, on_sale) VALUES'
+);
+lines.push(
+  products
+    .map(
+      p =>
+        `(${p.id}, ${esc(p.productId)}, ${esc(p.code)}, ${esc(p.name)}, ${p.categoryId}, ${json(p.tags)}, ${esc(p.description)}, ${p.price}, ${p.originalPrice}, ${p.storedValuePrice}, ${esc(p.image)}, ${esc(p.ingredients)}, ${esc(p.allergens)}, ${esc(p.cupCapacity)}, ${json(p.tips)}, ${p.onSale})`
+    )
+    .join(',\n') + ';'
+);
 lines.push('');
-lines.push('INSERT INTO product_spec (id, product_id, group_code, group_label, option_code, option_label, price_delta, selected, icon, sort) VALUES');
-lines.push(specs.map(s => `(${s.id}, ${s.productId}, ${esc(s.groupCode)}, ${esc(s.groupLabel)}, ${esc(s.optionCode)}, ${esc(s.optionLabel)}, ${s.priceDelta}, ${s.selected}, ${esc(s.icon)}, ${s.sort})`).join(',\n') + ';');
+lines.push(
+  'INSERT INTO product_spec (id, product_id, group_code, group_label, option_code, option_label, price_delta, selected, icon, sort) VALUES'
+);
+lines.push(
+  specs
+    .map(
+      s =>
+        `(${s.id}, ${s.productId}, ${esc(s.groupCode)}, ${esc(s.groupLabel)}, ${esc(s.optionCode)}, ${esc(s.optionLabel)}, ${s.priceDelta}, ${s.selected}, ${esc(s.icon)}, ${s.sort})`
+    )
+    .join(',\n') + ';'
+);
 lines.push('');
 lines.push('INSERT INTO product_store (id, product_id, store_subject_id) VALUES');
 lines.push(productStores.map(ps => `(${ps.id}, ${ps.productId}, ${ps.storeSubjectId})`).join(',\n') + ';');

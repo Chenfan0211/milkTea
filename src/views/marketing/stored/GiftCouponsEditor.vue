@@ -56,7 +56,9 @@ function removeRow(index: number) {
   emitChange();
 }
 
-const couponOptions = computed<CouponOption[]>(() => enabledCoupons.value.map(c => ({ label: couponName(c), value: c.id })));
+const couponOptions = computed<CouponOption[]>(() =>
+  enabledCoupons.value.map(c => ({ label: couponName(c), value: c.id }))
+);
 
 /** 已停用但已被套餐关联的券仅用于回显，不允许重新选择。 */
 function couponOptionsFor(item: GiftCoupon): CouponOption[] {
@@ -90,9 +92,16 @@ function couponOptionsFor(item: GiftCoupon): CouponOption[] {
         :min="1"
         placeholder="张数"
         class="gc-quantity"
-        @update:value="(v: number | null) => { item.quantity = v || 1; emitChange(); }"
+        @update:value="
+          (v: number | null) => {
+            item.quantity = v || 1;
+            emitChange();
+          }
+        "
       />
-      <span class="gc-amount">{{ item.description || '未选择优惠券' }} ¥{{ formatFen(item.amount) }} × {{ item.quantity }}张</span>
+      <span class="gc-amount">
+        {{ item.description || '未选择优惠券' }} ¥{{ formatFen(item.amount) }} × {{ item.quantity }}张
+      </span>
       <NButton size="tiny" quaternary type="error" @click="removeRow(index)">删除</NButton>
     </div>
 

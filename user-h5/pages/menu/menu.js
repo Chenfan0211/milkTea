@@ -316,10 +316,7 @@ Page(
           longitude: origin.longitude || city.longitude
         },
         pickerStores,
-        pickerMarkers: buildStoreMarkers(
-          pickerStores,
-          catalog.currentStore ? catalog.currentStore.id : null
-        ),
+        pickerMarkers: buildStoreMarkers(pickerStores, catalog.currentStore ? catalog.currentStore.id : null),
         pickerHasCurrentStore: Boolean(catalog.currentStore),
         currentStore,
         favoriteStoreIds
@@ -609,7 +606,16 @@ Page(
       });
     },
     handleSpecAddCart(event) {
-      const { product, selectedOptions, quantity, unitPrice, originalPrice, storedValuePrice, storedValueDiscount, specText } = event.detail;
+      const {
+        product,
+        selectedOptions,
+        quantity,
+        unitPrice,
+        originalPrice,
+        storedValuePrice,
+        storedValueDiscount,
+        specText
+      } = event.detail;
       const selectedOptionIds = selectedOptions.map(option => option.id);
       const cartId = buildCartId(product.id, selectedOptionIds);
       const cartItems = this.data.cartItems.map(item => ({ ...item }));
@@ -647,7 +653,16 @@ Page(
     },
     // 立即购买：不复用购物车，只把当前选中的这一件塞进 pendingOrder 后直连结算页。
     handleSpecBuy(event) {
-      const { product, selectedOptions, quantity, unitPrice, originalPrice, storedValuePrice, storedValueDiscount, specText } = event.detail;
+      const {
+        product,
+        selectedOptions,
+        quantity,
+        unitPrice,
+        originalPrice,
+        storedValuePrice,
+        storedValueDiscount,
+        specText
+      } = event.detail;
       if (!this.data.currentStore) {
         wx.showToast({ title: '请先选择门店', icon: 'none' });
         return;
@@ -804,7 +819,3 @@ Page(
     }
   })
 );
-
-
-
-

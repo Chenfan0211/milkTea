@@ -64,7 +64,7 @@ const expectedSubPageNames = [
   'role-withdraw-rules',
   'role-workbench'
 ];
-const expectedSubPages = expectedSubPageNames.map((name) => `${SUBPACKAGE_ROOT}/${name}/${name}`);
+const expectedSubPages = expectedSubPageNames.map(name => `${SUBPACKAGE_ROOT}/${name}/${name}`);
 const expectedTabBarPages = [
   'pages/home/home',
   'pages/menu/menu',
@@ -121,7 +121,7 @@ if (!Array.isArray(appJson.subpackages) || appJson.subpackages.length !== 1) {
   errors.push('app.json 必须包含且仅包含 1 个 subpackages 分包（角色中心）');
 } else {
   const sub = appJson.subpackages[0];
-  const subFull = (sub.pages || []).map((p) => `${sub.root}/${p}`);
+  const subFull = (sub.pages || []).map(p => `${sub.root}/${p}`);
   if (sub.root !== SUBPACKAGE_ROOT || JSON.stringify(subFull) !== JSON.stringify(expectedSubPages)) {
     errors.push(`app.json subpackages 必须为 root=${SUBPACKAGE_ROOT} 且包含角色中心页面`);
   }
@@ -449,6 +449,3 @@ if (errors.length) {
 console.log(
   `项目结构校验通过: ${expectedPages.length + expectedSubPages.length} 个页面、${tabBarPages.length} 个 Tab，Lucide 图标与本地资源完整。`
 );
-
-
-

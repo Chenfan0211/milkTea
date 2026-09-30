@@ -40,8 +40,7 @@ Page(
       this.syncBalance();
     },
     syncBalance() {
-      const render = () =>
-        this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
+      const render = () => this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
       render();
     },
     loadRecords() {
@@ -88,4 +87,3 @@ Page(
     }
   })
 );
-

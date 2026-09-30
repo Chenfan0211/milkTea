@@ -24,9 +24,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storage = {};
 globalThis.wx = {
   getStorageSync: key => (storage[key] === undefined ? '' : storage[key]),
-  setStorageSync: (key, value) => { storage[key] = value; },
-  removeStorageSync: key => { delete storage[key]; },
-  showToast() {}, showModal() {}, navigateTo() {}, showShareMenu() {},
+  setStorageSync: (key, value) => {
+    storage[key] = value;
+  },
+  removeStorageSync: key => {
+    delete storage[key];
+  },
+  showToast() {},
+  showModal() {},
+  navigateTo() {},
+  showShareMenu() {},
   getWindowInfo: () => ({ statusBarHeight: 20 }),
   getMenuButtonBoundingClientRect: () => ({ height: 32, top: 26 })
 };
@@ -35,10 +42,11 @@ globalThis.wx = {
 const REMOTE_POINTS = 25;
 globalThis.wx.request = function request(options) {
   setTimeout(() => {
-    options.success && options.success({
-      statusCode: 200,
-      data: { code: 0, message: 'ok', data: { points: REMOTE_POINTS, balance: 0, totalSpend: 0 } }
-    });
+    options.success &&
+      options.success({
+        statusCode: 200,
+        data: { code: 0, message: 'ok', data: { points: REMOTE_POINTS, balance: 0, totalSpend: 0 } }
+      });
   }, 10);
 };
 
@@ -47,20 +55,28 @@ const appObj = {
   globalData: { points: 0, signedDates: [], pointsListeners: [] },
   subscribePoints(listener) {
     this.globalData.pointsListeners.push(listener);
-    return () => { this.globalData.pointsListeners = this.globalData.pointsListeners.filter(i => i !== listener); };
+    return () => {
+      this.globalData.pointsListeners = this.globalData.pointsListeners.filter(i => i !== listener);
+    };
   },
   publishPointsChanged(points, source) {
     published.push({ points, source });
     this.globalData.points = points;
     (this.globalData.pointsListeners || []).slice().forEach(listener => {
-      try { listener(points, source); } catch (error) { /* 隔离 */ }
+      try {
+        listener(points, source);
+      } catch (error) {
+        /* 隔离 */
+      }
     });
   }
 };
 globalThis.getApp = () => appObj;
 
 let pageDefinition = null;
-globalThis.Page = definition => { pageDefinition = definition; };
+globalThis.Page = definition => {
+  pageDefinition = definition;
+};
 
 const auth = require(path.join(root, 'utils/auth.js'));
 const profile = require(path.join(root, 'utils/user-profile.js'));
@@ -97,16 +113,8 @@ assert.equal(
   REMOTE_POINTS,
   '远端资料返回后，「我的」页时光币必须刷新为服务端真实值（不得停留在本地旧值）'
 );
-assert.equal(
-  appObj.globalData.points,
-  REMOTE_POINTS,
-  '远端返回后 globalData.points 必须同步为真实值，供其它页面读取'
-);
-assert.equal(
-  getPoints(),
-  REMOTE_POINTS,
-  'getPoints() 必须返回服务端真实值，不得被旧缓存覆盖'
-);
+assert.equal(appObj.globalData.points, REMOTE_POINTS, '远端返回后 globalData.points 必须同步为真实值，供其它页面读取');
+assert.equal(getPoints(), REMOTE_POINTS, 'getPoints() 必须返回服务端真实值，不得被旧缓存覆盖');
 
 // ---------- 用例 2：广播能让订阅页面同步（我的页 + 其它页共用一条链路） ----------
 const received = [];
@@ -123,21 +131,12 @@ unsubscribe();
 
 // ---------- 用例 3：商城页余额必须跟随广播 ----------
 const mallDefinition = fs.readFileSync(path.join(root, 'pages/points-mall/points-mall.js'), 'utf8');
-assert.ok(
-  mallDefinition.includes('subscribePoints'),
-  '时光币商城必须订阅时光币广播，否则跨页余额不一致'
-);
-assert.ok(
-  mallDefinition.includes('notifyPointsChanged'),
-  '时光币商城远端刷新后必须广播余额'
-);
+assert.ok(mallDefinition.includes('subscribePoints'), '时光币商城必须订阅时光币广播，否则跨页余额不一致');
+assert.ok(mallDefinition.includes('notifyPointsChanged'), '时光币商城远端刷新后必须广播余额');
 
 // ---------- 用例 4：源码契约（防止再次漏掉远端回填） ----------
 const profileSource = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
-assert.ok(
-  profileSource.includes('refreshAssetStats'),
-  '「我的」页必须提供统一的资产卡重算方法'
-);
+assert.ok(profileSource.includes('refreshAssetStats'), '「我的」页必须提供统一的资产卡重算方法');
 const fetchMeBlock = profileSource.slice(profileSource.indexOf('fetchMe(true)'));
 assert.ok(
   /fetchMe\(true\)[\s\S]{0,2500}?refreshAssetStats\(\)/.test(fetchMeBlock),
@@ -145,15 +144,9 @@ assert.ok(
 );
 
 const signinSource = fs.readFileSync(path.join(root, 'pages/points-signin/points-signin.js'), 'utf8');
-assert.ok(
-  signinSource.includes('notifyPointsChanged'),
-  '签到发放时光币后必须广播，否则其它页面显示旧余额'
-);
+assert.ok(signinSource.includes('notifyPointsChanged'), '签到发放时光币后必须广播，否则其它页面显示旧余额');
 
 const exchangeSource = fs.readFileSync(path.join(root, 'pages/points-exchange/points-exchange.js'), 'utf8');
-assert.ok(
-  exchangeSource.includes('notifyPointsChanged'),
-  '兑换扣减时光币后必须回写并广播（历史缺口：完全没回写）'
-);
+assert.ok(exchangeSource.includes('notifyPointsChanged'), '兑换扣减时光币后必须回写并广播（历史缺口：完全没回写）');
 
 console.log('「我的」页时光币一致性与广播测试通过');

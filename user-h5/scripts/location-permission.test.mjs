@@ -20,10 +20,7 @@ const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'))
 
 // 1. 必须声明 scope.userLocation 且 desc 为非空业务说明
 assert.ok(appJson.permission, 'app.json 必须声明 permission 字段');
-assert.ok(
-  appJson.permission['scope.userLocation'],
-  'app.json 必须声明 permission.scope.userLocation'
-);
+assert.ok(appJson.permission['scope.userLocation'], 'app.json 必须声明 permission.scope.userLocation');
 const desc = appJson.permission['scope.userLocation'].desc;
 assert.ok(
   typeof desc === 'string' && desc.trim().length >= 6,
@@ -39,10 +36,7 @@ assert.ok(
   Array.isArray(appJson.requiredPrivateInfos) && appJson.requiredPrivateInfos.length > 0,
   'app.json 必须声明 requiredPrivateInfos（微信新规：地理位置接口需登记）'
 );
-assert.ok(
-  appJson.requiredPrivateInfos.includes('getLocation'),
-  'requiredPrivateInfos 必须包含 getLocation'
-);
+assert.ok(appJson.requiredPrivateInfos.includes('getLocation'), 'requiredPrivateInfos 必须包含 getLocation');
 
 // 微信互斥规则：getFuzzyLocation（模糊定位）与 getLocation（精确位置）不可同时登记，
 // 同时登记会导致编译期报错「is mutually exclusive with」，小程序直接无法启动。
@@ -51,16 +45,10 @@ assert.ok(
   !appJson.requiredPrivateInfos.includes('getFuzzyLocation'),
   'requiredPrivateInfos 不得同时登记 getFuzzyLocation（与 getLocation 互斥，会导致编译报错）'
 );
-const MUTUALLY_EXCLUSIVE = [
-  ['getLocation', 'getFuzzyLocation']
-];
+const MUTUALLY_EXCLUSIVE = [['getLocation', 'getFuzzyLocation']];
 for (const [left, right] of MUTUALLY_EXCLUSIVE) {
-  const bothPresent =
-    appJson.requiredPrivateInfos.includes(left) && appJson.requiredPrivateInfos.includes(right);
-  assert.ok(
-    !bothPresent,
-    `requiredPrivateInfos 不得同时登记互斥接口 ${left} / ${right}`
-  );
+  const bothPresent = appJson.requiredPrivateInfos.includes(left) && appJson.requiredPrivateInfos.includes(right);
+  assert.ok(!bothPresent, `requiredPrivateInfos 不得同时登记互斥接口 ${left} / ${right}`);
 }
 // 未开通的接口不得登记，避免审核风险
 for (const api of ['chooseLocation', 'chooseAddress', 'choosePoi', 'startLocationUpdate', 'onLocationChange']) {
@@ -76,10 +64,7 @@ for (const api of ['chooseLocation', 'chooseAddress', 'choosePoi', 'startLocatio
         .filter(name => name.endsWith('.js'))
         .some(name => fs.readFileSync(path.join(dir, name), 'utf8').includes(`wx.${api}`));
     });
-    assert.ok(
-      used,
-      `requiredPrivateInfos 登记了 ${api}，但代码中未找到 wx.${api} 调用，属于过度声明，应移除`
-    );
+    assert.ok(used, `requiredPrivateInfos 登记了 ${api}，但代码中未找到 wx.${api} 调用，属于过度声明，应移除`);
   }
 }
 
@@ -91,9 +76,15 @@ const pageDirs = fs
 const utilsDir = path.join(root, 'utils');
 const sources = [
   ...pageDirs.flatMap(dir =>
-    fs.readdirSync(dir).filter(name => name.endsWith('.js')).map(name => fs.readFileSync(path.join(dir, name), 'utf8'))
+    fs
+      .readdirSync(dir)
+      .filter(name => name.endsWith('.js'))
+      .map(name => fs.readFileSync(path.join(dir, name), 'utf8'))
   ),
-  ...fs.readdirSync(utilsDir).filter(name => name.endsWith('.js')).map(name => fs.readFileSync(path.join(utilsDir, name), 'utf8')),
+  ...fs
+    .readdirSync(utilsDir)
+    .filter(name => name.endsWith('.js'))
+    .map(name => fs.readFileSync(path.join(utilsDir, name), 'utf8')),
   fs.readFileSync(path.join(root, 'app.js'), 'utf8')
 ].join('\n');
 
@@ -107,6 +98,4 @@ for (const api of actuallyUsed) {
   );
 }
 
-console.log(
-  `地理位置权限声明校验通过（实际使用 ${actuallyUsed.length ? actuallyUsed.join(', ') : '无直接调用'}）`
-);
+console.log(`地理位置权限声明校验通过（实际使用 ${actuallyUsed.length ? actuallyUsed.join(', ') : '无直接调用'}）`);

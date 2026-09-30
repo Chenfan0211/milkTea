@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'ProductCategory'
 });
@@ -41,7 +40,11 @@ const columns: DataTableColumns<any> = [
     key: 'enabled',
     width: 100,
     // 数据库返回数字 1/0，renderTag 按字符串查表，故先转字符串
-    render: (row: any) => renderTag('enabled', statusMap({ '1': ['启用', 'success'], '0': ['停用', 'default'] }))({ enabled: String(row.enabled) })
+    render: (row: any) =>
+      renderTag(
+        'enabled',
+        statusMap({ '1': ['启用', 'success'], '0': ['停用', 'default'] })
+      )({ enabled: String(row.enabled) })
   }
 ];
 
@@ -146,4 +149,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

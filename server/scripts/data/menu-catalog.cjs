@@ -178,5 +178,4 @@ const menuTabs = [
   { id: 'featured', label: '招牌主打', groups: featuredGroups }
 ];
 
-
 module.exports = { menuTabs };

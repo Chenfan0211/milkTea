@@ -12,17 +12,17 @@
 
 排查结论：**后端与后台管理端都已完成多套餐支持，只有小程序端没接。**
 
-| 环节 | 位置 | 现状 |
-| --- | --- | --- |
-| 表结构 | `stored_value_package`（V2） | ✅ 支持多套餐，`code` 唯一 |
-| 赠券关联 | `stored_value_package_coupon`（V2） | ✅ 已建表（`package_id` + `coupon_id` + `count`） |
-| 初始数据 | `V6__seed_marketing.sql` | ✅ 已 seed **3 个套餐**：100 / 200 / 500 元 |
-| 查询接口 | `GET /api/v1/app/stored-value/packages` | ✅ 返回 `List<StoredValuePackage>`（多套餐） |
-| 充值接口 | `POST /api/v1/app/stored-value/recharge?packageId=` | ✅ 按 `packageId` 充值 |
-| 后台 CRUD | `CrudRegistry` → `storedValuePackages` | ✅ 可增删改金额、状态 |
-| 后台页面 | `src/views/marketing/stored/index.vue` | ✅ 可编辑金额 / 赠券 / 使用说明 |
-| 前端 API | `user-h5/utils/api.js#fetchStoredValuePackages` | ✅ 已封装 |
-| **小程序页面** | `pages/stored-value` | ❌ **单卡渲染，未做选择** |
+| 环节           | 位置                                                | 现状                                              |
+| -------------- | --------------------------------------------------- | ------------------------------------------------- |
+| 表结构         | `stored_value_package`（V2）                        | ✅ 支持多套餐，`code` 唯一                        |
+| 赠券关联       | `stored_value_package_coupon`（V2）                 | ✅ 已建表（`package_id` + `coupon_id` + `count`） |
+| 初始数据       | `V6__seed_marketing.sql`                            | ✅ 已 seed **3 个套餐**：100 / 200 / 500 元       |
+| 查询接口       | `GET /api/v1/app/stored-value/packages`             | ✅ 返回 `List<StoredValuePackage>`（多套餐）      |
+| 充值接口       | `POST /api/v1/app/stored-value/recharge?packageId=` | ✅ 按 `packageId` 充值                            |
+| 后台 CRUD      | `CrudRegistry` → `storedValuePackages`              | ✅ 可增删改金额、状态                             |
+| 后台页面       | `src/views/marketing/stored/index.vue`              | ✅ 可编辑金额 / 赠券 / 使用说明                   |
+| 前端 API       | `user-h5/utils/api.js#fetchStoredValuePackages`     | ✅ 已封装                                         |
+| **小程序页面** | `pages/stored-value`                                | ❌ **单卡渲染，未做选择**                         |
 
 ### 根因（硬证据）
 
@@ -154,13 +154,13 @@ mvn -o -pl marketing-service,server -am compile
 
 项目里微信支付其实**已经全部实现**（`docs/wechat-pay-integration.md` 记载「后端代码已全部写完」）：
 
-| 组件 | 位置 |
-| --- | --- |
-| `PaymentGateway` / `MockPaymentGateway` / `WechatPayGateway` | `trade-service/.../service/` |
-| `PaymentGatewayResolver`（按 `app.pay.channel` 选型，**fail-fast**） | 同上 |
-| `WxPayNotifyService`（验签 + AES-GCM 解密 + 防重放） | `trade-service/.../pay/wxpay/` |
-| `WxPayNotifyController`（`POST /api/v1/app/payments/wxpay/notify`） | 同上 |
-| `WxPayProperties` / `WxPaySdkConfig` / `WxPayTransaction` | 同上 |
+| 组件                                                                 | 位置                           |
+| -------------------------------------------------------------------- | ------------------------------ |
+| `PaymentGateway` / `MockPaymentGateway` / `WechatPayGateway`         | `trade-service/.../service/`   |
+| `PaymentGatewayResolver`（按 `app.pay.channel` 选型，**fail-fast**） | 同上                           |
+| `WxPayNotifyService`（验签 + AES-GCM 解密 + 防重放）                 | `trade-service/.../pay/wxpay/` |
+| `WxPayNotifyController`（`POST /api/v1/app/payments/wxpay/notify`）  | 同上                           |
+| `WxPayProperties` / `WxPaySdkConfig` / `WxPayTransaction`            | 同上                           |
 
 **但它的入账路径与「订单」强绑定**：
 
@@ -193,26 +193,28 @@ public OrderDTO handleWxPayCallback(WxPayTransaction transaction) {
 
 原方案第 3 层（Mock 充值）约 **0.5 天**；改走微信支付后，新增：
 
-| # | 工作项 | 说明 |
-| --- | --- | --- |
-| 1 | `payment` 表加 `biz_type` | 区分 `ORDER` / `STORED_VALUE`（迁移 `V21`） |
-| 2 | 回调按 `bizType` 路由 | `handleWxPayCallback` 需分流到储值入账服务 |
-| 3 | 跨服务调用 | `trade-service` → `marketing-service` 内部接口（储值订单在 marketing） |
-| 4 | 储值侧预下单 | 新增 `prepayForMiniApp` 等价的储值版本（openid 必须服务端取） |
-| 5 | 幂等与金额校验 | 储值侧同样要行锁 + 金额比对 + `alertChannel` 告警 |
-| 6 | 小程序端 | `wx.requestPayment` + 结果以后端回调为准 + 主动查单 |
-| 7 | 退款链路 | 微信退款原路退回，需 `payerOpenid`（已具备） |
-| 8 | 资质与配置 | 商户号 / APIv3 密钥 / 证书 / 回调域名（备案已过，需确认证书就绪） |
+| #   | 工作项                    | 说明                                                                   |
+| --- | ------------------------- | ---------------------------------------------------------------------- |
+| 1   | `payment` 表加 `biz_type` | 区分 `ORDER` / `STORED_VALUE`（迁移 `V21`）                            |
+| 2   | 回调按 `bizType` 路由     | `handleWxPayCallback` 需分流到储值入账服务                             |
+| 3   | 跨服务调用                | `trade-service` → `marketing-service` 内部接口（储值订单在 marketing） |
+| 4   | 储值侧预下单              | 新增 `prepayForMiniApp` 等价的储值版本（openid 必须服务端取）          |
+| 5   | 幂等与金额校验            | 储值侧同样要行锁 + 金额比对 + `alertChannel` 告警                      |
+| 6   | 小程序端                  | `wx.requestPayment` + 结果以后端回调为准 + 主动查单                    |
+| 7   | 退款链路                  | 微信退款原路退回，需 `payerOpenid`（已具备）                           |
+| 8   | 资质与配置                | 商户号 / APIv3 密钥 / 证书 / 回调域名（备案已过，需确认证书就绪）      |
 
 ### 8.4 建议的落地顺序（降风险）
 
 **不建议一步到位**。分两阶段：
 
 **阶段一：多卡选择 + Mock 充值（先跑通业务闭环）**
+
 - 完成第 1–4 层（套餐 DTO、多卡选择、Mock 充值、清理）。
 - 价值：立刻能验证「后台配→小程序选→余额到账」整条业务链，且不依赖商户资质。
 
 **阶段二：切换为微信支付**
+
 - 在阶段一之上新增 8.3 的 1–6 项，复用既有 `WechatPayGateway` 与验签能力。
 - 通过 `app.pay.channel` 切换，Mock 通道保留给本地开发与 CI。
 
@@ -227,36 +229,36 @@ public OrderDTO handleWxPayCallback(WxPayTransaction transaction) {
 
 ### 后端改动
 
-| 文件 | 改动 |
-| --- | --- |
-| `V23__stored_value_usage_paragraphs.sql` | 新增 `stored_value_package.usage_paragraphs` JSON 列；为既有 3 个套餐补默认说明（仅在为空时写入，不覆盖运营已改内容） |
-| `V24__payment_biz_type.sql` | `payment` 加 `biz_type` / `biz_no` + 路由索引；`order_id` / `order_no` 放宽为可空；`stored_value_order` 加 `transaction_id` / `payer_openid`；历史数据回填 `biz_type='ORDER'` |
-| `marketing-service/.../dto/StoredValuePackageDTO.java` | 新增：聚合赠券明细与使用说明 |
-| `marketing-service/.../entity/StoredValuePackageCoupon.java` + Mapper | 新增：补齐关联表实体（此前表存在但无实体，导致赠券无法下发） |
-| `marketing-service/.../entity/StoredValuePackage.java` | 加 `usageParagraphs` |
-| `marketing-service/.../entity/StoredValueOrder.java` | 加 `transactionId` / `payerOpenid` |
-| `marketing-service/.../service/StoredValueService.java` | 重写：`listPackages()` 返回 DTO；拆出 `createOrder()`（建单 UNPAID）与 `markPaid()`（回调入账，条件更新做幂等闸门 + 金额比对）；新增 `orderView()` 供前端查单 |
-| `marketing-service/.../internal/StoredValueInternalController.java` | 新增 `/internal/stored-value-orders/**`：供 trade 域反查与驱动入账 |
-| `marketing-service/.../controller/AppMarketingController.java` | `/stored-value/recharge` → `/stored-value/orders`（建单）+ `/stored-value/orders/{orderNo}`（查单） |
-| `trade-service/.../pay/storedvalue/StoredValueOrderPort.java` + `RemoteStoredValueOrderAdapter.java` | 新增：trade → marketing 的储值订单端口（失败抛异常，不吞） |
-| `trade-service/.../pay/storedvalue/StoredValuePayController.java` | 新增 `POST /api/v1/app/payments/stored-value/prepay`：服务端取 openid、校验订单归属与金额 |
-| `trade-service/.../service/PaymentService.java` | 新增 `routeWxPayCallback()` 按单号前缀路由（**核心修复**）、`handleStoredValueCallback()`、`prepayStoredValue()` |
-| `trade-service/.../pay/wxpay/WxPayNotifyController.java` | 回调改走 `routeWxPayCallback()` |
-| `trade-service/.../entity/Payment.java` | 加 `bizType` / `bizNo` 字段与常量 |
-| `trade-service/.../port/RemoteProductQueryAdapter.java` | 新增 `marketingInternalRestClient` bean |
-| `gateway/.../GatewayAuthPolicy.java` | 受保护清单补 `/stored-value/orders/**` 与 `/payments/stored-value/prepay`；移除已废弃的 `/recharge` |
-| `server/.../config/WebConfig.java` | 同步移除 `/recharge`，改为 `/orders/**` |
+| 文件                                                                                                 | 改动                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `V23__stored_value_usage_paragraphs.sql`                                                             | 新增 `stored_value_package.usage_paragraphs` JSON 列；为既有 3 个套餐补默认说明（仅在为空时写入，不覆盖运营已改内容）                                                         |
+| `V24__payment_biz_type.sql`                                                                          | `payment` 加 `biz_type` / `biz_no` + 路由索引；`order_id` / `order_no` 放宽为可空；`stored_value_order` 加 `transaction_id` / `payer_openid`；历史数据回填 `biz_type='ORDER'` |
+| `marketing-service/.../dto/StoredValuePackageDTO.java`                                               | 新增：聚合赠券明细与使用说明                                                                                                                                                  |
+| `marketing-service/.../entity/StoredValuePackageCoupon.java` + Mapper                                | 新增：补齐关联表实体（此前表存在但无实体，导致赠券无法下发）                                                                                                                  |
+| `marketing-service/.../entity/StoredValuePackage.java`                                               | 加 `usageParagraphs`                                                                                                                                                          |
+| `marketing-service/.../entity/StoredValueOrder.java`                                                 | 加 `transactionId` / `payerOpenid`                                                                                                                                            |
+| `marketing-service/.../service/StoredValueService.java`                                              | 重写：`listPackages()` 返回 DTO；拆出 `createOrder()`（建单 UNPAID）与 `markPaid()`（回调入账，条件更新做幂等闸门 + 金额比对）；新增 `orderView()` 供前端查单                 |
+| `marketing-service/.../internal/StoredValueInternalController.java`                                  | 新增 `/internal/stored-value-orders/**`：供 trade 域反查与驱动入账                                                                                                            |
+| `marketing-service/.../controller/AppMarketingController.java`                                       | `/stored-value/recharge` → `/stored-value/orders`（建单）+ `/stored-value/orders/{orderNo}`（查单）                                                                           |
+| `trade-service/.../pay/storedvalue/StoredValueOrderPort.java` + `RemoteStoredValueOrderAdapter.java` | 新增：trade → marketing 的储值订单端口（失败抛异常，不吞）                                                                                                                    |
+| `trade-service/.../pay/storedvalue/StoredValuePayController.java`                                    | 新增 `POST /api/v1/app/payments/stored-value/prepay`：服务端取 openid、校验订单归属与金额                                                                                     |
+| `trade-service/.../service/PaymentService.java`                                                      | 新增 `routeWxPayCallback()` 按单号前缀路由（**核心修复**）、`handleStoredValueCallback()`、`prepayStoredValue()`                                                              |
+| `trade-service/.../pay/wxpay/WxPayNotifyController.java`                                             | 回调改走 `routeWxPayCallback()`                                                                                                                                               |
+| `trade-service/.../entity/Payment.java`                                                              | 加 `bizType` / `bizNo` 字段与常量                                                                                                                                             |
+| `trade-service/.../port/RemoteProductQueryAdapter.java`                                              | 新增 `marketingInternalRestClient` bean                                                                                                                                       |
+| `gateway/.../GatewayAuthPolicy.java`                                                                 | 受保护清单补 `/stored-value/orders/**` 与 `/payments/stored-value/prepay`；移除已废弃的 `/recharge`                                                                           |
+| `server/.../config/WebConfig.java`                                                                   | 同步移除 `/recharge`，改为 `/orders/**`                                                                                                                                       |
 
 ### 前端改动
 
-| 文件 | 改动 |
-| --- | --- |
-| `pages/stored-value/stored-value.js` | 重写：拉取套餐 → 默认选中中位档 → 选中态驱动摘要；充值改为「建单 → 发起支付 → 轮询查单」，以**服务端状态**为准 |
-| `pages/stored-value/stored-value.wxml` | `package-card` 改为 `wx:for` 多卡渲染 + 选中态 + 选中角标；新增空态；步进器独立成行 |
-| `pages/stored-value/stored-value.wxss` | 新增 `.package-list` / `.is-selected` / `.package-empty` / `.quantity-row`；全部使用设计 token |
-| `utils/stored-value.js` | 新增 `normalizePackage()`（分→元换算 + 卡面副标题）、`pickDefaultPackageIndex()`（默认中位档） |
-| `utils/api.js` | `rechargeStoredValue` → `createStoredValueOrder` / `fetchStoredValueOrder` / `prepayStoredValue` |
-| `scripts/sync-lucide-icons.mjs` | 新增 `check-brand` 图标映射 |
+| 文件                                   | 改动                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `pages/stored-value/stored-value.js`   | 重写：拉取套餐 → 默认选中中位档 → 选中态驱动摘要；充值改为「建单 → 发起支付 → 轮询查单」，以**服务端状态**为准 |
+| `pages/stored-value/stored-value.wxml` | `package-card` 改为 `wx:for` 多卡渲染 + 选中态 + 选中角标；新增空态；步进器独立成行                            |
+| `pages/stored-value/stored-value.wxss` | 新增 `.package-list` / `.is-selected` / `.package-empty` / `.quantity-row`；全部使用设计 token                 |
+| `utils/stored-value.js`                | 新增 `normalizePackage()`（分→元换算 + 卡面副标题）、`pickDefaultPackageIndex()`（默认中位档）                 |
+| `utils/api.js`                         | `rechargeStoredValue` → `createStoredValueOrder` / `fetchStoredValueOrder` / `prepayStoredValue`               |
+| `scripts/sync-lucide-icons.mjs`        | 新增 `check-brand` 图标映射                                                                                    |
 
 ### 新增测试
 

@@ -12,6 +12,7 @@
     "test:activity": "node scripts/activity-sheet.test.mjs",
     "test:auth": "node scripts/login-auth-flow.test.mjs && node scripts/auth-login-flow.test.mjs && node scripts/launch-policy.test.mjs",
     "test:coupon-products": "node scripts/coupon-products-page.test.mjs",
+    "test:entry": "node scripts/entry-login.test.mjs && node scripts/navigate.test.mjs",
     "test:favorite": "node scripts/favorite-stores-page.test.mjs",
     "test:images": "node scripts/menu-product-image.test.mjs",
     "test:member-rights": "node scripts/member-rights-page.test.mjs && node scripts/member-level-rules-page.test.mjs && node scripts/member-discount.test.mjs",
@@ -19,7 +20,6 @@
     "test:orders": "node scripts/orders-pending-payment.test.mjs && node scripts/orders-countdown.test.mjs && node scripts/order-accrual.test.mjs && node scripts/role-center-page.test.mjs",
     "test:profile-data": "node scripts/profile-data-page.test.mjs",
     "test:share": "node scripts/share.test.mjs",
-    "test:entry": "node scripts/entry-login.test.mjs && node scripts/navigate.test.mjs",
     "test:store": "node scripts/store-selection.test.mjs && node scripts/store-picker-page.test.mjs && node scripts/store-list-card.test.mjs && node scripts/store-map-tencent.test.mjs",
     "test:stored-value": "node scripts/stored-value-page.test.mjs"
   },
@@ -29,4 +29,3 @@
     "qrcode-generator": "2.0.4"
   }
 }
-

@@ -72,9 +72,7 @@ function buildStoredValueSummary(storedValuePackage, quantity) {
   });
   // 使用说明改为「全局共用一份」，由后台配置（app_config.stored_value_usage），
   // 后端随套餐 DTO 一并下发，前端不再硬编码。
-  const usageParagraphs = Array.isArray(packageData.usageParagraphs)
-    ? packageData.usageParagraphs
-    : [];
+  const usageParagraphs = Array.isArray(packageData.usageParagraphs) ? packageData.usageParagraphs : [];
 
   return {
     quantity: currentQuantity,

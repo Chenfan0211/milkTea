@@ -44,7 +44,7 @@
   height: 48rpx;
   padding: 0 20rpx 0 12rpx;
   overflow: hidden;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-caption);
   font-weight: 600;
   white-space: nowrap;

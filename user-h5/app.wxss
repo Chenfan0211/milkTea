@@ -1,40 +1,40 @@
 page {
   /* 品牌色 */
-  --brand-green: #53882C;
-  --brand-dark: #3F6E1F;
-  --brand-soft: #E9F1D9;
-  --brand-tint: #E7F0D8;
+  --brand-green: #53882c;
+  --brand-dark: #3f6e1f;
+  --brand-soft: #e9f1d9;
+  --brand-tint: #e7f0d8;
   /* 中性色 */
-  --page-bg: #F4F5F2;
-  --page-bg-neutral: #F7F7F7;
-  --card-bg: #FFFFFF;
-  --text-main: #2F302D;
+  --page-bg: #f4f5f2;
+  --page-bg-neutral: #f7f7f7;
+  --card-bg: #ffffff;
+  --text-main: #2f302d;
   --text-secondary: #777873;
-  --text-muted: #9B9B96;
-  --line-color: #E9EAE5;
-  --dark-fill: #2D2D2D;
+  --text-muted: #9b9b96;
+  --line-color: #e9eae5;
+  --dark-fill: #2d2d2d;
   /* 功能色 */
-  --accent-orange: #C65A1E;
-  --queue-warning: #E6A23C;
-  --favorite-gold: #D4A017;
-  --price-red: #FF0000;
-  --tag-hot-bg: #FFE0E1;
-  --tag-light-bg: #D5F0C3;
-  --tag-light-text: #6E9B45;
+  --accent-orange: #c65a1e;
+  --queue-warning: #e6a23c;
+  --favorite-gold: #d4a017;
+  --price-red: #ff0000;
+  --tag-hot-bg: #ffe0e1;
+  --tag-light-bg: #d5f0c3;
+  --tag-light-text: #6e9b45;
   --tag-gold-text: #9a6b00;
   --tag-gold-bg: #fff8df;
   --tag-gold-bg-strong: #fff3b8;
   /* 门店卡 · 方案 D 鲜绿活力风（参考图固化值） */
-  --store-page-mint: #EAF4E1;
-  --store-card-title: #245C2B;
-  --store-card-ink: #75886A;
-  --store-card-accent: #2E8B40;
-  --store-pill-bg: #EDF5E2;
-  --store-promo-from: #429E46;
-  --store-promo-to: #2E7D3A;
-  --store-action-from: #3B9544;
-  --store-action-to: #32843D;
-  --store-decor-leaf: #A6C685;
+  --store-page-mint: #eaf4e1;
+  --store-card-title: #245c2b;
+  --store-card-ink: #75886a;
+  --store-card-accent: #2e8b40;
+  --store-pill-bg: #edf5e2;
+  --store-promo-from: #429e46;
+  --store-promo-to: #2e7d3a;
+  --store-action-from: #3b9544;
+  --store-action-to: #32843d;
+  --store-decor-leaf: #a6c685;
   /* 字号档位 */
   --font-caption: 20rpx;
   --font-sm: 24rpx;

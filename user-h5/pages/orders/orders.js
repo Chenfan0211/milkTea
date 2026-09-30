@@ -3,7 +3,15 @@ const { orderCategories } = require('../../data/mock');
 const api = require('../../utils/api');
 const auth = require('../../utils/auth');
 const loginGuard = require('../../utils/login-guard');
-const { cancelOrderById, cancelPaidOrderById, filterOrders, getOrders, refreshOrdersFromRemote, resolveOrderNo, tickOrderCountdowns } = require('../../utils/orders');
+const {
+  cancelOrderById,
+  cancelPaidOrderById,
+  filterOrders,
+  getOrders,
+  refreshOrdersFromRemote,
+  resolveOrderNo,
+  tickOrderCountdowns
+} = require('../../utils/orders');
 
 const timeTabs = [
   { id: 'today', label: '今日订单' },
@@ -41,7 +49,11 @@ Page(
         return;
       }
       this.setData({ needLogin: false });
-      refreshOrdersFromRemote({ page: 1, timeGroup: this.data.activeTimeGroup, category: this.data.activeCategory }).then(res => {
+      refreshOrdersFromRemote({
+        page: 1,
+        timeGroup: this.data.activeTimeGroup,
+        category: this.data.activeCategory
+      }).then(res => {
         this.setData({ orderPage: 1, hasMoreOrders: Boolean(res && res.hasMore) });
         this.refreshOrders();
       });
@@ -55,7 +67,12 @@ Page(
       if (!this.data.hasMoreOrders || this.data.loadingMoreOrders) return;
       const nextPage = this.data.orderPage + 1;
       this.setData({ loadingMoreOrders: true });
-      refreshOrdersFromRemote({ page: nextPage, append: true, timeGroup: this.data.activeTimeGroup, category: this.data.activeCategory })
+      refreshOrdersFromRemote({
+        page: nextPage,
+        append: true,
+        timeGroup: this.data.activeTimeGroup,
+        category: this.data.activeCategory
+      })
         .then(res => {
           this.setData({
             orderPage: nextPage,
@@ -230,4 +247,3 @@ Page(
     }
   })
 );
-

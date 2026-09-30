@@ -91,9 +91,8 @@ public class AppConfigController {
     /**
      * 城市列表（小程序城市下拉 / city-picker）。
      *
-     * <p>数据源改为 {@code region}(level=2)，code 统一国标行政区划码，
-     * 与门店 city_id 强关联口径一致。不再读 app_cities 配置 ——
-     * 后台「城市管理」维护 region 即生效，无需双写同步。
+     * <p>数据源改为 {@code activity_city}（运营白名单），只有活动城市才下发；
+     * 门店通过 activity_city_id 强绑定。region 作为基础行政区划库保持只读。
      *
      * <p>返回结构：{@code [{id, code, name, parentId, latitude, longitude}]}，
      * id 为 region.id（门店 city_id 关联键）。
@@ -102,8 +101,8 @@ public class AppConfigController {
     public Result<Object> cities() {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "select c.id, c.parent_id, c.code, c.name, c.latitude, c.longitude, p.name as province_name "
-                        + "from region c left join region p on p.id = c.parent_id and p.deleted = 0 "
-                        + "where c.level = 2 and c.deleted = 0 and c.status = 'enabled' order by c.sort asc, c.id asc");
+                        + "from activity_city ac join region c on c.id = ac.region_id and c.deleted = 0 left join region p on p.id = c.parent_id and p.deleted = 0 "
+                        + "where ac.status = 'enabled' and ac.deleted = 0 order by ac.sort asc, c.sort asc, c.id asc");
         List<Map<String, Object>> out = new ArrayList<>(rows.size());
         for (Map<String, Object> row : rows) {
             Map<String, Object> item = new LinkedHashMap<>();

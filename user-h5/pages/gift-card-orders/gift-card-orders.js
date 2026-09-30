@@ -25,16 +25,16 @@ function matchStatus(order, statusId) {
   return false;
 }
 function filterGiftCardOrders(orders, keyword, statusId) {
-  const normalized = String(keyword || '').trim().toLowerCase();
+  const normalized = String(keyword || '')
+    .trim()
+    .toLowerCase();
   return orders.filter(order => {
     if (!matchStatus(order, statusId)) return false;
     if (!normalized) return true;
     const title = String(order.title || '').toLowerCase();
     const orderNo = String(order.orderNo || '').toLowerCase();
     const cardNo = String(order.cardNo || '').toLowerCase();
-    return title.indexOf(normalized) !== -1
-      || orderNo.indexOf(normalized) !== -1
-      || cardNo.indexOf(normalized) !== -1;
+    return title.indexOf(normalized) !== -1 || orderNo.indexOf(normalized) !== -1 || cardNo.indexOf(normalized) !== -1;
   });
 }
 
@@ -45,19 +45,14 @@ function decorate(order) {
   const payStatus = normalizeStatus(order.payStatus);
   const status = normalizeStatus(order.status);
   const verifyStatus = normalizeStatus(order.verifyStatus);
-  const refundStatus = normalizeStatus(
-    order.refundStatus || (order.refund && order.refund.status)
-  );
+  const refundStatus = normalizeStatus(order.refundStatus || (order.refund && order.refund.status));
   const isPaid = payStatus === 'PAID';
   const isRefunded = payStatus === 'REFUNDED';
   const isCompleted = status === 'COMPLETED';
   const isCanceled = status === 'CANCELED';
   const isVerified = verifyStatus === 'VERIFIED';
   const isRefunding = refundStatus === 'REFUNDING';
-  const isRefundFailed = !isRefunding
-    && !isVerified
-    && !isCanceled
-    && refundStatus === 'FAILED';
+  const isRefundFailed = !isRefunding && !isVerified && !isCanceled && refundStatus === 'FAILED';
   const isPendingPayment = !isCanceled && !isCompleted && payStatus === 'UNPAID';
   const isPendingVerify = !isCanceled && !isCompleted && !isPendingPayment;
   const canRefund = isPendingVerify && !isRefunding && !isRefundFailed && !isVerified;
@@ -71,13 +66,7 @@ function decorate(order) {
         ? 'pending_payment'
         : 'pending_verify';
   const cancelType = order.cancelType || (isPaid ? 'paid' : 'pending');
-  const statusText = isCanceled
-    ? '已取消'
-    : isCompleted
-      ? '已完成'
-      : isPendingPayment
-        ? '待支付'
-        : '待核销';
+  const statusText = isCanceled ? '已取消' : isCompleted ? '已完成' : isPendingPayment ? '待支付' : '待核销';
   const refundHintText = isRefunding
     ? '退款处理中，暂时不能核销或重复申请退款'
     : isRefundFailed
@@ -120,9 +109,11 @@ function mergeCardNoIntoOrders(orders, cards) {
   (cards || []).forEach(card => {
     if (card && card.orderId != null) map.set(String(card.orderId), card.cardNo || '');
   });
-  return (orders || []).map(order => Object.assign({}, order, {
-    cardNo: map.get(String(order.id)) || order.cardNo || ''
-  }));
+  return (orders || []).map(order =>
+    Object.assign({}, order, {
+      cardNo: map.get(String(order.id)) || order.cardNo || ''
+    })
+  );
 }
 function toRecordList(source) {
   return pickGiftCardRecords(source);
@@ -153,15 +144,18 @@ Page(
     },
     refresh() {
       this.setData({ loading: true, loadError: '' });
-      const ordersTask = api.fetchGiftCardOrders()
+      const ordersTask = api
+        .fetchGiftCardOrders()
         .then(orders => ({
           ok: true,
-          records: (orders && Array.isArray(orders.records) ? orders.records : toRecordList(orders))
-            .map(order => decorate(order))
+          records: (orders && Array.isArray(orders.records) ? orders.records : toRecordList(orders)).map(order =>
+            decorate(order)
+          )
         }))
         .catch(() => ({ ok: false, records: null }));
       // 卡号仅用于按订单主键合并展示，不独立渲染卡区块。
-      const cardsTask = api.fetchMyGiftCards()
+      const cardsTask = api
+        .fetchMyGiftCards()
         .then(result => ({
           ok: true,
           records: toRecordList(result)
@@ -172,15 +166,16 @@ Page(
         const orders = ordersResult.ok ? ordersResult.records : this.data.allOrders;
         const cards = cardsResult.ok ? cardsResult.records : this.data.allCards;
         const allOrders = mergeCardNoIntoOrders(orders, cards);
-        const loadError = !ordersResult.ok || !cardsResult.ok
-          ? '部分礼品卡数据加载失败，请重试'
-          : '';
-        this.setData({
-          allOrders,
-          allCards: cards,
-          loading: false,
-          loadError
-        }, () => this.applyFilter());
+        const loadError = !ordersResult.ok || !cardsResult.ok ? '部分礼品卡数据加载失败，请重试' : '';
+        this.setData(
+          {
+            allOrders,
+            allCards: cards,
+            loading: false,
+            loadError
+          },
+          () => this.applyFilter()
+        );
       });
     },
     retryLoad() {
@@ -215,20 +210,19 @@ Page(
               wx.showToast({ title: '订单已取消', icon: 'none' });
               this.refresh();
             })
-            .catch(error => wx.showToast({
-              title: (error && error.message) || '取消失败',
-              icon: 'none'
-            }));
+            .catch(error =>
+              wx.showToast({
+                title: (error && error.message) || '取消失败',
+                icon: 'none'
+              })
+            );
         }
       });
     },
     handlePay(event) {
       const orderNo = event.currentTarget.dataset.orderNo;
       if (!orderNo) return;
-      loginGuard.requirePhone(
-        () => this.payOrder(orderNo),
-        { reason: '支付礼品卡需要绑定手机号' }
-      );
+      loginGuard.requirePhone(() => this.payOrder(orderNo), { reason: '支付礼品卡需要绑定手机号' });
     },
     payOrder(orderNo) {
       if (this.data.payingOrderNo) return Promise.resolve(false);
@@ -244,9 +238,7 @@ Page(
             return true;
           }
           wx.showToast({
-            title: result && result.canceled
-              ? '支付已取消，订单仍待支付'
-              : '支付未完成，订单仍待支付',
+            title: result && result.canceled ? '支付已取消，订单仍待支付' : '支付未完成，订单仍待支付',
             icon: 'none'
           });
           return false;

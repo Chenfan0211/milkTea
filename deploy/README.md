@@ -12,11 +12,11 @@
 
 部署目录：`/opt/wuling/deploy/docker-compose.yml`
 
-| 服务 | 容器名 | 宿主机绑定 | 账号 |
-|------|--------|-----------|------|
-| MySQL 8.0.46 | wuling-mysql | 127.0.0.1:3306 | root/`<MYSQL_ROOT_PASSWORD>`，业务库 wuling/wuling |
-| Redis 7 | wuling-redis | 127.0.0.1:6379 | 密码 `<REDIS_PASSWORD>` |
-| RabbitMQ 3 | wuling-rabbitmq | 127.0.0.1:5672 / 15672 | wuling/`<RABBITMQ_PASSWORD>` |
+| 服务         | 容器名          | 宿主机绑定             | 账号                                               |
+| ------------ | --------------- | ---------------------- | -------------------------------------------------- |
+| MySQL 8.0.46 | wuling-mysql    | 127.0.0.1:3306         | root/`<MYSQL_ROOT_PASSWORD>`，业务库 wuling/wuling |
+| Redis 7      | wuling-redis    | 127.0.0.1:6379         | 密码 `<REDIS_PASSWORD>`                            |
+| RabbitMQ 3   | wuling-rabbitmq | 127.0.0.1:5672 / 15672 | wuling/`<RABBITMQ_PASSWORD>`                       |
 
 常用命令（服务器上执行）：
 
@@ -40,11 +40,11 @@ ssh -N -L 13306:127.0.0.1:3306 -L 16379:127.0.0.1:6379 -L 15672:127.0.0.1:5672 r
 
 映射关系：
 
-| 本地端口 | 服务器端口 | 用途 |
-|---------|-----------|------|
-| 13306 | 3306 | MySQL |
-| 16379 | 6379 | Redis |
-| 15672 | 5672 | RabbitMQ AMQP |
+| 本地端口 | 服务器端口 | 用途          |
+| -------- | ---------- | ------------- |
+| 13306    | 3306       | MySQL         |
+| 16379    | 6379       | Redis         |
+| 15672    | 5672       | RabbitMQ AMQP |
 
 > 注：本地 15672 复用为 RabbitMQ AMQP，管理台未映射到本地（如需可另加 `-L 25672:127.0.0.1:15672`）。
 
@@ -117,8 +117,8 @@ volumes:
 若需直接挂载宿主机目录，可将卷改为：
 
 ```yaml
-    volumes:
-      - /srv/wuling/uploads:/data/wuling/uploads
+volumes:
+  - /srv/wuling/uploads:/data/wuling/uploads
 ```
 
 两种方式都必须保证该目录只属于文件服务、随宿主机或具名卷持久化，并纳入数据库之外的
@@ -146,8 +146,8 @@ volumes:
 微信商户证书目录需以只读方式挂载给 `trade-service`，例如：
 
 ```yaml
-    volumes:
-      - /opt/wuling/app/certs:/opt/wuling/app/certs:ro
+volumes:
+  - /opt/wuling/app/certs:/opt/wuling/app/certs:ro
 ```
 
 容器内两个 `WXPAY_*_KEY_PATH` 必须落在该挂载目录内且运行用户可读。生产 Nginx

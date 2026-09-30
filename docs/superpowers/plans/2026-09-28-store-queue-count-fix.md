@@ -46,6 +46,7 @@
 ## Task 1：`OrderMapper` 口径改为滑动 1 小时窗口
 
 **Files:**
+
 - Modify: `trade-service/src/main/java/com/wuling/trade/mapper/OrderMapper.java`
 
 - [ ] Step 1：把 `sumTodayPendingVerifyQuantity(storeSubjectId, dayStart)` 重命名为语义正确的 `sumRecentPendingVerifyQuantity(storeSubjectId, windowStart)`，SQL 条件由 `o.create_time >= #{dayStart}` 改为 `o.pay_time >= #{windowStart}`。
@@ -69,6 +70,7 @@ Long sumRecentPendingVerifyQuantity(@Param("storeSubjectId") Long storeSubjectId
 ## Task 2：`StoreService` 补注释与降级日志
 
 **Files:**
+
 - Modify: `server/src/main/java/com/wuling/subject/service/StoreService.java`
 
 - [ ] Step 1：`countPendingQueue` 传入 `LocalDateTime.now().minusHours(1)`，`catch` 分支补 `log.warn`（当前静默吞异常，线上表现为「数字突然变 0」，极难排查）。
@@ -84,6 +86,7 @@ Long sumRecentPendingVerifyQuantity(@Param("storeSubjectId") Long storeSubjectId
 ## Task 3：修复并强化 `TradeInternalQueryControllerTest`
 
 **Files:**
+
 - Modify: `trade-service/src/test/java/com/wuling/trade/internal/TradeInternalQueryControllerTest.java`
 
 - [ ] Step 1：构造器改回单参 `new TradeInternalQueryController(orderMapper)`（当前编译不过）。

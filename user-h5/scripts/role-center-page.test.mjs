@@ -9,13 +9,19 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 for (const page of ['role-center', 'role-workbench', 'role-apply']) {
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-    assert.ok(fs.existsSync(path.join(root, `packageRole/${page}/${page}.${extension}`)), `missing ${page}.${extension}`);
+    assert.ok(
+      fs.existsSync(path.join(root, `packageRole/${page}/${page}.${extension}`)),
+      `missing ${page}.${extension}`
+    );
   }
 }
 
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
 assert.ok(appJson.subpackages?.[0]?.pages?.includes('role-center/role-center'), 'role-center must be registered');
-assert.ok(appJson.subpackages?.[0]?.pages?.includes('role-workbench/role-workbench'), 'role-workbench must be registered');
+assert.ok(
+  appJson.subpackages?.[0]?.pages?.includes('role-workbench/role-workbench'),
+  'role-workbench must be registered'
+);
 assert.ok(appJson.subpackages?.[0]?.pages?.includes('role-apply/role-apply'), 'role-apply must be registered');
 
 const storage = {};
@@ -126,16 +132,8 @@ assert.equal(getCurrentBusinessRole().id, 'resource', 'current role must be pres
 // 假数据清理后：不得再有「绕过审核直接开通角色」的演示后门。
 // 角色开通只能来自后端 /roles/mine 或审核通过，前端只做视角切换。
 resetRole();
-assert.equal(
-  typeof mockSwitchRole,
-  'undefined',
-  'mockSwitchRole must be removed (it bypassed role review)'
-);
-assert.equal(
-  switchRole('investor'),
-  null,
-  'cannot switch to a role that was never activated'
-);
+assert.equal(typeof mockSwitchRole, 'undefined', 'mockSwitchRole must be removed (it bypassed role review)');
+assert.equal(switchRole('investor'), null, 'cannot switch to a role that was never activated');
 assert.equal(getActiveRoles().length, 0, 'no role may be activated without review');
 
 // 正常路径：先提交申请（pending），审核通过后才可切换
@@ -179,11 +177,7 @@ for (const id of ['store', 'investor', 'resource']) {
 
 // 收益 / 提现 / 核销在未同步前不得返回假数据
 assert.equal(getIncomeData('store'), null, 'income must be null before remote sync');
-assert.deepEqual(
-  getVerifyData('store'),
-  { pool: [], records: [] },
-  'verify data must be empty before remote sync'
-);
+assert.deepEqual(getVerifyData('store'), { pool: [], records: [] }, 'verify data must be empty before remote sync');
 
 // 分享配置：角色页必须私密且具备标题
 const { getShareTitle, isPrivatePage, PAGE_SHARE_TITLES } = require(path.join(root, 'utils/share.js'));
@@ -203,7 +197,10 @@ const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), '
 assert.ok(profileWxml.includes('pending-notice'), 'profile must render pending notice');
 assert.ok(profileWxml.includes('pendingRoleCount'), 'profile must show pending role count');
 assert.ok(profileWxml.includes('user-card__badges'), 'profile user card must group membership and role badges');
-assert.ok(profileWxml.includes('wx:if="{{businessRole}}"'), 'profile must hide the role badge when no current role exists');
+assert.ok(
+  profileWxml.includes('wx:if="{{businessRole}}"'),
+  'profile must hide the role badge when no current role exists'
+);
 assert.ok(profileWxml.includes('user-card__role-badge'), 'profile user card must render the business role badge');
 assert.ok(profileWxml.includes('{{businessRole.label}}'), 'profile role badge must show the current role name');
 assert.ok(profileWxml.includes('roleFunctions'), 'profile must append role functions');
@@ -217,19 +214,18 @@ assert.ok(
 );
 assert.ok(profileJs.includes('/packageRole/role-apply/role-apply'), 'cooperation must navigate to role apply');
 assert.ok(profileJs.includes('openRoleApply'), 'profile must expose openRoleApply handler');
-// 门店身份展示闭环回归：角色中心入口必须恢复展示，且角色必须被同步到本地。
+// 门店身份展示闭环回归：角色中心入口已移除，身份由 /roles/mine 驱动、默认消费者；
+// 切换收敛到用户卡片上的角色徽章（switchIdentity），角色仍需在冷启动/onShow 同步。
 assert.ok(
-  profileWxml.includes('openRoleCenter') && profileWxml.includes('进入角色中心'),
-  'profile 必须恢复角色中心入口（不得再被注释掉）'
+  !profileWxml.includes('进入角色中心') && !profileWxml.includes('openRoleCenter'),
+  'profile 不得再展示角色中心入口（身份切换已收敛到角色徽章）'
 );
+assert.ok(profileJs.includes('switchIdentity'), 'profile 必须提供 switchIdentity 身份切换入口');
 assert.ok(
-  !profileWxml.includes('本版本暂不展示'),
-  '角色中心入口不得保留「暂不展示」注释文案'
+  profileJs.includes('switchToConsumer') && profileJs.includes('switchRole('),
+  '身份切换必须复用 switchRole/switchToConsumer'
 );
-assert.ok(
-  profileJs.includes('syncRolesFromRemote()'),
-  'profile onShow 必须同步经营角色，否则门店徽章/功能始终为空'
-);
+assert.ok(profileJs.includes('syncRolesFromRemote()'), 'profile onShow 必须同步经营角色，否则门店徽章/功能始终为空');
 assert.ok(
   fs.readFileSync(path.join(root, 'utils/entry-login.js'), 'utf8').includes('syncRolesFromRemote()'),
   '冷启动必须同步经营角色，保证登录后「我的」页即显示门店身份'
@@ -247,10 +243,7 @@ assert.ok(workbenchWxml2.includes('is-highlight'), 'workbench action rows must s
 const roleCenterJs = fs.readFileSync(path.join(root, 'packageRole/role-center/role-center.js'), 'utf8');
 const roleCenterWxml = fs.readFileSync(path.join(root, 'packageRole/role-center/role-center.wxml'), 'utf8');
 assert.ok(roleCenterJs.includes('switchRole'), 'role center must switch roles');
-assert.ok(
-  !roleCenterJs.includes('mockSwitchRole'),
-  'role center must not bypass role review via mockSwitchRole'
-);
+assert.ok(!roleCenterJs.includes('mockSwitchRole'), 'role center must not bypass role review via mockSwitchRole');
 assert.ok(roleCenterJs.includes('switchToConsumer'), 'role center must support consumer switch');
 assert.ok(roleCenterWxml.includes('模拟角色切换'), 'role center title must be 模拟角色切换');
 assert.ok(roleCenterWxml.includes('消费端'), 'role center must include consumer option');

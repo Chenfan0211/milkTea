@@ -258,7 +258,7 @@ const local: App.I18n.Schema = {
     system_feature: '功能开关',
     system_dict: '数据字典',
     system_city: '城市管理',
-  system_config: '运营配置',
+    system_config: '运营配置',
     marketing: '营销中心',
     marketing_coupon: '优惠券管理',
     marketing_stored: '储值套餐',

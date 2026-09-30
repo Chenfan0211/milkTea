@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'TradeOrder'
 });
@@ -12,7 +11,15 @@ import type { DetailGroup } from '@/views/_shared/detail-types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchSubjectStores } from '@/service/api/subject';
-import { renderTag, statusMap, renderMoney, renderDateTime, formatFen, formatDateTime, toTimeRange } from '@/views/_shared/render';
+import {
+  renderTag,
+  statusMap,
+  renderMoney,
+  renderDateTime,
+  formatFen,
+  formatDateTime,
+  toTimeRange
+} from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -119,7 +126,10 @@ const splitDetail = computed(() => {
       discountAmount: Number(row.discountAmount) || 0,
       couponDiscount: Number(row.couponDiscount) || 0,
       storedValueDiscount: Number(row.storedValueDiscount) || 0,
-      memberDiscount: Math.max(0, (Number(row.originalAmount) || 0) - (Number(row.totalAmount) || 0) - (Number(row.storedValueDiscount) || 0)),
+      memberDiscount: Math.max(
+        0,
+        (Number(row.originalAmount) || 0) - (Number(row.totalAmount) || 0) - (Number(row.storedValueDiscount) || 0)
+      ),
       itemCount: Number(split.itemCount) || itemCount,
       costTotal: Number(split.costTotal) || costTotal,
       storeShare: Number(split.storeShare) || 0,
@@ -153,7 +163,10 @@ const splitDetail = computed(() => {
     discountAmount: Number(row.discountAmount) || 0,
     couponDiscount: Number(row.couponDiscount) || 0,
     storedValueDiscount: Number(row.storedValueDiscount) || 0,
-    memberDiscount: Math.max(0, (Number(row.originalAmount) || 0) - (Number(row.totalAmount) || 0) - (Number(row.storedValueDiscount) || 0)),
+    memberDiscount: Math.max(
+      0,
+      (Number(row.originalAmount) || 0) - (Number(row.totalAmount) || 0) - (Number(row.storedValueDiscount) || 0)
+    ),
     itemCount,
     costTotal,
     storeShare,
@@ -176,16 +189,38 @@ const columns: DataTableColumns<any> = [
     title: '支付状态',
     key: 'payStatus',
     width: 100,
-    render: renderTag('payStatus', statusMap({ UNPAID: ['未支付', 'info'], PAID: ['已支付', 'primary'], REFUNDED: ['已退款', 'default'] }))
+    render: renderTag(
+      'payStatus',
+      statusMap({ UNPAID: ['未支付', 'info'], PAID: ['已支付', 'primary'], REFUNDED: ['已退款', 'default'] })
+    )
   },
   {
     title: '用餐方式',
     key: 'mealType',
     width: 90,
-    render: (row: any) => ({ dinein: '堂食', DINEIN: '堂食', DINE_IN: '堂食', pickup: '自取', PICKUP: '自取', takeout: '自取', TAKEOUT: '自取' } as Record<string, string>)[row.mealType] ?? row.mealType ?? '—'
+    render: (row: any) =>
+      (
+        ({
+          dinein: '堂食',
+          DINEIN: '堂食',
+          DINE_IN: '堂食',
+          pickup: '自取',
+          PICKUP: '自取',
+          takeout: '自取',
+          TAKEOUT: '自取'
+        }) as Record<string, string>
+      )[row.mealType] ??
+      row.mealType ??
+      '—'
   },
   { title: '应付金额(元)', key: 'originalAmount', width: 120, align: 'right', render: renderMoney('originalAmount') },
-  { title: '优惠金额(元)', key: 'discountAmount', width: 110, align: 'right', render: (row: any) => '-' + formatFen(row.discountAmount) },
+  {
+    title: '优惠金额(元)',
+    key: 'discountAmount',
+    width: 110,
+    align: 'right',
+    render: (row: any) => '-' + formatFen(row.discountAmount)
+  },
   { title: '实付金额(元)', key: 'paidAmount', width: 120, align: 'right', render: renderMoney('paidAmount') },
   {
     title: '订单状态',
@@ -245,13 +280,23 @@ const searchFields: SearchField[] = [
 
 const payStatusLabel = (v: string) => ({ UNPAID: '未支付', PAID: '已支付', REFUNDED: '已退款' })[v] ?? v;
 const mealTypeLabel = (v: string) =>
-  ({
-    dinein: '堂食', DINEIN: '堂食', DINE_IN: '堂食',
-    pickup: '自取', PICKUP: '自取', takeout: '自取', TAKEOUT: '自取'
-  } as Record<string, string>)[v] ?? v ?? '—';
-const refundStatusLabel = (v: string) => ({ PENDING: '退款中', REFUNDED: '已退款' } as Record<string, string>)[v] ?? v;
+  (
+    ({
+      dinein: '堂食',
+      DINEIN: '堂食',
+      DINE_IN: '堂食',
+      pickup: '自取',
+      PICKUP: '自取',
+      takeout: '自取',
+      TAKEOUT: '自取'
+    }) as Record<string, string>
+  )[v] ??
+  v ??
+  '—';
+const refundStatusLabel = (v: string) =>
+  (({ PENDING: '退款中', REFUNDED: '已退款' }) as Record<string, string>)[v] ?? v;
 const statusLabel = (v: string) =>
-  ({ CREATED: '待支付', PAID: '待核销', COMPLETED: '已完成', CANCELED: '已取消' } as Record<string, string>)[v] ?? v;
+  (({ CREATED: '待支付', PAID: '待核销', COMPLETED: '已完成', CANCELED: '已取消' }) as Record<string, string>)[v] ?? v;
 
 /** 商品明细：图片 + 名称 x数量 + 规格 + 单价 */
 function renderItems(row: any) {
@@ -263,8 +308,21 @@ function renderItems(row: any) {
     items.map((it: any) =>
       h('div', { style: 'display:flex;align-items:center;gap:10px' }, [
         it.image
-          ? h(NImage, { src: it.image, width: 40, height: 40, objectFit: 'cover', style: 'border-radius:6px;flex-shrink:0' })
-          : h('div', { style: 'width:40px;height:40px;border-radius:6px;background:#f0f0f0;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#9b9b96;font-size:12px' }, '无图'),
+          ? h(NImage, {
+              src: it.image,
+              width: 40,
+              height: 40,
+              objectFit: 'cover',
+              style: 'border-radius:6px;flex-shrink:0'
+            })
+          : h(
+              'div',
+              {
+                style:
+                  'width:40px;height:40px;border-radius:6px;background:#f0f0f0;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#9b9b96;font-size:12px'
+              },
+              '无图'
+            ),
         h('div', { style: 'display:flex;flex-direction:column;gap:2px' }, [
           h('div', { style: 'font-size:14px;color:#333' }, `${it.name} x${it.quantity}`),
           h('div', { style: 'font-size:12px;color:#9b9b96' }, it.spec || ''),
@@ -287,7 +345,10 @@ const detailGroups: DetailGroup[] = [
       { label: '用餐方式', render: (r: any) => mealTypeLabel(r.mealType) },
       { label: '退款状态', render: (r: any) => refundStatusLabel(r.refundStatus) },
       // 与列表口径一致：核销码仅已支付待核销订单展示
-      { label: '取餐码', render: (r: any) => (r.status === 'PAID' || r.status === 'COMPLETED' ? r.pickupCode || '—' : '—') },
+      {
+        label: '取餐码',
+        render: (r: any) => (r.status === 'PAID' || r.status === 'COMPLETED' ? r.pickupCode || '—' : '—')
+      },
       { label: '下单时间', render: (r: any) => formatDateTime(r.createTime) },
       { label: '支付时间', render: (r: any) => formatDateTime(r.payTime) },
       { label: '核销时间', render: (r: any) => formatDateTime(r.verifyTime) },
@@ -449,11 +510,10 @@ const config: AdminListConfig = {
 .split-line--sub {
   padding-left: 20px;
   font-size: 13px;
-  color: #9B9B96;
+  color: #9b9b96;
 }
 .split-line--total {
   font-weight: 600;
   border-bottom: none;
 }
 </style>
-

@@ -56,6 +56,7 @@ const REMOTE_RESOURCES: Record<string, string> = {
   dictEntries: 'dictEntries',
   cities: 'cities',
   provinces: 'provinces',
+  activityCities: 'activityCities',
   features: 'features',
   storeTypes: 'storeTypes',
   // 主体管理
@@ -218,6 +219,7 @@ function seed(): AdminData {
     productCategories: [],
     provinces: [],
     cities: [],
+    activityCities: [],
     storeTypes: [],
     pointsProducts: [],
     pointsCategories: [],
@@ -462,6 +464,7 @@ function migrate(data: AdminData): AdminData {
   if (!Array.isArray(data.giftCardOrders)) data.giftCardOrders = [];
   if (!Array.isArray(data.provinces)) data.provinces = [];
   if (!Array.isArray(data.cities)) data.cities = [];
+  if (!Array.isArray(data.activityCities)) data.activityCities = [];
   // 分享规则同理：不再塞硬编码默认值，缺省即为空对象（由页面自行处理）
   if (!(data as any).referralConfig) (data as any).referralConfig = {};
   (data.pointsProducts || []).forEach((p: any) => {
@@ -1808,6 +1811,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     giftCardOrders: computed(() => ensure('giftCardOrders')),
     provinces: computed(() => ensure('provinces')),
     cities: computed(() => ensure('cities')),
+    activityCities: computed(() => ensure('activityCities')),
     referralConfig: computed(() => (data.value as any).referralConfig || { id: 1 }),
     pointsProducts: computed(() => ensure('pointsProducts')),
     pointsCategories: computed(() => ensure('pointsCategories')),
@@ -1864,4 +1868,3 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     executeVerify
   };
 });
-

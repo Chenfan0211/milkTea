@@ -254,7 +254,7 @@ const local: App.I18n.Schema = {
     finance_pool: 'Fund Pool',
     finance_account: 'Accounts',
     finance_flow: 'Fund Flows',
-    
+
     finance_reconcile: 'Reconcile',
     finance_withdraw: 'Withdraw',
     'trade_verify-pool': 'Verify Pool',
@@ -263,7 +263,7 @@ const local: App.I18n.Schema = {
     system_feature: 'Feature Flags',
     system_dict: 'Data Dictionary',
     system_city: 'Cities',
-  system_config: 'App Config',
+    system_config: 'App Config',
     marketing: 'Marketing',
     marketing_coupon: 'Coupons',
     marketing_stored: 'Stored Value',

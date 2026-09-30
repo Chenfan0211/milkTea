@@ -18,11 +18,11 @@
 >
 > **当前已登记的间距豁免值**（2026-09-21 全量排查后归档，均为参考图还原所需，禁止再扩散到新代码）：
 >
-> | 位置 | 值 | 用途 |
-> | --- | --- | --- |
-> | `pages/home/home.wxss` `.user-strip` | `padding: 0 62rpx` | 首页用户信息栏左右留白对齐参考图 |
-> | `pages/menu/menu.wxss` `.menu-tabs__item` | `margin-right: 58rpx` | 点单顶部菜单 Tab 间距对齐参考图 |
-> | `pages/menu/menu.wxss` `.store-page__map` | `height: 640rpx` | 门店页顶部地图区高度对齐参考图比例 |
+> | 位置                                                                 | 值                    | 用途                                                             |
+> | -------------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------- |
+> | `pages/home/home.wxss` `.user-strip`                                 | `padding: 0 62rpx`    | 首页用户信息栏左右留白对齐参考图                                 |
+> | `pages/menu/menu.wxss` `.menu-tabs__item`                            | `margin-right: 58rpx` | 点单顶部菜单 Tab 间距对齐参考图                                  |
+> | `pages/menu/menu.wxss` `.store-page__map`                            | `height: 640rpx`      | 门店页顶部地图区高度对齐参考图比例                               |
 > | `pages/profile-data/profile-data.wxss` `.profile-data-scroll__inner` | `padding-top: 100rpx` | 个人资料页顶部让位参考图（同规则内的 `280rpx` 已被验收测试固化） |
 >
 > 新增类似取值前必须先确认参考图依据，并在本表登记；未登记的非档位间距一律视为违规。
@@ -67,18 +67,18 @@
 
 门店列表卡（点单页门店选择层、收藏门店、券适用门店共用）按参考图「方案 D」固化了以下 token；它们只服务于门店卡，不改动上面的全站品牌色。
 
-| Token                     | 值        | 用途                                   |
-| ------------------------- | --------- | -------------------------------------- |
-| `--store-page-mint`       | `#EAF4E1` | 门店选择层列表底色（白卡片衬底）       |
-| `--store-card-title`      | `#245C2B` | 门店名深绿标题                         |
-| `--store-card-ink`        | `#75886A` | 卡片内的地址、营业时间、距离胶囊文字   |
-| `--store-card-accent`     | `#2E8B40` | 排队状态文字与圆点                     |
-| `--store-pill-bg`         | `#EDF5E2` | 距离胶囊底色                           |
-| `--store-promo-from`      | `#429E46` | 上新横幅渐变起点（左）                 |
-| `--store-promo-to`        | `#2E7D3A` | 上新横幅渐变终点（右）                 |
-| `--store-action-from`     | `#3B9544` | 电话/导航圆形按钮渐变起点（上）        |
-| `--store-action-to`       | `#32843D` | 电话/导航圆形按钮渐变终点（下）        |
-| `--store-decor-leaf`      | `#A6C685` | 卡片右下角叶芽水印（允许用 opacity 降淡） |
+| Token                 | 值        | 用途                                      |
+| --------------------- | --------- | ----------------------------------------- |
+| `--store-page-mint`   | `#EAF4E1` | 门店选择层列表底色（白卡片衬底）          |
+| `--store-card-title`  | `#245C2B` | 门店名深绿标题                            |
+| `--store-card-ink`    | `#75886A` | 卡片内的地址、营业时间、距离胶囊文字      |
+| `--store-card-accent` | `#2E8B40` | 排队状态文字与圆点                        |
+| `--store-pill-bg`     | `#EDF5E2` | 距离胶囊底色                              |
+| `--store-promo-from`  | `#429E46` | 上新横幅渐变起点（左）                    |
+| `--store-promo-to`    | `#2E7D3A` | 上新横幅渐变终点（右）                    |
+| `--store-action-from` | `#3B9544` | 电话/导航圆形按钮渐变起点（上）           |
+| `--store-action-to`   | `#32843D` | 电话/导航圆形按钮渐变终点（下）           |
+| `--store-decor-leaf`  | `#A6C685` | 卡片右下角叶芽水印（允许用 opacity 降淡） |
 
 同一张卡片的固化为：白底 `--card-bg`、`min-height: 372rpx`、内边距 `20rpx 24rpx`、卡片间距 `32rpx`、圆角 `--radius-lg`；店名 `--font-xl`、横幅与地址/时间/胶囊文字 `--font-caption` / `--font-sm`、排队行 `--font-base`；电话与导航按钮 72rpx 圆形、间距 24rpx、定位在右 24rpx / 下 20rpx。
 

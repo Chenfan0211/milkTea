@@ -2,10 +2,7 @@ const loginGuard = require('../../utils/login-guard');
 const api = require('../../utils/api');
 const { withShare } = require('../../utils/share');
 const { requestGiftCardPayment } = require('../../utils/gift-card-payment');
-const {
-  resolveGiftCardImageUrl,
-  selectGiftCardDenominations
-} = require('../../utils/gift-card');
+const { resolveGiftCardImageUrl, selectGiftCardDenominations } = require('../../utils/gift-card');
 
 const AGREEMENT_TITLE = '五零时光单用途商业预付卡章程（协议）';
 
@@ -68,9 +65,9 @@ Page(
             denominationId: item.denominationId || item.id,
             code: item.code,
             faceValue: fenToYuan(item.amount),
-            salePrice: fenToYuan(item.salePrice === undefined || item.salePrice === null
-              ? item.amount
-              : item.salePrice),
+            salePrice: fenToYuan(
+              item.salePrice === undefined || item.salePrice === null ? item.amount : item.salePrice
+            ),
             selected: index === 0
           }));
           const selected = denominations[0];
@@ -84,9 +81,7 @@ Page(
     },
     selectDenomination(event) {
       const denominationId = event.currentTarget.dataset.id;
-      const selected = this.data.denominations.find(
-        item => String(item.denominationId) === String(denominationId)
-      );
+      const selected = this.data.denominations.find(item => String(item.denominationId) === String(denominationId));
       if (!selected) return;
       const denominations = this.data.denominations.map(item =>
         Object.assign({}, item, {
@@ -147,9 +142,7 @@ Page(
             wx.showToast({ title: '订单已关闭', icon: 'none' });
           } else {
             wx.showToast({
-              title: result && result.canceled
-                ? '支付已取消，可在订单中继续支付'
-                : '支付未完成，可在订单中继续支付',
+              title: result && result.canceled ? '支付已取消，可在订单中继续支付' : '支付未完成，可在订单中继续支付',
               icon: 'none'
             });
           }

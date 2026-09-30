@@ -9,6 +9,7 @@
 3 个等权数字卡 → 表单卡 → 规则文本卡 → 记录文本卡 → 开发备注。
 
 问题：
+
 1. 无视觉重心，四块内容同权重堆叠。
 2. 提现规则是 4 行无图标裸文字，可读性差。
 3. 提现记录仅有 `金额 + 状态`，WXSS 中定义的 `record-row__body/__meta/__time/__amount` 为死代码。
@@ -70,20 +71,20 @@ navigation-bar（title=提现记录，back）
 
 ## 六、文件改动清单
 
-| 文件 | 操作 | 说明 |
-|---|---|---|
-| `pages/role-withdraw/role-withdraw.wxml` | 重写 | 新四段结构 |
-| `pages/role-withdraw/role-withdraw.wxss` | 重写 | 删除死代码，新增 hero/form/rule/entry 样式 |
-| `pages/role-withdraw/role-withdraw.js` | 改 | 全部提现、到账预览、按钮态、跳记录页 |
-| `pages/role-withdraw/role-withdraw.json` | 不改 | 组件已齐 |
-| `pages/role-withdraw-records/*` | 新增 | 4 个文件（js/json/wxml/wxss） |
-| `data/role-mock.js` | 改 | `withdrawData[*].records` 补演示数据，记录字段含 id/amount/status/time/note |
-| `utils/roles.js` | 改 | `getWithdrawData` 透传新字段 |
-| `utils/share.js` | 改 | 新页面标题 + 私密名单 |
-| `app.json` | 改 | 注册新页面 |
-| `scripts/check-project.mjs` | 改 | `expectedPages` 追加新页面（否则 check 失败） |
-| `scripts/role-function-pages.test.mjs` | 改 | 补新页面与记录字段断言 |
-| `scripts/sync-lucide-icons.mjs` | 可能改 | 若缺图标先加映射再 `npm run icons` |
+| 文件                                     | 操作   | 说明                                                                        |
+| ---------------------------------------- | ------ | --------------------------------------------------------------------------- |
+| `pages/role-withdraw/role-withdraw.wxml` | 重写   | 新四段结构                                                                  |
+| `pages/role-withdraw/role-withdraw.wxss` | 重写   | 删除死代码，新增 hero/form/rule/entry 样式                                  |
+| `pages/role-withdraw/role-withdraw.js`   | 改     | 全部提现、到账预览、按钮态、跳记录页                                        |
+| `pages/role-withdraw/role-withdraw.json` | 不改   | 组件已齐                                                                    |
+| `pages/role-withdraw-records/*`          | 新增   | 4 个文件（js/json/wxml/wxss）                                               |
+| `data/role-mock.js`                      | 改     | `withdrawData[*].records` 补演示数据，记录字段含 id/amount/status/time/note |
+| `utils/roles.js`                         | 改     | `getWithdrawData` 透传新字段                                                |
+| `utils/share.js`                         | 改     | 新页面标题 + 私密名单                                                       |
+| `app.json`                               | 改     | 注册新页面                                                                  |
+| `scripts/check-project.mjs`              | 改     | `expectedPages` 追加新页面（否则 check 失败）                               |
+| `scripts/role-function-pages.test.mjs`   | 改     | 补新页面与记录字段断言                                                      |
+| `scripts/sync-lucide-icons.mjs`          | 可能改 | 若缺图标先加映射再 `npm run icons`                                          |
 
 ## 七、验收
 

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'FinanceReconcile'
 });
@@ -19,7 +18,11 @@ const columns: DataTableColumns<any> = [
     width: 120,
     render: renderTag(
       'issueType',
-      statusMap({ MISSING_SPLIT: ['缺失分账快照', 'info'], MISSING_REVERSE: ['退款未冲正', 'warning'], SPLIT_AMOUNT_MISMATCH: ['分账金额不一致', 'error'] })
+      statusMap({
+        MISSING_SPLIT: ['缺失分账快照', 'info'],
+        MISSING_REVERSE: ['退款未冲正', 'warning'],
+        SPLIT_AMOUNT_MISMATCH: ['分账金额不一致', 'error']
+      })
     )
   },
   { title: '订单号', key: 'orderNo', width: 160 },
@@ -31,7 +34,10 @@ const columns: DataTableColumns<any> = [
     title: '处理状态',
     key: 'status',
     width: 110,
-    render: renderTag('status', statusMap({ OPEN: ['待处理', 'warning'], RESOLVED: ['已处理', 'success'], IGNORED: ['已忽略', 'default'] }))
+    render: renderTag(
+      'status',
+      statusMap({ OPEN: ['待处理', 'warning'], RESOLVED: ['已处理', 'success'], IGNORED: ['已忽略', 'default'] })
+    )
   }
 ];
 const searchFields: SearchField[] = [
@@ -79,4 +85,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

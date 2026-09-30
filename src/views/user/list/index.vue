@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'UserList'
 });
@@ -93,7 +92,7 @@ const rowActions: RowAction[] = [
         },
         {
           label: '具体主体',
-          options: (type) =>
+          options: type =>
             store.subjects
               .filter(s => s.type === type && !s.boundUserId && !s.deleted)
               .map(s => ({ label: s.name, value: s.code }))

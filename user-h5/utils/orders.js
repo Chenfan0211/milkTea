@@ -16,7 +16,7 @@ const PAYMENT_WINDOW_MINUTES = 15;
 const PAYMENT_WINDOW_SECONDS = PAYMENT_WINDOW_MINUTES * 60;
 
 /** 储值订单封面兜底图（运营素材，位于 3x 高清目录）。 */
-const STORED_VALUE_COVER_IMAGE = "/assets/images/3x/stored-value-banner.jpg";
+const STORED_VALUE_COVER_IMAGE = '/assets/images/3x/stored-value-banner.jpg';
 
 /** 后端订单状态（英文枚举）-> 前端中文文案。 */
 const STATUS_TEXT_MAP = {
@@ -164,15 +164,15 @@ const INTERNAL_ORDER_STATUS = {
 };
 
 function resolveInternalOrderStatus(category, value) {
-  const categoryKey = category === 'stored-value' || category === 'gift-card'
-    ? category
-    : 'store';
+  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
   const normalized = String(value || '');
   return INTERNAL_ORDER_STATUS[categoryKey].includes(normalized) ? normalized : '';
 }
 
 function normalizeOrderStatusValue(value) {
-  return String(value || '').trim().toUpperCase();
+  return String(value || '')
+    .trim()
+    .toUpperCase();
 }
 
 function isPaidStatus(value) {
@@ -194,15 +194,14 @@ function resolvePaidOrderStatus(payStatus) {
  * VERIFIED / REFUNDED 仅可作为业务辅助状态，不能覆盖订单主状态。
  */
 function resolveOrderStatus(raw, category, payStatus) {
-  const categoryKey = category === 'stored-value' || category === 'gift-card'
-    ? category
-    : 'store';
+  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
   const value = normalizeOrderStatusValue(raw);
 
   if (categoryKey === 'stored-value') {
     // 先识别取消态，再按支付状态二分（历史 bug：CANCELED 被 isPaidStatus=false 误判为 unpaid）
     // CANCELED 可能在 rawStatus(value) 或 payStatus 里，两者都要识别
-    if (value === 'CANCELED' || value === '已取消' || normalizeOrderStatusValue(payStatus) === 'CANCELED') return 'canceled';
+    if (value === 'CANCELED' || value === '已取消' || normalizeOrderStatusValue(payStatus) === 'CANCELED')
+      return 'canceled';
     return isPaidStatus(payStatus || value) ? 'paid' : 'unpaid';
   }
 
@@ -216,14 +215,11 @@ function resolveOrderStatus(raw, category, payStatus) {
   const paidOrderStatus = resolvePaidOrderStatus(payStatus);
   if (paidOrderStatus) return paidOrderStatus;
 
-
   return '';
 }
 
 function resolveOrderStatusText(orderStatus, category, rawStatus, payStatus) {
-  const categoryKey = category === 'stored-value' || category === 'gift-card'
-    ? category
-    : 'store';
+  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
   const categoryText = ORDER_STATUS_TEXT[categoryKey] || ORDER_STATUS_TEXT.store;
   if (categoryText[orderStatus]) return categoryText[orderStatus];
 
@@ -253,10 +249,11 @@ function normalizeOrderShape(order) {
   const category = order.category || 'store';
   const rawStatus = order.status || order.orderStatus;
   const payStatus = order.payStatus || orderInfo.payStatus || '';
-  const orderStatus = resolveInternalOrderStatus(category, order.orderStatus)
-    || resolveOrderStatus(rawStatus, category, payStatus)
-    || resolveOrderStatus(order.orderStatus, category, payStatus)
-    || '';
+  const orderStatus =
+    resolveInternalOrderStatus(category, order.orderStatus) ||
+    resolveOrderStatus(rawStatus, category, payStatus) ||
+    resolveOrderStatus(order.orderStatus, category, payStatus) ||
+    '';
   const statusText = resolveOrderStatusText(orderStatus, category, rawStatus, payStatus);
   return Object.assign({}, order, {
     orderInfo,
@@ -277,14 +274,12 @@ function normalizeOrderShape(order) {
  */
 function normalizeAuxOrder(order, category) {
   if (!order || typeof order !== 'object') return order;
-  const categoryKey = category === 'stored-value' || category === 'gift-card'
-    ? category
-    : 'store';
+  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
   const rawPayStatus = order.payStatus || (order.orderInfo && order.orderInfo.payStatus) || '';
   const payStatus = normalizeOrderStatusValue(rawPayStatus);
   const rawStatus = order.status || order.orderStatus;
-  const orderStatus = resolveInternalOrderStatus(categoryKey, order.orderStatus)
-    || resolveOrderStatus(rawStatus, categoryKey, payStatus);
+  const orderStatus =
+    resolveInternalOrderStatus(categoryKey, order.orderStatus) || resolveOrderStatus(rawStatus, categoryKey, payStatus);
   const statusText = resolveOrderStatusText(orderStatus, categoryKey, rawStatus, payStatus);
   return Object.assign({}, order, {
     category: categoryKey,
@@ -294,9 +289,7 @@ function normalizeAuxOrder(order, category) {
     orderStatus,
     status: statusText,
     // 储值充值对外只保留 UNPAID / PAID 两个支付状态。
-    payStatus: categoryKey === 'stored-value'
-      ? (orderStatus === 'paid' ? 'PAID' : 'UNPAID')
-      : payStatus
+    payStatus: categoryKey === 'stored-value' ? (orderStatus === 'paid' ? 'PAID' : 'UNPAID') : payStatus
   });
 }
 
@@ -314,7 +307,9 @@ function cloneOrder(order) {
       : [],
     // 支付渠道兜底写入 orderInfo：远程单查合并后仍能取到渠道，
     // 避免已支付订单因缺渠道被误展示成默认支付方式。
-    orderInfo: Object.assign({}, normalized.orderInfo || {}, { payChannel: normalized.payChannel || (normalized.orderInfo && normalized.orderInfo.payChannel) || '' })
+    orderInfo: Object.assign({}, normalized.orderInfo || {}, {
+      payChannel: normalized.payChannel || (normalized.orderInfo && normalized.orderInfo.payChannel) || ''
+    })
   });
 }
 
@@ -364,11 +359,18 @@ function refreshOrdersFromRemote(options = {}) {
       // append（翻页）直接追加并按主键/订单号去重；非 append 用当前批次整体替换。
       // 去重避免同一条订单跨页或跨来源重复出现。
       orderStore = append
-        ? orderStore.concat(batch).filter((item, index, arr) =>
-            arr.findIndex(x => (x.id != null && String(x.id) === String(item.id)) ||
-              ((x.orderInfo && x.orderInfo.orderNo) && String(x.orderInfo.orderNo) === String((item.orderInfo && item.orderInfo.orderNo)))
-            ) === index
-          )
+        ? orderStore
+            .concat(batch)
+            .filter(
+              (item, index, arr) =>
+                arr.findIndex(
+                  x =>
+                    (x.id != null && String(x.id) === String(item.id)) ||
+                    (x.orderInfo &&
+                      x.orderInfo.orderNo &&
+                      String(x.orderInfo.orderNo) === String(item.orderInfo && item.orderInfo.orderNo))
+                ) === index
+            )
         : batch;
       const hasMore = Boolean(records && !Array.isArray(records) && Number(records.total || 0) > page * size);
       return { records: getOrders(), hasMore, page };
@@ -424,7 +426,11 @@ function orderAmountYuan(order, field) {
   }
   const yuan = toYuan(raw);
   // 回写缓存，保证同一订单对象再次 decorate 时结果稳定
-  try { order[cacheKey] = yuan; } catch (error) { /* 只读对象忽略 */ }
+  try {
+    order[cacheKey] = yuan;
+  } catch (error) {
+    /* 只读对象忽略 */
+  }
   return yuan;
 }
 
@@ -459,9 +465,11 @@ function parseDateTime(value) {
 
 /** 判断两个时间是否落在同一个本地日历日。 */
 function isSameLocalDay(left, right) {
-  return left.getFullYear() === right.getFullYear() &&
+  return (
+    left.getFullYear() === right.getFullYear() &&
     left.getMonth() === right.getMonth() &&
-    left.getDate() === right.getDate();
+    left.getDate() === right.getDate()
+  );
 }
 
 /**
@@ -488,8 +496,7 @@ function resolveRemainingSeconds(order, now) {
   const current = Number.isFinite(Number(now)) ? Number(now) : Date.now();
 
   // 1) 优先用创建时间推算（后端权威数据）
-  const createdRaw =
-    (order.orderInfo && order.orderInfo.createdAt) || order.createTime || '';
+  const createdRaw = (order.orderInfo && order.orderInfo.createdAt) || order.createTime || '';
   const created = parseDateTime(createdRaw);
   if (created) {
     const elapsed = Math.floor((current - created.getTime()) / 1000);
@@ -534,18 +541,14 @@ function decorateOrder(order, now) {
       ? 'unpaid'
       : isPendingPayment
         ? 'pending_payment'
-        : resolveInternalOrderStatus(order.category, order.orderStatus)
-          || '';
+        : resolveInternalOrderStatus(order.category, order.orderStatus) || '';
   // 礼品卡订单没有 items，卡名与卡面存放在 cardName / cardImage，
   // 必须走 resolveGiftCardDisplay 解析（它自带「历史卡面下架」降级链与默认卡面兜底）。
   // 否则 title 会退化成泛称「订单」、coverImage 为空串导致封面渲染成灰块。
-  const giftCardDisplay = order.category === 'gift-card'
-    ? resolveGiftCardDisplay(order)
-    : null;
+  const giftCardDisplay = order.category === 'gift-card' ? resolveGiftCardDisplay(order) : null;
   const statusMeta = STATUS_META[statusKey] || { title: '', note: '' };
   // 取消订单的说明按「待支付取消 / 已支付取消」区分，退款提示更准确
-  const cancelNote =
-    isCanceled && cancelType === 'paid' ? '订单已取消，退款将原路退回' : statusMeta.note;
+  const cancelNote = isCanceled && cancelType === 'paid' ? '订单已取消，退款将原路退回' : statusMeta.note;
 
   return Object.assign({}, order, {
     // 详情页顶部状态卡专用字段（列表用 statusText，语义不同）
@@ -583,15 +586,14 @@ function decorateOrder(order, now) {
     type: resolveMealTypeText(order),
     // 详情页「用餐信息」分组：用餐方式 + 取餐门店
     mealInfo: buildMealInfo(order),
-    title: order.title || order.storeName
-      || (giftCardDisplay && giftCardDisplay.name)
-      || firstItem.name || '订单',
+    title: order.title || order.storeName || (giftCardDisplay && giftCardDisplay.name) || firstItem.name || '订单',
     // 取值优先级：后端显式 coverImage > 礼品卡卡面 > 储值兜底图 > 首个商品图。
     // 礼品卡不并入「储值兜底」分支：卡面由运营配置，不能被静态兜底图覆盖。
-    coverImage: order.coverImage
-      || (giftCardDisplay && giftCardDisplay.image)
-      || (order.category === 'stored-value' ? STORED_VALUE_COVER_IMAGE : firstItem.image)
-      || '',
+    coverImage:
+      order.coverImage ||
+      (giftCardDisplay && giftCardDisplay.image) ||
+      (order.category === 'stored-value' ? STORED_VALUE_COVER_IMAGE : firstItem.image) ||
+      '',
     // 展示用字段：订单时间统一为中文完整格式，原始 orderInfo 保留供排序 / 逻辑使用。
     payTimeText: order.payTime ? formatDateTime(order.payTime) : '',
     createdAtText: order.orderInfo && order.orderInfo.createdAt ? formatDateTime(order.orderInfo.createdAt) : ''
@@ -707,7 +709,8 @@ function tickOrderCountdowns(now) {
   const current = Number.isFinite(Number(now)) ? Number(now) : Date.now();
   orderStore = orderStore.map(order => {
     const normalized = Object.assign({}, order, { timeGroup: order.timeGroup || 'today' });
-    const isPending = normalized.orderStatus === 'pending_payment' ||
+    const isPending =
+      normalized.orderStatus === 'pending_payment' ||
       (normalized.category === 'stored-value' && normalized.orderStatus === 'unpaid');
     if (!isPending) return normalized;
     return Object.assign({}, normalized, {

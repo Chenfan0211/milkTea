@@ -51,9 +51,7 @@ function checkWxml(file) {
         continue;
       }
       if (top.tag !== tag) {
-        errors.push(
-          `${relative}: 结束标签不匹配，期望 </${top.tag}>（第 ${top.line} 行开始），实际 </${tag}>`
-        );
+        errors.push(`${relative}: 结束标签不匹配，期望 </${top.tag}>（第 ${top.line} 行开始），实际 </${tag}>`);
       }
       continue;
     }
@@ -81,11 +79,7 @@ assert.ok(wxmlFiles.length > 0, '必须存在待校验的 WXML 文件');
 
 const allErrors = wxmlFiles.flatMap(checkWxml);
 
-assert.deepEqual(
-  allErrors,
-  [],
-  `WXML 存在标签未闭合 / 不匹配问题（微信编译期会直接报错）:\n${allErrors.join('\n')}`
-);
+assert.deepEqual(allErrors, [], `WXML 存在标签未闭合 / 不匹配问题（微信编译期会直接报错）:\n${allErrors.join('\n')}`);
 
 console.log(`WXML 标签配对校验通过（${wxmlFiles.length} 个文件）`);
 
@@ -119,9 +113,7 @@ for (const component of FULLSCREEN_SHEET_COMPONENTS) {
   );
 
   // 使用方必须用页面侧 wx:if 包裹
-  const users = [
-    ...walk(path.join(root, 'pages'))
-  ].filter(file => file.endsWith('.wxml'));
+  const users = [...walk(path.join(root, 'pages'))].filter(file => file.endsWith('.wxml'));
   let usedCount = 0;
   for (const file of users) {
     const source = fs.readFileSync(file, 'utf8');

@@ -9,33 +9,27 @@ s = s.replace(
 );
 
 // 2) 礼品卡：mock.giftCardGroups / giftCardDenominations -> 常量
+s = s.replace('for (const g of mock.giftCardGroups) {', 'for (const g of GIFT_CARD_GROUPS) {');
 s = s.replace(
-  "for (const g of mock.giftCardGroups) {",
-  "for (const g of GIFT_CARD_GROUPS) {"
-);
-s = s.replace(
-  "    for (const denom of mock.giftCardDenominations) {",
-  "    for (const denom of GIFT_CARD_DENOMINATIONS) {"
+  '    for (const denom of mock.giftCardDenominations) {',
+  '    for (const denom of GIFT_CARD_DENOMINATIONS) {'
 );
 
 // 3) 签到日历：mock.pointsSignIn -> 常量
+s = s.replace('  weekDates: mock.pointsSignIn.weekDates', '  weekDates: POINTS_SIGNIN_WEEK_DATES');
 s = s.replace(
-  "  weekDates: mock.pointsSignIn.weekDates",
-  "  weekDates: POINTS_SIGNIN_WEEK_DATES"
-);
-s = s.replace(
-  "const GIFT_CARD_DENOMINATIONS = [",
+  'const GIFT_CARD_DENOMINATIONS = [',
   [
-    "const POINTS_SIGNIN_WEEK_DATES = [",
+    'const POINTS_SIGNIN_WEEK_DATES = [',
     "  { key: '2026-09-16', label: '9.16' },",
     "  { key: '2026-09-17', label: '9.17' },",
     "  { key: '2026-09-18', label: '9.18' },",
     "  { key: '2026-09-19', label: '9.19' },",
     "  { key: '2026-09-20', label: '9.20' },",
     "  { key: '2026-09-21', label: '9.21' }",
-    "];",
-    "",
-    "const GIFT_CARD_DENOMINATIONS = ["
+    '];',
+    '',
+    'const GIFT_CARD_DENOMINATIONS = ['
   ].join('\n')
 );
 

@@ -22,7 +22,10 @@ const wxss = fs.readFileSync(`${pageRoot}.wxss`, 'utf8');
 const js = fs.readFileSync(`${pageRoot}.js`, 'utf8');
 
 assert.ok(wxml.includes('title="储值记录"') && wxml.includes('back="{{true}}"'), '储值记录页必须提供标题与返回');
-assert.ok(wxml.includes('empty-state') && wxml.includes('receipt-muted.svg'), '储值记录页必须复用空态组件并引用 Lucide 图标');
+assert.ok(
+  wxml.includes('empty-state') && wxml.includes('receipt-muted.svg'),
+  '储值记录页必须复用空态组件并引用 Lucide 图标'
+);
 assert.ok(wxml.includes('账户余额（元）'), '储值记录页必须展示账户余额');
 assert.ok(js.includes('fetchStoredValueRecords'), '储值记录页必须调用储值流水接口');
 assert.ok(js.includes('onReachBottom'), '储值记录页必须支持上拉加载更多');
@@ -40,9 +43,7 @@ assert.ok(!/rgba?\(/.test(wxss), '储值记录页 WXSS 不得写死 rgba 颜色'
 assert.ok(!/\b\d+px\b/.test(wxss), '储值记录页 WXSS 不得使用 px');
 
 const spacingDeclarations = [...wxss.matchAll(/(?:margin|padding)(?:-[a-z]+)?\s*:\s*([^;]+)/g)];
-const spacingValues = spacingDeclarations.flatMap(m =>
-  [...m[1].matchAll(/(-?\d+)rpx/g)].map(v => Number(v[1]))
-);
+const spacingValues = spacingDeclarations.flatMap(m => [...m[1].matchAll(/(-?\d+)rpx/g)].map(v => Number(v[1])));
 const invalidSpacing = [...new Set(spacingValues.filter(v => ![4, 8, 12, 16, 20, 24, 32, 40].includes(v)))];
 assert.deepEqual(invalidSpacing, [], '储值记录页 margin/padding 只能使用设计系统八档间距');
 

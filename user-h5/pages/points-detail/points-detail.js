@@ -35,9 +35,7 @@ Page(
       pointsRecords: []
     },
     onShow() {
-      const localRecords = (getApp().globalData.pointsRecords || [])
-        .map(normalizeRecord)
-        .filter(Boolean);
+      const localRecords = (getApp().globalData.pointsRecords || []).map(normalizeRecord).filter(Boolean);
       this.setData({ pointsRecords: localRecords });
       api
         .fetchPointsRecords()

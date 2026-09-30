@@ -49,7 +49,10 @@ assert.ok(wxml.includes('邀请进度') && wxml.includes('{{invitedCount}}'), '�
 // 已邀请人数必须来自后端（fetchReferralCount），不得硬编码
 assert.ok(js.includes('fetchReferralCount'), '分享有礼页必须调用真实邀请人数接口');
 assert.ok(js.includes('fetchReferralConfig'), '分享有礼页必须从后台读取奖励配置');
-assert.ok(js.includes('firstOrderPoints') && js.includes('firstOrderCouponAmount'), '分享页奖励文案必须映射后台首单配置');
+assert.ok(
+  js.includes('firstOrderPoints') && js.includes('firstOrderCouponAmount'),
+  '分享页奖励文案必须映射后台首单配置'
+);
 assert.ok(!js.includes('invitedCount: 2'), '已邀请人数不得硬编码为 2');
 assert.ok(js.includes('invitedCount: 0'), '已邀请人数初始值必须为 0（等待接口回填）');
 assert.ok(wxml.includes('奖励规则') && wxml.includes('wx:for="{{rewards}}"'), '分享有礼页必须渲染奖励规则');
@@ -104,14 +107,14 @@ assert.ok(
 // 邀请分享必须携带邀请人 userId（后端据此写 app_user.referrer_id）
 assert.ok(shareSource.includes("REFERRER_PARAM = 'referrerId'"), '分享参数名必须为 referrerId');
 assert.ok(shareSource.includes('config.inviteReferrer'), '分享构建必须支持携带邀请人参数');
-assert.ok(
-  js.includes('getCachedUser') && js.includes('userId'),
-  '分享有礼页必须取当前用户 userId 作为邀请人'
-);
+assert.ok(js.includes('getCachedUser') && js.includes('userId'), '分享有礼页必须取当前用户 userId 作为邀请人');
 
 // 设计规范
 assert.ok(wxml.includes('<button'), '邀请按钮需用原生 button 承载 open-type=share');
-assert.ok(wxss.includes('.share-referral-btn::after') && wxss.includes('border: none'), '原生 button 必须重置 ::after 默认边框');
+assert.ok(
+  wxss.includes('.share-referral-btn::after') && wxss.includes('border: none'),
+  '原生 button 必须重置 ::after 默认边框'
+);
 assert.ok(
   wxss.includes('var(--brand-green)') && wxss.includes('var(--radius-md)') && wxss.includes('var(--shadow-card)'),
   '分享有礼页必须遵守设计 token'

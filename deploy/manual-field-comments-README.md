@@ -63,7 +63,7 @@ docker exec -i wuling-mysql mysql -uroot -p wuling < /opt/wuling/schema_before_v
 - 本次只改字段 COMMENT，不碰任何索引、主键、外键、数据。
 - gift_card_refund 表是 V50 动态 SQL 建的，本次已正确跳过其已注释字段。
 - 执行期间业务可正常读写（INSTANT 算法无锁），但建议选低峰期执行更稳妥。
-- Flyway 的 V62__add_column_comments.sql 仍保留在迁移目录，供新环境部署时自动执行。
+- Flyway 的 V62\_\_add_column_comments.sql 仍保留在迁移目录，供新环境部署时自动执行。
   线上手动执行后，若之后还要走 Flyway 部署，V62 会被 Flyway 再执行一遍；
   因为是幂等的 MODIFY COMMENT，重复执行无害。
 

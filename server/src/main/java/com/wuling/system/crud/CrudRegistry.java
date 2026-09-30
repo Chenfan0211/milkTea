@@ -52,6 +52,12 @@ public final class CrudRegistry {
                     List.of("parent_id", "code", "name", "level", "sort"),
                     List.of("code", "name"), "sort asc, id asc",
                     List.of("level", "status"))),
+            // 活动城市（运营白名单，V71）：小程序只下发 enabled 的活动城市；
+            // region_id 关联基础行政区划 region.id，city_code/city_name 冗余便于展示与查询。
+            Map.entry("activityCities", new Resource("activityCities", "activity_city",
+                    List.of("region_id", "city_code", "city_name", "province_id", "status", "sort", "remark"),
+                    List.of("city_name", "city_code"), "sort asc, id asc",
+                    List.of("status"))),
             Map.entry("features", new Resource("features", "feature_flag",
                     List.of("code", "name", "default_status", "current_status", "open_condition"),
                     List.of("code", "name"), "id asc")),

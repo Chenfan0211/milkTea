@@ -7,11 +7,9 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const config = require(path.join(root, 'config.js'));
-const {
-  resolveGiftCardDisplay,
-  resolveGiftCardImageUrl,
-  selectGiftCardDenominations
-} = require(path.join(root, 'utils/gift-card.js'));
+const { resolveGiftCardDisplay, resolveGiftCardImageUrl, selectGiftCardDenominations } = require(
+  path.join(root, 'utils/gift-card.js')
+);
 
 const normalizedBaseUrl = String(config.BASE_URL || '').replace(/\/+$/, '');
 const publicImage = '/api/v1/files/public/11111111-1111-1111-1111-111111111111.jpg';
@@ -58,31 +56,15 @@ assert.deepEqual(
   [11],
   '旧链接携带真实面额主键时必须精确匹配单个面额'
 );
-assert.deepEqual(
-  selectGiftCardDenominations(list, { id: '不存在的卡面' }),
-  [],
-  '无效卡面参数不得回退展示全部礼品卡'
-);
+assert.deepEqual(selectGiftCardDenominations(list, { id: '不存在的卡面' }), [], '无效卡面参数不得回退展示全部礼品卡');
 
 const giftPageJs = fs.readFileSync(path.join(root, 'pages/gift-card/gift-card.js'), 'utf8');
 const giftPageWxml = fs.readFileSync(path.join(root, 'pages/gift-card/gift-card.wxml'), 'utf8');
-const giftOrdersJs = fs.readFileSync(
-  path.join(root, 'pages/gift-card-orders/gift-card-orders.js'),
-  'utf8'
-);
+const giftOrdersJs = fs.readFileSync(path.join(root, 'pages/gift-card-orders/gift-card-orders.js'), 'utf8');
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
-const purchaseJs = fs.readFileSync(
-  path.join(root, 'pages/gift-card-purchase/gift-card-purchase.js'),
-  'utf8'
-);
-const purchaseWxml = fs.readFileSync(
-  path.join(root, 'pages/gift-card-purchase/gift-card-purchase.wxml'),
-  'utf8'
-);
-const giftOrdersWxml = fs.readFileSync(
-  path.join(root, 'pages/gift-card-orders/gift-card-orders.wxml'),
-  'utf8'
-);
+const purchaseJs = fs.readFileSync(path.join(root, 'pages/gift-card-purchase/gift-card-purchase.js'), 'utf8');
+const purchaseWxml = fs.readFileSync(path.join(root, 'pages/gift-card-purchase/gift-card-purchase.wxml'), 'utf8');
+const giftOrdersWxml = fs.readFileSync(path.join(root, 'pages/gift-card-orders/gift-card-orders.wxml'), 'utf8');
 const apiJs = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');
 const paymentHelperJs = fs.readFileSync(path.join(root, 'utils/gift-card-payment.js'), 'utf8');
 assert.ok(giftPageJs.includes('groupId=${encodeURIComponent(groupId)}'), '卡面点击必须携带分组参数');
@@ -123,7 +105,11 @@ assert.match(apiJs, /refundGiftCard,/, 'api.js 必须导出 refundGiftCard');
 assert.match(apiJs, /cancelGiftCardOrder,/, 'api.js 必须导出 cancelGiftCardOrder');
 
 assert.match(purchaseJs, /selectedDenominationId/, '购买页必须维护唯一选中的面额');
-assert.doesNotMatch(purchaseJs, /MAX_QUANTITY|changeQuantity|totalCount|item\.quantity/, '购买页不得保留数量加减或多件逻辑');
+assert.doesNotMatch(
+  purchaseJs,
+  /MAX_QUANTITY|changeQuantity|totalCount|item\.quantity/,
+  '购买页不得保留数量加减或多件逻辑'
+);
 assert.match(purchaseJs, /purchaseGiftCard\(/, '购买页必须先创建礼品卡订单');
 assert.match(purchaseJs, /requestGiftCardPayment\(/, '购买页必须复用真实支付与轮询流程');
 assert.match(paymentHelperJs, /prepayGiftCard\(orderNo\)/, '支付流程必须先调用 prepayGiftCard');
@@ -157,25 +143,24 @@ assert.doesNotMatch(
   '礼品卡订单主状态只允许 CREATED / PAID / COMPLETED / CANCELED'
 );
 
-
 // 订单主状态口径：store / gift-card 四态，stored-value 两态。
 const orders = require(path.join(root, 'utils/orders.js'));
 
 function decorateRawOrder(order) {
-  return orders.decorateOrder(
-    orders.normalizeOrderShape(order),
-    Date.parse('2026-09-26 10:05:00')
-  );
+  return orders.decorateOrder(orders.normalizeOrderShape(order), Date.parse('2026-09-26 10:05:00'));
 }
 
 function decorateAuxOrder(category, order) {
   const normalized = orders.normalizeAuxOrder(
-    Object.assign({
-      id: `${category}-1`,
-      orderNo: `${category}-NO-1`,
-      amount: 10000,
-      createTime: '2026-09-26 10:00:00'
-    }, order),
+    Object.assign(
+      {
+        id: `${category}-1`,
+        orderNo: `${category}-NO-1`,
+        amount: 10000,
+        createTime: '2026-09-26 10:00:00'
+      },
+      order
+    ),
     category
   );
   return orders.decorateOrder(normalized, Date.parse('2026-09-26 10:05:00'));
@@ -241,11 +226,7 @@ assert.equal(
   'paid',
   '储值充值即使收到旧内部状态 completed，也必须按 category 归一为 paid'
 );
-assert.equal(
-  storedPaidFromLegacyInternal.statusTitle,
-  '已支付',
-  '储值充值旧内部状态不得让详情状态卡显示已完成'
-);
+assert.equal(storedPaidFromLegacyInternal.statusTitle, '已支付', '储值充值旧内部状态不得让详情状态卡显示已完成');
 
 const storedPaidFromShape = decorateRawOrder({
   id: 'stored-value-legacy-shape',
@@ -254,16 +235,8 @@ const storedPaidFromShape = decorateRawOrder({
   payStatus: 'PAID',
   totalAmount: 10000
 });
-assert.equal(
-  storedPaidFromShape.orderStatus,
-  'paid',
-  '通用订单归一化必须按 stored-value category 覆盖旧内部状态'
-);
-assert.equal(
-  storedPaidFromShape.statusTitle,
-  '已支付',
-  '通用订单详情状态卡必须与储值两态归一结果一致'
-);
+assert.equal(storedPaidFromShape.orderStatus, 'paid', '通用订单归一化必须按 stored-value category 覆盖旧内部状态');
+assert.equal(storedPaidFromShape.statusTitle, '已支付', '通用订单详情状态卡必须与储值两态归一结果一致');
 
 const giftVerified = decorateAuxOrder('gift-card', {
   status: 'VERIFIED',
@@ -282,13 +255,5 @@ assert.equal(giftRefunded.orderStatus, 'pending_verify', '礼品卡退款状态�
 assert.equal(giftRefunded.statusText, '待核销', '礼品卡退款中主状态仍须展示待核销');
 
 assert.doesNotMatch(giftOrdersJs, /id:\s*'refunding'/, '礼品卡订单页不得保留独立退款中主页签');
-assert.doesNotMatch(
-  giftOrdersJs,
-  /statusId\s*===\s*'refunding'/,
-  '礼品卡订单筛选不得再把退款中作为主状态筛选'
-);
-assert.match(
-  giftOrdersJs,
-  /id:\s*'completed',\s*label:\s*'已完成'/,
-  '礼品卡订单已完成筛选必须使用四态文案'
-);
+assert.doesNotMatch(giftOrdersJs, /statusId\s*===\s*'refunding'/, '礼品卡订单筛选不得再把退款中作为主状态筛选');
+assert.match(giftOrdersJs, /id:\s*'completed',\s*label:\s*'已完成'/, '礼品卡订单已完成筛选必须使用四态文案');

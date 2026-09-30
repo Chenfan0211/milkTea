@@ -29,7 +29,7 @@
               <text wx:elif="{{authStateLevel === 'authorized'}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
               <view class="user-card__badges">
                 <text class="user-card__vip">{{userProfile.vipLevel}}</text>
-                <text wx:if="{{businessRole}}" class="user-card__role-badge">{{businessRole.label}}</text>
+                <text wx:if="{{businessRole}}" class="user-card__role-badge" catchtap="switchIdentity" aria-role="button" aria-label="切换身份">{{businessRole.label}}</text>
               </view>
             </block>
           </view>
@@ -99,19 +99,10 @@
       <text class="pending-notice__text">您有 {{pendingRoleCount}} 个角色申请审核中</text>
     </view>
 
-    <!-- 角色中心入口：恢复展示（此前因角色未同步而隐藏，现冷启动与 onShow 均同步） -->
-    <view wx:if="{{authStateLevel !== 'anonymous'}}" class="profile-card role-entry" bindtap="openRoleCenter" aria-role="button" aria-label="进入角色中心">
-      <image class="role-entry__icon" src="/assets/icons/lucide/users-brand.svg" mode="aspectFit" />
-      <view class="role-entry__body">
-        <text class="role-entry__title">角色中心</text>
-        <text class="role-entry__desc">{{businessRole ? '切换当前经营角色' : '尚未开通经营角色'}}</text>
-      </view>
-      <image class="role-entry__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
-    </view>
-
     <image class="promo-banner" src="/assets/images/3x/profile-banner.jpg" mode="widthFix" bindtap="openMenu" aria-label="抹茶轻茉莉新品" />
 
-    <section-card title="我的功能">
+    <!-- 我的功能：配置取回后可能为空（如仅剩暂缓上线的入口），空则不渲染整块卡片避免空白壳 -->
+    <section-card wx:if="{{profileFunctions.length || roleFunctions.length}}" title="我的功能">
       <view class="function-grid">
         <view
           wx:for="{{profileFunctions}}"

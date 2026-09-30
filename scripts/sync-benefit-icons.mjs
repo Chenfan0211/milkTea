@@ -89,8 +89,10 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`[benefit-icons] 已同步 ${copied} 个会员权益图标到 src/assets/lucide/`
-    + (removed ? `，清理 ${removed} 个旧文件` : ''));
+  console.log(
+    `[benefit-icons] 已同步 ${copied} 个会员权益图标到 src/assets/lucide/` +
+      (removed ? `，清理 ${removed} 个旧文件` : '')
+  );
 }
 
 main().catch(err => {

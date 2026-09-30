@@ -39,9 +39,7 @@ const columns: DataTableColumns<any> = [
         { style: 'display:flex;align-items:center;gap:6px' },
         [
           h('span', null, row.roleName || row.roleCode || '—'),
-          row.isBuiltin
-            ? h(NTag, { size: 'small', type: 'warning' }, { default: () => '内置' })
-            : null
+          row.isBuiltin ? h(NTag, { size: 'small', type: 'warning' }, { default: () => '内置' }) : null
         ].filter(Boolean) as any
       )
   },

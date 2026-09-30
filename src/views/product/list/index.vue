@@ -64,7 +64,12 @@ async function saveSpec() {
  */
 function categoryOptions(): { label: string; value: any }[] {
   return store.productCategories
-    .filter((c: any) => String(c?.type ?? '').trim().toUpperCase() === 'CATEGORY')
+    .filter(
+      (c: any) =>
+        String(c?.type ?? '')
+          .trim()
+          .toUpperCase() === 'CATEGORY'
+    )
     .map((c: any) => ({ label: c.name, value: Number(c.id) }));
 }
 
@@ -81,18 +86,47 @@ const columns: DataTableColumns<any> = [
   { title: '商品编码', key: 'code', width: 110 },
   { title: '名称', key: 'name', minWidth: 110 },
   { title: '分类', key: 'category', width: 90 },
-  { title: '标签', key: 'tags', width: 125, render: (row: any) => (Array.isArray(row.tags) ? row.tags.join('、') : '') || '—' },
+  {
+    title: '标签',
+    key: 'tags',
+    width: 125,
+    render: (row: any) => (Array.isArray(row.tags) ? row.tags.join('、') : '') || '—'
+  },
   {
     title: '规格数',
     key: 'specCount',
     width: 80,
     align: 'right',
-    render: (row: any) => (row.specGroups?.length ?? row.specCount ?? 0)
+    render: (row: any) => row.specGroups?.length ?? row.specCount ?? 0
   },
-  { title: '原价(元)', key: 'originalPrice', width: 90, align: 'right', render: (row: any) => (row.originalPrice != null ? `¥${formatFen(row.originalPrice)}` : '—') },
-  { title: '成本价(元)', key: 'costPrice', width: 88, align: 'right', render: (row: any) => (row.costPrice != null ? `¥${formatFen(row.costPrice)}` : '—') },
-  { title: '平台分佣(元)', key: 'platformCommission', width: 95, align: 'right', render: (row: any) => (row.platformCommission != null ? `¥${formatFen(row.platformCommission)}` : '—') },
-  { title: '储值立减(元)', key: 'storedValuePrice', width: 88, align: 'right', render: (row: any) => (row.storedValuePrice != null ? '-' + formatFen(row.storedValuePrice) : '—') },
+  {
+    title: '原价(元)',
+    key: 'originalPrice',
+    width: 90,
+    align: 'right',
+    render: (row: any) => (row.originalPrice != null ? `¥${formatFen(row.originalPrice)}` : '—')
+  },
+  {
+    title: '成本价(元)',
+    key: 'costPrice',
+    width: 88,
+    align: 'right',
+    render: (row: any) => (row.costPrice != null ? `¥${formatFen(row.costPrice)}` : '—')
+  },
+  {
+    title: '平台分佣(元)',
+    key: 'platformCommission',
+    width: 95,
+    align: 'right',
+    render: (row: any) => (row.platformCommission != null ? `¥${formatFen(row.platformCommission)}` : '—')
+  },
+  {
+    title: '储值立减(元)',
+    key: 'storedValuePrice',
+    width: 88,
+    align: 'right',
+    render: (row: any) => (row.storedValuePrice != null ? '-' + formatFen(row.storedValuePrice) : '—')
+  },
   {
     title: '门店',
     key: 'stores',
@@ -119,7 +153,10 @@ const searchFields: SearchField[] = [
     key: 'category',
     label: '分类',
     type: 'select',
-    options: () => store.productCategories.filter((c: any) => c.enabled !== false).map((c: any) => ({ label: c.name, value: c.name }))
+    options: () =>
+      store.productCategories
+        .filter((c: any) => c.enabled !== false)
+        .map((c: any) => ({ label: c.name, value: c.name }))
   },
   {
     key: 'onSale',
@@ -150,7 +187,13 @@ const formFields: FormField[] = [
   { key: 'originalPrice', label: '原价(元)', type: 'number', rules: [requiredRule] },
   { key: 'costPrice', label: '成本价(元)', type: 'number' },
   { key: 'platformCommission', label: '平台分佣(元)', type: 'number' },
-  { key: 'storedValuePrice', label: '储值立减(元)', type: 'number', placeholder: '用储值支付每件少多少元，0 表示不优惠', rules: [requiredRule] },
+  {
+    key: 'storedValuePrice',
+    label: '储值立减(元)',
+    type: 'number',
+    placeholder: '用储值支付每件少多少元，0 表示不优惠',
+    rules: [requiredRule]
+  },
   { key: 'tagsText', label: '标签(逗号分隔)', placeholder: '多个标签用逗号分隔，如：年度热销，五窨茉莉花茶' },
   {
     key: 'stores',
@@ -337,5 +380,3 @@ const config: AdminListConfig = {
   margin-bottom: 16px;
 }
 </style>
-
-

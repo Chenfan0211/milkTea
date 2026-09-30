@@ -81,7 +81,10 @@ const hasRow = computed(() => row.value != null);
             <div class="detail-grid">
               <div v-for="field in group.fields" :key="field.label" class="detail-item">
                 <span class="detail-label">{{ field.label }}</span>
-                <span class="detail-value"><component :is="display(field)" v-if="isVNode(field)" /><template v-else>{{ display(field) }}</template></span>
+                <span class="detail-value">
+                  <component :is="display(field)" v-if="isVNode(field)" />
+                  <template v-else>{{ display(field) }}</template>
+                </span>
               </div>
             </div>
           </template>

@@ -40,9 +40,15 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
   assert.ok(fs.existsSync(`${pageRoot}.${extension}`), `缺少个人资料页文件: profile-data.${extension}`);
 }
 
-const { PROFILE_STORAGE_KEY, getUserProfile, saveUserProfile, maskPhone, getDefaultBirthday, getDaysInMonth, normalizeRemoteProfile } = require(
-  path.join(root, 'utils/user-profile.js')
-);
+const {
+  PROFILE_STORAGE_KEY,
+  getUserProfile,
+  saveUserProfile,
+  maskPhone,
+  getDefaultBirthday,
+  getDaysInMonth,
+  normalizeRemoteProfile
+} = require(path.join(root, 'utils/user-profile.js'));
 const defaultProfile = getUserProfile();
 assert.equal(maskPhone('13612345792'), '136****5792', '手机号必须按参考图脱敏');
 assert.equal(maskPhone(''), '', '空手机号必须原样返回，不得抛错');
@@ -113,7 +119,13 @@ api.updateProfileFields = payload => {
   savedPayload = payload;
   return Promise.resolve({});
 };
-api.fetchUserProfile = () => Promise.resolve({ nickName: '新用户', gender: 'male', birthday: '2008-09-17', address: '湖南省长沙市岳麓区茶子山路 1 号' });
+api.fetchUserProfile = () =>
+  Promise.resolve({
+    nickName: '新用户',
+    gender: 'male',
+    birthday: '2008-09-17',
+    address: '湖南省长沙市岳麓区茶子山路 1 号'
+  });
 
 async function runSaveChecks() {
   // 空姓名不得保存
@@ -166,10 +178,7 @@ const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
 // 未登录点头像/姓名 -> 唤起登录弹层；已登录 -> openProfileData 进个人资料页。
 // 两条路径都必须存在，否则未登录用户会被直接推进资料页。
-assert.ok(
-  profileWxml.includes('bindtap="openLogin"'),
-  '我的页未登录时头像和姓名必须接通登录入口'
-);
+assert.ok(profileWxml.includes('bindtap="openLogin"'), '我的页未登录时头像和姓名必须接通登录入口');
 assert.ok(
   profileJs.includes('openLogin') && profileJs.includes('loginSheetVisible'),
   '我的页必须实现 openLogin 唤起登录弹层'
@@ -209,7 +218,9 @@ assert.ok(
   '我的页统计必须优先渲染格式化后的 display（余额 2 位小数）'
 );
 assert.ok(
-  /formatBalance\(value\)\s*\{[\s\S]*?toFixed\(2\)/.test(fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8')),
+  /formatBalance\(value\)\s*\{[\s\S]*?toFixed\(2\)/.test(
+    fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8')
+  ),
   '我的页余额必须用 toFixed(2) 格式化展示'
 );
 
@@ -219,10 +230,7 @@ assert.ok(
   profileDataJs.includes('clearSession') && profileDataJs.includes('handleLogout'),
   '退出登录必须复用 auth.clearSession 清理登录态'
 );
-assert.ok(
-  !profileDataJs.includes('账号管理暂未接入'),
-  '账号管理占位提示必须移除'
-);
+assert.ok(!profileDataJs.includes('账号管理暂未接入'), '账号管理占位提示必须移除');
 
 const wxss = fs.readFileSync(`${pageRoot}.wxss`, 'utf8');
 assert.ok(
@@ -230,10 +238,7 @@ assert.ok(
   '个人资料页必须保留参考图字段层级'
 );
 assert.equal((wxml.match(/<picker-view-column/g) || []).length, 3, '生日选择器必须使用年/月/日三列滚轮');
-assert.ok(
-  wxml.includes('handleAddressInput') && wxml.includes('请输入详细地址'),
-  '个人资料页详细地址必须为文本框手填'
-);
+assert.ok(wxml.includes('handleAddressInput') && wxml.includes('请输入详细地址'), '个人资料页详细地址必须为文本框手填');
 assert.ok(
   !wxml.includes('region-tabs') && !wxml.includes('region-options') && !wxml.includes('openRegionPicker'),
   '个人资料页必须移除省市区级联选择器'

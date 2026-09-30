@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 import { useRoute } from 'vue-router';
 import AdminDetailPage from '@/views/_shared/AdminDetailPage.vue';
 import type { DetailGroup } from '@/views/_shared/AdminDetailPage.vue';

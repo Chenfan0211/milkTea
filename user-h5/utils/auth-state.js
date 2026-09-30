@@ -69,11 +69,12 @@ function describeAuthState() {
   const state = getAuthState();
   return {
     ...state,
-    tip: state.level === LEVEL.ANONYMOUS
-      ? '登录后可下单、领券与查看订单'
-      : state.level === LEVEL.AUTHORIZED
-        ? '绑定手机号后即可下单与领取优惠券'
-        : ''
+    tip:
+      state.level === LEVEL.ANONYMOUS
+        ? '登录后可下单、领券与查看订单'
+        : state.level === LEVEL.AUTHORIZED
+          ? '绑定手机号后即可下单与领取优惠券'
+          : ''
   };
 }
 

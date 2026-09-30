@@ -28,10 +28,7 @@ Page(
       Promise.all([api.fetchConfig('service_info'), api.fetchConfig('service_faqs')])
         .then(([info, faqs]) => {
           this.setData({ loaded: true, loadFailed: false });
-          this.applyServiceInfo(
-            info && typeof info === 'object' ? info : {},
-            Array.isArray(faqs) ? faqs : []
-          );
+          this.applyServiceInfo(info && typeof info === 'object' ? info : {}, Array.isArray(faqs) ? faqs : []);
         })
         .catch(() => {
           // 不再回退本地假数据：明确告知用户，避免展示与后台不一致的文案

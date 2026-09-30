@@ -33,12 +33,12 @@ function add(key, row, ...) {
 
 ### 缺陷 3：部分业务动作是纯本地逻辑
 
-| 方法 | 问题 |
-|------|------|
-| `freezeAccount` / `unfreezeAccount` | 直接改本地 `subjectAccounts` 余额 + 本地记账，**不走接口** |
-| `applyWithdraw` / `orderIncome` | 本地资金池增减 |
-| `reviewApplication` | 直接改本地 `roleApplications`，未调后端审核接口 |
-| `executeVerify` / `reviewComment` / `reviewWithdraw` | 部分走 `patch`，部分本地 |
+| 方法                                                 | 问题                                                       |
+| ---------------------------------------------------- | ---------------------------------------------------------- |
+| `freezeAccount` / `unfreezeAccount`                  | 直接改本地 `subjectAccounts` 余额 + 本地记账，**不走接口** |
+| `applyWithdraw` / `orderIncome`                      | 本地资金池增减                                             |
+| `reviewApplication`                                  | 直接改本地 `roleApplications`，未调后端审核接口            |
+| `executeVerify` / `reviewComment` / `reviewWithdraw` | 部分走 `patch`，部分本地                                   |
 
 ### 缺陷 4：页面内嵌下拉读本地镜像
 
@@ -61,17 +61,17 @@ function add(key, row, ...) {
 
 按「后端是否已有接口」分类处理：
 
-| 动作 | 后端现状 | 处理 |
-|------|---------|------|
-| `reviewApplication`（角色开通审核） | 有 `reviewRoleApplication` | 接接口 |
-| `reviewComment`（评论审核） | 有 `reviewComment` | 接接口 |
-| `executeVerify`（核销） | 有 `executeVerifyApi` | 接接口 |
-| `refundOrder`（退款） | 有 `refundOrderApi` | 接接口 |
-| `toggleFeature`（功能开关） | 走 `patch` → CRUD | 已可，理顺失败处理 |
-| `enableSplitRule`（分账规则） | 走 `patch` | 同上 |
-| `freezeAccount` / `unfreezeAccount` | 有 `freezeAccount`/`unfreezeAccount` API | 接接口 |
-| `applyWithdraw` / `reviewWithdraw` | 有 `reviewWithdraw` / 提现 CRUD | 接接口 |
-| `orderIncome` | 无对应接口 | 保持本地或标注 |
+| 动作                                | 后端现状                                 | 处理               |
+| ----------------------------------- | ---------------------------------------- | ------------------ |
+| `reviewApplication`（角色开通审核） | 有 `reviewRoleApplication`               | 接接口             |
+| `reviewComment`（评论审核）         | 有 `reviewComment`                       | 接接口             |
+| `executeVerify`（核销）             | 有 `executeVerifyApi`                    | 接接口             |
+| `refundOrder`（退款）               | 有 `refundOrderApi`                      | 接接口             |
+| `toggleFeature`（功能开关）         | 走 `patch` → CRUD                        | 已可，理顺失败处理 |
+| `enableSplitRule`（分账规则）       | 走 `patch`                               | 同上               |
+| `freezeAccount` / `unfreezeAccount` | 有 `freezeAccount`/`unfreezeAccount` API | 接接口             |
+| `applyWithdraw` / `reviewWithdraw`  | 有 `reviewWithdraw` / 提现 CRUD          | 接接口             |
+| `orderIncome`                       | 无对应接口                               | 保持本地或标注     |
 
 > 原则：**有接口的必须接**；确无接口的明确标注并提示，不静默假装成功。
 
@@ -93,12 +93,12 @@ function add(key, row, ...) {
 
 ## 三、风险
 
-| 项 | 说明 |
-|----|------|
-| 服务中断 | 需重建 server / product-service / marketing-service 等镜像 |
+| 项       | 说明                                                             |
+| -------- | ---------------------------------------------------------------- |
+| 服务中断 | 需重建 server / product-service / marketing-service 等镜像       |
 | 行为变更 | 写操作由"立即成功"变为"接口确认后成功"，用户可感知（属预期改进） |
-| 数据 | 无 schema 变更；仅接口调用路径调整 |
-| 回滚 | 前端备份 + jar 备份 |
+| 数据     | 无 schema 变更；仅接口调用路径调整                               |
+| 回滚     | 前端备份 + jar 备份                                              |
 
 ## 四、验收标准
 

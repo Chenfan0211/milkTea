@@ -42,12 +42,20 @@ const marketingSeed = fs.readFileSync(
   path.join(root, '..', 'server/src/main/resources/db/migration/V6__seed_marketing.sql'),
   'utf8'
 );
-const packageBlock = marketingSeed.match(/INSERT INTO stored_value_package \(id, code, name, amount, status\) VALUES([\s\S]*?);/);
+const packageBlock = marketingSeed.match(
+  /INSERT INTO stored_value_package \(id, code, name, amount, status\) VALUES([\s\S]*?);/
+);
 assert.ok(packageBlock, 'V6 seed 必须包含储值套餐初始化');
 const packageRows = [...packageBlock[1].matchAll(/\((\d+), '([^']+)', '([^']+)', (\d+), '([^']+)'\)/g)];
-const couponLinkBlock = marketingSeed.match(/INSERT INTO stored_value_package_coupon \(package_id, coupon_id, count\) VALUES([\s\S]*?);/);
+const couponLinkBlock = marketingSeed.match(
+  /INSERT INTO stored_value_package_coupon \(package_id, coupon_id, count\) VALUES([\s\S]*?);/
+);
 assert.ok(couponLinkBlock, 'V6 seed 必须包含储值套餐赠券配置');
-const couponLinks = [...couponLinkBlock[1].matchAll(/\((\d+), (\d+), (\d+)\)/g)].map(m => ({ packageId: Number(m[1]), couponId: Number(m[2]), count: Number(m[3]) }));
+const couponLinks = [...couponLinkBlock[1].matchAll(/\((\d+), (\d+), (\d+)\)/g)].map(m => ({
+  packageId: Number(m[1]),
+  couponId: Number(m[2]),
+  count: Number(m[3])
+}));
 const couponBlock = marketingSeed.match(/INSERT INTO coupon \(id, code, name, type, amount, threshold[\s\S]*?;/);
 assert.ok(couponBlock, 'V6 seed 必须包含优惠券模板');
 const couponAmounts = {};
@@ -73,11 +81,13 @@ const storedValuePackages = packageRows.map(row => ({
   usageParagraphs: ['1、本储值套餐包含：储值金额及对应赠送优惠券（满9.9可使用）。', '最终解释权归五零时光所有。']
 }));
 assert.deepEqual(
-  storedValuePackages.filter(item => item.id === 'stored-value-100').map(item => ({
-    id: item.id,
-    amount: item.amount,
-    couponAmounts: item.giftCouponAmounts
-  })),
+  storedValuePackages
+    .filter(item => item.id === 'stored-value-100')
+    .map(item => ({
+      id: item.id,
+      amount: item.amount,
+      couponAmounts: item.giftCouponAmounts
+    })),
   [{ id: 'stored-value-100', amount: 100, couponAmounts: [5, 2] }],
   '100 元储值套餐必须包含 5 元与 2 元赠券（V6 seed 口径）'
 );
@@ -131,9 +141,7 @@ assert.equal(plusBoundary.updateCount, 0, '数量达到上限时不得重复更�
 // 需求：后台可配置多张储值卡，小程序需全部展示供用户选择。
 // 这里覆盖「归一化 → 默认选中 → 选中态驱动摘要」三段链路，
 // 并断言 WXML 用 wx:for 渲染全部套餐（而非只渲染单张）。
-const { normalizePackage, pickDefaultPackageIndex } = require(
-  path.join(root, 'utils/stored-value.js')
-);
+const { normalizePackage, pickDefaultPackageIndex } = require(path.join(root, 'utils/stored-value.js'));
 
 // 金额换算：后端「分」-> 页面「元」
 const normalized = normalizePackage({
@@ -151,8 +159,7 @@ assert.ok(normalized.benefitText.includes('5元代金券×3'), '卡面副标题�
 assert.deepEqual(normalized.usageParagraphs, ['说明一', '说明二'], '使用说明必须透传后台配置');
 
 // 后台未配赠券时不得展示空白副标题
-assert.equal(normalizePackage({ id: 8, amount: 10000, coupons: [] }).benefitText, '无赠券',
-  '无赠券时必须展示明确文案');
+assert.equal(normalizePackage({ id: 8, amount: 10000, coupons: [] }).benefitText, '无赠券', '无赠券时必须展示明确文案');
 
 // 默认选中：取中位档，避免一进页面就选最低档
 assert.equal(pickDefaultPackageIndex([]), -1, '无套餐时返回 -1，页面据此展示空态');
@@ -163,8 +170,12 @@ assert.equal(pickDefaultPackageIndex([{}, {}, {}]), 1, '三张卡时默认选中
 const selectionCtx = {
   data: { packages: [], selectedPackage: {}, selectedIndex: -1, quantity: 2 },
   summaryCalls: [],
-  setData(updates) { Object.assign(this.data, updates); },
-  updateSummary(quantity) { this.summaryCalls.push(quantity); }
+  setData(updates) {
+    Object.assign(this.data, updates);
+  },
+  updateSummary(quantity) {
+    this.summaryCalls.push(quantity);
+  }
 };
 const threePackages = [
   normalizePackage({ id: 1, amount: 10000, coupons: [] }),
@@ -252,7 +263,10 @@ assert.ok(
   '使用说明段落之间必须保留 8rpx 间距'
 );
 assert.ok(/\.usage-list__paragraph\s*\{[^}]*word-break:\s*break-word/.test(pageWxss), '使用说明必须支持长文本换行');
-assert.ok(pageJs.includes('handleRecord') && pageJs.includes('/pages/stored-value-records/stored-value-records'), '储值页「记录」必须跳转储值记录页');
+assert.ok(
+  pageJs.includes('handleRecord') && pageJs.includes('/pages/stored-value-records/stored-value-records'),
+  '储值页「记录」必须跳转储值记录页'
+);
 assert.ok(!pageWxml.includes('settings-brand.svg') && !pageJs.includes('handleManage'), '储值页必须去掉「管理」入口');
 assert.ok(!pageJs.includes('handleSearch'), '储值页不得保留无功能搜索处理函数');
 assert.ok(pageJs.includes('changeQuantity') && pageJs.includes('handleRecharge'), '储值页必须实现数量切换与储值交互');
@@ -288,7 +302,6 @@ for (const icon of ['gift-brand', 'receipt-brand', 'file-search-brand', 'plus-br
   assert.ok(iconScript.includes(`output: '${icon}'`), `Lucide 映射必须包含 ${icon}`);
   assert.ok(fs.existsSync(path.join(root, `assets/icons/lucide/${icon}.svg`)), `缺少 Lucide 运行图标: ${icon}.svg`);
 }
-
 
 const imagePath = path.join(root, 'assets/images/3x/stored-value-banner.jpg');
 assert.ok(fs.existsSync(imagePath), '缺少 3x 储值卡横幅图');
@@ -328,4 +341,3 @@ assert.ok(fs.existsSync(imagePath), '缺少 3x 储值卡横幅图');
   );
 }
 console.log('会员储值页路由、数据和交互测试通过');
-

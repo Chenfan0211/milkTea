@@ -45,7 +45,11 @@ const profileBlock = baseSeed.match(/INSERT INTO store_profile \([\s\S]*?;/);
 assert.ok(profileBlock, 'V3 seed 必须包含 store_profile 初始化');
 const STORE_CODES = { 101: 'store-001', 102: 'store-002', 103: 'store-003', 104: 'store-004', 105: 'store-005' };
 const CITY_BY_NAME = { 长沙市: '4301', 广州市: '4401', 深圳市: '4403' };
-const stores = [...profileBlock[0].matchAll(/\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+|NULL),\s*'([^']+)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\)/g)].map(m => ({
+const stores = [
+  ...profileBlock[0].matchAll(
+    /\((\d+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(\d+|NULL),\s*'([^']+)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\)/g
+  )
+].map(m => ({
   id: STORE_CODES[Number(m[1])] || String(m[1]),
   code: STORE_CODES[Number(m[1])] || String(m[1]),
   name: SUBJECT_NAMES[Number(m[1])] || '',

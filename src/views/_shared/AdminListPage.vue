@@ -356,13 +356,12 @@ async function confirmImport() {
 
 function openDetail(action: RowAction, row: any) {
   const cfg = action.detail ?? {};
-  detailTitle.value = typeof cfg.title === "function" ? cfg.title(row) : cfg.title ?? action.label ?? "详情";
-  detailGroups.value = typeof cfg.groups === "function" ? cfg.groups(row) : cfg.groups ?? [];
+  detailTitle.value = typeof cfg.title === 'function' ? cfg.title(row) : (cfg.title ?? action.label ?? '详情');
+  detailGroups.value = typeof cfg.groups === 'function' ? cfg.groups(row) : (cfg.groups ?? []);
   detailLoader.value = cfg.load;
   detailRow.value = row;
   detailVisible.value = true;
 }
-
 
 async function handleAction(action: RowAction, row: any) {
   if (action.modal) {

@@ -121,9 +121,7 @@ function ensureEntryLogin(options = {}) {
           // 独立于资料加载，失败静默（不阻塞启动，也不影响资料回写）。
           syncRolesFromRemote();
           return refreshUserProfileFromRemote()
-            .then(() =>
-              finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false })
-            )
+            .then(() => finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false }))
             .catch(error => {
               const res = error && error.res;
               const isAuthError = res && (res.code === 8888 || res.code === 9999);
@@ -134,22 +132,25 @@ function ensureEntryLogin(options = {}) {
               }
               // token 过期/无效：清除旧会话，重新 wx.login 获取新 token 或 registerToken
               auth.clearSession();
-              return guard.ensureSilentLogin().then(() => {
-                const newState = authState.getAuthState();
-                const registerContext = auth.getRegisterContext();
-                if (newState.hasToken) {
-                  return refreshUserProfileFromRemote().then(() =>
-                    finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false })
-                  );
-                }
-                if (registerContext && registerContext.registerToken) {
-                  finish({ ok: true, needsRegister: true, state: newState, timedOut: false });
-                  return;
-                }
-                finish({ ok: false, needsRegister: false, state: newState, timedOut: false });
-              }).catch(() => {
-                finish({ ok: false, needsRegister: false, state: authState.getAuthState(), timedOut: false });
-              });
+              return guard
+                .ensureSilentLogin()
+                .then(() => {
+                  const newState = authState.getAuthState();
+                  const registerContext = auth.getRegisterContext();
+                  if (newState.hasToken) {
+                    return refreshUserProfileFromRemote().then(() =>
+                      finish({ ok: true, needsRegister: false, state: authState.getAuthState(), timedOut: false })
+                    );
+                  }
+                  if (registerContext && registerContext.registerToken) {
+                    finish({ ok: true, needsRegister: true, state: newState, timedOut: false });
+                    return;
+                  }
+                  finish({ ok: false, needsRegister: false, state: newState, timedOut: false });
+                })
+                .catch(() => {
+                  finish({ ok: false, needsRegister: false, state: authState.getAuthState(), timedOut: false });
+                });
             });
         }
         // 未注册：静默登录拿到的是「一次性注册凭证」而非 token，未建立登录态。
@@ -214,4 +215,3 @@ module.exports = {
   resolveEntryTarget,
   buildLaunchQuery
 };
-

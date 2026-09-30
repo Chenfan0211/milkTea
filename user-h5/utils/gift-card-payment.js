@@ -22,12 +22,15 @@ function isClosed(order) {
 }
 
 function paymentResult(order, extra) {
-  return Object.assign({
-    paid: isPaid(order),
-    closed: isClosed(order),
-    canceled: false,
-    order
-  }, extra || {});
+  return Object.assign(
+    {
+      paid: isPaid(order),
+      closed: isClosed(order),
+      canceled: false,
+      order
+    },
+    extra || {}
+  );
 }
 
 function wait(intervalMs) {

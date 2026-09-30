@@ -93,11 +93,7 @@ Component({
         return;
       }
       if (!this._phoneAuthorizationReady) {
-        guard.toast(
-          this._phoneAuthorizationFailed
-            ? '登录会话准备失败，请稍后重试'
-            : '正在准备登录，请稍后重试'
-        );
+        guard.toast(this._phoneAuthorizationFailed ? '登录会话准备失败，请稍后重试' : '正在准备登录，请稍后重试');
         if (this._phoneAuthorizationFailed) {
           this.preparePhoneAuthorization().catch(() => {});
         }
@@ -105,9 +101,7 @@ Component({
       }
       const prepared = this._preparedPhoneAuthorization || {};
       const registerContext = prepared.registerContext || null;
-      const needRegister = Boolean(
-        prepared.needRegister && registerContext && registerContext.registerToken
-      );
+      const needRegister = Boolean(prepared.needRegister && registerContext && registerContext.registerToken);
       const promise = needRegister
         ? auth.registerByPhone(registerContext.registerToken, detail.encryptedData, detail.iv)
         : api.bindPhone(detail.encryptedData, detail.iv);

@@ -43,7 +43,9 @@ function normalizeLevels(list) {
     level: item.levelCode || item.level || '',
     name: item.name || '',
     amountTarget: Math.round((Number(item.amountTarget) || 0) / 100),
-    condition: item.condition || (Number(item.amountTarget) ? `累计消费满${Math.round(Number(item.amountTarget) / 100)}元` : '注册即得'),
+    condition:
+      item.condition ||
+      (Number(item.amountTarget) ? `累计消费满${Math.round(Number(item.amountTarget) / 100)}元` : '注册即得'),
     discount: item.discount || '',
     discountText: formatDiscountText(item.discount),
     benefits: parseBenefits(item.benefits)

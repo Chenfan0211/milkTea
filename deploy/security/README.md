@@ -24,14 +24,14 @@ bash deploy/security/run.sh --check
 
 ## 脚本清单
 
-| 脚本 | 对应项 | 作用 | 有副作用？ |
-|------|--------|------|-----------|
-| `run.sh` | 总入口 | 一键按顺序跑检查 / 加固 | `--check` 无；`--harden` 有 |
-| `01-check.sh` | 综合体检 | 只读检查全部安全项 | ❌ 无 |
-| `02-redis-maxmemory.sh` | P1-1 | Redis 内存上限 + 淘汰策略 | `--apply` 才改 |
-| `03-middleware-hardening.sh` | P2-1 / P2-3 | 中间件暴露面 + 口令强度 + SSH 建议 | ❌ 无 |
-| `04-backup.sh` | P2-2 | MySQL/Redis 备份 + 异地同步 + 恢复演练 | `--run` 才备份 |
-| `05-nacos-auth.sh` | P1-2 | Nacos 鉴权检查 + 加固步骤 | ❌ 无（只打印步骤） |
+| 脚本                         | 对应项      | 作用                                   | 有副作用？                  |
+| ---------------------------- | ----------- | -------------------------------------- | --------------------------- |
+| `run.sh`                     | 总入口      | 一键按顺序跑检查 / 加固                | `--check` 无；`--harden` 有 |
+| `01-check.sh`                | 综合体检    | 只读检查全部安全项                     | ❌ 无                       |
+| `02-redis-maxmemory.sh`      | P1-1        | Redis 内存上限 + 淘汰策略              | `--apply` 才改              |
+| `03-middleware-hardening.sh` | P2-1 / P2-3 | 中间件暴露面 + 口令强度 + SSH 建议     | ❌ 无                       |
+| `04-backup.sh`               | P2-2        | MySQL/Redis 备份 + 异地同步 + 恢复演练 | `--run` 才备份              |
+| `05-nacos-auth.sh`           | P1-2        | Nacos 鉴权检查 + 加固步骤              | ❌ 无（只打印步骤）         |
 
 ---
 
@@ -112,16 +112,16 @@ set -a; . /opt/wuling/app/secrets.env; set +a
 
 ## 可配置环境变量
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `DEPLOY_DIR` | `/opt/wuling/deploy` | 中间件 compose 目录 |
-| `BACKUP_DIR` | `/opt/wuling/backup` | 备份输出目录 |
-| `BACKUP_REMOTE` | 空 | 异地同步目标（**强烈建议配置**） |
-| `BACKUP_KEEP_DAYS` | `30` | 备份保留天数 |
-| `MYSQL_CONTAINER` | `wuling-mysql` | MySQL 容器名 |
-| `REDIS_CONTAINER` | `wuling-redis` | Redis 容器名 |
-| `REDIS_MAXMEMORY` | `512mb` | Redis 内存上限 |
-| `REDIS_MAXMEMORY_POLICY` | `allkeys-lru` | Redis 淘汰策略 |
+| 变量                     | 默认值               | 说明                             |
+| ------------------------ | -------------------- | -------------------------------- |
+| `DEPLOY_DIR`             | `/opt/wuling/deploy` | 中间件 compose 目录              |
+| `BACKUP_DIR`             | `/opt/wuling/backup` | 备份输出目录                     |
+| `BACKUP_REMOTE`          | 空                   | 异地同步目标（**强烈建议配置**） |
+| `BACKUP_KEEP_DAYS`       | `30`                 | 备份保留天数                     |
+| `MYSQL_CONTAINER`        | `wuling-mysql`       | MySQL 容器名                     |
+| `REDIS_CONTAINER`        | `wuling-redis`       | Redis 容器名                     |
+| `REDIS_MAXMEMORY`        | `512mb`              | Redis 内存上限                   |
+| `REDIS_MAXMEMORY_POLICY` | `allkeys-lru`        | Redis 淘汰策略                   |
 
 ---
 
@@ -150,15 +150,15 @@ set -a; . /opt/wuling/app/secrets.env; set +a
 
 ### 已完成清单
 
-| # | 项 | 结果 |
-|---|----|------|
-| 1 | Redis maxmemory（512MB + allkeys-lru） | ✅ 防 OOM |
-| 2 | 异地备份同步（119.91.111.132） | ✅ 每日 04:00 |
-| 3 | SSH 禁密码登录（源机+备份机） | ✅ 仅密钥 |
-| 4 | Nacos 鉴权 + 强密码 | ✅ 匿名 403 |
-| 5 | Redis 双网络固化 | ✅ 重建不丢网络 |
-| 6 | Redis 危险命令禁用 | ✅ FLUSHALL/FLUSHDB/CONFIG/KEYS |
-| 7 | 密码外置（compose 无明文） | ✅ secrets.env 唯一来源 |
+| #   | 项                                     | 结果                            |
+| --- | -------------------------------------- | ------------------------------- |
+| 1   | Redis maxmemory（512MB + allkeys-lru） | ✅ 防 OOM                       |
+| 2   | 异地备份同步（119.91.111.132）         | ✅ 每日 04:00                   |
+| 3   | SSH 禁密码登录（源机+备份机）          | ✅ 仅密钥                       |
+| 4   | Nacos 鉴权 + 强密码                    | ✅ 匿名 403                     |
+| 5   | Redis 双网络固化                       | ✅ 重建不丢网络                 |
+| 6   | Redis 危险命令禁用                     | ✅ FLUSHALL/FLUSHDB/CONFIG/KEYS |
+| 7   | 密码外置（compose 无明文）             | ✅ secrets.env 唯一来源         |
 
 ### 恢复演练（已验证）
 
@@ -175,13 +175,13 @@ set -a; . /opt/wuling/app/secrets.env; set +a
 
 ### 服务器上实际新增/修改的文件
 
-| 文件 | 说明 |
-|------|------|
-| `/opt/wuling/deploy/docker-compose.yml` | 密码外置 + env_file + Redis maxmemory/危险命令 + 双网络 |
-| `/opt/wuling/app/secrets.env` | 补 MYSQL_ROOT_PASSWORD |
-| `/opt/wuling/app/nacos-*.txt` | Nacos token/identity/密码 |
-| `/opt/wuling/scripts/sync-backup-remote.sh` | 异地同步脚本 |
-| `/opt/wuling/scripts/rebuild-nacos.sh` | Nacos 重建脚本 |
-| `/etc/cron.d/wuling-backup-remote` | 异地备份定时任务 |
-| `/opt/wuling/OPS.md` | 运维手册（已更新） |
-| 源机+备份机 `/etc/ssh/sshd_config` | 禁密码登录 |
+| 文件                                        | 说明                                                    |
+| ------------------------------------------- | ------------------------------------------------------- |
+| `/opt/wuling/deploy/docker-compose.yml`     | 密码外置 + env_file + Redis maxmemory/危险命令 + 双网络 |
+| `/opt/wuling/app/secrets.env`               | 补 MYSQL_ROOT_PASSWORD                                  |
+| `/opt/wuling/app/nacos-*.txt`               | Nacos token/identity/密码                               |
+| `/opt/wuling/scripts/sync-backup-remote.sh` | 异地同步脚本                                            |
+| `/opt/wuling/scripts/rebuild-nacos.sh`      | Nacos 重建脚本                                          |
+| `/etc/cron.d/wuling-backup-remote`          | 异地备份定时任务                                        |
+| `/opt/wuling/OPS.md`                        | 运维手册（已更新）                                      |
+| 源机+备份机 `/etc/ssh/sshd_config`          | 禁密码登录                                              |

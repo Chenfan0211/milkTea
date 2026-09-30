@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'SystemAudit'
 });
@@ -94,7 +93,13 @@ const columns: DataTableColumns<any> = [
 const searchFields: SearchField[] = [
   { key: 'operator', label: '操作人', placeholder: '操作人' },
   { key: 'module', label: '模块', type: 'select', options: () => moduleOptions.value, placeholder: '请选择模块' },
-  { key: 'target', label: '操作对象', type: 'select', options: () => targetOptions.value, placeholder: '请选择操作对象' },
+  {
+    key: 'target',
+    label: '操作对象',
+    type: 'select',
+    options: () => targetOptions.value,
+    placeholder: '请选择操作对象'
+  },
   { key: 'changeValue', label: '旧值/新值', placeholder: '输入旧值或新值' }
 ];
 
@@ -115,7 +120,9 @@ const config: AdminListConfig = {
       ]);
       const merged = new Map<any, any>();
       for (const row of [...before.data, ...after.data]) merged.set(row.id, row);
-      const rows = Array.from(merged.values()).sort((x: any, y: any) => String(y.createTime || '').localeCompare(String(x.createTime || '')));
+      const rows = Array.from(merged.values()).sort((x: any, y: any) =>
+        String(y.createTime || '').localeCompare(String(x.createTime || ''))
+      );
       return { data: rows, total: Math.max(before.total, after.total) };
     }
     return store.queryRemote('auditLogs', rest, page, pageSize);
@@ -128,4 +135,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

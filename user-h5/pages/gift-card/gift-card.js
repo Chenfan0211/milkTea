@@ -1,11 +1,7 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store');
-const {
-  pickGiftCardRecords,
-  resolveGiftCardDisplay,
-  resolveGiftCardImageUrl
-} = require('../../utils/gift-card');
+const { pickGiftCardRecords, resolveGiftCardDisplay, resolveGiftCardImageUrl } = require('../../utils/gift-card');
 
 function filterGiftCardGroups(keyword, groups) {
   const source = Array.isArray(groups) ? groups : [];
@@ -143,4 +139,3 @@ Page(
     }
   })
 );
-

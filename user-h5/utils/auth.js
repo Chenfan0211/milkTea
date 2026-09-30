@@ -193,9 +193,7 @@ function preparePhoneAuthorization() {
     .then(() => {
       const registerContext = getRegisterContext();
       return {
-        needRegister: Boolean(
-          registerContext && registerContext.registerToken && !isLoggedIn()
-        ),
+        needRegister: Boolean(registerContext && registerContext.registerToken && !isLoggedIn()),
         registerContext
       };
     })
@@ -210,14 +208,11 @@ function isSessionInvalidError(error) {
   if (!error) return false;
   // 401 类业务码即使没有附带固定中文提示，也属于会话已失效。
   if (error.res && (error.res.code === 8888 || error.res.code === 9999)) return true;
-  const message = typeof error === 'string'
-    ? error
-    : error.message || (error.res && (error.res.message || error.res.msg)) || '';
-  return [
-    '登录状态已失效，请重新登录',
-    '微信数据解密失败',
-    '微信授权已失效，请重新登录'
-  ].some(fragment => String(message).indexOf(fragment) >= 0);
+  const message =
+    typeof error === 'string' ? error : error.message || (error.res && (error.res.message || error.res.msg)) || '';
+  return ['登录状态已失效，请重新登录', '微信数据解密失败', '微信授权已失效，请重新登录'].some(
+    fragment => String(message).indexOf(fragment) >= 0
+  );
 }
 
 /**

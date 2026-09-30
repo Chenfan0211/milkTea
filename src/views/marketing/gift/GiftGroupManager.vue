@@ -109,13 +109,7 @@ async function removeGroup(group: GiftGroupDraft) {
 </script>
 
 <template>
-  <NModal
-    :show="show"
-    preset="card"
-    title="礼品卡分组管理"
-    class="w-720px"
-    @update:show="emit('update:show', $event)"
-  >
+  <NModal :show="show" preset="card" title="礼品卡分组管理" class="w-720px" @update:show="emit('update:show', $event)">
     <NSpin :show="loading">
       <div class="group-create">
         <NInput v-model:value="newName" maxlength="30" placeholder="新分组名称" />

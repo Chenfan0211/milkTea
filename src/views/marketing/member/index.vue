@@ -67,10 +67,7 @@ const benefitIconModules = import.meta.glob('/src/assets/lucide/*.svg', {
 }) as Record<string, string>;
 
 const benefitIconUrlMap = Object.fromEntries(
-  Object.entries(benefitIconModules).map(([path, url]) => [
-    path.split('/').pop()?.replace(/.svg$/, '') ?? '',
-    url
-  ])
+  Object.entries(benefitIconModules).map(([path, url]) => [path.split('/').pop()?.replace(/.svg$/, '') ?? '', url])
 ) as Record<string, string>;
 
 /** 按图标名取 URL；未找到时返回空串（界面显示占位）。 */
@@ -161,11 +158,13 @@ const benefitTextOptions = computed(() => {
     .sort((a: any, b: any) => a.sort - b.sort || a.id - b.id);
 
   const seen = new Set<string>();
-  return options.filter((entry: any) => {
-    if (seen.has(entry.value)) return false;
-    seen.add(entry.value);
-    return true;
-  }).map(({ label, value }: any) => ({ label, value }));
+  return options
+    .filter((entry: any) => {
+      if (seen.has(entry.value)) return false;
+      seen.add(entry.value);
+      return true;
+    })
+    .map(({ label, value }: any) => ({ label, value }));
 });
 
 function benefitOptionsFor(text: string) {
@@ -259,10 +258,7 @@ async function saveEditor() {
     window.$message?.warning('请输入等级名称');
     return;
   }
-  if (
-    form.discount != null &&
-    (!Number.isInteger(form.discount) || form.discount < 1 || form.discount > 100)
-  ) {
+  if (form.discount != null && (!Number.isInteger(form.discount) || form.discount < 1 || form.discount > 100)) {
     window.$message?.warning('折扣请输入 1-100 的整数百分比');
     return;
   }
@@ -349,9 +345,7 @@ const columns: DataTableColumns<any> = [
 ];
 
 const searchFields: SearchField[] = [{ key: 'name', label: '名称', placeholder: '等级名称' }];
-const toolbar: RowAction[] = [
-  { label: '新增等级', type: 'primary', handler: () => openEditor('add') }
-];
+const toolbar: RowAction[] = [{ label: '新增等级', type: 'primary', handler: () => openEditor('add') }];
 const rowActions: RowAction[] = [
   { label: '编辑', type: 'primary', handler: (row: any) => openEditor('edit', row) },
   {
@@ -369,8 +363,7 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) =>
-    store.queryRemote('memberLevels', search, page, pageSize)
+  loadData: async ({ page, pageSize, search }) => store.queryRemote('memberLevels', search, page, pageSize)
 };
 </script>
 
@@ -454,17 +447,10 @@ const config: AdminListConfig = {
                   filterable
                   clearable
                 />
-                <NInputNumber
-                  v-model:value="benefit.count"
-                  :min="1"
-                  :precision="0"
-                  placeholder="数量"
-                />
+                <NInputNumber v-model:value="benefit.count" :min="1" :precision="0" placeholder="数量" />
               </div>
               <span v-else class="benefit-editor__empty-cell">—</span>
-              <NButton size="small" type="error" quaternary @click="removeBenefitRow(index)">
-                删除
-              </NButton>
+              <NButton size="small" type="error" quaternary @click="removeBenefitRow(index)">删除</NButton>
             </div>
 
             <div v-if="!benefits.length" class="benefit-editor__empty">暂无权益，点击下方按钮添加</div>

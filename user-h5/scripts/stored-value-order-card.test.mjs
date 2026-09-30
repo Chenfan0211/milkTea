@@ -18,13 +18,16 @@ const NOW = new Date('2026-09-27T17:00:00').getTime();
 
 // 未支付储值订单：创建于 16:50（10 分钟前），应剩余约 5 分钟
 const unpaid = orders.decorateOrder(
-  orders.normalizeAuxOrder({
-    id: 1,
-    orderNo: 'CZ20260927165001',
-    amount: 20000,
-    payStatus: 'UNPAID',
-    createTime: '2026-09-27 16:50:00'
-  }, 'stored-value'),
+  orders.normalizeAuxOrder(
+    {
+      id: 1,
+      orderNo: 'CZ20260927165001',
+      amount: 20000,
+      payStatus: 'UNPAID',
+      createTime: '2026-09-27 16:50:00'
+    },
+    'stored-value'
+  ),
   NOW
 );
 
@@ -36,13 +39,16 @@ assert.equal(unpaid.statusText, '未支付', '未支付储值订单状态文案�
 
 // 已支付储值订单：不得显示倒计时和取消/支付按钮
 const paid = orders.decorateOrder(
-  orders.normalizeAuxOrder({
-    id: 2,
-    orderNo: 'CZ20260927160001',
-    amount: 20000,
-    payStatus: 'PAID',
-    createTime: '2026-09-27 16:00:00'
-  }, 'stored-value'),
+  orders.normalizeAuxOrder(
+    {
+      id: 2,
+      orderNo: 'CZ20260927160001',
+      amount: 20000,
+      payStatus: 'PAID',
+      createTime: '2026-09-27 16:00:00'
+    },
+    'stored-value'
+  ),
   NOW
 );
 assert.equal(paid.isPendingPayment, false, '已支付储值订单不得判定为待支付');

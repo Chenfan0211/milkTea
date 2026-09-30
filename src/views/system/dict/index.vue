@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'SystemDict'
 });
@@ -38,7 +37,11 @@ const columns: DataTableColumns<any> = [
     title: '状态',
     key: 'enabled',
     width: 100,
-    render: (row: any) => renderTag('enabled', statusMap({ '1': ['启用', 'success'], '0': ['停用', 'default'] }))({ enabled: String(row.enabled) })
+    render: (row: any) =>
+      renderTag(
+        'enabled',
+        statusMap({ '1': ['启用', 'success'], '0': ['停用', 'default'] })
+      )({ enabled: String(row.enabled) })
   }
 ];
 

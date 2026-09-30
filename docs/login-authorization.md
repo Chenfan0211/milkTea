@@ -26,32 +26,32 @@
 
 ### 1. 短信通道抽象
 
-| 实现 | 启用条件 | 行为 |
-|------|---------|------|
-| `ConsoleSmsProvider` | `app.sms.enabled=false`（默认） | 验证码输出到服务端日志 |
-| `TencentSmsProvider` | `app.sms.enabled=true` | 需补全 TC3 签名（已留结构与配置项） |
+| 实现                 | 启用条件                        | 行为                                |
+| -------------------- | ------------------------------- | ----------------------------------- |
+| `ConsoleSmsProvider` | `app.sms.enabled=false`（默认） | 验证码输出到服务端日志              |
+| `TencentSmsProvider` | `app.sms.enabled=true`          | 需补全 TC3 签名（已留结构与配置项） |
 
 > 上线接入腾讯云：设置 `SMS_ENABLED=true` + `SMS_SDK_APP_ID` / `SMS_SECRET_ID` / `SMS_SECRET_KEY` / `SMS_SIGN_NAME` / `SMS_TEMPLATE_ID`
 
 ### 2. 验证码防护（②A）
 
-| 项 | 策略 |
-|----|------|
-| 格式 | 6 位数字 |
-| 有效期 | 5 分钟 |
-| 重发间隔 | 同手机号 60 秒 |
-| 手机号日限 | 10 条 |
+| 项          | 策略                              |
+| ----------- | --------------------------------- |
+| 格式        | 6 位数字                          |
+| 有效期      | 5 分钟                            |
+| 重发间隔    | 同手机号 60 秒                    |
+| 手机号日限  | 10 条                             |
 | **IP 日限** | 30 条（防脚本刷短信产生真实费用） |
-| 错误上限 | 5 次作废 |
-| 使用次数 | 校验通过即作废，防重放 |
+| 错误上限    | 5 次作废                          |
+| 使用次数    | 校验通过即作废，防重放            |
 
 ### 3. 新增接口
 
-| 方法 | 路径 | 鉴权 | 说明 |
-|------|------|------|------|
-| POST | `/api/v1/app/auth/sms/send` | 需登录 | 发送验证码（限流） |
-| POST | `/api/v1/app/auth/sms/bind` | 需登录 | 校验并绑定手机号 |
-| POST | `/api/v1/app/auth/avatar` | 需登录 | 更新头像（chooseAvatar） |
+| 方法 | 路径                        | 鉴权   | 说明                      |
+| ---- | --------------------------- | ------ | ------------------------- |
+| POST | `/api/v1/app/auth/sms/send` | 需登录 | 发送验证码（限流）        |
+| POST | `/api/v1/app/auth/sms/bind` | 需登录 | 校验并绑定手机号          |
+| POST | `/api/v1/app/auth/avatar`   | 需登录 | 更新头像（chooseAvatar）  |
 | POST | `/api/v1/app/auth/nickname` | 需登录 | 更新昵称（type=nickname） |
 
 ## 三、小程序端实现
@@ -59,15 +59,16 @@
 ### 1. `utils/login-guard.js`（新增）
 
 ```js
-ensureSilentLogin()   // 静默登录（并发去重）
-requireLogin(action)  // 需 token，授权后自动续跑
-requirePhone(action)  // 需手机号，授权后自动续跑
-flushPendingAction()  // 由弹层调用，续跑未完成操作
+ensureSilentLogin(); // 静默登录（并发去重）
+requireLogin(action); // 需 token，授权后自动续跑
+requirePhone(action); // 需手机号，授权后自动续跑
+flushPendingAction(); // 由弹层调用，续跑未完成操作
 ```
 
 ### 2. `components/login-sheet`（新增授权弹层）
 
 三种授权方式：
+
 1. **微信一键获取手机号**（`open-type="getPhoneNumber"`）— 首选
 2. **手动输入手机号 + 验证码** — 降级方案（60s 倒计时）
 3. **头像昵称填写**（`chooseAvatar` + `type="nickname"`）
@@ -76,21 +77,22 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 
 ### 3. 接入的页面（7 个）
 
-| 页面 | 拦截点 | 说明 |
-|------|--------|------|
-| `order-confirm` | 提交订单 | 顺带接入了真实下单接口 |
-| `points-exchange` | 兑换 | |
-| `gift-card-purchase` | 支付 | |
-| `stored-value` | 充值 | |
-| `role-withdraw` | 提交提现 | |
-| `role-apply` | 提交申请 | |
-| `profile` | 头像/姓名点击、绑定手机号入口 | 显示手机号（脱敏） |
+| 页面                 | 拦截点                        | 说明                   |
+| -------------------- | ----------------------------- | ---------------------- |
+| `order-confirm`      | 提交订单                      | 顺带接入了真实下单接口 |
+| `points-exchange`    | 兑换                          |                        |
+| `gift-card-purchase` | 支付                          |                        |
+| `stored-value`       | 充值                          |                        |
+| `role-withdraw`      | 提交提现                      |                        |
+| `role-apply`         | 提交申请                      |                        |
+| `profile`            | 头像/姓名点击、绑定手机号入口 | 显示手机号（脱敏）     |
 
 > 改造方式：原方法体改名为 `doXxx`，外层包 `requirePhone(() => this.doXxx())`，原逻辑完整保留。
 
 ## 四、验证结果
 
 ### 后端短信链路（10/10）
+
 ```
 1) 未登录发码        -> 8888 ✅
 2) 已登录发码        -> code=0 ✅
@@ -105,13 +107,14 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 ```
 
 ### 回归
-| 项目 | 结果 |
-|------|------|
-| 小程序 `npm run check` | 22 项通过 |
-| 后台 `vue-tsc` | 通过 |
-| 后台 `oxlint`（212 文件） | 0 error |
-| 后端 `mvn test` | 16/16 通过 |
-| 数据库一致性校验 | 3/3 通过 |
+
+| 项目                      | 结果       |
+| ------------------------- | ---------- |
+| 小程序 `npm run check`    | 22 项通过  |
+| 后台 `vue-tsc`            | 通过       |
+| 后台 `oxlint`（212 文件） | 0 error    |
+| 后端 `mvn test`           | 16/16 通过 |
+| 数据库一致性校验          | 3/3 通过   |
 
 ## 五、本批修复的问题
 
@@ -121,21 +124,25 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 ## 六、改动文件
 
 **后端新增**
+
 - `user/sms/SmsProvider.java` / `ConsoleSmsProvider.java` / `TencentSmsProvider.java`
 - `user/service/SmsCodeService.java`
 - `user/dto/SmsSendRequest.java` / `SmsBindRequest.java`
 
 **后端修改**
+
 - `user/service/MiniAppAuthService.java`（bindPhoneBySms / updateAvatar / updateNickName）
 - `user/controller/MiniAppAuthController.java`（4 个端点）
 - `common/config/WebConfig.java`（拦截路径补充）
 - `application.yml`（短信配置）
 
 **小程序新增**
+
 - `utils/login-guard.js`
 - `components/login-sheet/*`（4 文件）
 
 **小程序修改**
+
 - `app.js`（启动静默登录）
 - `pages/profile/*`（登录态 UI + 绑定入口）
 - `pages/order-confirm/*`（提交拦截 + 真实下单）
@@ -149,7 +156,6 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 3. **头像上传**：当前直接存微信临时路径，后续需接对象存储
 4. **手机号「强制」范围**：已按 A 实现（关键操作强制），浏览类功能不受限
 
-
 ---
 
 # 八、进入即登录（入口层，2026-09-24）
@@ -161,10 +167,10 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 
 微信小程序「授权登录」是两层完全不同的能力：
 
-| 层级 | 微信 API | 用户动作 | 能否强制 | 能拿到什么 |
-|------|---------|---------|---------|-----------|
-| A. 登录态 | `wx.login()` → `code` → 后端换 token | 无感，不需要点击 | ✅ 可以，不违规 | openid / unionid，能长期标识用户 |
-| B. 手机号 / 头像昵称 | `<button open-type="getPhoneNumber">`、`chooseAvatar` | 必须用户点击确认 | ❌ **不能** | 手机号、微信头像昵称 |
+| 层级                 | 微信 API                                              | 用户动作         | 能否强制        | 能拿到什么                       |
+| -------------------- | ----------------------------------------------------- | ---------------- | --------------- | -------------------------------- |
+| A. 登录态            | `wx.login()` → `code` → 后端换 token                  | 无感，不需要点击 | ✅ 可以，不违规 | openid / unionid，能长期标识用户 |
+| B. 手机号 / 头像昵称 | `<button open-type="getPhoneNumber">`、`chooseAvatar` | 必须用户点击确认 | ❌ **不能**     | 手机号、微信头像昵称             |
 
 两条硬约束：
 
@@ -189,12 +195,12 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 
 原有三层职责不变，入口层只在「启动编排」上加逻辑：
 
-| 层 | 模块 | 职责 |
-|----|------|------|
-| 入口层（新增） | `utils/entry-login.js` | 冷启动静默登录编排、引导去重、入口还原 |
-| 静默层 | `loginGuard.ensureSilentLogin()` | `wx.login` 换 token，并发去重 |
-| 登录层 | `loginGuard.requireLogin(action)` | 需 token 的操作 |
-| 手机号层 | `loginGuard.requirePhone(action)` | 交易类操作必须绑手机号 |
+| 层             | 模块                              | 职责                                   |
+| -------------- | --------------------------------- | -------------------------------------- |
+| 入口层（新增） | `utils/entry-login.js`            | 冷启动静默登录编排、引导去重、入口还原 |
+| 静默层         | `loginGuard.ensureSilentLogin()`  | `wx.login` 换 token，并发去重          |
+| 登录层         | `loginGuard.requireLogin(action)` | 需 token 的操作                        |
+| 手机号层       | `loginGuard.requirePhone(action)` | 交易类操作必须绑手机号                 |
 
 ## 8.3 为什么必须用 `entryPagePath`
 
@@ -202,12 +208,12 @@ flushPendingAction()  // 由弹层调用，续跑未完成操作
 
 ## 8.4 引导去重规则
 
-| 规则 | 值 | 说明 |
-|------|----|------|
-| 会话内 | 只引导一次 | `promptedThisSession` 内存标记 |
-| 冷却期 | 12 小时 | `milkTea:auth:entry-prompted-at` 时间戳 |
-| 总开关 | `setPromptEnabled(false)` | 可一键关闭引导（合规兜底） |
-| 触发条件 | `state.level !== 'full'` | 已绑手机号不打扰 |
+| 规则     | 值                        | 说明                                    |
+| -------- | ------------------------- | --------------------------------------- |
+| 会话内   | 只引导一次                | `promptedThisSession` 内存标记          |
+| 冷却期   | 12 小时                   | `milkTea:auth:entry-prompted-at` 时间戳 |
+| 总开关   | `setPromptEnabled(false)` | 可一键关闭引导（合规兜底）              |
+| 触发条件 | `state.level !== 'full'`  | 已绑手机号不打扰                        |
 
 ## 8.5 安全：入口还原白名单
 

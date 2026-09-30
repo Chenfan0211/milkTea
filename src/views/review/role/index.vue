@@ -58,7 +58,9 @@ const toolbar: RowAction[] = [];
 
 /** 申请角色/状态中英兜底（与列表列口径一致） */
 const applyStatusLabel = (v: string) =>
-  (({ pending: '待审核', approved: '已通过', rejected: '已驳回' }) as Record<string, string>)[String(v).toLowerCase()] ?? v;
+  (({ pending: '待审核', approved: '已通过', rejected: '已驳回' }) as Record<string, string>)[
+    String(v).toLowerCase()
+  ] ?? v;
 
 /** extra_form 是 JSON 字符串，解析失败时返回空对象，避免详情抛错 */
 function parseExtra(raw: any): Record<string, any> {

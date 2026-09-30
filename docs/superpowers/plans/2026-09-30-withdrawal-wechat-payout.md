@@ -14,15 +14,15 @@
 
 ## 一、现状与关键事实（已核实）
 
-| 项 | 现状 |
-|----|------|
-| 提现闭环 | `server/.../WithdrawalService`：申请冻结 → 审核 → `settlePaid` 记账 + 置 PAID → 失败/驳回解冻 |
-| 假出款点 | `settlePaid()` 只写台账快照（`WITHDRAW` 负向扣冻结）+ 置 `status=PAID`，**无任何真实打款** |
-| 表结构 | `withdrawal` 已有 `callback_time`、`pay_time`、`failure_reason`；**缺**：微信转账单号、转账批次号、转账状态码 |
-| openid | `app_user.open_id` 已存在；`user-service` 提供 `/internal/users/{id}/openid`（已用于支付） |
-| 微信 SDK | `trade-service` 已有 `wechatpay-java 0.2.14`，`WxPaySdkConfig` 提供 `Config`/`NotificationParser`，`app.pay.channel=mock|wxpay` 条件装配 |
-| 支付网关抽象 | `PaymentGateway` + mock/wxpay 双实现 + `PaymentGatewayResolver`（可对齐新增 PayoutGateway） |
-| 内部调用 | `trade-service` 的 `RemoteUserQueryAdapter` 已示范 `lb://` 调 user-service 内部接口 |
+| 项           | 现状                                                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ | --------------- |
+| 提现闭环     | `server/.../WithdrawalService`：申请冻结 → 审核 → `settlePaid` 记账 + 置 PAID → 失败/驳回解冻                            |
+| 假出款点     | `settlePaid()` 只写台账快照（`WITHDRAW` 负向扣冻结）+ 置 `status=PAID`，**无任何真实打款**                               |
+| 表结构       | `withdrawal` 已有 `callback_time`、`pay_time`、`failure_reason`；**缺**：微信转账单号、转账批次号、转账状态码            |
+| openid       | `app_user.open_id` 已存在；`user-service` 提供 `/internal/users/{id}/openid`（已用于支付）                               |
+| 微信 SDK     | `trade-service` 已有 `wechatpay-java 0.2.14`，`WxPaySdkConfig` 提供 `Config`/`NotificationParser`，`app.pay.channel=mock | wxpay` 条件装配 |
+| 支付网关抽象 | `PaymentGateway` + mock/wxpay 双实现 + `PaymentGatewayResolver`（可对齐新增 PayoutGateway）                              |
+| 内部调用     | `trade-service` 的 `RemoteUserQueryAdapter` 已示范 `lb://` 调 user-service 内部接口                                      |
 
 ## 二、微信「商家转账到零钱」接口要点
 
@@ -74,6 +74,7 @@ APPLIED  --审核通过--> APPROVED --发起转账--> PROCESSING --回调成功-
 ## Task 1：`withdrawal` 表新增转账字段
 
 **Files:**
+
 - Add: `server/src/main/resources/db/migration/V69__withdrawal_payout_fields.sql`
 
 - [ ] Step 1：新增字段（幂等，用 information_schema 判存在）
@@ -90,6 +91,7 @@ ALTER TABLE withdrawal
 ## Task 2：`trade-service` 新增 `PayoutGateway` 抽象
 
 **Files:**
+
 - Add: `trade-service/src/main/java/com/wuling/trade/pay/PayoutGateway.java`
 - Add: `.../pay/payout/MockPayoutGateway.java`
 - Add: `.../pay/payout/WxPayoutGateway.java`
@@ -114,6 +116,7 @@ public interface PayoutGateway {
 ## Task 3：`trade-service` 内部出款接口 + 回调
 
 **Files:**
+
 - Add: `trade-service/.../pay/payout/PayoutController.java`（内部接口）
 - Add: `trade-service/.../pay/payout/PayoutNotifyController.java`（微信回调）
 
@@ -123,6 +126,7 @@ public interface PayoutGateway {
 ## Task 4：`server` `WithdrawalService` 改造
 
 **Files:**
+
 - Modify: `server/.../finance/service/WithdrawalService.java`
 - Modify: `server/.../finance/controller/WithdrawalController.java`
 
@@ -151,14 +155,14 @@ public interface PayoutGateway {
 
 ## 五、风险与待确认
 
-| 优先级 | 项 |
-|--------|----|
-| **P0** | 单用户单日转账限额（2000 元/日，以签约额度为准）需在提现规则里提示，超限如何处理（拆批？拒单？）需产品确认 |
-| P0 | 「商家转账到零钱」需要商户号单独开通该产品权限（与 JSAPI 收单权限不同），需确认现有商户号是否已开通 |
-| P1 | 提现手续费：微信商家转账是否有手续费、是否从提现金额扣（现有 `fee` 字段恒 0） |
-| P1 | 回调地址需 HTTPS 备案域名；当前项目 HTTPS 尚未启用（见 `docs/生产部署记录.md` P1 待办），**接入真实转账前必须先解决 HTTPS** |
-| P2 | 大额提现（> 即时额度）目前走人工审核，审核后是「单笔转账」还是「拆多笔」需定义 |
-| P2 | `transfer_batches` 单笔上限 2000 元（默认），超限需拆 `transfer_detail_list` 多笔或分次 |
+| 优先级 | 项                                                                                                                          |
+| ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| **P0** | 单用户单日转账限额（2000 元/日，以签约额度为准）需在提现规则里提示，超限如何处理（拆批？拒单？）需产品确认                  |
+| P0     | 「商家转账到零钱」需要商户号单独开通该产品权限（与 JSAPI 收单权限不同），需确认现有商户号是否已开通                         |
+| P1     | 提现手续费：微信商家转账是否有手续费、是否从提现金额扣（现有 `fee` 字段恒 0）                                               |
+| P1     | 回调地址需 HTTPS 备案域名；当前项目 HTTPS 尚未启用（见 `docs/生产部署记录.md` P1 待办），**接入真实转账前必须先解决 HTTPS** |
+| P2     | 大额提现（> 即时额度）目前走人工审核，审核后是「单笔转账」还是「拆多笔」需定义                                              |
+| P2     | `transfer_batches` 单笔上限 2000 元（默认），超限需拆 `transfer_detail_list` 多笔或分次                                     |
 
 ---
 

@@ -14,30 +14,30 @@
 #      healthcheck 的 start_period=120s 已预留足够时间。
 # =============================================================
 
-  # ---------- ClamAV 病毒扫描（P2）----------
-  # clamd 守护进程，提供 TCP 3310 端口 INSTREAM 流式扫描，
-  # 供 file-service 在上传图片时做病毒检测。
-  clamav:
-    image: clamav/clamav:stable
-    container_name: wuling-clamav
-    restart: unless-stopped
-    # 病毒库定期更新（freshclam 守护进程随容器启动）
-    environment:
-      CLAMAV_NO_FRESHCLAMD: "false"
-    ports:
-      # 仅监听回环：由后端容器通过 wuling-net 内部网络访问，不暴露公网
-      - "127.0.0.1:3310:3310"
-    volumes:
-      - clamav-data:/var/lib/clamav
-    # 注意：不写 networks 字段，与 mysql/redis 等中间件容器一致。
-    # wuling-net 由 docker/deploy-backend.sh 的 preflight 用
-    # 「docker network connect wuling-net wuling-clamav」动态接入。
-    healthcheck:
-      test: ["CMD", "clamdscan", "--ping", "1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
+# ---------- ClamAV 病毒扫描（P2）----------
+# clamd 守护进程，提供 TCP 3310 端口 INSTREAM 流式扫描，
+# 供 file-service 在上传图片时做病毒检测。
+clamav:
+  image: clamav/clamav:stable
+  container_name: wuling-clamav
+  restart: unless-stopped
+  # 病毒库定期更新（freshclam 守护进程随容器启动）
+  environment:
+    CLAMAV_NO_FRESHCLAMD: 'false'
+  ports:
+    # 仅监听回环：由后端容器通过 wuling-net 内部网络访问，不暴露公网
+    - '127.0.0.1:3310:3310'
+  volumes:
+    - clamav-data:/var/lib/clamav
+  # 注意：不写 networks 字段，与 mysql/redis 等中间件容器一致。
+  # wuling-net 由 docker/deploy-backend.sh 的 preflight 用
+  # 「docker network connect wuling-net wuling-clamav」动态接入。
+  healthcheck:
+    test: ['CMD', 'clamdscan', '--ping', '1']
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 120s
 
 # =============================================================
 # 同时需要在文件末尾 volumes: 段加入（若尚无 clamav-data）：

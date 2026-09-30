@@ -47,9 +47,7 @@ Page(
       this.setData({
         entryMode: this.entryMode,
         needRegister: this.needRegister,
-        entryTip: this.needRegister
-          ? '同意后即可完成注册并开始使用'
-          : '同意后可下单、领券并同步会员权益'
+        entryTip: this.needRegister ? '同意后即可完成注册并开始使用' : '同意后可下单、领券并同步会员权益'
       });
       // 提前换一次最新 session_key；用户点击按钮时只允许使用这次刷新的结果。
       this.preparePhoneAuthorization().catch(() => {});
@@ -91,9 +89,7 @@ Page(
       this._phoneAuthorizationReady = true;
       this.setData({
         needRegister: this.needRegister,
-        entryTip: this.needRegister
-          ? '同意后即可完成注册并开始使用'
-          : '同意后可下单、领券并同步会员权益'
+        entryTip: this.needRegister ? '同意后即可完成注册并开始使用' : '同意后可下单、领券并同步会员权益'
       });
     },
     resetPhoneAuthorization() {
@@ -123,11 +119,7 @@ Page(
         return;
       }
       if (!this._phoneAuthorizationReady) {
-        guard.toast(
-          this._phoneAuthorizationFailed
-            ? '登录会话准备失败，请稍后重试'
-            : '正在准备登录，请稍后重试'
-        );
+        guard.toast(this._phoneAuthorizationFailed ? '登录会话准备失败，请稍后重试' : '正在准备登录，请稍后重试');
         if (this._phoneAuthorizationFailed) {
           this.preparePhoneAuthorization().catch(() => {});
         }

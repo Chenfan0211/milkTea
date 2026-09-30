@@ -36,13 +36,13 @@ session_key 存 Redis（12h），不下发给前端
 
 ## 三、新增接口
 
-| 方法 | 路径 | 鉴权 | 说明 |
-|------|------|------|------|
-| POST | `/api/v1/app/auth/wx-login` | 公开 | code 换 token |
-| GET | `/api/v1/app/auth/me` | 需登录 | 当前用户资料 |
-| POST | `/api/v1/app/auth/phone` | 需登录 | 解密绑定手机号 |
-| POST | `/api/v1/app/auth/profile` | 需登录 | 解密更新头像昵称 |
-| POST | `/api/v1/app/auth/location` | 需登录 | 上报定位 |
+| 方法 | 路径                        | 鉴权   | 说明             |
+| ---- | --------------------------- | ------ | ---------------- |
+| POST | `/api/v1/app/auth/wx-login` | 公开   | code 换 token    |
+| GET  | `/api/v1/app/auth/me`       | 需登录 | 当前用户资料     |
+| POST | `/api/v1/app/auth/phone`    | 需登录 | 解密绑定手机号   |
+| POST | `/api/v1/app/auth/profile`  | 需登录 | 解密更新头像昵称 |
+| POST | `/api/v1/app/auth/location` | 需登录 | 上报定位         |
 
 ## 四、鉴权保护范围
 
@@ -57,20 +57,21 @@ session_key 存 Redis（12h），不下发给前端
 
 改造后：**userId 一律从 JWT 解析**，前端传参被忽略或校验。
 
-| 接口 | 改造前 | 改造后 |
-|------|--------|--------|
-| `GET /app/orders` | `?userId=任意` | 从 token 取 |
-| `POST /app/orders` | body 带 userId | 强制覆盖为 token 用户 |
-| `GET /app/orders/{orderNo}` | 无归属校验 | 校验归属，非本人 403 |
-| `GET /app/users/{userId}` | 直接返回他人资料 | 非本人 403 |
-| `GET /app/users/{userId}/coupons` | 可查他人券 | token 取 userId |
-| `POST /app/points/*` | 可替他人签到/兑换 | token 取 userId |
-| `POST /app/withdrawals` | 可替他人提现 | token 取 userId |
-| `POST /app/comments` | 可冒名评论 | token 取 userId |
+| 接口                              | 改造前            | 改造后                |
+| --------------------------------- | ----------------- | --------------------- |
+| `GET /app/orders`                 | `?userId=任意`    | 从 token 取           |
+| `POST /app/orders`                | body 带 userId    | 强制覆盖为 token 用户 |
+| `GET /app/orders/{orderNo}`       | 无归属校验        | 校验归属，非本人 403  |
+| `GET /app/users/{userId}`         | 直接返回他人资料  | 非本人 403            |
+| `GET /app/users/{userId}/coupons` | 可查他人券        | token 取 userId       |
+| `POST /app/points/*`              | 可替他人签到/兑换 | token 取 userId       |
+| `POST /app/withdrawals`           | 可替他人提现      | token 取 userId       |
+| `POST /app/comments`              | 可冒名评论        | token 取 userId       |
 
 ## 六、验证结果
 
 ### 鉴权矩阵（16/16 通过）
+
 ```
 auth/me（后台路径）        status=401 code=8888   ✅ 后台 token 不能访问小程序接口
 mini auth/me              status=200 code=0      ✅
@@ -91,11 +92,14 @@ public member-levels      status=200 code=0      ✅
 ```
 
 ### 真实微信调用验证
+
 ```
 POST /auth/wx-login { code: "invalid_test_code" }
 -> 400 微信登录失败（40029），请重试
 ```
+
 **`40029` 是微信服务端真实返回的错误码**（invalid code），证明：
+
 - 后端成功连通微信 `code2session` 接口
 - AppSecret 配置正确
 - 错误处理链路正常
@@ -103,12 +107,13 @@ POST /auth/wx-login { code: "invalid_test_code" }
 > 真机完整登录需部署到**已备案域名**（微信要求 request 合法域名），本地无法完成。
 
 ### 回归
-| 项目 | 结果 |
-|------|------|
-| 后端 `mvn test` | 16/16 通过 |
-| 数据库一致性校验 | 3/3 通过 |
-| 小程序 `npm run check` | 22 项通过 |
-| 后台 `vue-tsc` | 通过 |
+
+| 项目                   | 结果       |
+| ---------------------- | ---------- |
+| 后端 `mvn test`        | 16/16 通过 |
+| 数据库一致性校验       | 3/3 通过   |
+| 小程序 `npm run check` | 22 项通过  |
+| 后台 `vue-tsc`         | 通过       |
 
 ## 七、本批修复的关键缺陷
 
@@ -122,6 +127,7 @@ POST /auth/wx-login { code: "invalid_test_code" }
 ## 八、改动文件
 
 **后端新增**
+
 - `user/service/WxAuthService.java`（code2session + AES 解密）
 - `user/service/MiniAppAuthService.java`（登录、绑定手机号/头像、定位）
 - `user/controller/MiniAppAuthController.java`
@@ -132,15 +138,18 @@ POST /auth/wx-login { code: "invalid_test_code" }
 - `common/config/WebConfig.java`（拦截器注册）
 
 **后端修改**
+
 - `application.yml`（微信配置，secret 走环境变量）
 - `SecurityConfig.java`（放行 wx-login）
 - `JwtAuthenticationFilter.java`（跳过小程序路径）
 - `AppMarketingController` / `AppOrderController` / `WithdrawalController`（userId 从 token 取）
 
 **前端新增**
+
 - `user-h5/utils/auth.js`（登录态管理）
 
 **前端修改**
+
 - `user-h5/utils/request.js`（自动带 token + 8888 处理）
 - `user-h5/utils/api.js`（接口去 userId 参数，新增 5 个登录接口）
 - `.gitignore`（忽略敏感配置）

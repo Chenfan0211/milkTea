@@ -44,10 +44,10 @@ Page(
         .catch(() => [])
         .then(couponList => {
           const applicableStores = resolveStores(options.couponId, activeStores, couponList).map(store =>
-        Object.assign({}, store, {
-          isFavorite: favoriteStoreIds.indexOf(store.id) !== -1
-        })
-      );
+            Object.assign({}, store, {
+              isFavorite: favoriteStoreIds.indexOf(store.id) !== -1
+            })
+          );
           const firstStore = applicableStores[0] || activeStores[0];
           this.setData({
             couponId: options.couponId || '',
@@ -95,4 +95,3 @@ Page(
     }
   })
 );
-

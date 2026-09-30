@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'TradePayment'
 });
@@ -8,7 +7,14 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney, renderPayChannel, renderDateTime, toTimeRange } from '@/views/_shared/render';
+import {
+  renderTag,
+  statusMap,
+  renderMoney,
+  renderPayChannel,
+  renderDateTime,
+  toTimeRange
+} from '@/views/_shared/render';
 import { retryAdminPayment } from '@/service/api/trade';
 
 const store = useAdminStore();

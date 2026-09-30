@@ -13,8 +13,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 globalThis.getApp = () => ({ globalData: {} });
 globalThis.wx = {
-  showToast() {}, showModal() {}, navigateTo() {}, navigateBack() {},
-  showShareMenu() {}, showLoading() {}, hideLoading() {}
+  showToast() {},
+  showModal() {},
+  navigateTo() {},
+  navigateBack() {},
+  showShareMenu() {},
+  showLoading() {},
+  hideLoading() {}
 };
 
 const apiJs = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');

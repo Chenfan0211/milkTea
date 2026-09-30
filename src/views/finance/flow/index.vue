@@ -67,7 +67,7 @@ const columns: DataTableColumns<any> = [
     minWidth: 180,
     render: (row: any) => {
       const summary = row.itemSummary || '';
-      const spec = row.itemSpec ? `（${row.itemSpec}）` : '' ;
+      const spec = row.itemSpec ? `（${row.itemSpec}）` : '';
       return summary ? summary + spec : '—';
     }
   },

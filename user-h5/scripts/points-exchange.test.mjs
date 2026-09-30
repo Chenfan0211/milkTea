@@ -110,28 +110,23 @@ setPoints(1000);
 
 // 核销：走后端 POST /api/v1/app/gift-cards/verify（按订单号）
 const apiSource = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');
-assert.ok(
-  apiSource.includes("'/api/v1/app/gift-cards/verify'"),
-  'api.js must expose the gift-card verify endpoint'
-);
-assert.ok(
-  apiSource.includes('verifyGiftCardOrder'),
-  'api.js must export verifyGiftCardOrder'
-);
+assert.ok(apiSource.includes("'/api/v1/app/gift-cards/verify'"), 'api.js must expose the gift-card verify endpoint');
+assert.ok(apiSource.includes('verifyGiftCardOrder'), 'api.js must export verifyGiftCardOrder');
 assert.match(apiSource, /function fetchPointsCategories\s*\(/, 'api.js must expose points categories');
-assert.match(apiSource, /function fetchPointsProducts\s*\(\s*category\s*\)/, 'fetchPointsProducts must accept category');
-assert.match(apiSource, /function exchangePointsProduct\s*\(\s*productId\s*,\s*quantity/, 'exchange must accept quantity');
 assert.match(
   apiSource,
-  /data:\s*\{\s*productId\s*,\s*quantity\s*\}/,
-  'exchange must send JSON productId and quantity'
+  /function fetchPointsProducts\s*\(\s*category\s*\)/,
+  'fetchPointsProducts must accept category'
 );
+assert.match(
+  apiSource,
+  /function exchangePointsProduct\s*\(\s*productId\s*,\s*quantity/,
+  'exchange must accept quantity'
+);
+assert.match(apiSource, /data:\s*\{\s*productId\s*,\s*quantity\s*\}/, 'exchange must send JSON productId and quantity');
 
 const pointsSource = fs.readFileSync(path.join(root, 'utils/points.js'), 'utf8');
-assert.ok(
-  !pointsSource.includes('milkTea:exchange:pool'),
-  'verify must not use the local exchange pool anymore'
-);
+assert.ok(!pointsSource.includes('milkTea:exchange:pool'), 'verify must not use the local exchange pool anymore');
 // 兑换核销已迁移到 roles.verifyStoreExchangeByCode -> api.verifyStoreExchange，
 // 不得再误调礼品卡接口或本地拼假数据。
 assert.ok(
@@ -142,16 +137,14 @@ assert.ok(
 // api.js 暴露兑换核销接口（带门店归属）
 const apiSourceVerify = fs.readFileSync(path.join(root, 'utils/api.js'), 'utf8');
 assert.ok(
-  apiSourceVerify.includes('verifyStoreExchange') &&
-    apiSourceVerify.includes('/verify-exchange'),
+  apiSourceVerify.includes('verifyStoreExchange') && apiSourceVerify.includes('/verify-exchange'),
   'api.js must expose the exchange verify endpoint'
 );
 
 // roles.js 提供带门店归属的兑换核销封装
 const rolesSource = fs.readFileSync(path.join(root, 'utils/roles.js'), 'utf8');
 assert.ok(
-  rolesSource.includes('function verifyStoreExchangeByCode') &&
-    rolesSource.includes('verifyStoreExchange'),
+  rolesSource.includes('function verifyStoreExchangeByCode') && rolesSource.includes('verifyStoreExchange'),
   'roles.js must wrap exchange verify with store ownership'
 );
 
@@ -189,10 +182,12 @@ assert.deepEqual(
 const originalCategories = api.fetchPointsCategories;
 const originalProducts = api.fetchPointsProducts;
 const mallProductCalls = [];
-stubApi('fetchPointsCategories', () => Promise.resolve([
-  { code: 'coupon', name: '优惠券区', sort: 1, enabled: 1 },
-  { code: 'pet', name: '宠物公益', sort: 2, enabled: 1 }
-]));
+stubApi('fetchPointsCategories', () =>
+  Promise.resolve([
+    { code: 'coupon', name: '优惠券区', sort: 1, enabled: 1 },
+    { code: 'pet', name: '宠物公益', sort: 2, enabled: 1 }
+  ])
+);
 stubApi('fetchPointsProducts', category => {
   mallProductCalls.push(category);
   return Promise.resolve([
@@ -221,18 +216,30 @@ assert.deepEqual(
 assert.deepEqual(mallProductCalls, [undefined], '初次只应请求全部商品');
 mallDefinition.filterCategory.call(mallPage, { currentTarget: { dataset: { id: 'coupon' } } });
 assert.deepEqual(mallProductCalls, [undefined], '切换分类不得重新请求商品');
-assert.deepEqual(mallPage.data.filteredProducts.map(item => item.id), [9], '切换分类必须本地筛选商品');
+assert.deepEqual(
+  mallPage.data.filteredProducts.map(item => item.id),
+  [9],
+  '切换分类必须本地筛选商品'
+);
 
 mallDefinition.filterCategory.call(mallPage, { currentTarget: { dataset: { id: 'removed' } } });
 assert.equal(mallPage.data.activeCategory, 'all', '当前分类失效时必须自动回到全部');
-assert.deepEqual(mallPage.data.filteredProducts.map(item => item.id), [1, 9], '失效分类回退后必须展示全部商品');
+assert.deepEqual(
+  mallPage.data.filteredProducts.map(item => item.id),
+  [1, 9],
+  '失效分类回退后必须展示全部商品'
+);
 
 stubApi('fetchPointsCategories', () => Promise.reject(new Error('offline')));
 const failedMallPage = createPageInstance(mallDefinition, 'pages/points-mall/points-mall');
 failedMallPage.syncStore = mallDefinition.syncStore;
 await mallDefinition.onLoad.call(failedMallPage, {});
 await delay();
-assert.deepEqual(failedMallPage.data.pointsCategories.map(item => item.id), ['all'], '分类接口失败不得回退固定假分类');
+assert.deepEqual(
+  failedMallPage.data.pointsCategories.map(item => item.id),
+  ['all'],
+  '分类接口失败不得回退固定假分类'
+);
 assert.deepEqual(
   failedMallPage.data.filteredProducts.map(item => item.id),
   [1, 9],
@@ -253,10 +260,12 @@ assert.match(exchangeWxml, /wx:if="\{\{!isCoupon\}\}"/, '优惠券商品必须�
 const exchangeDefinition = loadPage('pages/points-exchange/points-exchange');
 const originalExchange = api.exchangePointsProduct;
 const exchangeCalls = [];
-stubApi('fetchPointsProducts', () => Promise.resolve([
-  { id: 7, code: 'first-product', name: '第一件', points: 10, stock: 8, category: 'pet' },
-  { id: 42, code: 'points-coupon-3', name: '目标商品', points: 20, stock: 5, category: 'pet', purchaseLimit: 5 }
-]));
+stubApi('fetchPointsProducts', () =>
+  Promise.resolve([
+    { id: 7, code: 'first-product', name: '第一件', points: 10, stock: 8, category: 'pet' },
+    { id: 42, code: 'points-coupon-3', name: '目标商品', points: 20, stock: 5, category: 'pet', purchaseLimit: 5 }
+  ])
+);
 stubApi('exchangePointsProduct', (productId, quantity) => {
   exchangeCalls.push([productId, quantity]);
   return Promise.resolve({});
@@ -271,9 +280,9 @@ await exchangeDefinition.doExchange.call(normalExchangePage);
 await delay();
 assert.deepEqual(exchangeCalls.at(-1), [42, 3], '普通商品必须按实际数量兑换');
 
-stubApi('fetchPointsProducts', () => Promise.resolve([
-  { id: 8, code: 'points-coupon-3', name: '3元优惠券', points: 20, stock: 5, category: 'coupon' }
-]));
+stubApi('fetchPointsProducts', () =>
+  Promise.resolve([{ id: 8, code: 'points-coupon-3', name: '3元优惠券', points: 20, stock: 5, category: 'coupon' }])
+);
 const couponExchangePage = createPageInstance(exchangeDefinition, 'pages/points-exchange/points-exchange');
 await exchangeDefinition.onLoad.call(couponExchangePage, { id: '8' });
 await delay();

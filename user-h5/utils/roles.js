@@ -59,8 +59,18 @@ const ROLE_DASHBOARD_META = {
     title: '门店工作台',
     recordsTitle: '今日核销记录',
     actions: [
-      { id: 'verify', label: '核销订单', icon: '/assets/icons/lucide/scan-line.svg', description: '扫码 / 输码 / 订单号核销' },
-      { id: 'products', label: '选品管理', icon: '/assets/icons/lucide/shopping-bag.svg', description: '从运营后台商品中选择门店在售商品' },
+      {
+        id: 'verify',
+        label: '核销订单',
+        icon: '/assets/icons/lucide/scan-line.svg',
+        description: '扫码 / 输码 / 订单号核销'
+      },
+      {
+        id: 'products',
+        label: '选品管理',
+        icon: '/assets/icons/lucide/shopping-bag.svg',
+        description: '从运营后台商品中选择门店在售商品'
+      },
       { id: 'income', label: '每日收益', icon: '/assets/icons/lucide/banknote.svg', description: '含退款冲正后净额' },
       { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '小额即时，大额后台审核' }
     ]
@@ -69,8 +79,18 @@ const ROLE_DASHBOARD_META = {
     title: '投资人工作台',
     recordsTitle: '近月分佣明细',
     actions: [
-      { id: 'invest', label: '点位投资申请', icon: '/assets/icons/lucide/map-pinned.svg', description: '选择点位 → 审核 → 签约' },
-      { id: 'commission', label: '月度分佣', icon: '/assets/icons/lucide/trending-up.svg', description: '查看每月分佣与明细' },
+      {
+        id: 'invest',
+        label: '点位投资申请',
+        icon: '/assets/icons/lucide/map-pinned.svg',
+        description: '选择点位 → 审核 → 签约'
+      },
+      {
+        id: 'commission',
+        label: '月度分佣',
+        icon: '/assets/icons/lucide/trending-up.svg',
+        description: '查看每月分佣与明细'
+      },
       { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '小额即时，大额后台审核' }
     ]
   },
@@ -78,8 +98,18 @@ const ROLE_DASHBOARD_META = {
     title: '资源方工作台',
     recordsTitle: '门店订单提成',
     actions: [
-      { id: 'orders', label: '门店订单', icon: '/assets/icons/lucide/receipt.svg', description: '查看各绑定门店订单记录' },
-      { id: 'income', label: '每日提成', icon: '/assets/icons/lucide/banknote.svg', description: '按门店订单实付金额提成' },
+      {
+        id: 'orders',
+        label: '门店订单',
+        icon: '/assets/icons/lucide/receipt.svg',
+        description: '查看各绑定门店订单记录'
+      },
+      {
+        id: 'income',
+        label: '每日提成',
+        icon: '/assets/icons/lucide/banknote.svg',
+        description: '按门店订单实付金额提成'
+      },
       { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '小额即时，大额后台审核' }
     ]
   }
@@ -193,7 +223,7 @@ function getPendingRoles() {
 function syncRolesFromRemote() {
   return api
     .fetchMyRoles()
-    .then((data) => {
+    .then(data => {
       if (!data || !Array.isArray(data.roles)) return null;
       const local = readStorage();
       const merged = data.roles
@@ -214,11 +244,11 @@ function syncRolesFromRemote() {
         if (item.subjectId != null) subjectMap[item.roleId] = item.subjectId;
         if (item.subjectName) subjectNameMap[item.roleId] = item.subjectName;
       });
-      const currentRoleId = local.currentRoleId && merged.some(
-        item => item.roleId === local.currentRoleId && item.status === ROLE_STATUS_ACTIVE
-      )
-        ? local.currentRoleId
-        : '';
+      const currentRoleId =
+        local.currentRoleId &&
+        merged.some(item => item.roleId === local.currentRoleId && item.status === ROLE_STATUS_ACTIVE)
+          ? local.currentRoleId
+          : '';
       writeStorage({ roles: merged, currentRoleId });
       writeSubjectMap(subjectMap);
       writeSubjectNameMap(subjectNameMap);
@@ -297,8 +327,17 @@ function pad2(value) {
 function formatStamp(timestamp) {
   const date = new Date(timestamp);
   return (
-    date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()) +
-    ' ' + pad2(date.getHours()) + ':' + pad2(date.getMinutes()) + ':' + pad2(date.getSeconds())
+    date.getFullYear() +
+    '-' +
+    pad2(date.getMonth() + 1) +
+    '-' +
+    pad2(date.getDate()) +
+    ' ' +
+    pad2(date.getHours()) +
+    ':' +
+    pad2(date.getMinutes()) +
+    ':' +
+    pad2(date.getSeconds())
   );
 }
 
@@ -447,7 +486,7 @@ function syncWithdrawalsFromRemote(roleId) {
   if (!role || subjectId == null) return Promise.resolve(null);
   return api
     .fetchWithdrawals()
-    .then((page) => {
+    .then(page => {
       const list = page && Array.isArray(page.records) ? page.records : Array.isArray(page) ? page : [];
       const records = list
         .filter(item => item && Number(item.subjectId) === Number(subjectId))
@@ -509,11 +548,12 @@ function syncIncomeFromRemote(roleId) {
   if (!role || subjectId == null) return Promise.resolve(null);
   // 复用工作台缓存里的结算台账，避免同一次进入重复请求
   const cached = remoteWorkbenchCache[subjectId];
-  const fetch = cached && cached.roleId === role
-    ? Promise.resolve(cached.settlements)
-    : api.fetchWorkbenchSettlements(subjectId).catch(() => null);
+  const fetch =
+    cached && cached.roleId === role
+      ? Promise.resolve(cached.settlements)
+      : api.fetchWorkbenchSettlements(subjectId).catch(() => null);
   return fetch
-    .then((settlements) => {
+    .then(settlements => {
       if (!Array.isArray(settlements)) return null;
       remoteIncomeCache[subjectId] = {
         roleId: role,
@@ -565,8 +605,12 @@ function getIncomeData(roleId) {
     today: fenToYuanText(todayFen),
     month: fenToYuanText(overview && overview.totalIncome != null ? overview.totalIncome : 0),
     total: fenToYuanText(overview && overview.totalIncome != null ? overview.totalIncome : 0),
-    pending: fenToYuanText(overview && overview.pendingSettlement != null ? overview.pendingSettlement : sumFen('pending')),
-    settled: fenToYuanText(overview && overview.settleableAmount != null ? overview.settleableAmount : sumFen('settled')),
+    pending: fenToYuanText(
+      overview && overview.pendingSettlement != null ? overview.pendingSettlement : sumFen('pending')
+    ),
+    settled: fenToYuanText(
+      overview && overview.settleableAmount != null ? overview.settleableAmount : sumFen('settled')
+    ),
     trend,
     records
   };
@@ -593,10 +637,7 @@ function syncVerifyFromRemote(roleId) {
   const role = roleId || (getCurrentBusinessRole() || {}).id;
   const subjectId = getCurrentSubjectId();
   if (role !== 'store' || subjectId == null) return Promise.resolve(null);
-  return Promise.all([
-    api.fetchStoreVerifyRecords(subjectId),
-    api.fetchStoreVerifyPool(subjectId)
-  ])
+  return Promise.all([api.fetchStoreVerifyRecords(subjectId), api.fetchStoreVerifyPool(subjectId)])
     .then(([records, pool]) => {
       remoteVerifyData[subjectId] = {
         roleId: role,
@@ -657,7 +698,7 @@ function verifyStoreOrderByCode(code) {
   }
   return api
     .verifyStoreOrder(subjectId, value)
-    .then((result) => {
+    .then(result => {
       // 核销成功后刷新记录与待核销池，避免页面显示过期数据
       return syncVerifyFromRemote(role).then(() => ({
         ok: true,
@@ -698,7 +739,7 @@ function verifyStoreExchangeByCode(code) {
   }
   return api
     .verifyStoreExchange(subjectId, value)
-    .then((result) => {
+    .then(result => {
       // 核销成功后刷新记录与待核销池，避免页面显示过期数据
       return syncVerifyFromRemote(role).then(() => ({
         ok: true,
@@ -733,7 +774,7 @@ function syncResourceFromRemote(roleId) {
   if (role === 'store') {
     return api
       .fetchStoreOrders(subjectId)
-      .then((orders) => {
+      .then(orders => {
         remoteStoreOrdersCache[subjectId] = {
           roleId: role,
           orders: Array.isArray(orders) ? orders : []
@@ -774,12 +815,8 @@ function getResourceOrders(roleId, storeId) {
     nameById[store.id] = store.name;
   });
 
-  const all = cached.orders
-    .map(item => normalizeCommissionOrder(item, nameById[item.storeSubjectId]))
-    .filter(Boolean);
-  const selected = storeId && storeId !== 'all'
-    ? all.filter(item => String(item.storeId) === String(storeId))
-    : all;
+  const all = cached.orders.map(item => normalizeCommissionOrder(item, nameById[item.storeSubjectId])).filter(Boolean);
+  const selected = storeId && storeId !== 'all' ? all.filter(item => String(item.storeId) === String(storeId)) : all;
 
   const groups = stores
     .map(store => {
@@ -959,21 +996,66 @@ function getDashboard(roleId) {
   const metrics = [];
   if (role === 'store') {
     metrics.push(
-      { id: 'today-orders', label: '今日订单', value: String(overview ? overview.todayOrders || 0 : 0), icon: '/assets/icons/lucide/receipt.svg' },
-      { id: 'balance', label: '可提现余额', value: fenToYuanText(overview ? overview.availableBalance : 0), icon: '/assets/icons/lucide/wallet.svg' },
-      { id: 'pending', label: '待结算', value: fenToYuanText(overview ? overview.pendingSettlement : 0), icon: '/assets/icons/lucide/badge-percent.svg' }
+      {
+        id: 'today-orders',
+        label: '今日订单',
+        value: String(overview ? overview.todayOrders || 0 : 0),
+        icon: '/assets/icons/lucide/receipt.svg'
+      },
+      {
+        id: 'balance',
+        label: '可提现余额',
+        value: fenToYuanText(overview ? overview.availableBalance : 0),
+        icon: '/assets/icons/lucide/wallet.svg'
+      },
+      {
+        id: 'pending',
+        label: '待结算',
+        value: fenToYuanText(overview ? overview.pendingSettlement : 0),
+        icon: '/assets/icons/lucide/badge-percent.svg'
+      }
     );
   } else if (role === 'investor') {
     metrics.push(
-      { id: 'totalIncome', label: '累计分佣', value: fenToYuanText(overview ? overview.totalIncome : 0), icon: '/assets/icons/lucide/trending-up.svg' },
-      { id: 'balance', label: '可提现余额', value: fenToYuanText(overview ? overview.availableBalance : 0), icon: '/assets/icons/lucide/wallet.svg' },
-      { id: 'pending', label: '待结算', value: fenToYuanText(overview ? overview.pendingSettlement : 0), icon: '/assets/icons/lucide/badge-percent.svg' }
+      {
+        id: 'totalIncome',
+        label: '累计分佣',
+        value: fenToYuanText(overview ? overview.totalIncome : 0),
+        icon: '/assets/icons/lucide/trending-up.svg'
+      },
+      {
+        id: 'balance',
+        label: '可提现余额',
+        value: fenToYuanText(overview ? overview.availableBalance : 0),
+        icon: '/assets/icons/lucide/wallet.svg'
+      },
+      {
+        id: 'pending',
+        label: '待结算',
+        value: fenToYuanText(overview ? overview.pendingSettlement : 0),
+        icon: '/assets/icons/lucide/badge-percent.svg'
+      }
     );
   } else {
     metrics.push(
-      { id: 'stores', label: '绑定门店', value: String(getResourceBoundStores(role).length) + ' 家', icon: '/assets/icons/lucide/store.svg' },
-      { id: 'totalIncome', label: '累计提成', value: fenToYuanText(overview ? overview.totalIncome : 0), icon: '/assets/icons/lucide/badge-percent.svg' },
-      { id: 'balance', label: '可提现余额', value: fenToYuanText(overview ? overview.availableBalance : 0), icon: '/assets/icons/lucide/wallet.svg' }
+      {
+        id: 'stores',
+        label: '绑定门店',
+        value: String(getResourceBoundStores(role).length) + ' 家',
+        icon: '/assets/icons/lucide/store.svg'
+      },
+      {
+        id: 'totalIncome',
+        label: '累计提成',
+        value: fenToYuanText(overview ? overview.totalIncome : 0),
+        icon: '/assets/icons/lucide/badge-percent.svg'
+      },
+      {
+        id: 'balance',
+        label: '可提现余额',
+        value: fenToYuanText(overview ? overview.availableBalance : 0),
+        icon: '/assets/icons/lucide/wallet.svg'
+      }
     );
   }
 
@@ -1020,7 +1102,7 @@ function getBoundStore(roleId) {
 function syncWithdrawRuleFromRemote() {
   return api
     .fetchWithdrawRule()
-    .then((rule) => {
+    .then(rule => {
       remoteWithdrawRule = rule || null;
       return remoteWithdrawRule;
     })
@@ -1034,19 +1116,27 @@ function syncWithdrawRuleFromRemote() {
  * 说明文案取 app_config.withdraw_rule（运营可改），接口不可用时用内置兜底。
  */
 function getWithdrawRule() {
-  const config = remoteIncomeRuleConfig && remoteIncomeRuleConfig.withdrawRule
-    ? remoteIncomeRuleConfig.withdrawRule
-    : null;
-  const limitFen = remoteWithdrawRule && remoteWithdrawRule.instantLimit != null
-    ? Number(remoteWithdrawRule.instantLimit)
-    : null;
-  const instantLimit = limitFen != null ? '¥' + (limitFen / 100).toFixed(2) : (config && config.instantLimit) || '¥100.00';
+  const config =
+    remoteIncomeRuleConfig && remoteIncomeRuleConfig.withdrawRule ? remoteIncomeRuleConfig.withdrawRule : null;
+  const limitFen =
+    remoteWithdrawRule && remoteWithdrawRule.instantLimit != null ? Number(remoteWithdrawRule.instantLimit) : null;
+  const instantLimit =
+    limitFen != null ? '¥' + (limitFen / 100).toFixed(2) : (config && config.instantLimit) || '¥100.00';
   return {
     instantLimit,
-    instantNote: (remoteWithdrawRule && remoteWithdrawRule.instantNote) || (config && config.instantNote) || '小额即时到账，无需人工审核',
-    auditNote: (remoteWithdrawRule && remoteWithdrawRule.auditNote) || (config && config.auditNote) || '超过即时额度需后台审核，审核通过后出款',
+    instantNote:
+      (remoteWithdrawRule && remoteWithdrawRule.instantNote) ||
+      (config && config.instantNote) ||
+      '小额即时到账，无需人工审核',
+    auditNote:
+      (remoteWithdrawRule && remoteWithdrawRule.auditNote) ||
+      (config && config.auditNote) ||
+      '超过即时额度需后台审核，审核通过后出款',
     feeNote: (config && config.feeNote) || '提现手续费与单笔上限由后台配置',
-    failureNote: (remoteWithdrawRule && remoteWithdrawRule.failureNote) || (config && config.failureNote) || '失败或驳回将自动解冻对应金额',
+    failureNote:
+      (remoteWithdrawRule && remoteWithdrawRule.failureNote) ||
+      (config && config.failureNote) ||
+      '失败或驳回将自动解冻对应金额',
     items: [
       {
         id: 'instant',

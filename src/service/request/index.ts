@@ -60,7 +60,10 @@ export const request = createFlatRequest(
 
       // when the backend response code is in `modalLogoutCodes`, it means the user will be logged out by displaying a modal
       const modalLogoutCodes = import.meta.env.VITE_SERVICE_MODAL_LOGOUT_CODES?.split(',') || [];
-      if (modalLogoutCodes.includes(responseCode) && !request.state.errMsgStack?.includes(getBackendMessage(response.data))) {
+      if (
+        modalLogoutCodes.includes(responseCode) &&
+        !request.state.errMsgStack?.includes(getBackendMessage(response.data))
+      ) {
         request.state.errMsgStack = [...(request.state.errMsgStack || []), getBackendMessage(response.data)];
 
         // prevent the user from refreshing the page

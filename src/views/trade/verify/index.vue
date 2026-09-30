@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 defineOptions({
   name: 'TradeVerify'
 });
@@ -59,8 +58,16 @@ const searchFields: SearchField[] = [
 const toolbar: RowAction[] = [];
 
 const resultLabel = (v: string) =>
-  (({ SUCCESS: '核销成功', success: '核销成功', FAIL: '核销失败', failed: '核销失败', rejected: '重复拦截' }) as Record<string, string>)[v] ?? v;
-const typeLabel = (v: string) => ({ ORDER: '订单', EXCHANGE: '兑换' } as Record<string, string>)[v] ?? v;
+  (
+    ({
+      SUCCESS: '核销成功',
+      success: '核销成功',
+      FAIL: '核销失败',
+      failed: '核销失败',
+      rejected: '重复拦截'
+    }) as Record<string, string>
+  )[v] ?? v;
+const typeLabel = (v: string) => (({ ORDER: '订单', EXCHANGE: '兑换' }) as Record<string, string>)[v] ?? v;
 
 /** 核销记录详情弹层字段（原 /trade/verify-detail 页面口径） */
 const detailGroups: DetailGroup[] = [
@@ -114,4 +121,3 @@ const config: AdminListConfig = {
 </template>
 
 <style scoped></style>
-

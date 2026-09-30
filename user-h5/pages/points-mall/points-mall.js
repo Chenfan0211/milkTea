@@ -8,11 +8,7 @@ const ALL_CATEGORY = { id: 'all', label: '全部' };
 
 function normalizeCategories(list) {
   const enabledCategories = (Array.isArray(list) ? list : [])
-    .filter(item => item && (
-      item.enabled === undefined ||
-      item.enabled === true ||
-      Number(item.enabled) === 1
-    ))
+    .filter(item => item && (item.enabled === undefined || item.enabled === true || Number(item.enabled) === 1))
     .map(item => {
       const id = String(item.code || item.id || '');
       if (!id || id === 'all') return null;
@@ -50,23 +46,19 @@ Page(
       }
       const categoriesRequest = api.fetchPointsCategories().catch(() => []);
       const productsRequest = api.fetchPointsProducts().catch(() => []);
-      return Promise.all([
-        categoriesRequest,
-        productsRequest
-      ])
-        .then(([categories, products]) => {
-          const pointsCategories = normalizeCategories(categories);
-          const list = Array.isArray(products) ? products : [];
-          const activeCategory = pointsCategories.some(item => item.id === this.data.activeCategory)
-            ? this.data.activeCategory
-            : 'all';
-          this.setData({
-            pointsCategories,
-            pointsProducts: list,
-            filteredProducts: filterProductsByCategory(list, activeCategory),
-            activeCategory
-          });
+      return Promise.all([categoriesRequest, productsRequest]).then(([categories, products]) => {
+        const pointsCategories = normalizeCategories(categories);
+        const list = Array.isArray(products) ? products : [];
+        const activeCategory = pointsCategories.some(item => item.id === this.data.activeCategory)
+          ? this.data.activeCategory
+          : 'all';
+        this.setData({
+          pointsCategories,
+          pointsProducts: list,
+          filteredProducts: filterProductsByCategory(list, activeCategory),
+          activeCategory
         });
+      });
     },
     onShow() {
       const app = getApp();
@@ -89,9 +81,7 @@ Page(
     },
     filterCategory(event) {
       const id = String((event.currentTarget.dataset && event.currentTarget.dataset.id) || 'all');
-      const activeCategory = id === 'all' || this.data.pointsCategories.some(item => item.id === id)
-        ? id
-        : 'all';
+      const activeCategory = id === 'all' || this.data.pointsCategories.some(item => item.id === id) ? id : 'all';
       this.setData({
         activeCategory,
         filteredProducts: filterProductsByCategory(this.data.pointsProducts, activeCategory)

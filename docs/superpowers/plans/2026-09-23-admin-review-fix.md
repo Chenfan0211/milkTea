@@ -13,7 +13,8 @@
 ```js
 if (!Array.isArray(data.dictEntries) || data.dictEntries.length === 0) data.dictEntries = defaults.dictEntries || [];
 if (!Array.isArray(data.fundPool) || data.fundPool.length === 0) data.fundPool = defaults.fundPool || [];
-if (!Array.isArray(data.subjectAccounts) || data.subjectAccounts.length === 0) data.subjectAccounts = defaults.subjectAccounts || [];
+if (!Array.isArray(data.subjectAccounts) || data.subjectAccounts.length === 0)
+  data.subjectAccounts = defaults.subjectAccounts || [];
 ```
 
 **问题**：库返回空时**悄悄塞回前端假数据**，直接违背「选项 A：失败不回退」，
@@ -29,11 +30,11 @@ if (!Array.isArray(data.subjectAccounts) || data.subjectAccounts.length === 0) d
 
 ### 【高】遗漏 3：4 个绑定动作纯本地，但后端已有接口
 
-| 动作 | 现状 | 后端接口 |
-|------|------|---------|
-| `bindUserRole` | 纯本地 | `bindUserRole` ✅ |
-| `unbindUserRole` | 纯本地 | `unbindUserRole` ✅ |
-| `bindSubjectUser` | 纯本地 | `bindSubjectUser` ✅ |
+| 动作                | 现状   | 后端接口               |
+| ------------------- | ------ | ---------------------- |
+| `bindUserRole`      | 纯本地 | `bindUserRole` ✅      |
+| `unbindUserRole`    | 纯本地 | `unbindUserRole` ✅    |
+| `bindSubjectUser`   | 纯本地 | `bindSubjectUser` ✅   |
 | `unbindSubjectUser` | 纯本地 | `unbindSubjectUser` ✅ |
 
 **后果**：门店/渠道/投资人/用户页的绑定操作**刷新即丢**。
@@ -70,25 +71,25 @@ L1625：接口未返回时塞死配置。
 
 ## 二、执行计划
 
-| 步骤 | 内容 |
-|------|------|
-| 1 | 删 `migrate()` 的 3 处 defaults 回填 + `referralConfig` 默认值 |
-| 2 | `saveSignInRule` / `saveReferralConfig` 改 async 先接口后本地 |
-| 3 | 4 个绑定动作接后端接口（含参数映射） |
-| 4 | `enableSplitRule` 改 async + 失败抛出 |
-| 5 | 后端新增管理端代提现接口；前端 `applyWithdraw` 接上 |
-| 6 | `orderIncome` 移除前端手动入账（后端核销自动分账） |
-| 7 | 补齐 14 处页面 await |
-| 8 | 验证：typecheck + 逐项实测 + 34 页回归 |
+| 步骤 | 内容                                                           |
+| ---- | -------------------------------------------------------------- |
+| 1    | 删 `migrate()` 的 3 处 defaults 回填 + `referralConfig` 默认值 |
+| 2    | `saveSignInRule` / `saveReferralConfig` 改 async 先接口后本地  |
+| 3    | 4 个绑定动作接后端接口（含参数映射）                           |
+| 4    | `enableSplitRule` 改 async + 失败抛出                          |
+| 5    | 后端新增管理端代提现接口；前端 `applyWithdraw` 接上            |
+| 6    | `orderIncome` 移除前端手动入账（后端核销自动分账）             |
+| 7    | 补齐 14 处页面 await                                           |
+| 8    | 验证：typecheck + 逐项实测 + 34 页回归                         |
 
 ## 三、风险
 
-| 项 | 说明 |
-|----|------|
-| 服务中断 | 步骤 5 需重建 server 镜像 |
-| **移除手动入账** | 属行为变更，需确认无人在用（当前为演示逻辑） |
-| 绑定关系 | 步骤 3 改真实绑定，操作不可逆（有解绑可回退） |
-| 数据单位 | `orderIncome`/`applyWithdraw` 原用「元」，后端用「分」，接入时须换算 |
+| 项               | 说明                                                                 |
+| ---------------- | -------------------------------------------------------------------- |
+| 服务中断         | 步骤 5 需重建 server 镜像                                            |
+| **移除手动入账** | 属行为变更，需确认无人在用（当前为演示逻辑）                         |
+| 绑定关系         | 步骤 3 改真实绑定，操作不可逆（有解绑可回退）                        |
+| 数据单位         | `orderIncome`/`applyWithdraw` 原用「元」，后端用「分」，接入时须换算 |
 
 ## 四、验收标准
 

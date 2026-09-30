@@ -233,7 +233,7 @@
 }
 
 .category-item.is-active {
-  background: #FFFFFF;
+  background: #ffffff;
 }
 
 .category-item.is-active .category-item__label {

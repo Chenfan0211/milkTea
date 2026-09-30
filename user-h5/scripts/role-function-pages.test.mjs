@@ -1154,8 +1154,7 @@ assert.ok(
 );
 // 「所属菜单」按产品决策不再展示，详情页只保留商品编号与分类
 assert.ok(
-  productDetailWxml.includes('{{product.id}}') &&
-    productDetailWxml.includes('{{product.categoryLabel}}'),
+  productDetailWxml.includes('{{product.id}}') && productDetailWxml.includes('{{product.categoryLabel}}'),
   'product detail must render id and category'
 );
 assert.ok(

@@ -45,7 +45,6 @@ function parseBirthday(value) {
   return { year: parts[0], month: parts[1], day: parts[2] };
 }
 
-
 Page(
   withShare({
     data: {

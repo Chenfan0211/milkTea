@@ -18,14 +18,41 @@ globalThis.getApp = () => ({ globalData: {} });
 
 const page1 = {
   records: [
-    { id: 1, orderNo: 'A1', category: 'store', status: 'PAID', payStatus: 'PAID', totalAmount: 1000, createTime: '2026-09-26 10:00:00', items: [{ productId: 'p', name: '昨天饮品', unitPrice: 1000, quantity: 1 }] },
-    { id: 2, orderNo: 'A2', category: 'store', status: 'PAID', payStatus: 'PAID', totalAmount: 1000, createTime: '2026-09-27 10:00:00', items: [{ productId: 'p', name: '今天饮品', unitPrice: 1000, quantity: 1 }] }
+    {
+      id: 1,
+      orderNo: 'A1',
+      category: 'store',
+      status: 'PAID',
+      payStatus: 'PAID',
+      totalAmount: 1000,
+      createTime: '2026-09-26 10:00:00',
+      items: [{ productId: 'p', name: '昨天饮品', unitPrice: 1000, quantity: 1 }]
+    },
+    {
+      id: 2,
+      orderNo: 'A2',
+      category: 'store',
+      status: 'PAID',
+      payStatus: 'PAID',
+      totalAmount: 1000,
+      createTime: '2026-09-27 10:00:00',
+      items: [{ productId: 'p', name: '今天饮品', unitPrice: 1000, quantity: 1 }]
+    }
   ],
   total: 3
 };
 const page2 = {
   records: [
-    { id: 3, orderNo: 'A3', category: 'store', status: 'PAID', payStatus: 'PAID', totalAmount: 1000, createTime: '2026-09-27 11:00:00', items: [{ productId: 'p', name: '今天第二杯', unitPrice: 1000, quantity: 1 }] }
+    {
+      id: 3,
+      orderNo: 'A3',
+      category: 'store',
+      status: 'PAID',
+      payStatus: 'PAID',
+      totalAmount: 1000,
+      createTime: '2026-09-27 11:00:00',
+      items: [{ productId: 'p', name: '今天第二杯', unitPrice: 1000, quantity: 1 }]
+    }
   ],
   total: 3
 };

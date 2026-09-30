@@ -44,7 +44,9 @@ const couponOptions = computed<SelectOption[]>(() =>
 );
 
 function categoryByCode(code: any): any {
-  return store.pointsCategories.find((category: any) => !category.deleted && String(category.code || '') === String(code || ''));
+  return store.pointsCategories.find(
+    (category: any) => !category.deleted && String(category.code || '') === String(code || '')
+  );
 }
 
 function isCouponCategory(code: any): boolean {

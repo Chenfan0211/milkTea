@@ -116,5 +116,5 @@ module.exports = {
   currentPointsSeq,
   getPoints,
   notifyPointsChanged,
-  setPoints,
+  setPoints
 };

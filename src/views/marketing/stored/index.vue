@@ -189,7 +189,12 @@ const config: AdminListConfig = {
     <AdminListPage ref="listRef" :config="config" />
 
     <!-- 新增 / 编辑套餐：金额 + 赠送券 -->
-    <NModal v-model:show="formVisible" preset="card" :title="editingRow ? '编辑储值套餐' : '新增储值套餐'" class="w-680px">
+    <NModal
+      v-model:show="formVisible"
+      preset="card"
+      :title="editingRow ? '编辑储值套餐' : '新增储值套餐'"
+      class="w-680px"
+    >
       <div class="modal-body">
         <NForm label-placement="left" :label-width="100">
           <NFormItem label="套餐金额(元)">
@@ -209,7 +214,13 @@ const config: AdminListConfig = {
     <!-- 全局使用说明（所有套餐共用一份） -->
     <NModal v-model:show="usageVisible" preset="card" title="使用说明（所有套餐共用）" class="w-680px">
       <div class="modal-body">
-        <NInput v-model:value="usageText" type="textarea" :rows="8" placeholder="每行一条使用说明" :disabled="usageLoading" />
+        <NInput
+          v-model:value="usageText"
+          type="textarea"
+          :rows="8"
+          placeholder="每行一条使用说明"
+          :disabled="usageLoading"
+        />
         <div class="mt-8px text-12px color-#9B9B96">每行一条，保存时自动按换行拆分；所有储值套餐共用这份说明</div>
         <div class="flex flex-wrap justify-end gap-12px mt-20px">
           <NButton @click="usageVisible = false">取消</NButton>

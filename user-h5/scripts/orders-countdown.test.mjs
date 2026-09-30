@@ -80,11 +80,7 @@ orders.setOrdersForTest([pendingOrder(20 * 60)]);
 orders.tickOrderCountdowns(NOW);
 list = orders.getOrders(NOW);
 assert.equal(list[0].remainingSeconds, 0, '超时后剩余时间必须归 0');
-assert.equal(
-  list[0].orderStatus,
-  'pending_payment',
-  '前端不得擅自把超时订单改成已取消（超时与否由后端权威判定）'
-);
+assert.equal(list[0].orderStatus, 'pending_payment', '前端不得擅自把超时订单改成已取消（超时与否由后端权威判定）');
 assert.equal(list[0].statusText, '待支付', '超时订单在前端仍按后端状态展示');
 assert.equal(list[0].countdownText, '00:00', '超时后倒计时显示 00:00');
 
@@ -103,10 +99,7 @@ assert.equal(orders.parseDateTime(''), null, '空值必须返回 null');
 assert.equal(orders.parseDateTime('not-a-date'), null, '非法时间必须返回 null');
 
 // 8. 缺创建时间时安全兜底（不抛错）
-const noTime = orders.decorateOrder(
-  { id: 'o-notime', orderStatus: 'pending_payment', status: '待支付' },
-  NOW
-);
+const noTime = orders.decorateOrder({ id: 'o-notime', orderStatus: 'pending_payment', status: '待支付' }, NOW);
 assert.equal(noTime.remainingSeconds, 0, '缺创建时间时剩余时间必须安全归 0');
 assert.equal(noTime.countdownText, '00:00', '缺创建时间时倒计时显示 00:00');
 
@@ -120,10 +113,7 @@ assert.ok(
 
 // 10. 详情页必须走后端单查（修复「从其他入口进入无数据」）
 const detailJs = fs.readFileSync(path.join(root, 'pages/order-detail/order-detail.js'), 'utf8');
-assert.ok(
-  detailJs.includes('fetchOrderFromRemote'),
-  '订单详情页必须优先请求后端单查，而非只读本地镜像'
-);
+assert.ok(detailJs.includes('fetchOrderFromRemote'), '订单详情页必须优先请求后端单查，而非只读本地镜像');
 
 console.log('待支付倒计时推算、超时不误杀与详情页取数测试通过');
 
@@ -152,16 +142,8 @@ assert.equal(
 );
 
 // 12. 纯数字入参视为数据库主键，不能当订单号使用（否则必然 404）
-assert.equal(
-  orders.resolveOrderNo(null, '123'),
-  '',
-  '纯数字主键不得当作订单号请求详情接口'
-);
-assert.equal(
-  orders.resolveOrderNo(null, 'WX202609250933406031'),
-  'WX202609250933406031',
-  '带业务前缀的订单号必须保留'
-);
+assert.equal(orders.resolveOrderNo(null, '123'), '', '纯数字主键不得当作订单号请求详情接口');
+assert.equal(orders.resolveOrderNo(null, 'WX202609250933406031'), 'WX202609250933406031', '带业务前缀的订单号必须保留');
 assert.equal(orders.resolveOrderNo(null, ''), '', '空入参必须返回空串');
 
 // 13. getOrderById 必须同时支持主键与订单号两种入口
@@ -178,15 +160,14 @@ orders.setOrdersForTest([
   }
 ]);
 assert.ok(orders.getOrderById('123'), '按数据库主键必须能查到订单');
-assert.ok(
-  orders.getOrderById('WX202609250933406031'),
-  '按订单号必须能查到订单（分享 / 消息入口传的是订单号）'
-);
+assert.ok(orders.getOrderById('WX202609250933406031'), '按订单号必须能查到订单（分享 / 消息入口传的是订单号）');
 
 // 14. 本地已有明细时不得再发请求（避免详情页多余的 404）
 const detailSource = fs.readFileSync(path.join(root, 'utils/orders.js'), 'utf8');
 assert.ok(
-  /if \(local && Array\.isArray\(local\.items\) && local\.items\.length\) return Promise\.resolve\(local\)/.test(detailSource),
+  /if \(local && Array\.isArray\(local\.items\) && local\.items\.length\) return Promise\.resolve\(local\)/.test(
+    detailSource
+  ),
   '本地镜像已命中且有明细时必须直接返回，不再请求后端'
 );
 
@@ -273,10 +254,7 @@ orders.setOrdersForTest([
   }
 ]);
 const paidOrder = orders.getOrderById('o-method-paid', NOW);
-assert.ok(
-  /[\u4e00-\u9fa5]/.test(paidOrder.payMethodText),
-  '支付方式必须为中文，不得出现英文枚举'
-);
+assert.ok(/[\u4e00-\u9fa5]/.test(paidOrder.payMethodText), '支付方式必须为中文，不得出现英文枚举');
 assert.equal(paidOrder.payMethodText, '微信支付', 'WXPAY 必须显示为「微信支付」');
 
 // 18.1 储值余额支付的订单必须显示「储值余额」，不得因 payStatus=PAID 被说成「微信支付」
@@ -316,11 +294,7 @@ orders.setOrdersForTest([
   )
 ]);
 const storedValueOrder = orders.getOrderById('sv-1', NOW);
-assert.equal(
-  storedValueOrder.payMethodText,
-  '储值余额',
-  '储值充值订单必须显示「储值余额」'
-);
+assert.equal(storedValueOrder.payMethodText, '储值余额', '储值充值订单必须显示「储值余额」');
 
 // 18.3 已支付但后端未下发渠道时，按默认「微信支付」展示（不得为空）
 orders.setOrdersForTest([

@@ -7,7 +7,9 @@ const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 globalThis.wx = {
-  getStorageSync() { return ''; },
+  getStorageSync() {
+    return '';
+  },
   setStorageSync() {},
   removeStorageSync() {}
 };

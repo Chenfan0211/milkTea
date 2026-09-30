@@ -86,8 +86,7 @@ Page(
       this.updateSummary(quantity);
     },
     syncBalance(force) {
-      const render = () =>
-        this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
+      const render = () => this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
       // 支付成功后必须拉后端最新余额，不能只读本地缓存（否则显示充值前的旧值）
       if (force) {
         return refreshUserProfileFromRemote().then(render).catch(render);
@@ -142,12 +141,10 @@ Page(
       const orderNos = [];
       const createNext = index => {
         if (index >= quantity) return Promise.resolve(orderNos);
-        return api
-          .createStoredValueOrder(selectedPackage.id)
-          .then(order => {
-            orderNos.push(order.orderNo);
-            return createNext(index + 1);
-          });
+        return api.createStoredValueOrder(selectedPackage.id).then(order => {
+          orderNos.push(order.orderNo);
+          return createNext(index + 1);
+        });
       };
 
       createNext(0)
@@ -258,5 +255,3 @@ Page(
     }
   })
 );
-
-

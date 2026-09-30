@@ -88,15 +88,12 @@ assert.deepEqual(colorLiterals, [], '公共门店卡不得写死品牌颜色');
 assert.ok(
   // 状态行只承载营业/排队文案（如「现在下单，立即制作」），
   // 不得退回「可外卖 / 仅自提」这类取餐方式标签。
-  componentWxml.includes('store.statusText') &&
-    !componentWxml.includes('可外卖') &&
-    !componentWxml.includes('仅自提'),
+  componentWxml.includes('store.statusText') && !componentWxml.includes('可外卖') && !componentWxml.includes('仅自提'),
   '公共门店卡状态行不得显示可外卖或仅自提标签'
 );
 const storeMockSource = fs.readFileSync(path.join(root, 'data/mock.js'), 'utf8');
 assert.ok(
-  !storeMockSource.includes("statusText: '可外卖'") &&
-    !storeMockSource.includes("statusText: '仅自提'"),
+  !storeMockSource.includes("statusText: '可外卖'") && !storeMockSource.includes("statusText: '仅自提'"),
   '门店 Mock 不得继续保留可外卖或仅自提状态字段'
 );
 

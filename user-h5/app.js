@@ -54,8 +54,7 @@ App({
     if (!Array.isArray(this.globalData.pointsListeners)) this.globalData.pointsListeners = [];
     this.globalData.pointsListeners.push(listener);
     return () => {
-      this.globalData.pointsListeners = (this.globalData.pointsListeners || [])
-        .filter(item => item !== listener);
+      this.globalData.pointsListeners = (this.globalData.pointsListeners || []).filter(item => item !== listener);
     };
   },
 
@@ -66,9 +65,7 @@ App({
    */
   publishPointsChanged(points, source) {
     this.globalData.points = points;
-    const listeners = Array.isArray(this.globalData.pointsListeners)
-      ? this.globalData.pointsListeners.slice()
-      : [];
+    const listeners = Array.isArray(this.globalData.pointsListeners) ? this.globalData.pointsListeners.slice() : [];
     listeners.forEach(listener => {
       try {
         listener(points, source || 'unknown');
@@ -113,5 +110,3 @@ App({
     handleAppHide();
   }
 });
-
-
