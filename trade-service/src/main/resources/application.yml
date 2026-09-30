@@ -80,7 +80,7 @@ app:
   # 订单超时关单兜底扫描（P0：不依赖 MQ 的最终兜底，每分钟扫一次超 15 分钟未支付的 CREATED 订单）
   order-timeout-scan:
     enabled: true
-    cron: "0 * * * * ?"
+    cron: '0 * * * * ?'
     batch-size: 200
   mq:
     order-timeout-ms: ${MQ_ORDER_TIMEOUT_MS:900000}
@@ -143,6 +143,8 @@ app:
       # 回调地址必须是已备案的 https 域名（微信硬性要求）
       notify-url: ${WXPAY_NOTIFY_URL:}
       refund-notify-url: ${WXPAY_REFUND_NOTIFY_URL:https://api.wulingshiguang.top/api/v1/app/payments/wxpay/refund-notify}
+      # 商家转账到零钱结果通知地址（第 16 期提现对接）
+      payout-notify-url: ${WXPAY_PAYOUT_NOTIFY_URL:https://api.wulingshiguang.top/api/v1/app/payout/notify}
       # API 基地址；可用本地「假微信服务端」覆盖，做无商户号的端到端验证
       api-base-url: ${WXPAY_API_BASE_URL:https://api.mch.weixin.qq.com}
       # 回调时间戳允许漂移窗口（秒），防重放
@@ -168,4 +170,4 @@ logging:
     REQUEST: INFO
   # 日志输出格式：带 traceId 便于串联同一次调用的多行日志
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n'

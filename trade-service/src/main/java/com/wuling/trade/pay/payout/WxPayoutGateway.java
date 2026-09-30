@@ -79,6 +79,9 @@ public class WxPayoutGateway implements PayoutGateway {
             request.setTotalAmount(amountFen);
             request.setTotalNum(1);
             request.setTransferDetailList(List.of(detail));
+            if (StringUtils.hasText(properties.getPayoutNotifyUrl())) {
+                request.setNotifyUrl(properties.getPayoutNotifyUrl());
+            }
 
             InitiateBatchTransferResponse response = transferBatchService.initiateBatchTransfer(request);
             // 受理成功：batchId 为微信批次号

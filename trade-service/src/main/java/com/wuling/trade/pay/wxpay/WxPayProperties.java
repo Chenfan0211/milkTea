@@ -74,6 +74,9 @@ public class WxPayProperties {
     /** 退款结果通知地址：必须是已备案的 https 域名 */
     private String refundNotifyUrl;
 
+    /** 商家转账到零钱结果通知地址：必须是已备案的 https 域名 */
+    private String payoutNotifyUrl;
+
     /** 微信支付 API 基地址，可覆盖以便本地用「假微信服务端」做端到端验证 */
     private String apiBaseUrl = "https://api.mch.weixin.qq.com";
 
@@ -261,6 +264,14 @@ public class WxPayProperties {
 
     public void setRefundNotifyUrl(String refundNotifyUrl) {
         this.refundNotifyUrl = refundNotifyUrl;
+    }
+
+    public String getPayoutNotifyUrl() {
+        return payoutNotifyUrl;
+    }
+
+    public void setPayoutNotifyUrl(String payoutNotifyUrl) {
+        this.payoutNotifyUrl = payoutNotifyUrl;
     }
 
     public String getApiBaseUrl() {

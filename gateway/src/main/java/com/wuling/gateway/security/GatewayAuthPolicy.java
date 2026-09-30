@@ -49,6 +49,8 @@ public class GatewayAuthPolicy {
             // 保护手段为「RSA 验签 + AES-GCM 解密 + 金额比对 + 时间戳窗口」，
             // 且该接口仅在 app.pay.channel=wxpay 时注册（mock 阶段不存在）。
             "/api/v1/app/payments/wxpay/notify",
+            // 商家转账到零钱结果通知（第 16 期提现对接）：调用方是微信服务器，无 JWT
+            "/api/v1/app/payout/notify",
             // 微信退款结果通知：同样由 RSA 验签 + AES-GCM 解密保护，调用方无 JWT。
             "/api/v1/app/payments/wxpay/refund-notify",
             // 健康检查
