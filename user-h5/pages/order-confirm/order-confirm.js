@@ -6,6 +6,7 @@ const { resolveStoreCatalog, selectStore: persistSelectedStore } = require('../.
 const { getUserProfile, refreshUserProfileFromRemote } = require('../../utils/user-profile');
 const { calcMemberPrice } = require('../../utils/member-level');
 const { refreshCouponsFromRemote } = require('../../utils/coupons');
+const { requestOrderPayment } = require('../../utils/order-payment');
 
 function roundMoney(value) {
   return Math.round(value * 10) / 10;
@@ -444,17 +445,39 @@ Page(
         .createOrder(payload)
         .then(order => {
           const app = getApp();
-          wx.hideLoading();
           app.globalData.pendingOrder = order;
-          this.markSettledCart();
-          wx.showToast({ title: '下单成功', icon: 'success' });
-          setTimeout(() => {
-            wx.redirectTo({ url: '/pages/pay-success/pay-success?orderNo=' + order.orderNo });
-          }, 800);
+          const summary = calculateOrder(this.data.items, this.data.paymentMethod, this.data.selectedCoupon);
+          // 建单成功后立即发起真实支付（mock 通道下后台直接返回已支付，跳过收银台）
+          wx.showLoading({ title: '支付中', mask: true });
+          return requestOrderPayment(order.orderNo, summary.paidAmountFen).then(result =>
+            Object.assign({ order }, result)
+          );
+        })
+        .then(result => {
+          wx.hideLoading();
+          if (result.paid) {
+            this.markSettledCart();
+            wx.showToast({ title: '支付成功', icon: 'success' });
+            setTimeout(() => {
+              wx.redirectTo({ url: '/pages/pay-success/pay-success?orderNo=' + result.order.orderNo });
+            }, 800);
+          } else if (result.canceled) {
+            // 用户主动取消收银台：订单保留待支付，引导去订单页继续支付
+            wx.showToast({ title: '支付已取消', icon: 'none' });
+            setTimeout(() => {
+              wx.redirectTo({ url: '/pages/orders/orders' });
+            }, 800);
+          } else {
+            // 未支付成功（超时/失败），跳到订单详情让用户可继续支付
+            wx.showToast({ title: '支付未完成，可在订单中继续支付', icon: 'none' });
+            setTimeout(() => {
+              wx.redirectTo({ url: '/pages/order-detail/order-detail?orderNo=' + result.order.orderNo });
+            }, 800);
+          }
         })
         .catch(error => {
           wx.hideLoading();
-          wx.showToast({ title: (error && error.message) || '下单失败', icon: 'none' });
+          wx.showToast({ title: (error && error.message) || '支付失败', icon: 'none' });
         });
     },
 

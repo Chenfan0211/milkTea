@@ -4,8 +4,10 @@ const {
   cancelPaidOrderById,
   fetchOrderFromRemote,
   getOrderById,
+  resolveOrderNo,
   tickOrderCountdowns
 } = require('../../utils/orders');
+const { requestOrderPayment } = require('../../utils/order-payment');
 const { verifyExchange } = require('../../utils/points');
 
 Page(
@@ -117,7 +119,31 @@ Page(
       });
     },
     handlePay() {
-      wx.showToast({ title: '支付功能暂未接入', icon: 'none' });
+      const order = this.data.order || {};
+      const orderNo = resolveOrderNo(order, this.data.orderId);
+      const paidAmount = Number(order.paidAmount || (order.orderInfo && order.orderInfo.paidAmount) || 0);
+      if (!orderNo) {
+        wx.showToast({ title: '订单号缺失，无法支付', icon: 'none' });
+        return;
+      }
+      wx.showLoading({ title: '支付中', mask: true });
+      requestOrderPayment(orderNo, paidAmount)
+        .then(result => {
+          wx.hideLoading();
+          if (result.paid) {
+            wx.showToast({ title: '支付成功', icon: 'success' });
+            this.refreshOrder();
+          } else if (result.canceled) {
+            wx.showToast({ title: '支付已取消', icon: 'none' });
+          } else {
+            wx.showToast({ title: '支付未完成，请重试', icon: 'none' });
+            this.refreshOrder();
+          }
+        })
+        .catch(error => {
+          wx.hideLoading();
+          wx.showToast({ title: (error && error.message) || '支付失败', icon: 'none' });
+        });
     },
     handleReorder() {
       wx.showToast({ title: '再次购买暂未接入', icon: 'none' });
