@@ -122,6 +122,11 @@ function getCoupons() {
   return cloneCoupons(readStorageCoupons() || []);
 }
 
+/** 当前可用券数（首页「优惠券N张」展示用）。 */
+function getUsableCouponCount() {
+  return getCoupons().filter(c => c.usable !== false && !c.expired).length;
+}
+
 function formatDatePart(value) {
   return String(value).padStart(2, '0');
 }
@@ -185,6 +190,7 @@ function addCoupon(product, quantity) {
 module.exports = {
   addCoupon,
   getCoupons,
+  getUsableCouponCount,
   refreshCouponsFromRemote,
   normalizeRemoteCoupon,
   buildEffectiveDelayText

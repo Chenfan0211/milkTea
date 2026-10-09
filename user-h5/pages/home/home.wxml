@@ -14,8 +14,8 @@
         aria-role="button"
         aria-label="登录后可同步会员权益与订单"
       >点击登录</text>
-      <view class="coupon-link" bindtap="openCoupons" aria-role="button" aria-label="查看优惠券">
-        <text>优惠券{{userProfile.couponCount || 5}}张</text>
+      <view wx:if="{{userProfile.nickname}}" class="coupon-link" bindtap="openCoupons" aria-role="button" aria-label="查看优惠券">
+        <text>优惠券{{couponCount}}张</text>
         <image class="coupon-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
       </view>
     </view>

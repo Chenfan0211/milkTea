@@ -1,6 +1,7 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { getUserProfile } = require('../../utils/user-profile');
+const { getUsableCouponCount, refreshCouponsFromRemote } = require('../../utils/coupons');
 const loginGuard = require('../../utils/login-guard');
 
 Page(
@@ -8,6 +9,8 @@ Page(
     data: {
       homeShortcuts: [],
       userProfile: getUserProfile(),
+      // 可用优惠券数（首页「优惠券N张」）；null 表示未登录，不展示入口
+      couponCount: null,
       // 登录弹层（图 1）：首页「点击登录」唤起，不再跳独立授权页
       loginSheetVisible: false
     },
@@ -22,10 +25,16 @@ Page(
           }
         })
         .catch(() => null);
-      api
+      return api
         .fetchMe()
-        .then(() => this.setData({ userProfile: getUserProfile() }))
-        .catch(() => null);
+        .then(() => {
+          this.setData({ userProfile: getUserProfile() });
+          // 登录态下再拉券包并更新可用券数量；未登录时 fetchMe 失败走 catch
+          return refreshCouponsFromRemote().then(() =>
+            this.setData({ couponCount: getUsableCouponCount() })
+          );
+        })
+        .catch(() => this.setData({ couponCount: null }));
     },
     /** 首页昵称位登录入口：页内唤起登录弹层（不跳页） */
     handleLoginTap() {
