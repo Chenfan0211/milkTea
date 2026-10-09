@@ -97,6 +97,8 @@ public class GatewayAuthPolicy {
             "/api/v1/app/auth/nickname",
             "/api/v1/app/auth/phone",
             "/api/v1/app/auth/profile",
+            "/api/v1/app/auth/profile-fields",
+            "/api/v1/app/auth/referrals/count",
             "/api/v1/app/auth/location",
             // 文件上传：需登录（防匿名上传恶意文件）
             "/api/v1/files/images",

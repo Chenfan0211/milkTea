@@ -184,6 +184,50 @@ public class RefundService {
     }
 
     /**
+     * 主动查询三方退款状态并推进本地状态（退款兜底扫描专用）。
+     *
+     * <p>只处理 REFUNDING 单：查三方真实状态，SUCCESS 推进成功，
+     * CLOSED/ABNORMAL 置失败，PROCESSING/查询失败保持 REFUNDING 下轮重试。
+     * 幂等安全：复用 {@link #onRefundResult} 的终态跳过逻辑。
+     *
+     * @return true 本次真正推进了状态（首次）；false 未推进（mock/查询失败/未终态）
+     */
+    public boolean syncRefundStatus(String orderNo, String refundNo) {
+        String status = gatewayResolver.active().queryRefund(orderNo, refundNo);
+        if (status == null) {
+            return false;
+        }
+        if ("SUCCESS".equals(status)) {
+            return onRefundResult(refundNo, true, null);
+        }
+        if ("CLOSED".equals(status) || "ABNORMAL".equals(status)) {
+            return onRefundResult(refundNo, false, "微信退款状态：" + status);
+        }
+        return false;
+    }
+    /**
+     * 按退款单号主动查询三方退款状态并推进本地状态（后台运维手动触发）。
+     *
+     * <p>先按退款单号定位退款单，再调 {@link #syncRefundStatus} 查询并推进。
+     * 返回查询后的最新状态与是否真正推进，便于运维确认结果。
+     */
+    public RefundSyncResult syncRefundStatusByRefundNo(String refundNo) {
+        Refund refund = refundMapper.selectOne(new LambdaQueryWrapper<Refund>()
+                .eq(Refund::getRefundNo, refundNo));
+        if (refund == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "退款单不存在：" + refundNo);
+        }
+        boolean advanced = syncRefundStatus(refund.getOrderNo(), refund.getRefundNo());
+        Refund latest = refundMapper.selectById(refund.getId());
+        return new RefundSyncResult(
+                refund.getRefundNo(),
+                refund.getOrderNo(),
+                latest == null ? refund.getStatus() : latest.getStatus(),
+                advanced);
+    }
+
+
+    /**
      * 重新退款：仅退款失败(FAILED)可重试，走同一套下单逻辑。
      */
     @Transactional(rollbackFor = Exception.class)
@@ -293,5 +337,15 @@ public class RefundService {
     private String nextNo() {
         return "RF" + System.currentTimeMillis() % 100000000L
                 + String.format("%03d", ThreadLocalRandom.current().nextInt(1000));
+    }
+    /**
+     * 退款状态主动同步结果（后台运维入口返回）。
+     *
+     * @param refundNo 商户退款单号
+     * @param orderNo  原商户订单号
+     * @param status   查询并推进后的最新退款单状态（REFUNDING/SUCCESS/FAILED）
+     * @param advanced 本次是否真正推进了状态（首次从 REFUNDING 变为终态）
+     */
+    public record RefundSyncResult(String refundNo, String orderNo, String status, boolean advanced) {
     }
 }

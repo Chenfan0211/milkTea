@@ -111,6 +111,20 @@ public interface PaymentGateway {
      * @param thirdRefundNo 微信退款单号（受理成功时返回，可能为空）
      * @param failReason    同步失败原因（accepted=false 时非空）
      */
+    /**
+     * 主动查询退款状态（微信支付 v3 退款查询）。
+     *
+     * <p><b>语义</b>：退款结果通知可能丢失，本方法用于定时兜底主动拉取三方真实退款状态。
+     * 通道不支持查询时返回 {@code null}（如 mock 通道），调用方跳过该单。
+     *
+     * @param orderNo  原商户订单号
+     * @param refundNo 商户退款单号（全局唯一）
+     * @return 退款状态原始值（SUCCESS / CLOSED / PROCESSING / ABNORMAL）；不支持时 null
+     */
+    default String queryRefund(String orderNo, String refundNo) {
+        return null;
+    }
+
     record RefundApplyResult(boolean accepted, String thirdRefundNo, String failReason) {
     }
 

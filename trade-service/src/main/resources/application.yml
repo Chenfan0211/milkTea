@@ -82,6 +82,11 @@ app:
     enabled: true
     cron: '0 * * * * ?'
     batch-size: 200
+  # 微信退款主动查询兜底（回调丢失时的最终兜底；mock 通道下 queryRefund 返回 null 自动跳过）
+  refund-reconcile:
+    enabled: ${REFUND_RECONCILE_ENABLED:true}
+    cron: ${REFUND_RECONCILE_CRON:0 */5 * * * ?}
+    batch-size: ${REFUND_RECONCILE_BATCH_SIZE:100}
   mq:
     order-timeout-ms: ${MQ_ORDER_TIMEOUT_MS:900000}
     max-retry: ${MQ_MAX_RETRY:3}

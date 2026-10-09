@@ -87,6 +87,12 @@ app:
       http-timeout-ms: ${WXPAY_HTTP_TIMEOUT_MS:8000}
       description-prefix: ${WXPAY_DESCRIPTION_PREFIX:五零时光}
 
+  # 微信退款主动查询兜底（回调丢失时的最终兜底）
+  refund-reconcile:
+    enabled: ${REFUND_RECONCILE_ENABLED:true}
+    cron: ${REFUND_RECONCILE_CRON:0 */5 * * * ?}
+    batch-size: ${REFUND_RECONCILE_BATCH_SIZE:100}
+
   alert:
     log-file: /opt/wuling/logs/alerts.log
     flag-file: /opt/wuling/logs/ALERT_PENDING

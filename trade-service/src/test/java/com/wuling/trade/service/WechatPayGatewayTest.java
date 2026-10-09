@@ -4,6 +4,7 @@ import com.wechat.pay.java.service.payments.jsapi.JsapiServiceExtension;
 import com.wechat.pay.java.service.payments.jsapi.model.PrepayRequest;
 import com.wechat.pay.java.service.payments.jsapi.model.PrepayWithRequestPaymentResponse;
 import com.wechat.pay.java.service.refund.RefundService;
+import com.wechat.pay.java.service.refund.model.QueryByOutRefundNoRequest;
 import com.wuling.trade.pay.wxpay.WxPayProperties;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -15,6 +16,7 @@ import java.time.format.DateTimeFormatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -54,5 +56,53 @@ class WechatPayGatewayTest {
                 timeExpire, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                 .atZoneSameInstant(ZoneId.systemDefault())
                 .toLocalDateTime());
+    }
+
+    @Test
+    void queryRefundReturnsStatusName() {
+        WxPayProperties properties = mock(WxPayProperties.class);
+        JsapiServiceExtension jsapiService = mock(JsapiServiceExtension.class);
+        RefundService refundService = mock(RefundService.class);
+        com.wechat.pay.java.service.refund.model.Refund wxRefund =
+                new com.wechat.pay.java.service.refund.model.Refund();
+        wxRefund.setStatus(com.wechat.pay.java.service.refund.model.Status.SUCCESS);
+        when(refundService.queryByOutRefundNo(any(QueryByOutRefundNoRequest.class)))
+                .thenReturn(wxRefund);
+
+        WechatPayGateway gateway = new WechatPayGateway(properties, jsapiService, refundService);
+
+        String status = gateway.queryRefund("O202609260001", "RF202609260001");
+
+        assertEquals("SUCCESS", status);
+        ArgumentCaptor<QueryByOutRefundNoRequest> captor =
+                ArgumentCaptor.forClass(QueryByOutRefundNoRequest.class);
+        verify(refundService).queryByOutRefundNo(captor.capture());
+        assertEquals("RF202609260001", captor.getValue().getOutRefundNo());
+    }
+
+    @Test
+    void queryRefundNullResultReturnsNull() {
+        WxPayProperties properties = mock(WxPayProperties.class);
+        JsapiServiceExtension jsapiService = mock(JsapiServiceExtension.class);
+        RefundService refundService = mock(RefundService.class);
+        when(refundService.queryByOutRefundNo(any(QueryByOutRefundNoRequest.class)))
+                .thenReturn(null);
+
+        WechatPayGateway gateway = new WechatPayGateway(properties, jsapiService, refundService);
+
+        assertNull(gateway.queryRefund("O202609260001", "RF202609260001"));
+    }
+
+    @Test
+    void queryRefundExceptionReturnsNull() {
+        WxPayProperties properties = mock(WxPayProperties.class);
+        JsapiServiceExtension jsapiService = mock(JsapiServiceExtension.class);
+        RefundService refundService = mock(RefundService.class);
+        when(refundService.queryByOutRefundNo(any(QueryByOutRefundNoRequest.class)))
+                .thenThrow(new RuntimeException("network error"));
+
+        WechatPayGateway gateway = new WechatPayGateway(properties, jsapiService, refundService);
+
+        assertNull(gateway.queryRefund("O202609260001", "RF202609260001"));
     }
 }

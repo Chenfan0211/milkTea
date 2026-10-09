@@ -4,6 +4,7 @@ import com.wechat.pay.java.service.payments.jsapi.JsapiServiceExtension;
 import com.wechat.pay.java.service.refund.RefundService;
 import com.wechat.pay.java.service.refund.model.AmountReq;
 import com.wechat.pay.java.service.refund.model.CreateRequest;
+import com.wechat.pay.java.service.refund.model.QueryByOutRefundNoRequest;
 import com.wechat.pay.java.service.refund.model.Refund;
 import com.wechat.pay.java.service.payments.jsapi.model.Amount;
 import com.wechat.pay.java.service.payments.jsapi.model.Payer;
@@ -227,6 +228,26 @@ public class WechatPayGateway implements PaymentGateway {
             return new RefundApplyResult(false, null, e.getMessage());
         }
     }
+    @Override
+    public String queryRefund(String orderNo, String refundNo) {
+        if (!StringUtils.hasText(orderNo) || !StringUtils.hasText(refundNo)) {
+            return null;
+        }
+        QueryByOutRefundNoRequest request = new QueryByOutRefundNoRequest();
+        request.setOutRefundNo(refundNo);
+        try {
+            Refund refund = refundService.queryByOutRefundNo(request);
+            if (refund == null || refund.getStatus() == null) {
+                return null;
+            }
+            return refund.getStatus().name();
+        } catch (Exception e) {
+            log.warn("微信退款状态查询失败 orderNo={} refundNo={} err={}",
+                    orderNo, refundNo, e.getMessage());
+            return null;
+        }
+    }
+
 
     @Override
     public boolean verifyCallback(String payload, String signature) {

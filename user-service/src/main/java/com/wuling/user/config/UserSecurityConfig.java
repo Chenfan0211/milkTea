@@ -32,6 +32,8 @@ public class UserSecurityConfig implements WebMvcConfigurer {
                         "/api/v1/app/auth/nickname",
                         "/api/v1/app/auth/phone",
                         "/api/v1/app/auth/profile",
+                        "/api/v1/app/auth/profile-fields",
+                        "/api/v1/app/auth/referrals/count",
                         "/api/v1/app/auth/location"
                 );
         // wx-login 不在此列：它是获取凭证的入口，本身无需登录。

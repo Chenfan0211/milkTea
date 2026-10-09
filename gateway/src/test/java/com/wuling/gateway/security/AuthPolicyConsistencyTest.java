@@ -111,4 +111,27 @@ class AuthPolicyConsistencyTest {
         assertTrue(notProtected.isEmpty(),
                 "以下 product-service 受保护路径未被网关鉴权覆盖，存在鉴权空档: " + notProtected);
     }
+    /**
+     * user-service 的拦截清单（需登录接口）也必须被网关覆盖。
+     *
+     * <p>背景：user-service 的 {@code UserSecurityConfig} 按「精确清单」注册拦截器，
+     * 漏登记会导致「已登录用户却提示未登录」（拦截器不执行、CurrentUser 取不到）。
+     * 本测试校验其清单里每条路径都被网关鉴权规则拦住，避免清单不同步。
+     */
+    @Test
+    void gatewayShouldProtectUserServiceAuthPaths() throws IOException {
+        Path repoRoot = Paths.get("..").toAbsolutePath().normalize();
+
+        List<String> userProtected = extractPaths(
+                repoRoot.resolve("user-service/src/main/java/com/wuling/user/config/UserSecurityConfig.java"),
+                "addPathPatterns");
+
+        GatewayAuthPolicy policy = new GatewayAuthPolicy();
+        List<String> notProtected = userProtected.stream()
+                .filter(p -> !policy.requiresAuth(p))
+                .toList();
+
+        assertTrue(notProtected.isEmpty(),
+                "以下 user-service 受保护路径未被网关鉴权覆盖，存在鉴权空档: " + notProtected);
+    }
 }

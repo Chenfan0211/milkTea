@@ -303,6 +303,35 @@ class RefundServiceStatusTest {
         verify(refundMapper).updateById(captor.capture());
         assertEquals(RefundService.STATUS_REFUNDING, captor.getValue().getStatus());
     }
+    @Test
+    void syncRefundStatusByRefundNoReturnsLatestStatusAndAdvanced() {
+        Refund refund = refund(RefundService.STATUS_REFUNDING);
+        refund.setOrderNo(ORDER_NO);
+        Order order = order(OrderService.STATUS_PAID, "PENDING");
+        when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund);
+        when(refundMapper.selectById(REFUND_ID)).thenReturn(refund);
+        when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
+        when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
+        when(gatewayResolver.active()).thenReturn(paymentGateway);
+        when(paymentGateway.queryRefund(ORDER_NO, REFUND_NO)).thenReturn("SUCCESS");
+
+        RefundService.RefundSyncResult result = service.syncRefundStatusByRefundNo(REFUND_NO);
+
+        assertEquals(REFUND_NO, result.refundNo());
+        assertEquals(ORDER_NO, result.orderNo());
+        assertEquals(true, result.advanced());
+    }
+
+    @Test
+    void syncRefundStatusByRefundNoNotFoundThrows() {
+        when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+
+        BusinessException ex = assertThrows(
+                BusinessException.class, () -> service.syncRefundStatusByRefundNo(REFUND_NO));
+
+        assertEquals(ResultCode.NOT_FOUND, ex.getCode());
+    }
+
 
     private void assertRefundRejected(String status, String refundStatus) {
         Order order = order(status, refundStatus);
