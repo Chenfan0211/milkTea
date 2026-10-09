@@ -190,26 +190,29 @@ Page(
             // points / balance / couponCount / giftCards 会被整体清零 ——
             // 表现为「从其它页返回我的页，时光币/余额/优惠券全部变 0」。
             // 因此先取当前缓存，再只覆盖远端明确返回的字段。
+            // 昵称/头像等资料字段：以远端为唯一数据源，不回落到本地旧值，
+            // 否则个人资料页修改后回到我的页仍显示旧昵称/头像。
+            const latestProfile = getUserProfile();
             saveUserProfile(
-              Object.assign({}, userProfile, {
-                nickname: remote.nickName || userProfile.nickname,
+              Object.assign({}, latestProfile, {
+                nickname: remote.nickName || '',
                 // 未授权头像时回落到默认头像，避免头像区空白
-                avatar: remote.avatar || userProfile.avatar || DEFAULT_AVATAR,
-                phone: remote.phone || userProfile.phone,
+                avatar: remote.avatar || latestProfile.avatar || DEFAULT_AVATAR,
+                phone: remote.phone || latestProfile.phone,
                 // 资产字段以远端为准（远端缺失时保留本地值，不覆盖成 0）
-                points: Number.isFinite(Number(remote.points)) ? Number(remote.points) : userProfile.points,
+                points: Number.isFinite(Number(remote.points)) ? Number(remote.points) : latestProfile.points,
                 balance: Number.isFinite(Number(remote.balance))
                   ? roundMoney((Number(remote.balance) || 0) / 100)
-                  : userProfile.balance,
+                  : latestProfile.balance,
                 // 成长值/累计消费：后端 totalSpend 为「分」，前端按「元」展示
                 totalSpend: Number.isFinite(Number(remote.totalSpend))
                   ? roundMoney((Number(remote.totalSpend) || 0) / 100)
-                  : userProfile.totalSpend,
+                  : latestProfile.totalSpend,
                 growth: Number.isFinite(Number(remote.totalSpend))
                   ? roundMoney((Number(remote.totalSpend) || 0) / 100)
-                  : userProfile.growth,
-                vipLevel: remote.vipLevel || userProfile.vipLevel,
-                region: userProfile.region
+                  : latestProfile.growth,
+                vipLevel: remote.vipLevel || latestProfile.vipLevel,
+                region: latestProfile.region
               })
             );
             // 关键：远端返回后必须重算资产卡（含时光币），

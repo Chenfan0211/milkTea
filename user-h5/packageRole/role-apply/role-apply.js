@@ -1,7 +1,7 @@
 const loginGuard = require('../../utils/login-guard');
 const api = require('../../utils/api');
 const { withShare } = require('../../utils/share');
-const { getRoleDefinitions, hasRole, applyRole } = require('../../utils/roles');
+const { getRoleDefinitions, getRoleState, hasRole, applyRole, syncRolesFromRemote } = require('../../utils/roles');
 const { getStoreTypes } = require('../../utils/store-types');
 const { refreshCitiesFromRemote, getCityList } = require('../../utils/store');
 
@@ -28,6 +28,11 @@ const FIELD_CONFIG = {
   ]
 };
 
+const OWNED_ROLE_TOAST = {
+  active: '该角色已开通，无需重复申请',
+  pending: '该角色已申请，等待审核'
+};
+
 function createEmptyForm() {
   return {
     name: '',
@@ -43,10 +48,22 @@ function createEmptyForm() {
   };
 }
 
+function buildOwnedRoleStatusMap() {
+  const state = getRoleState();
+  const map = {};
+  state.roles.forEach(item => {
+    if (item && item.roleId && (item.status === 'active' || item.status === 'pending')) {
+      map[item.roleId] = item.status;
+    }
+  });
+  return map;
+}
+
 Page(
   withShare({
     data: {
       roles: [],
+      ownedRoleStatusMap: {},
       selectedRoleId: '',
       fields: [],
       form: createEmptyForm(),
@@ -55,7 +72,11 @@ Page(
     },
     onLoad() {
       const roles = getRoleDefinitions();
-      this.setData({ roles });
+      this.setData({ roles, ownedRoleStatusMap: buildOwnedRoleStatusMap() });
+      // 先与后端对齐角色状态（审核通过/驳回以服务端为准），再刷新卡片徽标
+      syncRolesFromRemote().then(() => {
+        this.setData({ ownedRoleStatusMap: buildOwnedRoleStatusMap() });
+      });
       getStoreTypes().then(storeTypeOptions => {
         this.setData({ storeTypeOptions });
       });
@@ -65,7 +86,12 @@ Page(
     },
     selectRole(event) {
       const { id } = event.currentTarget.dataset;
-      if (!id || hasRole(id)) return;
+      if (!id) return;
+      const ownedStatus = this.data.ownedRoleStatusMap[id];
+      if (ownedStatus) {
+        wx.showToast({ title: OWNED_ROLE_TOAST[ownedStatus] || OWNED_ROLE_TOAST.pending, icon: 'none' });
+        return;
+      }
       const fields = (FIELD_CONFIG[id] || []).map(item => {
         if (item.id === 'storeType') return Object.assign({}, item, { options: this.data.storeTypeOptions });
         if (item.id === 'storeCity') return Object.assign({}, item, { options: this.data.cityOptions });

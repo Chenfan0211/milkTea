@@ -10,7 +10,7 @@
         <view
           wx:for="{{roles}}"
           wx:key="id"
-          class="role-select__card {{selectedRoleId === item.id ? 'is-active' : ''}}"
+          class="role-select__card {{selectedRoleId === item.id ? 'is-active' : ''}} {{ownedRoleStatusMap[item.id] ? 'is-owned' : ''}}"
           data-id="{{item.id}}"
           bindtap="selectRole"
           aria-role="button"
@@ -18,7 +18,17 @@
         >
           <image class="role-select__icon" src="{{item.icon}}" mode="aspectFit" />
           <view class="role-select__body">
-            <text class="role-select__label">{{item.label}}</text>
+            <view class="role-select__head">
+              <text class="role-select__label">{{item.label}}</text>
+              <text
+                wx:if="{{ownedRoleStatusMap[item.id] === 'active'}}"
+                class="role-select__badge role-select__badge--active"
+              >已开通</text>
+              <text
+                wx:elif="{{ownedRoleStatusMap[item.id] === 'pending'}}"
+                class="role-select__badge role-select__badge--pending"
+              >审核中</text>
+            </view>
             <text class="role-select__desc">{{item.description}}</text>
           </view>
           <image wx:if="{{selectedRoleId === item.id}}" class="role-select__check" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
@@ -63,4 +73,3 @@
     </view>
   </view>
 </view>
-

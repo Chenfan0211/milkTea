@@ -145,3 +145,31 @@
 .role-apply-submit--pressed {
   background: var(--brand-dark);
 }
+
+.role-select__card.is-owned {
+  opacity: 0.6;
+}
+
+.role-select__head {
+  display: flex;
+  align-items: center;
+}
+
+.role-select__badge {
+  flex: none;
+  margin-left: 12rpx;
+  padding: 4rpx 12rpx;
+  font-size: var(--font-caption);
+  line-height: 28rpx;
+  border-radius: var(--radius-xs);
+}
+
+.role-select__badge--active {
+  color: var(--brand-green);
+  background: var(--brand-soft);
+}
+
+.role-select__badge--pending {
+  color: var(--tag-gold-text);
+  background: var(--tag-gold-bg);
+}
