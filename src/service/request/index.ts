@@ -13,9 +13,11 @@ const { baseURL, otherBaseURL } = getServiceBaseURL(import.meta.env, isHttpProxy
 export const request = createFlatRequest(
   {
     baseURL,
-    headers: {
-      apifoxToken: 'XL299LiMEDZ0H5h3A29PxwQXdMJqWyY2'
-    }
+    // 调试期 Apifox 鉴权头：仅当构建时注入 VITE_APIFOX_TOKEN 时才附带，
+    // 避免把调试 token 硬编码进生产产物。
+    headers: import.meta.env.VITE_APIFOX_TOKEN
+      ? { apifoxToken: import.meta.env.VITE_APIFOX_TOKEN }
+      : {}
   },
   {
     defaultState: {

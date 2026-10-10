@@ -110,6 +110,12 @@ declare namespace Env {
     readonly VITE_PROXY_LOG?: CommonType.YesOrNo;
     /** The launch editor */
     readonly VITE_DEVTOOLS_LAUNCH_EDITOR?: import('vite-plugin-vue-devtools').VitePluginVueDevToolsOptions['launchEditor'];
+    /**
+     * Apifox debug auth token
+     *
+     * Only used in development / debug builds; leave unset in production.
+     */
+    readonly VITE_APIFOX_TOKEN?: string;
   }
 }
 
