@@ -1,4 +1,6 @@
 const { getCurrentBusinessRole, getActiveRoles, syncRolesFromRemote } = require('./roles');
+const loginGuard = require('./login-guard');
+const { isLoggedIn } = require('./auth-state');
 
 /**
  * 经营角色页面公共守卫。
@@ -34,6 +36,13 @@ const { getCurrentBusinessRole, getActiveRoles, syncRolesFromRemote } = require(
  * @returns {Promise<object|null>} 角色 meta（{id,label,...}）；确实无角色时 resolve(null)
  */
 function ensureBusinessRole() {
+  // 登录态前置校验：未登录时先引导登录，避免 /roles/mine 401 被 syncRolesFromRemote
+  // 的 .catch 吞掉后页面误判为「暂无权限」而误导用户。
+  if (!isLoggedIn()) {
+    loginGuard.openLoginSheet({ reason: '登录后可查看经营角色' });
+    return Promise.resolve(null);
+  }
+
   const local = getCurrentBusinessRole();
   if (local) return Promise.resolve(local);
 
@@ -45,6 +54,12 @@ function ensureBusinessRole() {
  * 成功后返回 active 角色 meta 列表；无则空数组。
  */
 function ensureRolesLoaded() {
+  // 登录态前置校验：同 ensureBusinessRole。
+  if (!isLoggedIn()) {
+    loginGuard.openLoginSheet({ reason: '登录后可查看经营角色' });
+    return Promise.resolve([]);
+  }
+
   const local = getActiveRoles();
   if (local.length) return Promise.resolve(local);
   return syncRolesFromRemote().then(() => getActiveRoles());

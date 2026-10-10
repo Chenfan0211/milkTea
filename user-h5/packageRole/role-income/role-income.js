@@ -1,4 +1,6 @@
 const { withShare } = require('../../utils/share');
+const loginGuard = require('../../utils/login-guard');
+const { isLoggedIn } = require('../../utils/auth-state');
 const {
   getCurrentBusinessRole,
   getIncomeData,
@@ -55,6 +57,12 @@ Page(
      */
     loadIncome() {
       this.setData({ loading: true, loadError: '', ready: false });
+      // 未登录先引导登录，避免 /roles/mine 401 被吞后误判为「暂无权限」。
+      if (!isLoggedIn()) {
+        loginGuard.openLoginSheet({ reason: '登录后可查看经营角色' });
+        this.setData({ loading: false, ready: false });
+        return;
+      }
       syncRolesFromRemote()
         .then(() => {
           const role = getCurrentBusinessRole();

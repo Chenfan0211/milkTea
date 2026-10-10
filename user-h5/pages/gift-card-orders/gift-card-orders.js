@@ -140,7 +140,8 @@ Page(
       }
     },
     onShow() {
-      this.refresh();
+      // 礼品卡订单需登录：未登录时先引导登录，登录后再拉取。
+      loginGuard.requireLogin(() => this.refresh(), { reason: '登录后可查看礼品卡订单' });
     },
     refresh() {
       this.setData({ loading: true, loadError: '' });

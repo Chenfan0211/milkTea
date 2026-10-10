@@ -1,4 +1,6 @@
 const { withShare } = require('../../utils/share');
+const loginGuard = require('../../utils/login-guard');
+const { isLoggedIn } = require('../../utils/auth-state');
 const {
   getRoleDefinitions,
   getRoleState,
@@ -16,6 +18,11 @@ Page(
     },
     onShow() {
       this.syncState();
+      // 未登录先引导登录，避免 /roles/mine 401 被吞后页面误判为「暂无角色」。
+      if (!isLoggedIn()) {
+        loginGuard.openLoginSheet({ reason: '登录后可查看经营角色' });
+        return;
+      }
       // 角色以后端为准：同步用户的真实角色与绑定主体（失败时保留本地兜底）
       syncRolesFromRemote().then(() => this.syncState());
     },

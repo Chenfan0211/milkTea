@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const loginGuard = require('../../utils/login-guard');
 const { refreshCouponsFromRemote } = require('../../utils/coupons');
 
 /**
@@ -39,7 +40,8 @@ Page(
       loadError: ''
     },
     onShow() {
-      this.loadCoupons(this.data.activeTab);
+      // 我的优惠券需登录：未登录时先引导登录，登录后再拉取。
+      loginGuard.requireLogin(() => this.loadCoupons(this.data.activeTab), { reason: '登录后可查看我的优惠券' });
     },
     loadCoupons(tab) {
       const status = tab || this.data.activeTab;

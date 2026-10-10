@@ -49,18 +49,34 @@ function readToken() {
 let unauthorizedNotifiedAt = 0;
 const UNAUTHORIZED_TOAST_INTERVAL = 3000;
 
-/** 登录态失效：先确认再跳授权登录页（避免只弹 Toast、用户无法登录） */
+/**
+ * 把后端返回的登录态错误码转成用户可读文案。
+ * 区分「令牌无效」与「登录过期」，避免用户明明刚登录却看到笼统的「未登录」。
+ */
+function describeAuthError(res) {
+  const code = res && res.code;
+  if (code === 9999) return '登录已过期，请重新登录';
+  if (code === 8888) return '登录状态已失效，请重新登录';
+  return (res && res.message) || '登录状态已失效，请重新登录';
+}
+
+/**
+ * 登录态失效：先确认再跳授权登录页（避免只弹 Toast、用户无法登录）。
+ *
+ * 仅在「静默重登失败」时调用（token 过期但 wx.login 重登也失败），
+ * 此时给用户明确、不误导的提示，而不是笼统的「需要登录」。
+ */
 function handleUnauthorized(res) {
   if (typeof wx === 'undefined') return;
   const now = Date.now();
   if (now - unauthorizedNotifiedAt < UNAUTHORIZED_TOAST_INTERVAL) return;
   unauthorizedNotifiedAt = now;
 
-  const message = (res && res.message) || '登录已过期，请重新登录';
+  const message = describeAuthError(res);
   wx.showModal({
-    title: '需要登录',
-    content: message + '，是否前往登录？',
-    confirmText: '去登录',
+    title: '登录已失效',
+    content: message + '，是否重新登录？',
+    confirmText: '重新登录',
     cancelText: '取消',
     success: ({ confirm }) => {
       if (!confirm) return;
@@ -71,7 +87,7 @@ function handleUnauthorized(res) {
         loginGuard = null;
       }
       if (loginGuard && typeof loginGuard.openLoginSheet === 'function') {
-        loginGuard.openLoginSheet({ reason: '登录后可继续操作' });
+        loginGuard.openLoginSheet({ reason: message });
       }
     }
   });

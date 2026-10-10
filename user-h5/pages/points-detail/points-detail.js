@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const loginGuard = require('../../utils/login-guard');
 const api = require('../../utils/api');
 const { formatDateTime } = require('../../utils/date-format');
 
@@ -37,7 +38,12 @@ Page(
     onShow() {
       const localRecords = (getApp().globalData.pointsRecords || []).map(normalizeRecord).filter(Boolean);
       this.setData({ pointsRecords: localRecords });
-      api
+      // 积分记录需登录：未登录时先引导登录，登录后再拉取，
+      // 避免未登录用户看到「登录已失效」而非友好的「请先登录」引导。
+      loginGuard.requireLogin(() => this.loadPointsRecords(), { reason: '登录后可查看时光币明细' });
+    },
+    loadPointsRecords() {
+      return api
         .fetchPointsRecords()
         .then(list => {
           if (Array.isArray(list) && list.length) {

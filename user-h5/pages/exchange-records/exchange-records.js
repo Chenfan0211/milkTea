@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const loginGuard = require('../../utils/login-guard');
 const api = require('../../utils/api');
 const { exchangeRecordCategories } = require('../../data/mock');
 
@@ -12,7 +13,8 @@ Page(
       loading: true
     },
     onShow() {
-      this.refreshRecords();
+      // 兑换记录需登录：未登录时先引导登录，登录后再拉取。
+      loginGuard.requireLogin(() => this.refreshRecords(), { reason: '登录后可查看兑换记录' });
     },
     /**
      * 兑换记录以后端为唯一数据源。

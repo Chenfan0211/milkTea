@@ -1,5 +1,7 @@
 package com.wuling.file.config;
 
+import com.wuling.common.api.ResultCode;
+import jakarta.servlet.http.HttpServletResponse;
 import com.wuling.security.AdminAuthInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,11 +46,11 @@ public class FileSecurityConfig implements WebMvcConfigurer {
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, ex) -> {
-                    response.setStatus(401);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
                     response.setCharacterEncoding(StandardCharsets.UTF_8.name());
                     response.getWriter().write(
-                            "{\"code\":401,\"message\":\"未登录或登录已过期\",\"data\":null}");
+                            "{\"code\":" + ResultCode.UNAUTHORIZED + ",\"message\":\"未登录或登录已过期\",\"data\":null}");
                 }))
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable);

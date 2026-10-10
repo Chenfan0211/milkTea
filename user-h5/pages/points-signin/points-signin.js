@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const loginGuard = require('../../utils/login-guard');
 const api = require('../../utils/api');
 const { buildMonthCells, buildWeekDates, calculateContinuousDays } = require('../../utils/points-signin');
 const { getPoints, notifyPointsChanged } = require('../../utils/points');
@@ -95,13 +96,18 @@ Page(
         wx.showToast({ title: '今日已签到', icon: 'none' });
         return;
       }
+      // 签到时服务端写操作：先确认已登录（未登录则引导登录），
+      // 避免未登录用户点击后走 401 静默重登再弹「登录已失效」的割裂体验。
+      loginGuard.requireLogin(() => this.doSignIn(), { reason: '登录后可每日签到领时光币' });
+    },
+    doSignIn() {
       // 说明：状态拉取失败（signinStateReady=false）时本地「未签到」不可信，
       // 这里不做拦截，直接提交给后端；由后端判重兜底，失败分支再反向修正 UI。
 
       // 签到为服务端写操作：时光币以后端返回余额为准，并同步本地持久缓存
       const app = getApp();
       const previousPoints = getPoints();
-      api
+      return api
         .signIn()
         .then(result => {
           const balance =
