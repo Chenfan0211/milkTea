@@ -140,12 +140,28 @@ spring:
             - Path=/api/v1/**
 
       # 跨域（前端运营后台与小程序调试）
+      # 安全：origin 白名单收窄，禁止 * + allowCredentials 的任意域跨域。
+      #   - 正式域名（HTTPS 上线后，IP 临时项应删除）
+      #   - 临时 IP 入口（备案已过、443 证书未配期间的过渡方案）
+      # 小程序请求不携带浏览器 Origin，不受 CORS 影响。
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: '*'
-            allowedMethods: '*'
-            allowedHeaders: '*'
+            allowedOriginPatterns:
+              - 'https://*.wulingshiguang.top'
+              - 'https://wulingshiguang.top'
+              - 'http://43.136.91.239:*'
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders:
+              - Authorization
+              - Content-Type
+              - apifoxToken
             allowCredentials: true
             maxAge: 3600
 
