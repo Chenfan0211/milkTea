@@ -29,7 +29,9 @@ Page(
       bannerImage: '',
       currentStore: {},
       myCards: [],
-      myCardsLoaded: false
+      myCardsLoaded: false,
+      storePickerVisible: false,
+      pickerStores: []
     },
     /** 由后台礼品卡面额（gift_card_denomination）聚合为「分组 -> 卡面」结构 */
     loadGiftCardGroups() {
@@ -99,15 +101,39 @@ Page(
     },
     selectStore() {
       const catalog = resolveStoreCatalog();
-      const availableStores = catalog.stores;
-      wx.showActionSheet({
-        itemList: availableStores.map(store => store.name),
-        success: ({ tapIndex }) => {
-          const currentStore = availableStores[tapIndex];
-          persistSelectedStore(currentStore.id);
-          getApp().globalData.selectedStoreId = currentStore.id;
-          this.setData({ currentStore });
-        }
+      this.setData({
+        storePickerVisible: true,
+        pickerStores: catalog.stores || []
+      });
+    },
+    closeStorePicker() {
+      this.setData({ storePickerVisible: false });
+    },
+    handleSelectPickerStore(event) {
+      const { id } = event.detail.store;
+      persistSelectedStore(id);
+      getApp().globalData.selectedStoreId = id;
+      const catalog = resolveStoreCatalog();
+      this.setData({
+        currentStore: catalog.currentStore || catalog.stores[0] || {},
+        storePickerVisible: false,
+        pickerStores: []
+      });
+    },
+    handleStorePhone(event) {
+      const { phone } = event.detail.store;
+      if (!phone) return;
+      wx.makePhoneCall({ phoneNumber: phone });
+    },
+    handleStoreNavigate(event) {
+      const store = event.detail.store;
+      if (!store) return;
+      wx.openLocation({
+        latitude: store.latitude,
+        longitude: store.longitude,
+        name: store.name,
+        address: store.address,
+        scale: 16
       });
     },
     goBuy() {
