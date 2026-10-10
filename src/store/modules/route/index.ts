@@ -168,10 +168,14 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     } else {
       const { data, error } = await fetchGetConstantRoutes();
 
-      if (!error) {
-        addConstantRoutes(data);
+      // 远端常量路由与静态兜底「合并」而非二选一：
+      // 后端 getConstantRoutes 目前返回空数组，若直接用空列表替换，
+      // 登录页/404 等常量路由会被清空，路由守卫死循环重定向（页面不停刷新）。
+      // 静态常量路由始终兜底，远端有额外路由时叠加。
+      if (!error && Array.isArray(data) && data.length) {
+        addConstantRoutes([...data, ...staticRoute.constantRoutes]);
       } else {
-        // if fetch constant routes failed, use static constant routes
+        // 远端失败或返回空时，使用静态常量路由
         addConstantRoutes(staticRoute.constantRoutes);
       }
     }

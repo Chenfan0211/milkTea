@@ -151,6 +151,8 @@ spring:
               - 'https://*.wulingshiguang.top'
               - 'https://wulingshiguang.top'
               - 'http://43.136.91.239:*'
+              - 'http://localhost:*'
+              - 'http://127.0.0.1:*'
             allowedMethods:
               - GET
               - POST

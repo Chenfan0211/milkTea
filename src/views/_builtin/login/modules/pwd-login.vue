@@ -87,7 +87,7 @@ const quickLoginAccounts: QuickLoginAccount[] = [
 ];
 
 /** 快捷入口是否可用。默认关闭，等接口确认后再渲染，避免「显示了却点不通」。 */
-const quickLoginEnabled = ref(false);
+const quickLoginEnabled = ref(true);
 
 /** 正在请求中的快捷账号（用于禁用按钮，防止连点造成并发登录） */
 const pendingQuickKey = ref<QuickLoginKey | null>(null);
@@ -98,8 +98,8 @@ onMounted(async () => {
   if (!error) {
     quickLoginEnabled.value = Boolean(data?.enabled);
   }
-  // 接口不可用时静默隐藏快捷区：密码登录仍可用，不该因为一个附加入口
-  // 给用户弹错误弹窗（登录页弹错会让人以为整个登录都坏了）。
+  // 接口报错时保持默认 true：开发环境不应因为一个附加入口的请求失败
+  // 就把快捷登录整个藏掉。生产想关闭仍由后端 app.quick-login.enabled=false 控制。
 });
 
 /**

@@ -35,6 +35,9 @@ public class SecurityConfig {
                         // 因此不经公网暴露。后续可加服务间凭证（mTLS / 内部 token）。
                         .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/api/v1/app/**", "/actuator/health").permitAll()
+                        // 常量路由：登录页进入前就会调用（dynamic 模式下 initConstantRoute），
+                        // 无需登录即可访问；否则未登录时会多一次 401 噪音。
+                        .requestMatchers("/route/getConstantRoutes").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, ex) -> {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
