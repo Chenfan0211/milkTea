@@ -43,6 +43,9 @@ import java.util.UUID;
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class RequestLogFilter extends OncePerRequestFilter {
 
+    /** traceId 透传头，与网关 GatewayLogFilter 保持一致。 */
+    public static final String HEADER_TRACE_ID = "X-Trace-Id";
+
     private static final Logger log = LoggerFactory.getLogger("REQUEST");
 
     /** 是否原样打印全部参数（默认 false = 脱敏）。 */
@@ -76,7 +79,11 @@ public class RequestLogFilter extends OncePerRequestFilter {
         ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
 
-        String traceId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        // 优先复用网关注入的 traceId，无则自生成（兼容直连/单体部署）
+        String traceId = firstNonBlank(request.getHeader(HEADER_TRACE_ID), null);
+        if (traceId == null) {
+            traceId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        }
         MDC.put("traceId", traceId);
         long start = System.currentTimeMillis();
 

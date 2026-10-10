@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.UUID;
+
 /**
  * 网关请求日志过滤器（WebFlux 版）。
  *
@@ -19,8 +21,12 @@ import reactor.core.publisher.Mono;
  * 网关是响应式栈（WebFlux/Netty），Servlet Filter 无法使用（引入会启动失败）。
  *
  * <p>记录内容：入口方法、路径、查询串、调用人（若已解析出 X-User-Id）、
- * 响应状态、端到端耗时。请求体在网关不缓存（避免缓冲大 body 影响吞吐），
+ * 响应状态、端到端耗时、traceId。请求体在网关不缓存（避免缓冲大 body 影响吞吐），
  * 参数明细由下游各服务的 RequestLogFilter 负责。
+ *
+ * <p><b>traceId</b>：本过滤器为每次请求生成/复用 traceId，并通过 {@code X-Trace-Id}
+ * 请求头透传给下游服务，使网关入口与下游处理能按同一 traceId 关联排查。
+ * 复用外部传入的 X-Trace-Id（若存在），否则生成新的 UUID 前 16 位。
  *
  * <p>安全：查询串默认脱敏（token / 手机号等），仅当
  * {@code app.log.request.full=true} 时原样输出。
@@ -29,6 +35,9 @@ import reactor.core.publisher.Mono;
 public class GatewayLogFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger("REQUEST");
+
+    /** traceId 透传头，与下游 {@link com.wuling.common.logging.RequestLogFilter} 保持一致。 */
+    public static final String HEADER_TRACE_ID = "X-Trace-Id";
 
     private final boolean fullLog;
 
@@ -46,11 +55,23 @@ public class GatewayLogFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
+        // 生成 traceId：优先复用外部传入（如上游已透传），否则新建
+        String incomingTrace = firstNonBlank(request.getHeaders().getFirst(HEADER_TRACE_ID), null);
+        final String traceId = incomingTrace != null
+                ? incomingTrace
+                : UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+
+        // 透传 traceId 给下游（覆盖外部伪造值，保证链路一致性）
+        ServerHttpRequest withTrace = request.mutate()
+                .header(HEADER_TRACE_ID, traceId)
+                .build();
+        ServerWebExchange tracedExchange = exchange.mutate().request(withTrace).build();
+
         String method = request.getMethod().name();
         String query = mask(request.getURI().getRawQuery());
         long start = System.currentTimeMillis();
 
-        return chain.filter(exchange).doFinally(signal -> {
+        return chain.filter(tracedExchange).doFinally(signal -> {
             long cost = System.currentTimeMillis() - start;
             Object status = exchange.getResponse().getStatusCode() == null
                     ? "-" : exchange.getResponse().getStatusCode().value();
@@ -58,7 +79,8 @@ public class GatewayLogFilter implements GlobalFilter, Ordered {
                     "anonymous");
 
             StringBuilder sb = new StringBuilder(160);
-            sb.append("GW user=").append(userId)
+            sb.append("trace=").append(traceId)
+                    .append(" GW user=").append(userId)
                     .append(" ").append(method).append(" ").append(path);
             if (query != null && !query.isEmpty()) {
                 sb.append("?").append(query);

@@ -11,8 +11,8 @@
     1. 控制台输出保留（docker logs 仍可直接看到，便于快速排查启动问题）；
     2. 新增按天滚动的文件输出，落到 /opt/wuling/logs（由 compose 挂载到宿主机），
        文件名按「服务名 + 日期」区分，天然满足按天归档；
-    3. 历史日志最长保留 90 天（可由环境变量 LOG_MAX_HISTORY 覆盖），
-       超出自动清理，满足「最长保留 3 个月」的要求。
+    3. 历史日志最长保留 60 天（可由环境变量 LOG_MAX_HISTORY 覆盖），
+       超出自动清理；单文件超限按大小拆分，总容量超限自动删除最旧归档。
 
   使用说明：
     - 文件名 logback-spring.xml 由 Spring Boot 约定加载，优先级高于 logback.xml；
@@ -24,32 +24,37 @@
 <configuration>
     <!-- 从环境变量读取服务名，用于区分不同服务的日志文件 -->
     <springProperty scope="context" name="SERVICE" source="SERVICE" defaultValue="unknown"/>
-    <!-- 历史日志最长保留天数：默认 90 天（3 个月），可用环境变量 LOG_MAX_HISTORY 覆盖 -->
-    <springProperty scope="context" name="LOG_MAX_HISTORY" source="LOG_MAX_HISTORY" defaultValue="90"/>
+    <!-- 历史日志最长保留天数：默认 60 天，可用环境变量 LOG_MAX_HISTORY 覆盖 -->
+    <springProperty scope="context" name="LOG_MAX_HISTORY" source="LOG_MAX_HISTORY" defaultValue="60"/>
 
     <!-- 控制台输出：保留 docker logs 可见性 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId}] [%thread] %-5level %logger{36} - %msg%n</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>
 
     <!--
-      按天滚动的文件输出。
-      当天写 ${SERVICE}.log，跨天自动归档为 ${SERVICE}.yyyy-MM-dd.log；
-      用 TimeBasedRollingPolicy 的 maxHistory 控制保留天数。
+      按「天 + 大小」双重滚动的文件输出。
+      当天写 ${SERVICE}.log，跨天归档为 ${SERVICE}.yyyy-MM-dd.N.log；
+      单文件超过 maxFileSize 拆分（N 递增），maxHistory 控制保留天数，
+      totalSizeCap 控制总容量上限。
     -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>/opt/wuling/logs/${SERVICE}.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 按天归档：%d{yyyy-MM-dd} 会被替换为日志对应日期 -->
-            <fileNamePattern>/opt/wuling/logs/${SERVICE}.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- 最长保留天数，到期自动删除历史文件 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 按天+大小归档：%d{yyyy-MM-dd} 为日期，%i 为同日内拆分序号 -->
+            <fileNamePattern>/opt/wuling/logs/${SERVICE}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- 最长保留天数，到期自动删除历史归档 -->
             <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+            <!-- 单文件上限：超过即拆分出新的序号文件（%i 递增），防止单日日志过大 -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- 总容量上限：超过后自动删除最旧归档，配合按天保留兜底 -->
+            <totalSizeCap>5GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId}] [%thread] %-5level %logger{36} - %msg%n</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>

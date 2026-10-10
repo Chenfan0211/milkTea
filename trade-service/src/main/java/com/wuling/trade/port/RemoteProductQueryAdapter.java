@@ -1,5 +1,6 @@
 package com.wuling.trade.port;
 
+import com.wuling.common.logging.TraceIdPropagationInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -148,7 +149,8 @@ public class RemoteProductQueryAdapter implements ProductQueryPort {
         @LoadBalanced
         @ConditionalOnProperty(name = "app.internal.direct-connect", havingValue = "false", matchIfMissing = true)
         public RestClient.Builder internalRestClientBuilder() {
-            return RestClient.builder();
+            return RestClient.builder()
+                    .requestInterceptor(new TraceIdPropagationInterceptor());
         }
 
         /** 商品域内部客户端（wuling-product-service） */
@@ -225,7 +227,8 @@ public class RemoteProductQueryAdapter implements ProductQueryPort {
 
         @Bean
         public RestClient.Builder internalRestClientBuilder() {
-            return RestClient.builder();
+            return RestClient.builder()
+                    .requestInterceptor(new TraceIdPropagationInterceptor());
         }
     }
 }
