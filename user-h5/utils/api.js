@@ -593,9 +593,15 @@ function wxLogin() {
   return auth.ensureLogin();
 }
 
-/** 当前登录用户资料 */
-function fetchMe() {
-  return auth.fetchMe();
+/**
+ * 当前登录用户资料。
+ *
+ * force=true 强制绕过 5 分钟本地缓存、直接查后端；
+ * 修改昵称/头像等资料后返回「我的」页必须传 true，
+ * 否则会读到旧缓存，表现为「改了资料页面不更新」。
+ */
+function fetchMe(force) {
+  return auth.fetchMe(force);
 }
 
 /** 上报定位（需登录） */
