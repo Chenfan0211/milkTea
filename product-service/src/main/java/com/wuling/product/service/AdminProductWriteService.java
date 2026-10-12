@@ -82,6 +82,7 @@ public class AdminProductWriteService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "储值立减金额不能为负数");
         }
         productMapper.insert(product);
+        productQueryService.evictMenuCache();
         return reload(product.getId());
     }
 
@@ -100,6 +101,7 @@ public class AdminProductWriteService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "储值立减金额不能为负数");
         }
         productMapper.updateById(product);
+        productQueryService.evictMenuCache();
         return reload(id);
     }
 
@@ -108,6 +110,7 @@ public class AdminProductWriteService {
         Product product = requireProduct(id);
         product.setOnSale(parseOnSale(onSale));
         productMapper.updateById(product);
+        productQueryService.evictMenuCache();
         return reload(id);
     }
 
@@ -116,6 +119,7 @@ public class AdminProductWriteService {
         requireProduct(id);
         // MyBatis-Plus 逻辑删除（deleted = 1）
         productMapper.deleteById(id);
+        productQueryService.evictMenuCache();
     }
 
     // ---------- 规格组读写 ----------
@@ -205,6 +209,7 @@ public class AdminProductWriteService {
                 }
             }
         }
+        productQueryService.evictMenuCache();
         return getSpecGroups(productId);
     }
 
@@ -227,6 +232,9 @@ public class AdminProductWriteService {
     public List<Long> saveStoreIds(Long productId, List<Long> storeSubjectIds) {
         requireProduct(productId);
 
+        // 记录变更前关联的门店，用于变更后一并失效这些门店的选品缓存
+        List<Long> oldStoreIds = getStoreIds(productId);
+
         // 物理删除：product_store 是纯关联表，且带唯一键
         // uk_product_store(product_id, store_subject_id)。
         // 注意 MyBatis-Plus 的 delete() 受 @TableLogic 影响，只会置 deleted=1，
@@ -241,6 +249,13 @@ public class AdminProductWriteService {
                 link.setStoreSubjectId(storeId);
                 productStoreMapper.insert(link);
             }
+        }
+        // 商品与门店关联变化影响菜单与门店选品：失效菜单缓存 + 新旧门店的选品缓存
+        productQueryService.evictMenuCache();
+        java.util.Set<Long> affected = new java.util.HashSet<>(oldStoreIds);
+        if (storeSubjectIds != null) affected.addAll(storeSubjectIds);
+        for (Long storeId : affected) {
+            if (storeId != null) productQueryService.evictStoreListingCache(storeId);
         }
         return getStoreIds(productId);
     }

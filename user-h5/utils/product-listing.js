@@ -1,5 +1,4 @@
 const api = require('./api');
-const { isPlatformListed } = require('./product-catalog');
 
 const LISTING_STORAGE_KEY = 'milkTea:product-listing';
 
@@ -124,9 +123,10 @@ function flattenProducts(menus) {
   return list;
 }
 
-// 门店可选商品 = 运营后台已上架的商品；后台未上架的商品不进入选品范围。
+// 门店可选商品 = 菜单返回的全量商品。
+// 平台级上下架已由后端 product.on_sale 过滤（见 /api/v1/app/menu），前端不再维护写死商品池白名单。
 function getAllProducts() {
-  return flattenProducts(menuCatalog).filter(item => isPlatformListed(item.id));
+  return flattenProducts(menuCatalog);
 }
 
 // 判断某商品在指定门店是否上架；未配置时默认上架。
@@ -197,8 +197,8 @@ function applyListing(storeId, menus) {
         .map(group => {
           const categories = (group.categories || [])
             .map(category => {
-              const products = (category.products || []).filter(
-                product => isPlatformListed(product.id) && isListed(storeId, product.id, state)
+              const products = (category.products || []).filter(product =>
+                isListed(storeId, product.id, state)
               );
               if (!products.length) return null;
               return Object.assign({}, category, { products });
@@ -249,15 +249,13 @@ function getMergedMenuTab(storeId) {
   });
 }
 
-// 商品最终是否可售 = 运营后台已上架 且 门店已上架。
+// 商品最终是否可售 = 门店已上架（平台级上下架已由后端 on_sale 过滤）。
 function isProductListed(storeId, productId) {
-  if (!isPlatformListed(productId)) return false;
   return isListed(storeId, productId);
 }
 
 module.exports = {
   LISTING_STORAGE_KEY,
-  isPlatformListed,
   refreshMenuFromRemote,
   getMenuSyncState,
   setMenuCatalogForTest,

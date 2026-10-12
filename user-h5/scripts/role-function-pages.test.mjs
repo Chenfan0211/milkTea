@@ -1235,36 +1235,6 @@ assert.ok(
   'products scroll area must keep the three-section layout contract'
 );
 
-// 运营后台商品池：仅 onSale === 'on' 的商品可被门店选择
-const catalog = require(path.join(root, 'utils/product-catalog.js'));
-assert.ok(catalog.getPlatformProductIds().length > 0, 'platform catalog must not be empty');
-assert.ok(
-  catalog.getPlatformUnlistedIds().length > 0,
-  'platform catalog must include at least one off-sale product to prove filtering'
-);
-assert.equal(catalog.isPlatformListed('classic-002'), false, 'classic-002 must be off-sale upstream');
-assert.equal(catalog.isPlatformListed('classic-001'), true, 'classic-001 must be on-sale upstream');
-assert.equal(
-  catalog.isPlatformListed('herbal-001'),
-  false,
-  'products missing from the platform catalog must not be selectable'
-);
-
-const selectable = listing.getAllProducts();
-const selectableIds = selectable.map(item => item.id);
-assert.ok(
-  selectable.every(item => catalog.isPlatformListed(item.id)),
-  'store selectable products must all be on-sale in the platform catalog'
-);
-assert.ok(
-  selectableIds.indexOf('classic-002') === -1,
-  'off-sale platform products must not appear in store selectable products'
-);
-assert.equal(
-  selectable.length,
-  catalog.getPlatformListedIds().length,
-  'store selectable products must equal the on-sale platform products'
-);
 
 // 过滤逻辑：默认全上架 / 门店隔离 / 空分类隐藏
 const allProducts = listing.getAllProducts();
@@ -1284,16 +1254,11 @@ assert.equal(afterUnlist.unlisted, 1, 'unlisting must be reflected in stats');
 assert.equal(listing.getListingStats('store-002').unlisted, 0, 'listing state must be isolated per store');
 assert.equal(listing.isProductListed('store-001', 'classic-004'), false, 'unlisted product must report as unlisted');
 assert.equal(listing.isProductListed('store-002', 'classic-004'), true, 'other stores must keep the product listed');
-// 平台级下架对任何门店都不可选，门店无法把它改回上架。
+// 商品默认在售（平台级上下架已由后端 on_sale 过滤，前端不再按写死白名单二次拦截）。
 assert.equal(
   listing.isProductListed('store-001', 'classic-002'),
-  false,
-  'platform off-sale products must stay unselectable'
-);
-listing.setListed('store-001', 'classic-002', true);
-assert.ok(
-  listing.getAllProducts().every(item => item.id !== 'classic-002'),
-  'a store must not resurrect a platform off-sale product'
+  true,
+  'products must default to listed for any store'
 );
 
 // 消费端菜单：过滤掉下架商品
@@ -1309,7 +1274,7 @@ assert.ok(
   'products unlisted by the store must not appear in the consumer menu'
 );
 assert.ok(listedIds.indexOf('classic-003') !== -1, 'listed products must remain in the consumer menu');
-assert.ok(listedIds.indexOf('classic-002') === -1, 'platform off-sale products must never reach the consumer menu');
+assert.ok(listedIds.indexOf('classic-002') !== -1, 'default-listed products must reach the consumer menu');
 
 // 空分类 / 空分组 / 空 Tab 自动隐藏
 // 当前可选商品都落在 recommend 分组，逐一处理整组以验证空分组隐藏。
