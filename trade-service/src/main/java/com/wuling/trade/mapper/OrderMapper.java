@@ -5,6 +5,9 @@ import com.wuling.trade.entity.Order;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+import java.util.Map;
+
 public interface OrderMapper extends BaseMapper<Order> {
 
     /** 门店绑定的渠道（首个），用于渠道永久归因 */
@@ -32,4 +35,28 @@ public interface OrderMapper extends BaseMapper<Order> {
             + "and (o.refund_status is null or o.refund_status <> 'PENDING')")
     Long sumRecentPendingVerifyQuantity(@Param("storeSubjectId") Long storeSubjectId,
                                         @Param("windowStart") java.time.LocalDateTime windowStart);
+
+    /**
+     * 批量统计多个门店近 1 小时待核销杯数（一条 GROUP BY，消除逐店调用）。
+     *
+     * <p>与单店版 {@link #sumRecentPendingVerifyQuantity} 口径完全一致，
+     * 仅增加 store_subject_id 分组，用于门店列表一次性取回全部门店队列数，
+     * 避免「N 家门店 -> N 次跨服务 HTTP + N 次 SQL」的 N+1。
+     *
+     * @return 每行 {store_subject_id, qty}；无订单的门店不会出现在结果中，调用方按 0 处理
+     */
+    @Select("<script>"
+            + "select o.store_subject_id as storeSubjectId, coalesce(sum(i.quantity), 0) as qty "
+            + "from order_item i "
+            + "join orders o on o.id = i.order_id and o.deleted = 0 "
+            + "where i.deleted = 0 and o.status = 'PAID' "
+            + "and o.pay_time &gt;= #{windowStart} "
+            + "and (o.refund_status is null or o.refund_status &lt;&gt; 'PENDING') "
+            + "and o.store_subject_id in "
+            + "<foreach collection='storeSubjectIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> "
+            + "group by o.store_subject_id"
+            + "</script>")
+    List<Map<String, Object>> sumRecentPendingVerifyQuantities(
+            @Param("storeSubjectIds") List<Long> storeSubjectIds,
+            @Param("windowStart") java.time.LocalDateTime windowStart);
 }

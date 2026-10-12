@@ -16,8 +16,9 @@ Page(
     },
     onShow() {
       if (this.getTabBar) this.getTabBar().setData({ selected: 0 });
-      // 异步刷新运营配置与用户资料（USE_MOCK=true 时走 mock 回退）
-      api
+      // 首页配置与用户资料是两个独立数据源，并行请求：
+      // 串行会让首屏等待「配置 + 资料 + 券包」三者相加，并行后只需等最慢的一条。
+      const configTask = api
         .fetchHomeConfig()
         .then(cfg => {
           if (cfg && Array.isArray(cfg.shortcuts) && cfg.shortcuts.length) {
@@ -25,16 +26,15 @@ Page(
           }
         })
         .catch(() => null);
-      return api
+      const profileTask = api
         .fetchMe()
         .then(() => {
           this.setData({ userProfile: getUserProfile() });
           // 登录态下再拉券包并更新可用券数量；未登录时 fetchMe 失败走 catch
-          return refreshCouponsFromRemote().then(() =>
-            this.setData({ couponCount: getUsableCouponCount() })
-          );
+          return refreshCouponsFromRemote().then(() => this.setData({ couponCount: getUsableCouponCount() }));
         })
         .catch(() => this.setData({ couponCount: null }));
+      return Promise.all([configTask, profileTask]);
     },
     /** 首页昵称位登录入口：页内唤起登录弹层（不跳页） */
     handleLoginTap() {

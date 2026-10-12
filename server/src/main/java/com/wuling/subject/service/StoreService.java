@@ -25,7 +25,13 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class StoreService {
@@ -56,15 +62,65 @@ public class StoreService {
         List<BizSubject> subjects = bizSubjectMapper.selectList(new LambdaQueryWrapper<BizSubject>()
                 .eq(BizSubject::getSubjectType, "STORE")
                 .orderByAsc(BizSubject::getId));
-        List<AppStoreDTO> result = new ArrayList<>();
+        if (subjects.isEmpty()) {
+            return List.of();
+        }
+
+        // ---------- 批量预取，消灭 N+1 ----------
+        // 旧实现对每家门店循环：查 profile + 查活动城市 + 查 region + 跨服务查队列，
+        // 门店数一多就是 O(N) 次 SQL 与 O(N) 次 HTTP（线上实测 6~8s）。
+        // 这里统一收敛为「4 次批量查询 + 内存拼装」，与门店数无关。
+        List<Long> subjectIds = subjects.stream().map(BizSubject::getId).toList();
+
+        // 1) 门店档案：一次 IN 查询
+        Map<Long, StoreProfile> profileBySubject = storeProfileMapper.selectList(
+                        new LambdaQueryWrapper<StoreProfile>().in(StoreProfile::getSubjectId, subjectIds))
+                .stream()
+                .collect(Collectors.toMap(StoreProfile::getSubjectId, p -> p, (a, b) -> a));
+
+        // 2) 活动城市白名单：一次 IN 查询，得到 enabled 的 id 集合
+        Set<Long> activityCityIds = profileBySubject.values().stream()
+                .map(StoreProfile::getActivityCityId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Long> enabledActivityCityIds = activityCityIds.isEmpty()
+                ? Set.of()
+                : new HashSet<>(jdbcTemplate.queryForList(
+                        "select id from activity_city where status = 'enabled' and deleted = 0 and id in ("
+                                + placeholders(activityCityIds.size()) + ")",
+                        Long.class, activityCityIds.toArray()));
+
+        // 3) 城市编码：一次 IN 查询
+        Set<Long> cityIds = profileBySubject.values().stream()
+                .map(StoreProfile::getCityId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> cityCodeById = new HashMap<>();
+        if (!cityIds.isEmpty()) {
+            for (Map<String, Object> row : jdbcTemplate.queryForList(
+                    "select id, code from region where deleted = 0 and id in ("
+                            + placeholders(cityIds.size()) + ")", cityIds.toArray())) {
+                Object id = row.get("id");
+                Object code = row.get("code");
+                if (id instanceof Number n && code != null) {
+                    cityCodeById.put(n.longValue(), String.valueOf(code));
+                }
+            }
+        }
+
+        // 4) 门店队列数：一次跨服务调用（trade-service 内部 GROUP BY）
+        Map<Long, Long> queueByStore = countPendingQueueBatch(subjectIds);
+
+        List<AppStoreDTO> result = new ArrayList<>(subjects.size());
         for (BizSubject subject : subjects) {
-            StoreProfile profile = findProfile(subject.getId());
+            StoreProfile profile = profileBySubject.get(subject.getId());
             if (profile == null) {
                 continue;
             }
             // 活动城市白名单：门店必须绑定 enabled 的活动城市才对外返回，
             // 杜绝「有门店但城市未开通」的矛盾（V71）。
-            if (!isActivityCityEnabled(profile.getActivityCityId())) {
+            if (profile.getActivityCityId() == null
+                    || !enabledActivityCityIds.contains(profile.getActivityCityId())) {
                 continue;
             }
             AppStoreDTO dto = new AppStoreDTO();
@@ -73,11 +129,9 @@ public class StoreService {
             dto.setName(subject.getName());
             dto.setCity(profile.getCity());
             dto.setCityId(profile.getCityId());
-            dto.setCityCode(resolveCityCode(profile.getCityId()));
+            dto.setCityCode(profile.getCityId() == null ? null : cityCodeById.get(profile.getCityId()));
             dto.setAddress(profile.getAddress());
             dto.setPhone(profile.getPhone());
-            dto.setStoreType(profile.getStoreType());
-            dto.setAddress(profile.getAddress());
             dto.setLatitude(profile.getLatitude());
             dto.setLongitude(profile.getLongitude());
             dto.setStoreType(profile.getStoreType());
@@ -88,10 +142,15 @@ public class StoreService {
             dto.setModes(parseStringList(profile.getModes()));
             dto.setPromotion(profile.getPromotion());
             // 队列数实时统计：该门店已支付未核销（PAID）的订单数；查不到则为 0，前端不展示
-            dto.setQueueCount(countPendingQueue(subject.getId()));
+            dto.setQueueCount(queueByStore.getOrDefault(subject.getId(), 0L).intValue());
             result.add(dto);
         }
         return result;
+    }
+
+    /** 生成 IN 占位符（?, ?, ...），供 JdbcTemplate 可变参数使用。 */
+    private static String placeholders(int count) {
+        return String.join(",", java.util.Collections.nCopies(count, "?"));
     }
 
     public PageResult<AdminStoreDTO> pageAdminStores(long current, long size, String search, String status) {
@@ -253,33 +312,18 @@ public class StoreService {
         }
     }
 
-    /** 按 city_id 反查 region.code（国标行政区划码），供前端就近排序与城市过滤使用。 */
     /**
-     * 判断门店绑定的活动城市是否 enabled（V71 白名单）。
-     * activity_city_id 为空视为未绑定，不对外返回。
+     * 批量门店排队件数：一次跨服务调用取回全部门店，替代逐店调用。
+     *
+     * <p>下游不可用时整体回退为空 Map，各门店按 0 处理（前端对 0 不展示该文案）。
      */
-    private boolean isActivityCityEnabled(Long activityCityId) {
-        if (activityCityId == null) return false;
+    private Map<Long, Long> countPendingQueueBatch(List<Long> storeSubjectIds) {
         try {
-            Integer count = jdbcTemplate.queryForObject(
-                    "select count(*) from activity_city where id = ? and status = 'enabled' and deleted = 0",
-                    Integer.class, activityCityId);
-            return count != null && count > 0;
+            return tradeOrderQueryPort.countStoreQueueItemsBatch(storeSubjectIds);
         } catch (Exception e) {
-            log.warn("查询活动城市失败 id={} err={}", activityCityId, e.getMessage());
-            return false;
-        }
-    }
-
-    private String resolveCityCode(Long cityId) {
-        if (cityId == null) return null;
-        try {
-            List<String> codes = jdbcTemplate.queryForList(
-                    "select code from region where id = ? and deleted = 0", String.class, cityId);
-            return codes.isEmpty() ? null : codes.get(0);
-        } catch (Exception e) {
-            log.warn("反查城市编码失败 cityId={} err={}", cityId, e.getMessage());
-            return null;
+            log.warn("批量查询门店排队件数失败，回退为空 storeCount={} err={}",
+                    storeSubjectIds == null ? 0 : storeSubjectIds.size(), e.getMessage());
+            return Map.of();
         }
     }
 

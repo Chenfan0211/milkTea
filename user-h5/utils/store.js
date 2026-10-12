@@ -9,9 +9,14 @@ const api = require('./api');
 let storeCatalog = [];
 let cityCatalog = [];
 
-/** 用远端数据刷新城市列表（含坐标，用于就近排序） */
+// 城市目录的在途请求句柄：与门店目录同理，避免冷启动时
+// app.onLaunch 与点单页 onLoad 对同一份城市列表并发重复请求。请求结束即清空。
+let cityCatalogInflight = null;
+
+/** 用远端数据刷新城市列表（含坐标，用于就近排序）；并发调用共享同一次网络请求。 */
 function refreshCitiesFromRemote() {
-  return api
+  if (cityCatalogInflight) return cityCatalogInflight;
+  cityCatalogInflight = api
     .fetchCities()
     .then(list => {
       if (Array.isArray(list) && list.length) {
@@ -27,12 +32,26 @@ function refreshCitiesFromRemote() {
       }
       return cityCatalog;
     })
-    .catch(() => cityCatalog);
+    .catch(() => cityCatalog)
+    .then(result => {
+      cityCatalogInflight = null;
+      return result;
+    });
+  return cityCatalogInflight;
 }
 
-/** 用远端数据刷新本地镜像（页面 onLoad 时调用） */
+// 门店目录的在途请求句柄。
+//
+// 为什么需要：冷启动时 app.onLaunch 与点单页 onShow 会几乎同时调用本函数，
+// 若不去重就会对同一份门店列表发两次请求（截图里出现两条 stores、其中一条 canceled）。
+// 这里让「请求飞行期间的并发调用共享同一个 Promise」，请求结束即清空，
+// 因此不会引入任何 TTL / 缓存一致性风险（每次真正进入页面仍会重新拉取）。
+let storeCatalogInflight = null;
+
+/** 用远端数据刷新本地镜像（页面 onLoad 时调用）；并发调用共享同一次网络请求。 */
 function refreshStoreCatalogFromRemote() {
-  return api
+  if (storeCatalogInflight) return storeCatalogInflight;
+  storeCatalogInflight = api
     .fetchStores()
     .then(list => {
       if (Array.isArray(list) && list.length) {
@@ -40,7 +59,13 @@ function refreshStoreCatalogFromRemote() {
       }
       return storeCatalog;
     })
-    .catch(() => storeCatalog);
+    .catch(() => storeCatalog)
+    .then(result => {
+      // 无论成功失败都清空在途句柄：下一次调用会发起新的真实请求
+      storeCatalogInflight = null;
+      return result;
+    });
+  return storeCatalogInflight;
 }
 
 /** 把后端门店结构映射为小程序页面使用的结构 */

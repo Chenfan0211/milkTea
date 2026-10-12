@@ -72,6 +72,11 @@ public class ProductQueryService {
     private static final String PRODUCT_CACHE_PREFIX = "product:detail:";
     private static final Duration PRODUCT_CACHE_TTL = Duration.ofMinutes(5);
 
+    /** 门店选品上架关系缓存 key 前缀（CACHE 命名空间，TTL 60 秒）。
+     * 上架关系变更频繁且需跨门店隔离，TTL 短一些，下架/上架后也会主动失效。 */
+    private static final String STORE_LISTING_CACHE_PREFIX = "product:store-listing:";
+    private static final Duration STORE_LISTING_CACHE_TTL = Duration.ofSeconds(60);
+
     /** 全量菜单（不按门店过滤）；兼容旧调用。 */
     public List<MenuDTO.MenuTab> getMenu() {
         return getMenu(null);
@@ -157,24 +162,7 @@ public class ProductQueryService {
         if (storeSubjectId == null || tabs == null || tabs.isEmpty()) {
             return tabs;
         }
-        List<Long> listedIds = productStoreMapper.selectListedProductIds(storeSubjectId);
-        java.util.Set<String> listedBusinessIds = new java.util.HashSet<>();
-        if (listedIds != null && !listedIds.isEmpty()) {
-            List<Product> listedProducts = productMapper.selectBatchIds(listedIds);
-            if (listedProducts != null) {
-                for (Product p : listedProducts) {
-                    if (p == null) {
-                        continue;
-                    }
-                    if (StringUtils.hasText(p.getProductId())) {
-                        listedBusinessIds.add(p.getProductId());
-                    }
-                    if (StringUtils.hasText(p.getCode())) {
-                        listedBusinessIds.add(p.getCode());
-                    }
-                }
-            }
-        }
+        java.util.Set<String> listedBusinessIds = getListedBusinessIds(storeSubjectId);
         List<MenuDTO.MenuTab> result = new ArrayList<>();
         for (MenuDTO.MenuTab tab : tabs) {
             List<MenuDTO.MenuGroup> groups = new ArrayList<>();
@@ -215,6 +203,87 @@ public class ProductQueryService {
             result.add(copyTab);
         }
         return result;
+    }
+
+    /**
+     * 某门店「已上架商品」的业务标识集合（productId 与 code 都算，供菜单过滤）。
+     *
+     * <p>为什么加缓存：旧实现每次菜单过滤都执行 1 次 product_store 查询 + 1 次
+     * product 批量查询，且 product_store 因缺 store_subject_id 前缀索引会全表扫描；
+     * 加上菜单接口本就高频，这 2 次 DB 查询被放大。这里缓存「上架关系 -> 业务标识」，
+     * TTL 60 秒，下架/上架时主动失效，保证点单页选品下架近实时生效。
+     */
+    public java.util.Set<String> getListedBusinessIds(Long storeSubjectId) {
+        if (storeSubjectId == null) {
+            return java.util.Set.of();
+        }
+        String cacheKey = redisManager.key(RedisNamespace.CACHE, STORE_LISTING_CACHE_PREFIX + storeSubjectId);
+        StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+
+        // 1) 读缓存
+        try {
+            String cached = redis.opsForValue().get(cacheKey);
+            if (cached != null) {
+                java.util.Set<String> hit = parseStringSet(cached);
+                if (hit != null) {
+                    return hit;
+                }
+            }
+        } catch (Exception e) {
+            // 缓存不可用回源 DB，不影响业务
+        }
+
+        // 2) 回源 DB
+        List<Long> listedIds = productStoreMapper.selectListedProductIds(storeSubjectId);
+        java.util.Set<String> businessIds = new java.util.HashSet<>();
+        if (listedIds != null && !listedIds.isEmpty()) {
+            List<Product> listedProducts = productMapper.selectBatchIds(listedIds);
+            if (listedProducts != null) {
+                for (Product p : listedProducts) {
+                    if (p == null) {
+                        continue;
+                    }
+                    if (StringUtils.hasText(p.getProductId())) {
+                        businessIds.add(p.getProductId());
+                    }
+                    if (StringUtils.hasText(p.getCode())) {
+                        businessIds.add(p.getCode());
+                    }
+                }
+            }
+        }
+
+        // 3) 写回缓存（序列化失败不影响返回）
+        try {
+            redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(businessIds), STORE_LISTING_CACHE_TTL);
+        } catch (Exception e) {
+            // 缓存写入失败不影响业务
+        }
+        return businessIds;
+    }
+
+    /** 门店选品关系变更后失效上架关系缓存（供上架/下架写操作调用）。 */
+    public void evictStoreListingCache(Long storeSubjectId) {
+        if (storeSubjectId == null) {
+            return;
+        }
+        try {
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            redis.delete(redisManager.key(RedisNamespace.CACHE, STORE_LISTING_CACHE_PREFIX + storeSubjectId));
+        } catch (Exception e) {
+            // 删除失败可忽略，缓存 TTL 兜底
+        }
+    }
+
+    private java.util.Set<String> parseStringSet(String json) {
+        if (json == null || json.isBlank()) {
+            return java.util.Set.of();
+        }
+        try {
+            return objectMapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<java.util.Set<String>>() {});
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** 读菜单缓存；Redis 不可用或未命中返回 null（fail-open，回源 DB）。 */

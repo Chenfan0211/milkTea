@@ -155,10 +155,25 @@ Page(
      * 这样既保证每次进入都能看到后台最新数据，又避免每次返回都发 4 个请求。
      */
     refreshMenuPage() {
-      // 先刷新门店（拿到当前门店的 subjectId），再按该门店拉菜单：
-      // 门店选品下架的商品不会出现在点单页。顺序不可颠倒 —— 菜单过滤依赖 subjectId。
-      return refreshStoreCatalogFromRemote()
-        .then(() => refreshMenuFromRemote(this.currentStoreSubjectId()))
+      // 门店列表与菜单是首屏两个独立数据源，并行拉取可将首屏等待从「两者之和」降为「两者较大者」。
+      //
+      // 注意菜单过滤依赖当前门店的 subjectId：
+      //   · 已有选店缓存时，直接用缓存 subjectId 并行请求，快速命中；
+      //   · 冷启动（subjectId 为 null）时并行请求的是「全量菜单」，
+      //     待门店到达后若 subjectId 发生了变化，再用新 subjectId 补拉一次，
+      //     保证「门店选品下架的商品不出现在点单页」这一语义不被并行化破坏。
+      const requestedSubjectId = this.currentStoreSubjectId();
+      return Promise.all([
+        refreshStoreCatalogFromRemote(),
+        refreshMenuFromRemote(requestedSubjectId)
+      ])
+        .then(() => {
+          const latestSubjectId = this.currentStoreSubjectId();
+          if (latestSubjectId !== requestedSubjectId) {
+            return refreshMenuFromRemote(latestSubjectId);
+          }
+          return null;
+        })
         .then(() => this.renderMenu());
     },
     /** 当前选中门店的后端数字主键（门店选品/下单均以它为准）。 */
@@ -192,15 +207,15 @@ Page(
     onLoad() {
       // 首屏需要四类数据：城市（选店依赖）、门店、菜单、会员等级（规格弹层会员价依赖）。
       //
-      // 这里只负责「把数据灌进内存镜像」，不负责渲染：
-      // 小程序生命周期保证 onLoad 之后必然触发 onShow，而 onShow 已经统一走
-      // refreshThenSync()（先 await 接口再 syncCurrentStore）。
-      // 历史 bug：onLoad 自己也调 renderMenu()，于是和 onShow 的异步链并发渲染，
-      // 谁后返回谁覆盖 setData —— 出现过「门店明明已缓存，门店选择层却又被打开」的竞态。
+      // 职责划分（避免重复请求）：
+      //   · onLoad：只预取「onShow 不会拉、但选店/规格弹层需要」的城市与会员等级；
+      //   · onShow：统一走 refreshThenSync()，拉取「门店 + 菜单」并负责渲染。
+      // 历史 bug：onLoad 自己也调 renderMenu()，与 onShow 的异步链并发渲染，
+      // 谁后返回谁覆盖 setData —— 出现过「门店明明已缓存，门店选择层却又被打开」的竞态；
+      // 后来又出现 onLoad / onShow 各请求一遍 stores / menu 的重复请求问题。
+      // 现在把「门店 + 菜单」唯一收敛到 onShow，上述两类问题同时消除。
       Promise.all([
         refreshCitiesFromRemote(),
-        refreshStoreCatalogFromRemote(),
-        refreshMenuFromRemote(this.currentStoreSubjectId()),
         refreshMemberLevelsFromRemote()
       ]);
       api

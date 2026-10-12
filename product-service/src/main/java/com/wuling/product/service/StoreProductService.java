@@ -250,6 +250,8 @@ public class StoreProductService {
         } else {
             productStoreMapper.physicalDeleteByStoreAndProduct(storeSubjectId, productId);
         }
+        // 上架关系已变更，失效该门店的选品缓存，让点单页下架近实时生效（TTL 60s 兜底）
+        productQueryService.evictStoreListingCache(storeSubjectId);
     }
 
     /** 批量上架 / 下架。 */

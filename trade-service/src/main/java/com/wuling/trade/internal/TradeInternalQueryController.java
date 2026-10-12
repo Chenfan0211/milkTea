@@ -73,6 +73,49 @@ public class TradeInternalQueryController {
     }
 
     /**
+     * 批量门店排队杯数：一次性返回多门店的「近 1 小时待核销杯数」。
+     *
+     * <p>为什么新增批量接口：门店列表接口原先对每家门店单独调用本服务的单店接口，
+     * 导致「N 家门店 = N 次跨服务 HTTP + N 次 SQL」的 N+1，门店数一多耗时线性增长
+     * （线上实测 6~8s）。批量版用一条 GROUP BY 覆盖全部门店。
+     *
+     * <p>口径与 {@link #storeQueueCount(Long)} 完全一致；未出现在结果中的门店视为 0。
+     *
+     * @param storeSubjectIds 逗号分隔的门店主体 ID
+     * @return { "counts": { "门店ID": 杯数 } }
+     */
+    @GetMapping("/store-queue-counts")
+    public Map<String, Object> storeQueueCounts(@RequestParam String storeSubjectIds) {
+        Map<String, Object> counts = new HashMap<>();
+        List<Long> ids = new ArrayList<>();
+        for (String s : storeSubjectIds == null ? new String[0] : storeSubjectIds.split(",")) {
+            String t = s.trim();
+            if (t.isEmpty()) {
+                continue;
+            }
+            try {
+                ids.add(Long.valueOf(t));
+            } catch (NumberFormatException ignored) {
+                // 忽略非法项，避免一个坏参数导致整体失败
+            }
+        }
+        if (!ids.isEmpty()) {
+            LocalDateTime windowStart = LocalDateTime.now().minusHours(QUEUE_WINDOW_HOURS);
+            List<Map<String, Object>> rows = orderMapper.sumRecentPendingVerifyQuantities(ids, windowStart);
+            for (Map<String, Object> row : rows) {
+                Object storeId = row.get("storeSubjectId");
+                Object qty = row.get("qty");
+                if (storeId == null) {
+                    continue;
+                }
+                long value = qty instanceof Number n ? n.longValue() : 0L;
+                counts.put(String.valueOf(storeId), value);
+            }
+        }
+        return Map.of("counts", counts);
+    }
+
+    /**
      * 查询门店订单列表（供工作台/渠道视图）。
      *
      * @param storeSubjectId 门店主体 ID

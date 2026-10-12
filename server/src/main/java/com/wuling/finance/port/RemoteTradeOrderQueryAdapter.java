@@ -79,6 +79,42 @@ public class RemoteTradeOrderQueryAdapter implements TradeOrderQueryPort {
 
     @Override
     @SuppressWarnings("unchecked")
+    public Map<Long, Long> countStoreQueueItemsBatch(List<Long> storeSubjectIds) {
+        if (storeSubjectIds == null || storeSubjectIds.isEmpty()) {
+            return Map.of();
+        }
+        String joined = storeSubjectIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+        try {
+            Map<String, Object> body = internalRestClient.get()
+                    .uri("/internal/store-queue-counts?storeSubjectIds={ids}", joined)
+                    .retrieve()
+                    .body(Map.class);
+            if (body == null || !(body.get("counts") instanceof Map<?, ?> raw)) {
+                return Map.of();
+            }
+            Map<Long, Long> result = new java.util.HashMap<>();
+            for (Map.Entry<?, ?> entry : raw.entrySet()) {
+                if (entry.getKey() == null) {
+                    continue;
+                }
+                try {
+                    long storeId = Long.parseLong(String.valueOf(entry.getKey()));
+                    long qty = entry.getValue() instanceof Number n ? n.longValue()
+                            : Long.parseLong(String.valueOf(entry.getValue()));
+                    result.put(storeId, qty);
+                } catch (NumberFormatException ignored) {
+                    // 单个门店解析失败不影响其它门店
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("批量查询门店排队件数失败 err={}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
     public List<Map<String, Object>> ordersByStores(List<Long> storeSubjectIds) {
         if (storeSubjectIds == null || storeSubjectIds.isEmpty()) {
             return List.of();

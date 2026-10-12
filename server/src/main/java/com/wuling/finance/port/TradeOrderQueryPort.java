@@ -25,4 +25,12 @@ public interface TradeOrderQueryPort {
 
     /** 门店排队件数：已核销未取餐的订单商品总件数 */
     long countStoreQueueItems(Long storeSubjectId);
+
+    /**
+     * 批量门店排队件数：一次返回多门店的「近 1 小时待核销件数」。
+     *
+     * <p>用于门店列表：避免对每家门店单独发起一次跨服务调用（N+1）。
+     * 返回 Map 的 key 为门店主体 ID；未出现在结果中的门店按 0 处理。
+     */
+    java.util.Map<Long, Long> countStoreQueueItemsBatch(java.util.List<Long> storeSubjectIds);
 }

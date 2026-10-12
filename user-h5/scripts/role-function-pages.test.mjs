@@ -1093,7 +1093,9 @@ assert.ok(productsWxml.includes('loadingMore') && productsWxml.includes('hasMore
 const menuSource = fs.readFileSync(path.join(root, 'pages/menu/menu.js'), 'utf8');
 assert.ok(
   menuSource.includes('currentStoreSubjectId') &&
-    /refreshMenuFromRemote\(this\.currentStoreSubjectId\(\)\)/.test(menuSource),
+    // 菜单请求必须显式带入「当前门店 subjectId」（并行链路下经 requestedSubjectId 变量传入），
+    // 使门店选品下架实时生效；禁止出现不带 subjectId 的裸调用（回退为全量菜单）。
+    /refreshMenuFromRemote\((this\.currentStoreSubjectId\(\)|requestedSubjectId|latestSubjectId)\)/.test(menuSource),
   '点单页必须按当前门店 subjectId 拉菜单，使门店选品下架实时生效'
 );
 
