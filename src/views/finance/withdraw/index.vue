@@ -9,7 +9,7 @@ import type { AdminListConfig } from '@/views/_shared/types';
 import type { SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderMoney, renderDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, renderMoney, renderDateTime, formatFen } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const withdrawVisible = ref(false);
@@ -122,7 +122,7 @@ async function submitWithdraw() {
           store.subjectAccounts
             .filter(a => a.roleType !== 'platform')
             .map(a => ({
-              label: a.subjectName + '（可提现 ¥' + (a.availableBalance ?? 0).toFixed(2) + '）',
+              label: a.subjectName + '（可提现 ¥' + formatFen(a.availableBalance) + '）',
               value: a.subjectId
             }))
         "

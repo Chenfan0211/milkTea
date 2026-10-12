@@ -4,14 +4,14 @@ import AdminDetailPage from '@/views/_shared/AdminDetailPage.vue';
 import type { DetailGroup } from '@/views/_shared/AdminDetailPage.vue';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchAdminSnapshotDetail } from '@/service/api/finance';
-import { formatDateTime } from '@/views/_shared/render';
+import { formatDateTime, formatFen } from '@/views/_shared/render';
 
 const store = useAdminStore();
 const route = useRoute();
 
 const statusLabel = (v: string) => ({ valid: '有效', invalid: '已作废' })[v] ?? v;
 const totalCheckLabel = (v: string) => ({ 一致: '一致', 不一致: '不一致', ok: '一致', mismatch: '不一致' })[v] ?? v;
-const money = (v: any) => `¥${(Number(v) || 0).toFixed(2)}`;
+const money = (v: any) => `¥${formatFen(v)}`;
 
 /**
  * 详情数据来源：优先查后端接口（含 order_item 聚合出的商品摘要）。

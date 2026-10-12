@@ -9,7 +9,7 @@ import type { DetailGroup } from '@/views/_shared/detail-types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchAdminSnapshotDetail } from '@/service/api/finance';
-import { renderTag, statusMap, renderDateTime, formatDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime, formatDateTime, formatFen } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -22,49 +22,49 @@ const columns: DataTableColumns<any> = [
     key: 'supplierAmount',
     width: 90,
     align: 'right',
-    render: (row: any) => `¥${(row.supplierAmount ?? 0).toFixed(2)}`
+    render: (row: any) => `¥${formatFen(row.supplierAmount)}`
   },
   {
     title: '门店',
     key: 'storeAmount',
     width: 90,
     align: 'right',
-    render: (row: any) => `¥${(row.storeAmount ?? 0).toFixed(2)}`
+    render: (row: any) => `¥${formatFen(row.storeAmount)}`
   },
   {
     title: '资源方',
     key: 'channelAmount',
     width: 90,
     align: 'right',
-    render: (row: any) => `¥${(row.channelAmount ?? 0).toFixed(2)}`
+    render: (row: any) => `¥${formatFen(row.channelAmount)}`
   },
   {
     title: '投资人',
     key: 'investorAmount',
     width: 90,
     align: 'right',
-    render: (row: any) => `¥${(row.investorAmount ?? 0).toFixed(2)}`
+    render: (row: any) => `¥${formatFen(row.investorAmount)}`
   },
   {
     title: '平台分佣',
     key: 'platformCommission',
     width: 88,
     align: 'right',
-    render: (row: any) => `¥${(row.platformCommission ?? 0).toFixed(2)}`
+    render: (row: any) => `¥${formatFen(row.platformCommission)}`
   },
   {
     title: '平台提成',
     key: 'platformBonus',
     width: 88,
     align: 'right',
-    render: (row: any) => `¥${(row.platformBonus ?? 0).toFixed(2)}`
+    render: (row: any) => `¥${formatFen(row.platformBonus)}`
   },
   {
     title: '平台合计',
     key: 'platformAmount',
     width: 88,
     align: 'right',
-    render: (row: any) => `¥${(row.platformAmount ?? 0).toFixed(2)}`
+    render: (row: any) => `¥${formatFen(row.platformAmount)}`
   },
   {
     title: '合计校验',
@@ -97,7 +97,7 @@ const toolbar: RowAction[] = [];
 const snapshotStatusLabel = (v: string) => (({ valid: '有效', invalid: '已作废' }) as Record<string, string>)[v] ?? v;
 const totalCheckLabel = (v: string) =>
   (({ 一致: '一致', 不一致: '不一致', ok: '一致', mismatch: '不一致' }) as Record<string, string>)[v] ?? v;
-const money = (v: any) => `¥${(Number(v) || 0).toFixed(2)}`;
+const money = (v: any) => `¥${formatFen(v)}`;
 
 /** 分账快照详情弹层字段（原 /finance/snapshot-detail 页面口径） */
 const detailGroups: DetailGroup[] = [

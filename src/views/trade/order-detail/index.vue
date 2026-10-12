@@ -94,11 +94,11 @@ const groups: DetailGroup[] = [
       { label: '优惠金额（元）', render: (r: any) => `-${formatFen(r.discountAmount)}` },
       { label: '优惠券抵扣（元）', render: (r: any) => `-${formatFen(r.couponDiscount)}` },
       { label: '实付金额（元）', render: (r: any) => formatFen(r.paidAmount) },
-      { label: '供应商（成本合计）', render: (r: any) => `¥${(r.split?.costTotal ?? 0).toFixed(2)}` },
-      { label: '门店', render: (r: any) => `¥${(r.split?.storeShare ?? 0).toFixed(2)}` },
-      { label: '资源方', render: (r: any) => `¥${(r.split?.channelShare ?? 0).toFixed(2)}` },
-      { label: '投资人', render: (r: any) => `¥${(r.split?.investorShare ?? 0).toFixed(2)}` },
-      { label: '平台（剩余）', render: (r: any) => `¥${(r.split?.platformShare ?? 0).toFixed(2)}` }
+      { label: '供应商（成本合计）', render: (r: any) => `¥${formatFen(r.split?.costTotal)}` },
+      { label: '门店', render: (r: any) => `¥${formatFen(r.split?.storeShare)}` },
+      { label: '资源方', render: (r: any) => `¥${formatFen(r.split?.channelShare)}` },
+      { label: '投资人', render: (r: any) => `¥${formatFen(r.split?.investorShare)}` },
+      { label: '平台（剩余）', render: (r: any) => `¥${formatFen(r.split?.platformShare)}` }
     ]
   }
 ];

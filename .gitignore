@@ -40,6 +40,7 @@ src-tauri/target
 # Maven 构建产物（各模块通用）
 **/target/
 !**/target/.gitkeep
+BOOT-INF/
 server/*.log
 
 

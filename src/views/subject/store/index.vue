@@ -7,7 +7,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
-import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime, formatFen } from '@/views/_shared/render';
 import { geocodeAddress } from '@/utils/tencent-map';
 
 const store = useAdminStore();
@@ -35,7 +35,7 @@ const columns: DataTableColumns<any> = [
     align: 'right',
     render: (row: any) => {
       const acc = store.subjectAccounts.find((a: any) => a.subjectId === row.id);
-      return (acc ? (acc.availableBalance ?? 0) : 0).toFixed(2);
+      return formatFen(acc ? acc.availableBalance : 0);
     }
   },
   { title: '门店类型', key: 'storeType', width: 110 },
