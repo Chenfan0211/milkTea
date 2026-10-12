@@ -325,7 +325,12 @@ public class SubjectBindingController {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该申请已处理，不能重复审核");
         }
         Long userId = ((Number) row.get("user_id")).longValue();
+        // role_type 库内可能大小写混存（历史脏值），比较统一小写；
+        // 但写入 user_role_grant / app_user 时必须是权威大写（STORE/INVESTOR/CHANNEL），
+        // 否则与 bindUserRole、V36、AppRoleController#mine 的大写口径漂移，
+        // 导致「审核通过却查不到角色 / 鉴权 403」。
         String roleType = String.valueOf(row.get("role_type")).toLowerCase();
+        String canonicalRole = normalizeRoleCode(roleType);
         // 申请时前端已写入的目标主体 id（投资场景=目标门店；普通场景=待绑定的主体）
         Long appliedSubjectId = row.get("subject_id") == null ? null : ((Number) row.get("subject_id")).longValue();
 
@@ -351,9 +356,9 @@ public class SubjectBindingController {
             jdbcTemplate.update("update role_application set subject_id = ? where id = ?", subjectId, id);
             jdbcTemplate.update("insert into user_role_grant (user_id, role_code, subject_id, status, grant_time) "
                             + "values (?, ?, ?, 'active', now())",
-                    userId, roleType, subjectId);
+                    userId, canonicalRole, subjectId);
             jdbcTemplate.update("update app_user set business_role = ?, bound_subject_id = ? where id = ? and deleted = 0",
-                    roleType, subjectId, userId);
+                    canonicalRole, subjectId, userId);
         }
         return Result.ok();
     }
@@ -368,7 +373,7 @@ public class SubjectBindingController {
     private void bindInvestorToStore(Long userId, Long storeSubjectId) {
         Long investorSubjectId = jdbcTemplate.queryForList(
                         "select subject_id from user_role_grant "
-                                + "where user_id = ? and role_code = 'investor' and status = 'active' and deleted = 0 order by id limit 1",
+                                + "where user_id = ? and UPPER(role_code) = 'INVESTOR' and status = 'active' and deleted = 0 order by id limit 1",
                         userId)
                 .stream()
                 .map(m -> m.get("subject_id") == null ? null : ((Number) m.get("subject_id")).longValue())
@@ -378,7 +383,7 @@ public class SubjectBindingController {
         if (investorSubjectId == null) {
             investorSubjectId = jdbcTemplate.queryForList(
                             "select bound_subject_id from app_user "
-                                    + "where id = ? and business_role = 'investor' and deleted = 0",
+                                    + "where id = ? and UPPER(business_role) = 'INVESTOR' and deleted = 0",
                             userId)
                     .stream()
                     .map(m -> m.get("bound_subject_id") == null ? null : ((Number) m.get("bound_subject_id")).longValue())

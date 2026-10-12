@@ -115,10 +115,10 @@ public class InternalQueryController {
         if (granted != null && granted > 0) {
             return Map.of("allowed", true);
         }
-        // 2) 当前绑定主体：business_role=store 且绑定到该门店
+        // 2) 当前绑定主体：business_role=STORE（UPPER 归一，兼容历史小写存量）且绑定到该门店
         Long bound = jdbcTemplate.queryForObject(
                 "select count(*) from app_user "
-                        + "where id = ? and bound_subject_id = ? and business_role = 'store' and deleted = 0",
+                        + "where id = ? and bound_subject_id = ? and UPPER(business_role) = 'STORE' and deleted = 0",
                 Long.class, userId, subjectId);
         return Map.of("allowed", bound != null && bound > 0);
     }
