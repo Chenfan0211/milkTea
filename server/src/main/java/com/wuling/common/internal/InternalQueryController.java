@@ -167,7 +167,7 @@ public class InternalQueryController {
     public Map<String, Object> splitSnapshot(@RequestParam String orderNo) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "select s.snapshot_no, s.item_count, s.supplier_amount, s.store_amount, "
-                        + "s.channel_amount, s.investor_amount, s.platform_amount, s.platform_commission, "
+                        + "s.channel_amount, s.investor_amount, s.platform_amount, s.platform_commission, s.platform_bonus, "
                         + "o.paid_amount "
                         + "from split_snapshot s left join orders o on o.order_no = s.order_no "
                         + "where s.order_no = ? and s.deleted = 0 order by s.id desc limit 1",
@@ -181,6 +181,7 @@ public class InternalQueryController {
         result.put("investorShare", null);
         result.put("platformCommission", null);
         result.put("platformShare", null);
+        result.put("platformBonus", null);
         result.put("base", null);
         if (rows.isEmpty()) {
             return result;
@@ -191,6 +192,7 @@ public class InternalQueryController {
         long channel = nz(row.get("channel_amount"));
         long supplier = nz(row.get("supplier_amount"));
         long commission = nz(row.get("platform_commission"));
+        long bonus = nz(row.get("platform_bonus"));
         long investor = nz(row.get("investor_amount"));
         result.put("snapshotNo", row.get("snapshot_no"));
         result.put("itemCount", row.get("item_count"));
@@ -200,6 +202,7 @@ public class InternalQueryController {
         result.put("investorShare", investor);
         result.put("platformCommission", commission);
         result.put("platformShare", nz(row.get("platform_amount")));
+        result.put("platformBonus", bonus);
         // 快照未存投资人基础额，按同一口径现算，供前端判断「基础为负」提示
         result.put("base", paid - store - channel - supplier - commission);
         return result;

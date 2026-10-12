@@ -98,7 +98,9 @@ const groups: DetailGroup[] = [
       { label: '门店', render: (r: any) => `¥${formatFen(r.split?.storeShare)}` },
       { label: '资源方', render: (r: any) => `¥${formatFen(r.split?.channelShare)}` },
       { label: '投资人', render: (r: any) => `¥${formatFen(r.split?.investorShare)}` },
-      { label: '平台（剩余）', render: (r: any) => `¥${formatFen(r.split?.platformShare)}` }
+      { label: '平台分佣', render: (r: any) => `¥${formatFen(r.split?.platformCommission)}` },
+      { label: '平台提成', render: (r: any) => `¥${formatFen(r.split?.platformBonus)}` },
+      { label: '平台合计', render: (r: any) => `¥${formatFen(r.split?.platformShare)}` }
     ]
   }
 ];

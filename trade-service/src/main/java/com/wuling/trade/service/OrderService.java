@@ -674,6 +674,7 @@ public class OrderService {
         split.setInvestorShare(view.getInvestorShare());
         split.setPlatformCommission(view.getPlatformCommission());
         split.setPlatformShare(view.getPlatformShare());
+        split.setPlatformBonus(view.getPlatformBonus());
         split.setBase(view.getBase());
         return split;
     }

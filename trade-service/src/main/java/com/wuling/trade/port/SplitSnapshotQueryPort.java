@@ -36,6 +36,8 @@ public interface SplitSnapshotQueryPort {
         private Long platformCommission;
         /** 平台剩余 */
         private Long platformShare;
+        /** 平台提成 */
+        private Long platformBonus;
         /** 投资人计费基础额（<= 0 时投资人为 0） */
         private Long base;
 
@@ -101,6 +103,14 @@ public interface SplitSnapshotQueryPort {
 
         public void setPlatformShare(Long platformShare) {
             this.platformShare = platformShare;
+        }
+
+        public Long getPlatformBonus() {
+            return platformBonus;
+        }
+
+        public void setPlatformBonus(Long platformBonus) {
+            this.platformBonus = platformBonus;
         }
 
         public Long getBase() {

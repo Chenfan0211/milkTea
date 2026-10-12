@@ -96,6 +96,8 @@ public class OrderDTO {
         private Long platformCommission;
         /** 平台剩余（分）= 实付 − 成本 − 门店 − 资源方 − 投资人 */
         private Long platformShare;
+        /** 平台提成（分），对应 split_snapshot.platform_bonus */
+        private Long platformBonus;
         /** 投资人计费基础额（分），<= 0 时投资人为 0 */
         private Long base;
     }
