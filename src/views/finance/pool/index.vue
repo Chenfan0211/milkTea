@@ -53,10 +53,10 @@ const columns: DataTableColumns<any> = [
 ];
 
 const stats = computed(() => [
-  { label: '池子总余额', value: pool.value.totalBalance },
-  { label: '可提现总额', value: totalAvailable.value },
-  { label: '冻结总额', value: totalFrozen.value },
-  { label: '平台收益(池内)', value: platformBalance.value }
+  { label: '池子总余额', value: pool.value.totalBalance / 100 },
+  { label: '可提现总额', value: totalAvailable.value / 100 },
+  { label: '冻结总额', value: totalFrozen.value / 100 },
+  { label: '平台收益(池内)', value: platformBalance.value / 100 }
 ]);
 </script>
 

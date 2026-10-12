@@ -11,7 +11,7 @@ import { NAvatar } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import type { RoleType } from '@/store/modules/admin';
 import defaultAvatar from '@/assets/images/profile-avatar.jpg';
-import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
+import { renderTag, statusMap, renderDateTime, formatFen } from '@/views/_shared/render';
 
 const store = useAdminStore();
 
@@ -57,7 +57,7 @@ const columns: DataTableColumns<any> = [
     render: (row: any) => row.vipLevel || '—'
   },
   { title: '时光币', key: 'points', width: 90, align: 'right', render: (row: any) => String(row.points ?? 0) },
-  { title: '储值金额', key: 'balance', width: 88, align: 'right', render: (row: any) => `¥${row.balance ?? 0}` },
+  { title: '储值金额', key: 'balance', width: 88, align: 'right', render: (row: any) => `¥${formatFen(row.balance)}` },
   {
     title: '经营角色',
     key: 'businessRole',
