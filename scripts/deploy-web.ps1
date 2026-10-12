@@ -44,7 +44,7 @@ function Step([string]$msg) {
 Step "构建前端（Mode=$Mode）"
 Push-Location $Root
 try {
-  if ($Mode -eq 'https') { pnpm build:prod } else { pnpm build:prod-ip }
+  if ($Mode -eq 'https') { pnpm build } else { pnpm build:prod-ip }
   if ($LASTEXITCODE -ne 0) { throw "构建失败（exit=$LASTEXITCODE）" }
 } finally { Pop-Location }
 
