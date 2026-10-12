@@ -61,10 +61,14 @@ function describeAuthError(res) {
 }
 
 /**
- * 登录态失效：先确认再跳授权登录页（避免只弹 Toast、用户无法登录）。
+ * 需要登录的请求返回 401 时的统一处理。区分两种情形：
  *
- * 仅在「静默重登失败」时调用（token 过期但 wx.login 重登也失败），
- * 此时给用户明确、不误导的提示，而不是笼统的「需要登录」。
+ *   1) 匿名用户（本地无 token，如冷启动未授权就浏览）：只是「该功能需要登录」，
+ *      弹温和引导而非「登录已失效」，否则新用户一进来就被吓到，也不符合
+ *      「先浏览后授权」的合规要求（历史问题：首页误请求 /me 触发此弹窗）。
+ *   2) 已登录但 token 失效（静默重登也失败）：此时弹「登录已失效，是否重新登录」。
+ *
+ * 页面常并发发起多个请求，若各自处理会连弹多次，这里统一节流。
  */
 function handleUnauthorized(res) {
   if (typeof wx === 'undefined') return;
@@ -72,6 +76,35 @@ function handleUnauthorized(res) {
   if (now - unauthorizedNotifiedAt < UNAUTHORIZED_TOAST_INTERVAL) return;
   unauthorizedNotifiedAt = now;
 
+  const openGuard = () => {
+    let loginGuard = null;
+    try {
+      loginGuard = require('./login-guard');
+    } catch (error) {
+      loginGuard = null;
+    }
+    return loginGuard;
+  };
+
+  // 匿名用户：温和引导（非「失效」语义）
+  if (!readToken()) {
+    wx.showModal({
+      title: '登录后可查看',
+      content: '该功能需要登录后使用，是否前往登录？',
+      confirmText: '去登录',
+      cancelText: '暂不',
+      success: ({ confirm }) => {
+        if (!confirm) return;
+        const loginGuard = openGuard();
+        if (loginGuard && typeof loginGuard.openLoginSheet === 'function') {
+          loginGuard.openLoginSheet({ reason: '登录后可查看该功能' });
+        }
+      }
+    });
+    return;
+  }
+
+  // 已登录但 token 失效：提示重新登录
   const message = describeAuthError(res);
   wx.showModal({
     title: '登录已失效',
@@ -80,12 +113,7 @@ function handleUnauthorized(res) {
     cancelText: '取消',
     success: ({ confirm }) => {
       if (!confirm) return;
-      let loginGuard = null;
-      try {
-        loginGuard = require('./login-guard');
-      } catch (error) {
-        loginGuard = null;
-      }
+      const loginGuard = openGuard();
       if (loginGuard && typeof loginGuard.openLoginSheet === 'function') {
         loginGuard.openLoginSheet({ reason: message });
       }

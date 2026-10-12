@@ -1,5 +1,5 @@
 const { withShare } = require('../../utils/share');
-const loginGuard = require('../../utils/login-guard');
+const loginGuard = require('../../utils/login-guard'); auth = require('../../utils/auth');
 const api = require('../../utils/api');
 const { buildMonthCells, buildWeekDates, calculateContinuousDays } = require('../../utils/points-signin');
 const { getPoints, notifyPointsChanged } = require('../../utils/points');
@@ -41,6 +41,10 @@ Page(
     onShow() {
       this.syncSignInState();
       // 签到状态以后端为准：拉取用户全部签到日期后还原周历 / 月历 / 连续天数
+      // 未登录不请求（否则 401 触发登录引导），保持本地空态即可。
+      if (!auth.isLoggedIn()) {
+        this.signinStateReady = false;
+      } else {
       api
         .fetchSigninDates()
         .then(dates => {
@@ -55,6 +59,7 @@ Page(
           // 状态拉取失败：标记未就绪，避免把「拉取失败」误判为「今天没签到」
           this.signinStateReady = false;
         });
+      }
       // 签到规则与奖励由后台配置
       api
         .fetchSigninConfig()

@@ -81,13 +81,16 @@ Page(
   withShare(
     {
       onLoad() {
-        api
-          .fetchReferralCount()
-          .then(res => {
-            const count = Number(res && res.count);
-            this.setData({ invitedCount: Number.isFinite(count) ? count : 0 });
-          })
-          .catch(() => {});
+        // 邀请人数需要登录；未登录（含分享链接进入）不请求，默认显示 0，避免触发登录引导。
+        if (auth.isLoggedIn()) {
+          api
+            .fetchReferralCount()
+            .then(res => {
+              const count = Number(res && res.count);
+              this.setData({ invitedCount: Number.isFinite(count) ? count : 0 });
+            })
+            .catch(() => {});
+        }
 
         api
           .fetchReferralConfig()

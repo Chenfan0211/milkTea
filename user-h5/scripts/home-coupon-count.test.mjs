@@ -63,7 +63,8 @@ globalThis.Page = page => {
   definition = page;
 };
 const api = require(path.join(root, 'utils/api.js'));
-// 登录态：fetchMe 成功；fetchUserCoupons 返回上面的远程券
+// 登录态：写入 token（home.js 未登录时不再请求 /me），并 stub fetchMe / fetchUserCoupons
+couponsStorage['milkTea:auth:token'] = 'test-token';
 const realFetchMe = api.fetchMe;
 const realFetchUserCoupons = api.fetchUserCoupons;
 api.fetchMe = () => Promise.resolve({ nickName: '微信用户' });
@@ -91,6 +92,7 @@ assert.equal(page.data.couponCount, 3, '登录后首页 couponCount 必须取后
 
 // ---------- home.js onShow：未登录时 couponCount 为 null（隐藏） ----------
 couponsStorage['milkTea:coupons'] = [];
+couponsStorage['milkTea:auth:token'] = ''; // 清除 token，模拟未登录
 api.fetchMe = () => Promise.reject(new Error('未登录'));
 const anonymousPage = createPageInstance();
 await definition.onShow.call(anonymousPage);

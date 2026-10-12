@@ -3,6 +3,7 @@ const api = require('../../utils/api');
 const { getUserProfile } = require('../../utils/user-profile');
 const { getUsableCouponCount, refreshCouponsFromRemote } = require('../../utils/coupons');
 const loginGuard = require('../../utils/login-guard');
+const authState = require('../../utils/auth-state');
 
 Page(
   withShare({
@@ -26,6 +27,13 @@ Page(
           }
         })
         .catch(() => null);
+      // 未登录：不请求需要登录的 /me（否则 401 会触发全局「重新登录」引导，
+      // 造成「一进首页就强制登录」，也不符合「先浏览后授权」的合规要求）。
+      // 直接用本地默认资料渲染，昵称位显示「请登录」，由用户主动点击后再引导。
+      if (!authState.isLoggedIn()) {
+        this.setData({ userProfile: getUserProfile(), couponCount: null });
+        return configTask;
+      }
       const profileTask = api
         .fetchMe()
         .then(() => {
@@ -36,9 +44,9 @@ Page(
         .catch(() => this.setData({ couponCount: null }));
       return Promise.all([configTask, profileTask]);
     },
-    /** 首页昵称位登录入口：页内唤起登录弹层（不跳页） */
+    /** 首页昵称位登录入口：跳转独立登录页（用户主动点击，符合「先浏览后登录」的合规要求） */
     handleLoginTap() {
-      this.setData({ loginSheetVisible: true });
+      loginGuard.openLoginSheet({ reason: '登录后可同步会员权益与订单' });
     },
     closeLoginSheet() {
       this.setData({ loginSheetVisible: false });

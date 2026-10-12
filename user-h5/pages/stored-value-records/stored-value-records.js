@@ -1,7 +1,7 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { formatDateTime } = require('../../utils/date-format');
-const { getUserProfile, roundMoney } = require('../../utils/user-profile');
+const { getUserProfile, roundMoney } = require('../../utils/user-profile'); auth = require('../../utils/auth');
 
 const PAGE_SIZE = 20;
 
@@ -44,6 +44,11 @@ Page(
       render();
     },
     loadRecords() {
+      // 未登录不请求（否则 401 触发登录引导），显示空列表。
+      if (!auth.isLoggedIn()) {
+        this.setData({ records: [], hasMore: false, page: 1 });
+        return;
+      }
       this.setData({ page: 1, hasMore: true, loadingMore: false });
       api
         .fetchStoredValueRecords(1, PAGE_SIZE)

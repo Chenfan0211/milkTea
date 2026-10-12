@@ -1,6 +1,6 @@
 const api = require('../../utils/api');
 const { withShare } = require('../../utils/share');
-const { formatOrderAmount } = require('../../data/mock');
+const { formatOrderAmount } = require('../../data/mock'); auth = require('../../utils/auth');
 
 function toYuan(fen) {
   const value = Number(fen);
@@ -30,6 +30,11 @@ Page(
 
     /** 回读服务端订单：金额以服务端为准，避免依赖本地传参。 */
     refreshOrder(orderNo) {
+      // 未登录不请求（支付成功页正常情况下已登录，此处兜底防御分享/异常入口）。
+      if (!auth.isLoggedIn()) {
+        this.setData({ loading: false });
+        return;
+      }
       api
         .fetchOrderDetail(orderNo)
         .then(order => {

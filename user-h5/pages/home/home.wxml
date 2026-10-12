@@ -12,8 +12,8 @@
         class="user-strip__login"
         bindtap="handleLoginTap"
         aria-role="button"
-        aria-label="登录后可同步会员权益与订单"
-      >点击登录</text>
+        aria-label="请登录，登录后可同步会员权益与订单"
+      >请登录</text>
       <view wx:if="{{userProfile.nickname}}" class="coupon-link" bindtap="openCoupons" aria-role="button" aria-label="查看优惠券">
         <text>优惠券{{couponCount}}张</text>
         <image class="coupon-link__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
