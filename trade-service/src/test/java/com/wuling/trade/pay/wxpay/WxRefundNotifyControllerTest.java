@@ -3,6 +3,8 @@ package com.wuling.trade.pay.wxpay;
 import com.wechat.pay.java.core.notification.Notification;
 import com.wuling.trade.pay.giftcard.GiftCardRefundService;
 import com.wuling.trade.service.RefundService;
+import com.wechat.pay.java.core.util.GsonUtil;
+import com.wechat.pay.java.service.refund.model.RefundNotification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -104,5 +106,30 @@ class WxRefundNotifyControllerTest {
 
     private ResponseEntity<Map<String, String>> callNotify() {
         return controller.notify("SERIAL", "123", "NONCE", "SIGN", "{}");
+    }
+    /**
+     * 回归守卫：退款通知明文必须用 Gson 的 snake_case 序列化，而非 Jackson 的 camelCase。
+     *
+     * <p>根因：RefundNotification 用 Gson 的 @SerializedName 标注（out_trade_no 等），
+     * 若用 Jackson ObjectMapper 序列化会输出 outTradeNo/outRefundNo，
+     * 下游 WxRefundNotifyController 按 out_trade_no/out_refund_no 读不到 → 回调被误判失败。
+     */
+    @Test
+    void refundNotificationSerializesToSnakeCase() {
+        RefundNotification n = new RefundNotification();
+        n.setOutTradeNo("ORDER-1");
+        n.setOutRefundNo("RF1");
+
+        String json = GsonUtil.toJson(n);
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                json.contains("\"out_trade_no\":\"ORDER-1\""),
+                "Gson 序列化必须输出 snake_case 的 out_trade_no，实际：" + json);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                json.contains("\"out_refund_no\":\"RF1\""),
+                "Gson 序列化必须输出 snake_case 的 out_refund_no，实际：" + json);
+        org.junit.jupiter.api.Assertions.assertFalse(
+                json.contains("outTradeNo") || json.contains("outRefundNo"),
+                "不得出现 Jackson 风格的 camelCase 字段名，实际：" + json);
     }
 }

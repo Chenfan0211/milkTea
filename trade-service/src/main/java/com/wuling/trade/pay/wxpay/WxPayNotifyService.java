@@ -3,8 +3,11 @@ package com.wuling.trade.pay.wxpay;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wechat.pay.java.core.notification.Notification;
+import com.wechat.pay.java.service.payments.model.Transaction;
+import com.wechat.pay.java.service.refund.model.RefundNotification;
 import com.wechat.pay.java.core.notification.NotificationParser;
 import com.wechat.pay.java.core.notification.RequestParam;
+import com.wechat.pay.java.core.util.GsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -82,7 +85,8 @@ public class WxPayNotifyService {
 
         checkTimestampWindow(timestamp);
 
-        Notification notification;
+        JsonNode outer;
+        Transaction decrypted;
         try {
             RequestParam requestParam = new RequestParam.Builder()
                     .serialNumber(serial)
@@ -91,16 +95,19 @@ public class WxPayNotifyService {
                     .signature(signature)
                     .body(body)
                     .build();
-            notification = notificationParser.parse(requestParam, Notification.class);
+            // 外层（event_type / id 等不加密字段）从原始 body 解析
+            outer = objectMapper.readTree(body);
+            // 解密明文：正确传入 Transaction.class，SDK 把解密后的交易反序列化为此类
+            decrypted = notificationParser.parse(requestParam, Transaction.class);
         } catch (Exception e) {
             // 不打印签名与密文内容，避免敏感信息进日志
             log.warn("微信支付回调验签/解密失败 serial={} err={}", serial, e.getMessage());
             throw new WxPayNotifyException("回调验签或解密失败", e);
         }
 
-        WxPayTransaction transaction = parsePlaintext(notification.getPlaintext());
-        transaction.setEventType(notification.getEventType());
-        transaction.setNotifyId(notification.getId());
+        WxPayTransaction transaction = fromTransaction(decrypted);
+        transaction.setEventType(text(outer, "event_type"));
+        transaction.setNotifyId(text(outer, "id"));
 
         // 校验报文里的商户号/AppID 与自身配置一致，防止「别人家的回调」被误认入账
         if (StringUtils.hasText(transaction.getMchId())
@@ -144,7 +151,20 @@ public class WxPayNotifyService {
                     .signature(signature)
                     .body(body)
                     .build();
-            return notificationParser.parse(requestParam, Notification.class);
+            // 外层（event_type / id 等）从原始 body 解析
+            JsonNode outer = objectMapper.readTree(body);
+            Notification notification = new Notification();
+            notification.setEventType(text(outer, "event_type"));
+            notification.setId(text(outer, "id"));
+            // 解密明文：退款通知明文对应 RefundNotification
+            RefundNotification decrypted = notificationParser.parse(requestParam, RefundNotification.class);
+            // 把解密明文回填到 plaintext，供调用方按 refund_status 解析。
+            // 必须用 GsonUtil（Gson + LOWER_CASE_WITH_UNDERSCORES）序列化：
+            // RefundNotification 字段用 Gson 的 @SerializedName 标注（如 out_trade_no），
+            // Jackson 的 ObjectMapper 不识别该注解，会把字段名序列化成 camelCase，
+            // 导致下游 WxRefundNotifyController 按 out_trade_no/out_refund_no 读不到 → 回调被误判失败。
+            notification.setPlaintext(GsonUtil.toJson(decrypted));
+            return notification;
         } catch (Exception e) {
             log.warn("微信支付回调验签/解密失败 serial={} err={}", serial, e.getMessage());
             throw new WxPayNotifyException("回调验签或解密失败", e);
@@ -169,53 +189,42 @@ public class WxPayNotifyService {
         }
     }
 
-    /** 把解密后的 JSON 明文转成 {@link WxPayTransaction} */
-    private WxPayTransaction parsePlaintext(String plaintext) {
-        if (!StringUtils.hasText(plaintext)) {
+    /** 把 SDK 解密出的 {@link Transaction} 映射为 {@link WxPayTransaction} */
+    private String text(JsonNode node, String field) {
+        JsonNode value = node == null ? null : node.path(field);
+        return value == null || value.isMissingNode() || value.isNull() ? null : value.asText();
+    }
+
+    private WxPayTransaction fromTransaction(Transaction tx) {
+        if (tx == null) {
             throw new WxPayNotifyException("回调解密结果为空");
         }
-        try {
-            JsonNode node = objectMapper.readTree(plaintext);
-            WxPayTransaction tx = new WxPayTransaction();
-            tx.setOutTradeNo(text(node, "out_trade_no"));
-            tx.setTransactionId(text(node, "transaction_id"));
-            tx.setTradeState(text(node, "trade_state"));
-            tx.setTradeStateDesc(text(node, "trade_state_desc"));
-            tx.setMchId(text(node, "mchid"));
-            tx.setAppId(text(node, "appid"));
-            tx.setSuccessTime(text(node, "success_time"));
-
-            JsonNode amount = node.path("amount");
-            if (!amount.isMissingNode() && !amount.isNull()) {
-                tx.setTotalAmount(longValue(amount, "total"));
-                tx.setPayerTotal(longValue(amount, "payer_total"));
+        WxPayTransaction result = new WxPayTransaction();
+        result.setOutTradeNo(tx.getOutTradeNo());
+        result.setTransactionId(tx.getTransactionId());
+        result.setTradeState(tx.getTradeState() == null ? null : tx.getTradeState().name());
+        result.setTradeStateDesc(tx.getTradeStateDesc());
+        result.setMchId(tx.getMchid());
+        result.setAppId(tx.getAppid());
+        result.setSuccessTime(tx.getSuccessTime());
+        if (tx.getAmount() != null) {
+            if (tx.getAmount().getTotal() != null) {
+                result.setTotalAmount(tx.getAmount().getTotal().longValue());
             }
-            JsonNode payer = node.path("payer");
-            if (!payer.isMissingNode() && !payer.isNull()) {
-                tx.setPayerOpenid(text(payer, "openid"));
+            if (tx.getAmount().getPayerTotal() != null) {
+                result.setPayerTotal(tx.getAmount().getPayerTotal().longValue());
             }
-            return tx;
-        } catch (WxPayNotifyException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new WxPayNotifyException("回调报文解析失败", e);
         }
+        if (tx.getPayer() != null) {
+            result.setPayerOpenid(tx.getPayer().getOpenid());
+        }
+        return result;
     }
 
     private void requireText(String value, String field) {
         if (!StringUtils.hasText(value)) {
             throw new WxPayNotifyException("回调缺少必要参数：" + field);
         }
-    }
-
-    private String text(JsonNode node, String field) {
-        JsonNode value = node.path(field);
-        return value.isMissingNode() || value.isNull() ? null : value.asText();
-    }
-
-    private Long longValue(JsonNode node, String field) {
-        JsonNode value = node.path(field);
-        return value.isMissingNode() || value.isNull() ? null : value.asLong();
     }
 
     /**

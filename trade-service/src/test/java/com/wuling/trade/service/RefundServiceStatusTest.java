@@ -17,14 +17,17 @@ import com.wuling.trade.mapper.RefundMapper;
 import com.wuling.trade.pay.storedvalue.StoredValueBalancePort;
 import com.wuling.trade.port.SettlementQueryPort;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -332,6 +335,81 @@ class RefundServiceStatusTest {
         assertEquals(ResultCode.NOT_FOUND, ex.getCode());
     }
 
+
+    @Test
+    @DisplayName("受理退款且启用即时重查时，会在短延时后主动查询推进状态")
+    void quickRecheckQueriesGatewayAfterAcceptance() throws Exception {
+        enableQuickRecheck(0L);
+
+        Order order = order(OrderService.STATUS_PAID, null);
+        when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
+        when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
+        when(gatewayResolver.active()).thenReturn(paymentGateway);
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), isNull()))
+                .thenReturn(new PaymentGateway.RefundApplyResult(true, "3RD1", null));
+        // 即时重查：先用 selectOne 定位退款单，再用 selectById 读最新
+        when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund(RefundService.STATUS_REFUNDING));
+        when(refundMapper.selectById(REFUND_ID)).thenReturn(refund(RefundService.STATUS_SUCCESS));
+        when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
+        when(paymentGateway.queryRefund(eq(ORDER_NO), anyString())).thenReturn("SUCCESS");
+        doAnswer(invocation -> {
+            Refund r = invocation.getArgument(0);
+            r.setId(REFUND_ID);
+            return 1;
+        }).when(refundMapper).insert(any(Refund.class));
+
+        service.refund(ORDER_NO, null);
+
+        // 即时重查是异步的：轮询等待其完成（最多 2 秒）
+        long deadline = System.currentTimeMillis() + 2000;
+        boolean queried = false;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                verify(paymentGateway, org.mockito.Mockito.atLeastOnce())
+                        .queryRefund(eq(ORDER_NO), anyString());
+                queried = true;
+                break;
+            } catch (AssertionError ignored) {
+                Thread.sleep(20);
+            }
+        }
+        assertTrue(queried, "启用即时重查后应主动查询三方退款状态，避免用户长时间停留在「退款中」");
+    }
+
+    @Test
+    @DisplayName("关闭即时重查时不得发起主动查询（仅依赖回调与定时兜底）")
+    void quickRecheckDisabledDoesNotQuery() throws Exception {
+        enableQuickRecheck(-1L);
+
+        Order order = order(OrderService.STATUS_PAID, null);
+        when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
+        when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
+        when(gatewayResolver.active()).thenReturn(paymentGateway);
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), isNull()))
+                .thenReturn(new PaymentGateway.RefundApplyResult(true, "3RD1", null));
+        doAnswer(invocation -> {
+            Refund r = invocation.getArgument(0);
+            r.setId(REFUND_ID);
+            return 1;
+        }).when(refundMapper).insert(any(Refund.class));
+
+        service.refund(ORDER_NO, null);
+        Thread.sleep(200);
+
+        verify(paymentGateway, never()).queryRefund(anyString(), anyString());
+    }
+
+    /** 通过反射设置 {@code quickRecheckEnabled / quickRecheckDelayMs}，避免为测试污染生产代码。 */
+    private void enableQuickRecheck(long delayMs) throws Exception {
+        java.lang.reflect.Field enabled =
+                RefundService.class.getDeclaredField("quickRecheckEnabled");
+        enabled.setAccessible(true);
+        enabled.setBoolean(service, delayMs >= 0);
+        java.lang.reflect.Field delay =
+                RefundService.class.getDeclaredField("quickRecheckDelayMs");
+        delay.setAccessible(true);
+        delay.setLong(service, Math.max(0L, delayMs));
+    }
 
     private void assertRefundRejected(String status, String refundStatus) {
         Order order = order(status, refundStatus);

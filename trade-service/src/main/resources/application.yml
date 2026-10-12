@@ -83,10 +83,18 @@ app:
     cron: '0 * * * * ?'
     batch-size: 200
   # 微信退款主动查询兜底（回调丢失时的最终兜底；mock 通道下 queryRefund 返回 null 自动跳过）
+  # cron 默认每分钟一次（原 5 分钟）：微信退款结果通知可能未送达，用户侧感知延迟直接等于本间隔，
+  # 缩短到 1 分钟可把「退款中」停留时间压到 1 分钟内。
   refund-reconcile:
     enabled: ${REFUND_RECONCILE_ENABLED:true}
-    cron: ${REFUND_RECONCILE_CRON:0 */5 * * * ?}
+    cron: ${REFUND_RECONCILE_CRON:0 */1 * * * ?}
     batch-size: ${REFUND_RECONCILE_BATCH_SIZE:100}
+    # 退款单超过该分钟数仍未终态才主动查询：直接决定「退款中」停留时长，默认 1 分钟。
+    query-after-minutes: ${REFUND_RECONCILE_QUERY_AFTER_MINUTES:1}
+  # 退款受理后的即时重查（缩短「退款中」感知时长；微信回调未送达时的快速接管）
+  refund:
+    quick-recheck-enabled: ${REFUND_QUICK_RECHECK_ENABLED:true}
+    quick-recheck-delay-ms: ${REFUND_QUICK_RECHECK_DELAY_MS:30000}
   mq:
     order-timeout-ms: ${MQ_ORDER_TIMEOUT_MS:900000}
     max-retry: ${MQ_MAX_RETRY:3}

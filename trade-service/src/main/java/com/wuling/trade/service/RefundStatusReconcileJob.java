@@ -28,14 +28,31 @@ public class RefundStatusReconcileJob {
 
     private static final Logger log = LoggerFactory.getLogger(RefundStatusReconcileJob.class);
 
-    /** 退款单超过该分钟数仍未终态才主动查询，避免与正常回调抢跑 */
-    private static final long QUERY_AFTER_MINUTES = 5;
+    /**
+     * 退款单超过该分钟数仍未终态才主动查询。
+     *
+     * <p><b>为什么从 5 分钟降到 1 分钟</b>：本值直接决定「用户点取消后要等多久才变已取消」。
+     * 原来 5 分钟 + 5 分钟 cron，最坏情况下用户要盯着「退款中」近 10 分钟；
+     * 微信侧退款通常几秒到账，回调若未送达（域名/验签问题），本地就只能等兜底。
+     * 降为 1 分钟后与 cron 同频，配合 {@code quickRecheck} 即时重查，感知延迟压到 1 分钟内。
+     */
+    private static final long DEFAULT_QUERY_AFTER_MINUTES = 1;
 
     private final RefundMapper refundMapper;
     private final RefundService refundService;
     private final boolean enabled;
     private final int batchSize;
+    /** 退款单「多大年纪」才允许被主动查询（分钟）；越小越早接管，但过小会与正常回调重复查询。 */
+    @Value("${app.refund-reconcile.query-after-minutes:1}")
+    private long queryAfterMinutes = DEFAULT_QUERY_AFTER_MINUTES;
 
+    /**
+     * Spring 装配用构造器。
+     *
+     * <p>{@code queryAfterMinutes} 走字段 {@code @Value} 注入（而非构造器参数）——
+     * 它与 {@code batchSize} 同为 {@code int}/{@code long}，若都放进构造器会产生
+     * 相同签名的重载而编译失败；字段注入也更便于测试覆写。
+     */
     public RefundStatusReconcileJob(
             RefundMapper refundMapper,
             RefundService refundService,
@@ -47,7 +64,7 @@ public class RefundStatusReconcileJob {
         this.batchSize = batchSize;
     }
 
-    @Scheduled(cron = "${app.refund-reconcile.cron:0 */5 * * * ?}")
+    @Scheduled(cron = "${app.refund-reconcile.cron:0 */1 * * * ?}")
     public void run() {
         sweep();
     }
@@ -57,7 +74,7 @@ public class RefundStatusReconcileJob {
         if (!enabled) {
             return 0;
         }
-        LocalDateTime deadline = LocalDateTime.now().minusMinutes(QUERY_AFTER_MINUTES);
+        LocalDateTime deadline = LocalDateTime.now().minusMinutes(queryAfterMinutes);
         List<Refund> pendings = refundMapper.selectList(
                 new LambdaQueryWrapper<Refund>()
                         .eq(Refund::getStatus, RefundService.STATUS_REFUNDING)

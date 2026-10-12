@@ -102,6 +102,22 @@ class RefundStatusReconcileJobTest {
     }
 
     @Test
+    @DisplayName("默认门槛为 1 分钟：2 分钟前的 REFUNDING 单必须被接管（原 5 分钟门槛会漏掉）")
+    void defaultThresholdIsOneMinute() {
+        // 用「默认构造器」装配，验证默认值本身（而不是测试里显式传参）
+        RefundStatusReconcileJob defaultJob =
+                new RefundStatusReconcileJob(refundMapper, refundService, true, 100);
+        LocalDateTime now = LocalDateTime.now();
+        Refund r = refund(1L, now.minusMinutes(2));
+        when(refundMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(r));
+        when(refundService.syncRefundStatus("O1", "RF1")).thenReturn(true);
+
+        int advanced = defaultJob.sweep();
+
+        assertEquals(1, advanced, "默认门槛须为 1 分钟，2 分钟前的退款单不得被跳过");
+    }
+
+    @Test
     @DisplayName("关闭时直接返回 0 且不查询")
     void disabledReturnsZeroWithoutQuery() {
         job = new RefundStatusReconcileJob(refundMapper, refundService, false, 100);

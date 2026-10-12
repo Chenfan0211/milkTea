@@ -121,9 +121,10 @@ public class WxPaySdkConfig {
 
     /** JSAPI 服务扩展：统一下单 / 查询 / 关单（已内置小程序二次签名） */
     @Bean
-    public JsapiServiceExtension wxPayJsapiService(HttpClient wxPayHttpClient) {
+    public JsapiServiceExtension wxPayJsapiService(Config wxPayConfig, HttpClient wxPayHttpClient) {
         log.info("微信支付 JsapiServiceExtension 已装配 verifyMode={}", properties.getVerifyMode());
         return new JsapiServiceExtension.Builder()
+                .config(wxPayConfig)
                 .httpClient(wxPayHttpClient)
                 .build();
     }
@@ -138,8 +139,9 @@ public class WxPaySdkConfig {
 
     /** 商家转账服务扩展：提现出款（transfer_batches 转账批次，单笔明细） */
     @Bean
-    public TransferBatchService wxPayTransferBatchService(HttpClient wxPayHttpClient) {
+    public TransferBatchService wxPayTransferBatchService(Config wxPayConfig, HttpClient wxPayHttpClient) {
         return new TransferBatchService.Builder()
+                .config(wxPayConfig)
                 .httpClient(wxPayHttpClient)
                 .build();
     }

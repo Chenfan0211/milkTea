@@ -18,6 +18,9 @@ import com.wuling.trade.mapper.PaymentMapper;
 import com.wuling.trade.mapper.RefundMapper;
 import com.wuling.trade.pay.storedvalue.StoredValueBalancePort;
 import com.wuling.trade.port.SettlementQueryPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +52,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class RefundService {
 
+    private static final Logger log = LoggerFactory.getLogger(RefundService.class);
+
     /** 退款单状态：退款中 */
     public static final String STATUS_REFUNDING = "REFUNDING";
     /** 退款单状态：退款失败 */
@@ -65,6 +70,25 @@ public class RefundService {
     private final PaymentGatewayResolver gatewayResolver;
     private final OutboxService outboxService;
     private final StoredValueBalancePort storedValueBalancePort;
+
+    /**
+     * 是否启用「退款受理后即时重查」。
+     *
+     * <p>默认开启：微信退款回调（refund-notify）可能因域名不可达 / 验签失败而丢失，
+     * 只靠定时兜底会让用户盯着「退款中」等待；受理后短延时主动查询一次可大幅压缩延迟。
+     * 置 false 可关闭（仅用于排查「即时重查是否与回调相互干扰」）。
+     */
+    @Value("${app.refund.quick-recheck-enabled:true}")
+    private boolean quickRecheckEnabled;
+
+    /**
+     * 即时重查的延迟（毫秒）。
+     *
+     * <p>退避太短会在微信尚未完成退款时白查一次（仍会由定时兜底接管），
+     * 太长则延迟优势不明显；30 秒是「微信小额退款通常已到账」与「用户可接受等待」的折中。
+     */
+    @Value("${app.refund.quick-recheck-delay-ms:30000}")
+    private long quickRecheckDelayMs;
 
     public RefundService(OrderMapper orderMapper,
                          OrderItemMapper orderItemMapper,
@@ -114,6 +138,12 @@ public class RefundService {
         // 调用三方退款下单（放本方法尾部：事务仍持有行锁，但下单失败走 FAILED 不抛异常，
         // 避免事务回滚把 REFUNDING 记录也回滚掉 —— 失败也应有记录可查/可重试）
         applyToGateway(refund);
+
+        // 若受理后仍是 REFUNDING，安排一次延迟主动查询：
+        // 微信退款结果通知（refund-notify）可能因域名不可达 / 验签失败而丢失，
+        // 届时本地只能等定时兜底（默认 1 分钟）。这里在受理后短延时内主动查一次，
+        // 通常 20~40 秒即可把状态推进为 SUCCESS，用户无需盯着「退款中」等待。
+        scheduleQuickRecheck(refund);
 
         return orderService.toDTO(order, loadItems(order.getId()));
     }
@@ -256,6 +286,47 @@ public class RefundService {
 
         applyToGateway(refund);
         return orderService.toDTO(order, loadItems(order.getId()));
+    }
+
+    /**
+     * 受理退款后安排一次「延迟主动查询」。
+     *
+     * <p><b>为什么需要它</b>：退款到账由微信异步完成，本地状态依赖回调推进；
+     * 回调未送达时只能等定时兜底（间隔 1 分钟），用户会看到「退款中」滞留。
+     * 本方法在受理后的短延时窗口内主动查询一次，把常见情况（微信已退款成功）
+     * 的感知延迟从「分钟级」压到「几十秒级」。
+     *
+     * <p><b>安全边界</b>：
+     * <ul>
+     *   <li>查询失败 / 仍未终态时静默忽略，状态保持不变，由定时兜底继续接管；</li>
+     *   <li>与定时兜底共用 {@link #syncRefundStatus}，其内部 {@link #onRefundResult}
+     *       对终态退款单幂等跳过，因此重复查询不会重复冲正台账；</li>
+     *   <li>查询在下单事务提交后异步执行，不占用/不延长原事务与行锁；</li>
+     *   <li>mock 通道 {@code queryRefund} 返回 null，本方法自然跳过。</li>
+     * </ul>
+     */
+    private void scheduleQuickRecheck(Refund refund) {
+        if (!quickRecheckEnabled) {
+            return;
+        }
+        if (!STATUS_REFUNDING.equals(refund.getStatus())) {
+            // 储值同步退款等场景已直接成功，无需再查
+            return;
+        }
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(Math.max(0, quickRecheckDelayMs));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            try {
+                syncRefundStatus(refund.getOrderNo(), refund.getRefundNo());
+            } catch (Exception e) {
+                // 主动查询失败不是异常路径：定时兜底会继续重试
+                log.warn("退款受理后即时重查失败 refundNo={} err={}", refund.getRefundNo(), e.getMessage());
+            }
+        });
     }
 
     private void markSuccess(Refund refund) {
