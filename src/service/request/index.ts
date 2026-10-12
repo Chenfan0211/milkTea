@@ -15,9 +15,7 @@ export const request = createFlatRequest(
     baseURL,
     // 调试期 Apifox 鉴权头：仅当构建时注入 VITE_APIFOX_TOKEN 时才附带，
     // 避免把调试 token 硬编码进生产产物。
-    headers: import.meta.env.VITE_APIFOX_TOKEN
-      ? { apifoxToken: import.meta.env.VITE_APIFOX_TOKEN }
-      : {}
+    headers: import.meta.env.VITE_APIFOX_TOKEN ? { apifoxToken: import.meta.env.VITE_APIFOX_TOKEN } : {}
   },
   {
     defaultState: {

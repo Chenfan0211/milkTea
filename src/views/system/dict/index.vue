@@ -22,14 +22,31 @@ const store = useAdminStore();
  * 故此处统一改为库中列名，不再依赖任何别名映射。
  */
 
+/**
+ * 分组中文名映射。
+ *
+ * 数据字典页「分组」列与搜索/表单下拉原先把 dict_type 编码直接展示（store_type 等），
+ * 运营读不懂。中文名其实已存在 sys_dict_type.dict_name（由 V3/V53/V59 迁移写入），
+ * 因此这里统一从 store.dictTypes 取中文，而不是在前端硬编码映射表
+ * （硬编码会在运营改名后与库不一致）。
+ *
+ * 兜底：分组未登记在 sys_dict_type 时回退显示原编码，避免出现空白列。
+ */
+const groupNameOf = (code: any) => {
+  if (!code) return '—';
+  const hit = (store.dictTypes as any[]).find((t: any) => String(t.dictType) === String(code));
+  return (hit && hit.dictName) || String(code);
+};
+
+/** 分组下拉选项：label 中文、value 保留编码（写库口径不变） */
 const groupOptions = () =>
-  Array.from(new Set(store.dictEntries.map((e: any) => e.dictType).filter(Boolean))).map(name => ({
-    label: name,
-    value: name
+  (store.dictTypes as any[]).map((t: any) => ({
+    label: t.dictName || t.dictType,
+    value: t.dictType
   }));
 
 const columns: DataTableColumns<any> = [
-  { title: '分组', key: 'dictType', width: 130 },
+  { title: '分组', key: 'dictType', width: 130, render: (row: any) => groupNameOf(row.dictType) },
   { title: '编码', key: 'itemCode', width: 140 },
   { title: '名称', key: 'itemName', width: 140 },
   { title: '排序', key: 'sort', width: 80, align: 'right' },
@@ -47,7 +64,10 @@ const columns: DataTableColumns<any> = [
 
 const searchFields: SearchField[] = [
   { key: 'itemName', label: '名称', placeholder: '名称' },
-  { key: 'dictType', label: '分组', type: 'select', options: groupOptions }
+  // eq_ 前缀 => 后端等值过滤（CrudRegistry.filterable 已放行 dict_type）。
+  // 原 key 写成 dictType 时，该列既不在 searchable 也不在 filterable 白名单，
+  // 条件会被 CrudService 静默丢弃 —— 这正是「分组搜索不过滤」的根因。
+  { key: 'eq_dictType', label: '分组', type: 'select', options: groupOptions }
 ];
 
 const formFields: FormField[] = [
@@ -86,6 +106,8 @@ const rowActions: RowAction[] = [
 const config: AdminListConfig = {
   title: '数据字典',
   remoteKey: 'dictEntries',
+  // 分组中文名（dict_name）来自 sys_dict_type，需与字典项一起预加载后再渲染列表/下拉。
+  remoteDeps: ['dictTypes'],
   columns,
   searchFields,
   toolbar,

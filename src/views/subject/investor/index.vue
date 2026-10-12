@@ -189,7 +189,7 @@ const config: AdminListConfig = {
       { key: 'status', label: '签约状态' },
       { key: 'relatedStore', label: '关联门店' }
     ],
-    template: () => '编码,姓名,签约状态,关联门店(逗号分隔)\nIV-1004,投资人丁,已签约,五一广场店,岳麓店\n',
+    template: () => '编码,姓名,签约状态,关联门店\nIV-1004,投资人丁,已签约,"五一广场店,岳麓店"\n',
     parse: rows => {
       const errors: string[] = [];
       const ok: Record<string, any>[] = [];

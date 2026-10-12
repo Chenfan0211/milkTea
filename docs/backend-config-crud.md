@@ -21,6 +21,7 @@
 | 资源名                 | 表            | 说明        |
 | ---------------------- | ------------- | ----------- |
 | `dictEntries`          | sys_dict_item | 数据字典    |
+| `dictTypes`            | sys_dict_type | 字典类型（分组中文名，只读） |
 | `cities` / `provinces` | region        | 城市 / 省份 |
 | `features`             | feature_flag  | 功能开关    |
 | `subjects`             | biz_subject   | 经营主体    |

@@ -567,7 +567,8 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.system_config',
         meta: {
           title: 'system_config',
-          i18nKey: 'route.system_config'
+          i18nKey: 'route.system_config',
+          hideInMenu: true
         }
       },
       {

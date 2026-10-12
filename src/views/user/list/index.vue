@@ -10,6 +10,7 @@ import type { DataTableColumns } from 'naive-ui';
 import { NAvatar } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import type { RoleType } from '@/store/modules/admin';
+import defaultAvatar from '@/assets/images/profile-avatar.jpg';
 import { renderTag, statusMap, renderDateTime } from '@/views/_shared/render';
 
 const store = useAdminStore();
@@ -37,11 +38,9 @@ const columns: DataTableColumns<any> = [
     key: 'avatar',
     width: 80,
     render: (row: any) =>
-      row.avatar
-        ? h(NAvatar, { round: true, size: 40, src: row.avatar, style: 'display:block' })
-        : h('span', { style: 'color:#9B9B96' }, '—')
+      h(NAvatar, { round: true, size: 40, src: row.avatar || defaultAvatar, style: 'display:block' })
   },
-  { title: '用户ID', key: 'userId', width: 110 },
+  { title: '用户ID', key: 'id', width: 110, render: (row: any) => row.id ?? '—' },
   { title: '手机号', key: 'phone', width: 130, render: (row: any) => row.phone || '—' },
   { title: '昵称', key: 'nickName', width: 140 },
   {
@@ -70,8 +69,9 @@ const columns: DataTableColumns<any> = [
 ];
 
 const searchFields: SearchField[] = [
+  { key: 'phone', label: '手机号', placeholder: '请输入手机号' },
   { key: 'nickName', label: '昵称', placeholder: '微信昵称' },
-  { key: 'userId', label: '用户ID', placeholder: '用户ID' }
+  { key: 'eq_id', label: '用户ID', placeholder: '请输入用户ID' }
 ];
 
 const rowActions: RowAction[] = [

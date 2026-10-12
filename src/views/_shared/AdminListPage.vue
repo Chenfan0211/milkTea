@@ -153,6 +153,16 @@ async function submitModal() {
   if (props.config.form) {
     try {
       const visibleKeys = new Set(visibleFormFields.value.map(field => field.key));
+      // geocode 控件解析出的经纬度写在 formModel 的 latKey/lngKey 上，
+      // 但它们不是独立表单字段，若不纳入白名单会在提交时被过滤掉，
+      // 导致「已解析成功却提示请先解析」的假校验失败。
+      for (const field of props.config.form?.fields ?? []) {
+        if (field.type === 'geocode') {
+          for (const key of [field.geocodeLatKey, field.geocodeLngKey, field.geocodeSourceKey]) {
+            if (key) visibleKeys.add(key);
+          }
+        }
+      }
       const payload = Object.fromEntries(Object.entries(formModel).filter(([key]) => visibleKeys.has(key)));
       await props.config.form.onSubmit(payload, modalMode.value === 'edit' ? editingRow.value : null);
     } catch (e: any) {
@@ -292,7 +302,10 @@ function openImport() {
 }
 
 function parseWorkbook(data: ArrayBuffer): Record<string, string>[] {
-  const wb = XLSX.read(data, { type: 'array' });
+  // codepage: 936（GBK/GB18030）：Excel 另存 CSV 时中文常落成 GBK 编码且无 BOM，
+  // 若不指定 codepage，XLSX.read 会把中文表头读成乱码，导致 row[f.label] 匹配不到、
+  // 全部字段被判「必填缺失」。936 对 .xlsx（二进制）无副作用，只影响 CSV 文本解码。
+  const wb = XLSX.read(data, { type: 'array', codepage: 936 });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
   const fields = props.config.importConfig?.fields ?? [];
@@ -326,14 +339,19 @@ function handleImportFile(options: { file: any }) {
 function downloadTemplate() {
   const cfg = props.config.importConfig;
   if (!cfg) return;
+  // 模板统一导出为 .xlsx：xlsx 内部为 UTF-8 XML，中文不会像 CSV 那样
+  // 因 GBK 编码 / 无 BOM 而乱码，也彻底规避「下载后 Excel 另存又变 GBK」的坑。
+  // 用 XLSX.read(type:'string') 把 template() 的 CSV 文本（含逗号转义）解析成
+  // 工作表，再以 aoa 形式重建成新 workbook 导出，避免手写 split(',') 拆坏含逗号的字段。
   const text = cfg.template();
-  const blob = new Blob(['\ufeff' + text], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = cfg.title + '导入模板.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  const csvWb = XLSX.read(text, { type: 'string' });
+  const csvSheet = csvWb.Sheets[csvWb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(csvSheet, { header: 1, defval: '' }) as any[][];
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  XLSX.writeFile(wb, cfg.title + '导入模板.xlsx');
 }
 
 async function confirmImport() {

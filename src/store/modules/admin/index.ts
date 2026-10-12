@@ -54,6 +54,7 @@ import { fetchAdminSnapshots } from '@/service/api/finance';
 const REMOTE_RESOURCES: Record<string, string> = {
   // 系统配置
   dictEntries: 'dictEntries',
+  dictTypes: 'dictTypes',
   cities: 'cities',
   provinces: 'provinces',
   activityCities: 'activityCities',
@@ -216,6 +217,7 @@ function seed(): AdminData {
     giftCardDenominations: [],
     giftCardOrders: [],
     dictEntries: [],
+    dictTypes: [],
     productCategories: [],
     provinces: [],
     cities: [],
@@ -457,6 +459,7 @@ function migrate(data: AdminData): AdminData {
   // 早期实现会在「接口返回空数组」时塞回前端假数据，导致页面显示与数据库不一致却难以察觉
   // （症状：库里明明是空，页面却有条目）。现统一遵循「接口返回什么就是什么」。
   if (!Array.isArray(data.dictEntries)) data.dictEntries = [];
+  if (!Array.isArray(data.dictTypes)) data.dictTypes = [];
   if (!Array.isArray(data.fundPool)) data.fundPool = [];
   if (!Array.isArray(data.subjectAccounts)) data.subjectAccounts = [];
   if (!Array.isArray(data.fundFlows)) data.fundFlows = [];
@@ -1804,6 +1807,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     storeTypes: computed(() => ensure('storeTypes')),
     productCategories: computed(() => ensure('productCategories')),
     dictEntries: computed(() => ensure('dictEntries')),
+    dictTypes: computed(() => ensure('dictTypes')),
     fundPool: computed(() => ensure('fundPool')),
     subjectAccounts: computed(() => ensure('subjectAccounts')),
     fundFlows: computed(() => ensure('fundFlows')),

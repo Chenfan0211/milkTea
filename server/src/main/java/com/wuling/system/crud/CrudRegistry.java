@@ -42,7 +42,12 @@ public final class CrudRegistry {
             // ---------- 系统配置 ----------
             Map.entry("dictEntries", new Resource("dictEntries", "sys_dict_item",
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),
-                    List.of("item_code", "item_name"), "sort asc, id asc")),
+                    List.of("item_code", "item_name"), "sort asc, id asc", List.of("dict_type"))),
+            // 字典类型：为「数据字典」页提供 分组编码 -> 中文名（dict_name）的唯一来源。
+            // writable 留空 => 只读资源，前端即使误调写接口也会被白名单全部丢弃，不产生写风险。
+            Map.entry("dictTypes", new Resource("dictTypes", "sys_dict_type",
+                    List.of(),
+                    List.of("dict_type", "dict_name"), "dict_type asc")),
             // latitude/longitude：城市经纬度（V31 新增列）
             Map.entry("cities", new Resource("cities", "region",
                     List.of("parent_id", "code", "name", "level", "sort", "latitude", "longitude", "status"),
@@ -70,7 +75,7 @@ public final class CrudRegistry {
                     List.of("code", "name"), "id asc", List.of("subject_type", "status"))),
             Map.entry("storeTypes", new Resource("storeTypes", "sys_dict_item",
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),
-                    List.of("item_code", "item_name"), "sort asc, id asc")),
+                    List.of("item_code", "item_name"), "sort asc, id asc", List.of("dict_type"))),
             // open_id：供「微信账号绑定」页维护微信 openId（V31 起放行写入与搜索）
             //
             // 注意：business_role / bound_subject_id 不在可写白名单内 ——
@@ -80,7 +85,7 @@ public final class CrudRegistry {
             // 一边显示未绑的不一致（历史故障）。绑定/解绑一律走专用接口。
             Map.entry("users", new Resource("users", "app_user",
                     List.of("open_id", "nick_name", "phone", "vip_level", "points", "balance", "status"),
-                    List.of("nick_name", "phone", "open_id"), "id asc")),
+                    List.of("nick_name", "phone", "open_id"), "id asc", List.of("id"))),
 
             // ---------- 第3批：商品配置 ----------
             // 分类管理：tag=分类标签，enabled=状态（1启用/0停用，V30 新增）；
