@@ -8,7 +8,6 @@ const {
   tickOrderCountdowns
 } = require('../../utils/orders');
 const { requestOrderPayment } = require('../../utils/order-payment');
-const { verifyExchange } = require('../../utils/points');
 
 Page(
   withShare({
@@ -147,44 +146,6 @@ Page(
     },
     handleReorder() {
       wx.showToast({ title: '再次购买暂未接入', icon: 'none' });
-    },
-    copyVerifyCode() {
-      const code = this.data.order.pickupCode;
-      if (!code) return;
-      wx.setClipboardData({ data: code });
-    },
-    scanVerifyCode() {
-      const expected = this.data.order.pickupCode;
-      if (!expected) return;
-      wx.scanCode({
-        success: res => {
-          const scanned = String((res && res.result) || '').trim();
-          if (!scanned) {
-            wx.showToast({ title: '未识别到核销码', icon: 'none' });
-            return;
-          }
-          if (scanned !== expected) {
-            wx.showToast({ title: '核销码不匹配', icon: 'none' });
-            return;
-          }
-          // 核销为服务端写操作：结果以后端为准（重复核销 / 未支付会被拒绝）
-          verifyExchange(expected).then(result => {
-            if (!result || result.ok !== true) {
-              const reason =
-                result && result.reason === 'already_verified'
-                  ? '该码已核销'
-                  : (result && result.message) || '核销失败';
-              wx.showToast({ title: reason, icon: 'none' });
-              return;
-            }
-            wx.showToast({ title: '核销成功', icon: 'success' });
-            this.refreshOrder();
-          });
-        },
-        fail: () => {
-          wx.showToast({ title: '扫码已取消', icon: 'none' });
-        }
-      });
     },
     handleCopy() {
       const detail = this.data.order || {};

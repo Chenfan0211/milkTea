@@ -482,8 +482,7 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
   // 回写必须基于当前缓存合并：Object.assign({}, userProfile, {...})。
   // 用「两段特征同时存在」断言而非跨多行的脆弱正则。
   assert.ok(
-    profileJs.includes('getUserProfile()') &&
-      /Object\.assign\(\{\}, \w+, \{/.test(profileJs),
+    profileJs.includes('getUserProfile()') && /Object\.assign\(\{\}, \w+, \{/.test(profileJs),
     'profile 页资料回写必须基于当前缓存合并（Object.assign({}, userProfile, ...)），不得重建导致资产字段清零'
   );
   assert.ok(profileJs.includes('remote.points'), '资料回写必须包含远端 points 字段');

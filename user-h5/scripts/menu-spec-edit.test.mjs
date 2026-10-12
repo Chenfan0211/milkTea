@@ -467,9 +467,12 @@ assert.ok(
 assert.ok(orderDetailWxml.includes('<block wx:if="{{order.pickupCode}}">'), '空取单号必须条件渲染，不得显示空白标签');
 assert.ok(
   orderDetailWxml.includes("order.orderStatus === 'pending_verify'") &&
-    orderDetailWxml.includes('<qrcode value="{{order.pickupCode}}"') &&
-    orderDetailWxml.includes('scanVerifyCode'),
-  '订单详情必须在待核销时展示二维码并支持扫码核销'
+    orderDetailWxml.includes('<qrcode value="{{order.pickupCode}}"'),
+  '订单详情必须在待核销时展示二维码'
+);
+assert.ok(
+  !orderDetailWxml.includes('scanVerifyCode') && !orderDetailWxml.includes('copyVerifyCode'),
+  '订单详情不得再保留扫码/复制核销码按钮'
 );
 assert.ok(
   /\.status-card__code\s*\{[\s\S]*?font-size:\s*var\(--font-display\)/.test(orderDetailWxss),

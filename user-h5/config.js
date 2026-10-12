@@ -19,8 +19,8 @@ module.exports = {
   // 是否使用本地 Mock 响应。阶段 C 后 mock 兜底已移除，业务数据全部来自后端，
   // 因此默认关闭 Mock，直接请求后端。
   USE_MOCK: env.MINI_USE_MOCK ? env.MINI_USE_MOCK !== 'false' : false,
-  // 后端服务基础地址：默认走预览入口；上线时注入 MINI_BASE_URL 切换为 HTTPS 域名。
-  BASE_URL: env.MINI_BASE_URL || PREVIEW_BASE_URL,
+  // 后端服务基础地址：默认走生产 HTTPS 域名；本地联调可用 MINI_BASE_URL 覆盖为预览入口。
+  BASE_URL: env.MINI_BASE_URL || PRODUCTION_BASE_URL,
   PREVIEW_BASE_URL,
   PRODUCTION_BASE_URL,
   // 门店类型字典缓存有效期（毫秒），默认 1 小时

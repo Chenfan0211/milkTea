@@ -17,7 +17,8 @@
   <scroll-view class="coupon-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="coupon-page__body">
       <view class="coupon-page__inner">
-        <view class="exchange-card" bindtap="handleExchange" aria-role="button" aria-label="兑换优惠券">
+        <!-- 兑换优惠券入口暂未接入，先隐藏；恢复功能时删除 wx:if="{{false}}" 即可 -->
+        <view wx:if="{{false}}" class="exchange-card" bindtap="handleExchange" aria-role="button" aria-label="兑换优惠券">
           <image class="exchange-card__icon" src="/assets/icons/lucide/badge-japanese-yen-brand.svg" mode="aspectFit" />
           <text class="exchange-card__text">兑换优惠券</text>
           <image class="exchange-card__arrow" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />

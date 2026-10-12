@@ -19,7 +19,11 @@
 function formatOrderAmount(amount) {
   const value = Number(amount);
   if (!Number.isFinite(value)) return '0';
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  // 方案 A：整数不带小数，非整数保留 2 位并去尾零（避免 0.04 被截断为 0.0）
+  const fen = Math.round(value * 100);
+  if (fen % 100 === 0) return String(fen / 100);
+  const text = (fen / 100).toFixed(2);
+  return text.endsWith('0') ? text.slice(0, -1) : text;
 }
 
 /** 订单页分类页签（纯 UI 枚举）。 */

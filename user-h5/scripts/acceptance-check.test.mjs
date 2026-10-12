@@ -453,13 +453,29 @@ assert.ok(orderDetailWxml.includes('<block wx:if="{{order.pickupCode}}">'), '空
 assert.ok(
   orderDetailWxml.includes("order.orderStatus === 'pending_verify'") &&
     orderDetailWxml.includes('<qrcode value="{{order.pickupCode}}"') &&
-    orderDetailWxml.includes('copyVerifyCode') &&
-    orderDetailWxml.includes('scanVerifyCode') &&
-    orderDetailWxml.includes('扫码核销'),
-  '订单详情必须在待核销时展示二维码、复制与扫码核销'
+    orderDetailWxml.includes('请向门店出示此二维码核销'),
+  '订单详情必须在待核销时展示二维码与提示'
 );
+assert.ok(
+  !orderDetailWxml.includes('copyVerifyCode') &&
+    !orderDetailWxml.includes('scanVerifyCode') &&
+    !orderDetailWxml.includes('复制核销码') &&
+    !orderDetailWxml.includes('扫码核销'),
+  '订单详情不得再展示「复制核销码 / 扫码核销」按钮'
+);
+assert.ok(
+  orderDetailWxml.includes('>核销码</text>') && orderDetailWxml.includes('info-row__label'),
+  '核销码必须作为订单信息行展示'
+);
+assert.ok(
+  orderDetailWxml.includes('class="status-card__qrcode"') &&
+    orderDetailWxml.includes('<qrcode value="{{order.pickupCode}}"'),
+  '二维码必须内嵌于状态卡（取单号下方），不再单独成卡'
+);
+assert.ok(!orderDetailWxml.includes('detail-card verify-card'), '不得再保留独立的「核销码」卡片');
 
-assert.equal(orderDetailJson.renderer, undefined, '订单详情页必须继承全局 Skyline，不得局部降级 webview');
+// A1：canvas 2d 在 Skyline 下取不到 node（二维码白屏），故本页显式降级 webview。
+assert.equal(orderDetailJson.renderer, 'webview', '订单详情页必须显式降级 webview，否则 canvas 二维码白屏');
 const qrcodeWxml = fs.readFileSync(path.join(root, 'components/qrcode/qrcode.wxml'), 'utf8');
 const qrcodeJs = fs.readFileSync(path.join(root, 'components/qrcode/qrcode.js'), 'utf8');
 assert.ok(

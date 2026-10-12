@@ -9,6 +9,10 @@
           <text class="status-card__code">{{order.pickupCode}}</text>
           <text class="status-card__label">取单号</text>
         </block>
+        <view wx:if="{{order.orderStatus === 'pending_verify' && order.pickupCode}}" class="status-card__qrcode">
+          <qrcode value="{{order.pickupCode}}" size="{{320}}" />
+          <text class="status-card__qrcode-hint">请向门店出示此二维码核销</text>
+        </view>
         <text class="status-card__note">{{order.statusNote}}</text>
         <text wx:if="{{order.isPendingPayment}}" class="status-card__countdown">剩余支付时间 {{order.countdownText}}</text>
         <view wx:if="{{order.isPendingPayment}}" class="status-card__actions">
@@ -23,18 +27,6 @@
         </view>
       </view>
 
-      <view wx:if="{{order.orderStatus === 'pending_verify' && order.pickupCode}}" class="detail-card verify-card">
-        <text class="verify-card__title">核销码</text>
-        <view class="verify-card__qrcode">
-          <qrcode value="{{order.pickupCode}}" size="{{320}}" />
-        </view>
-        <text class="verify-card__code">{{order.pickupCode}}</text>
-        <text class="verify-card__hint">请向门店出示此二维码核销</text>
-        <view class="verify-card__actions">
-          <view class="verify-action verify-action--secondary" bindtap="copyVerifyCode" aria-role="button" aria-label="复制核销码">复制核销码</view>
-          <view class="verify-action verify-action--primary" bindtap="scanVerifyCode" aria-role="button" aria-label="扫码核销">扫码核销</view>
-        </view>
-      </view>
       <block wx:if="{{order.orderStatus === 'paid_pickup'}}">
         <view class="detail-card progress-card">
           <view class="progress-step" wx:for="{{order.progressSteps}}" wx:key="id">
@@ -108,6 +100,10 @@
             <text class="info-row__value">{{order.orderInfo.orderNo}}</text>
             <image class="copy-row__icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
           </view>
+        </view>
+        <view wx:if="{{order.pickupCode}}" class="info-row">
+          <text class="info-row__label">核销码</text>
+          <text class="info-row__value">{{order.pickupCode}}</text>
         </view>
         <view class="info-row">
           <text class="info-row__label">下单时间</text>

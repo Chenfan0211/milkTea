@@ -54,6 +54,23 @@
   font-size: var(--font-base);
 }
 
+.status-card__qrcode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 24rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-md);
+}
+
+.status-card__qrcode-hint {
+  margin-top: 16rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
 .status-card__note {
   margin-top: 24rpx;
   color: var(--text-secondary);
@@ -382,68 +399,4 @@
 
 .order-detail__safe {
   height: calc(40rpx + env(safe-area-inset-bottom));
-}
-
-.verify-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 32rpx 24rpx;
-  text-align: center;
-}
-
-.verify-card__title {
-  color: var(--text-main);
-  font-size: var(--font-lg);
-  font-weight: 600;
-}
-
-.verify-card__qrcode {
-  margin-top: 24rpx;
-  padding: 24rpx;
-  background: var(--card-bg);
-  border: 1rpx solid var(--line-color);
-  border-radius: var(--radius-md);
-}
-
-.verify-card__code {
-  margin-top: 24rpx;
-  color: var(--text-main);
-  font-size: var(--font-md);
-  font-weight: 600;
-}
-
-.verify-card__hint {
-  margin-top: 8rpx;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-}
-
-.verify-card__actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 24rpx;
-}
-
-.verify-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 200rpx;
-  height: 56rpx;
-  padding: 0 32rpx;
-  font-size: var(--font-sm);
-  border-radius: var(--radius-pill);
-}
-
-.verify-action--secondary {
-  margin-right: 20rpx;
-  color: var(--text-main);
-  background: var(--card-bg);
-  border: 1rpx solid var(--line-color);
-}
-
-.verify-action--primary {
-  color: #ffffff;
-  background: var(--brand-green);
 }
