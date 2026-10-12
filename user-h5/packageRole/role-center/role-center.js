@@ -52,7 +52,7 @@ Page(
       if (!this.data.currentRoleId) return;
       switchToConsumer();
       this.syncState();
-      wx.showToast({ title: '已切回消费端', icon: 'none' });
+      wx.showToast({ title: '已切换为用户', icon: 'none' });
     }
   })
 );

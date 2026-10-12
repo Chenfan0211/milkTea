@@ -29,7 +29,8 @@
               <text wx:elif="{{authStateLevel === 'authorized'}}" class="user-card__phone user-card__phone--bind" catchtap="handleBindPhone">绑定手机号</text>
               <view class="user-card__badges">
                 <text class="user-card__vip">{{userProfile.vipLevel}}</text>
-                <text wx:if="{{businessRole}}" class="user-card__role-badge" catchtap="switchIdentity" aria-role="button" aria-label="切换身份">{{businessRole.label}}</text>
+                <!-- 身份徽章常驻：经营角色显示角色名，无经营角色时显示「用户」；点击弹出身份切换面板 -->
+                <text class="user-card__role-badge" catchtap="switchIdentity" aria-role="button" aria-label="切换身份">{{businessRole ? businessRole.label : '用户'}}</text>
               </view>
             </block>
           </view>

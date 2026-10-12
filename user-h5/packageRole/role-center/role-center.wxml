@@ -30,11 +30,11 @@
           <image wx:if="{{currentRoleId === item.id}}" class="role-card__check" src="/assets/icons/lucide/circle-check-big.svg" mode="aspectFit" />
         </view>
 
-        <view class="role-card role-card--consumer {{!currentRoleId ? 'is-current' : ''}}" bindtap="switchConsumer" aria-role="button" aria-label="切回消费端">
+        <view class="role-card role-card--consumer {{!currentRoleId ? 'is-current' : ''}}" bindtap="switchConsumer" aria-role="button" aria-label="切换为用户">
           <image class="role-card__icon" src="/assets/icons/lucide/users.svg" mode="aspectFit" />
           <view class="role-card__body">
             <view class="role-card__head">
-              <text class="role-card__label">消费端</text>
+              <text class="role-card__label">用户</text>
               <text wx:if="{{!currentRoleId}}" class="role-card__current">当前</text>
             </view>
             <text class="role-card__desc">普通用户身份，无经营角色权限</text>

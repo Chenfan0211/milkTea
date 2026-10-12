@@ -142,7 +142,7 @@ function normalizeState(value) {
   const source = value && typeof value === 'object' ? value : {};
   const roles = Array.isArray(source.roles) ? source.roles.map(normalizeRoleEntry).filter(Boolean) : [];
   const currentRoleId = getRoleMeta(source.currentRoleId) ? source.currentRoleId : '';
-  return { roles, currentRoleId };
+  return { roles, currentRoleId, consumerOptOut: Boolean(source.consumerOptOut) };
 }
 
 function readStorage() {
@@ -150,7 +150,7 @@ function readStorage() {
     const value = typeof wx !== 'undefined' && wx.getStorageSync ? wx.getStorageSync(ROLE_STORAGE_KEY) : '';
     return normalizeState(value);
   } catch (error) {
-    return { roles: [], currentRoleId: '' };
+    return { roles: [], currentRoleId: '', consumerOptOut: false };
   }
 }
 
@@ -159,7 +159,10 @@ function writeStorage(state) {
     if (typeof wx !== 'undefined' && wx.setStorageSync) {
       wx.setStorageSync(ROLE_STORAGE_KEY, {
         roles: state.roles.map(item => Object.assign({}, item)),
-        currentRoleId: state.currentRoleId || ''
+        currentRoleId: state.currentRoleId || '',
+        // 用户是否「主动切回消费端」。命中时必须记住，否则下次同步的自愈逻辑
+        // 会把身份再次抢回经营角色（用户刚切回普通身份又变回门店）。
+        consumerOptOut: Boolean(state.consumerOptOut)
       });
     }
   } catch (error) {
@@ -215,12 +218,27 @@ function getPendingRoles() {
     .filter(Boolean);
 }
 
+/** 读取登录 token，用于未登录时跳过 /roles/mine 请求（避免 401 引导）。 */
+function readTokenForSync() {
+  try {
+    if (typeof wx === 'undefined' || !wx.getStorageSync) return '';
+    const token = wx.getStorageSync('milkTea:auth:token');
+    return typeof token === 'string' ? token : '';
+  } catch (error) {
+    return '';
+  }
+}
+
 // 从后端同步角色到本地存储（角色以后端 user_role_grant / app_user 为准）。
 //
 // 设计：只「补写」后端已确认的角色，不清空本地记录 —— 因为本地还承担
 // 「申请中 pending」等后端尚未落库的中间态。接口失败时静默返回 null，
 // 页面继续用本地缓存，不会白屏。
+//
+// 合规：未登录不请求 /api/v1/app/roles/mine（否则 401 触发登录引导），
+// 直接返回 null；登录后才同步。这里直接读 token，避免引入 auth 造成循环依赖。
 function syncRolesFromRemote() {
+  if (!readTokenForSync()) return Promise.resolve(null);
   return api
     .fetchMyRoles()
     .then(data => {
@@ -232,9 +250,13 @@ function syncRolesFromRemote() {
           roleId: item.roleId,
           status: item.status === ROLE_STATUS_PENDING ? ROLE_STATUS_PENDING : ROLE_STATUS_ACTIVE
         }));
-      // 保留本地已有但后端未返回的角色（如待审核申请）
+      // 保留本地已有但后端未返回的角色（如待审核申请）。
+      // 例外：本地记成 active 却没被后端确认的，视为「已解绑」，必须剔除 ——
+      // 否则下面自愈会选中一个后端已不认的角色（徽章亮着但点进去 403）。
       local.roles.forEach(item => {
-        if (!merged.some(entry => entry.roleId === item.roleId)) merged.push(item);
+        if (merged.some(entry => entry.roleId === item.roleId)) return;
+        if (item.status === ROLE_STATUS_ACTIVE) return;
+        merged.push(item);
       });
       // 记录 subjectId 与主体名称，供工作台等按主体查询接口使用
       const subjectMap = {};
@@ -244,12 +266,24 @@ function syncRolesFromRemote() {
         if (item.subjectId != null) subjectMap[item.roleId] = item.subjectId;
         if (item.subjectName) subjectNameMap[item.roleId] = item.subjectName;
       });
-      const currentRoleId =
-        local.currentRoleId &&
-        merged.some(item => item.roleId === local.currentRoleId && item.status === ROLE_STATUS_ACTIVE)
-          ? local.currentRoleId
-          : '';
-      writeStorage({ roles: merged, currentRoleId });
+      // 当前角色自愈：仅在「本地记的角色已失效」时才重选，避免覆盖用户手选的其它 active 角色。
+      //
+      // 历史缺陷：只要本地没记过 currentRoleId（首次同步 / 存储被清），这里一律写入 ''，
+      // 而 getCurrentBusinessRole() 又要求 currentRoleId 非空才返回 —— 于是「已开通门店经营者」
+      // 的徽章与角色功能入口永远渲染不出来（且失败静默，看不出原因）。
+      // 现改为：本地记录失效时，回填第一个 active 角色（只从 active 里挑，仍保证未开通角色不可选中）。
+      const localRoleValid = merged.some(
+        item => item.roleId === local.currentRoleId && item.status === ROLE_STATUS_ACTIVE
+      );
+      // 用户主动切回消费端时不得自动抢回身份；一旦本地记录的是有效角色，视为已重新进入经营角色，
+      // 顺手清掉标记，避免标记残留导致后续同步又拒绝自愈。
+      const consumerOptOut = localRoleValid ? false : Boolean(local.consumerOptOut);
+      const currentRoleId = localRoleValid
+        ? local.currentRoleId
+        : consumerOptOut
+          ? ''
+          : (merged.find(item => item.status === ROLE_STATUS_ACTIVE) || {}).roleId || '';
+      writeStorage({ roles: merged, currentRoleId, consumerOptOut });
       writeSubjectMap(subjectMap);
       writeSubjectNameMap(subjectNameMap);
       return data;
@@ -1308,7 +1342,8 @@ function applyRole(roleId) {
   }
   const next = {
     roles: state.roles.concat({ roleId, status: ROLE_STATUS_PENDING }),
-    currentRoleId: state.currentRoleId
+    currentRoleId: state.currentRoleId || '',
+    consumerOptOut: state.consumerOptOut
   };
   writeStorage(next);
   return { roleId, status: ROLE_STATUS_PENDING };
@@ -1322,7 +1357,7 @@ function activateRole(roleId) {
   const roles = state.roles.map(item =>
     item.roleId === targetId ? { roleId: item.roleId, status: ROLE_STATUS_ACTIVE } : item
   );
-  const next = { roles, currentRoleId: state.currentRoleId || targetId };
+  const next = { roles, currentRoleId: state.currentRoleId || targetId, consumerOptOut: state.consumerOptOut };
   writeStorage(next);
   return { roleId: targetId, status: ROLE_STATUS_ACTIVE };
 }
@@ -1332,7 +1367,7 @@ function resetRole(roleId) {
   const state = readStorage();
   const roles = roleId ? state.roles.filter(item => item.roleId !== roleId) : [];
   const currentRoleId = roles.some(item => item.roleId === state.currentRoleId) ? state.currentRoleId : '';
-  const next = { roles, currentRoleId };
+  const next = { roles, currentRoleId, consumerOptOut: state.consumerOptOut };
   writeStorage(next);
   return { roleId: '', status: deriveStatus(next) };
 }
@@ -1349,7 +1384,8 @@ function switchRole(roleId) {
   const state = readStorage();
   const owned = state.roles.find(item => item.roleId === roleId && item.status === ROLE_STATUS_ACTIVE);
   if (!owned) return null;
-  writeStorage({ roles: state.roles, currentRoleId: roleId });
+  // 重新进入经营角色：清除「主动切回消费端」标记
+  writeStorage({ roles: state.roles, currentRoleId: roleId, consumerOptOut: false });
   return getRoleMeta(roleId);
 }
 
@@ -1359,9 +1395,10 @@ function setCurrentBusinessRole(roleId) {
 }
 
 // 切回消费端：清空当前角色，但保留已开通角色记录。
+// 同时打上 consumerOptOut 标记：下次 syncRolesFromRemote 不得自动把身份抢回经营角色。
 function switchToConsumer() {
   const state = readStorage();
-  const next = { roles: state.roles, currentRoleId: '' };
+  const next = { roles: state.roles, currentRoleId: '', consumerOptOut: true };
   writeStorage(next);
   return next;
 }

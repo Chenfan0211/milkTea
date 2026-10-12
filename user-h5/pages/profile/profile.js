@@ -154,15 +154,21 @@ Page(
       });
       // 经营角色以后端 /roles/mine 为准：同步后刷新身份徽章与门店功能入口。
       // 用户已绑定门店时，此前因「我的」页从不同步角色，徽章/功能始终为空。
-      syncRolesFromRemote().then(() => {
-        const nextRole = getCurrentBusinessRole();
-        const nextPending = getPendingRoles();
-        this.setData({
-          businessRole: nextRole,
-          pendingRoleCount: nextPending.length,
-          roleFunctions: buildRoleFunctions(nextRole && nextRole.id)
+      syncRolesFromRemote()
+        .then(() => {
+          const nextRole = getCurrentBusinessRole();
+          const nextPending = getPendingRoles();
+          this.setData({
+            businessRole: nextRole,
+            pendingRoleCount: nextPending.length,
+            roleFunctions: buildRoleFunctions(nextRole && nextRole.id)
+          });
+        })
+        .catch(error => {
+          // 经营角色接口失败此前完全静默，表现为「已开通门店经营者却怎么都不显示徽章」，
+          // 排查时无从下手。这里保留上次缓存渲染，同时把失败原因打到 Console（不弹窗打扰用户）。
+          console.warn('[profile] 经营角色同步失败，保留本地缓存', error);
         });
-      });
       this.syncLevel();
       refreshMemberLevelsFromRemote().then(() => this.syncLevel());
       if (this.getTabBar) this.getTabBar().setData({ selected: 4 });
@@ -410,14 +416,15 @@ Page(
       wx.switchTab({ url: '/pages/menu/menu' });
     },
     /**
-     * 切换身份：在「消费者」与已开通的经营角色（门店/投资人/资源方）之间切换。
+     * 切换身份：在「用户」与已开通的经营角色（门店/投资人/资源方）之间切换。
      * 角色中心入口已移除，身份切换收敛到用户卡片上的角色徽章。
      * 复用 roles.switchRole / switchToConsumer，开通状态仍以后端 /roles/mine 为准。
      */
     switchIdentity() {
       const currentRoleId = this.data.businessRole && this.data.businessRole.id;
       const activeRoles = getActiveRoles();
-      const items = ['消费者'];
+      // 首项恒为「用户」，并在用户视角时标注「（当前）」，让用户一眼知道能切回普通身份。
+      const items = currentRoleId ? ['用户'] : ['用户（当前）'];
       activeRoles.forEach(role => {
         if (role.id === currentRoleId) {
           items.push(role.label + '（当前）');
@@ -432,7 +439,9 @@ Page(
             if (currentRoleId) {
               switchToConsumer();
               this.syncBusinessRole();
-              wx.showToast({ title: '已切回消费端', icon: 'none' });
+              wx.showToast({ title: '已切换为用户', icon: 'none' });
+            } else {
+              wx.showToast({ title: '当前已是用户身份', icon: 'none' });
             }
             return;
           }

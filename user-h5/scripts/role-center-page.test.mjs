@@ -148,7 +148,7 @@ activateRole('resource');
 assert.equal(switchRole('resource').id, 'resource', 'can switch to another activated role');
 assert.equal(getActiveRoles().length, 2, 'switching preserves previously active roles');
 
-// 切回消费端：清空 currentRoleId，但保留已开通角色
+// 切回用户身份：清空 currentRoleId，但保留已开通角色
 switchToConsumer();
 assert.equal(getCurrentBusinessRole(), null, 'consumer switch must clear current role');
 assert.equal(getActiveRoles().length, 2, 'consumer switch must preserve active roles');
@@ -198,11 +198,14 @@ assert.ok(profileWxml.includes('pending-notice'), 'profile must render pending n
 assert.ok(profileWxml.includes('pendingRoleCount'), 'profile must show pending role count');
 assert.ok(profileWxml.includes('user-card__badges'), 'profile user card must group membership and role badges');
 assert.ok(
-  profileWxml.includes('wx:if="{{businessRole}}"'),
-  'profile must hide the role badge when no current role exists'
+  !profileWxml.includes('wx:if="{{businessRole}}"'),
+  '身份徽章必须常驻：无经营角色时显示「用户」，切回后入口不失联'
 );
 assert.ok(profileWxml.includes('user-card__role-badge'), 'profile user card must render the business role badge');
-assert.ok(profileWxml.includes('{{businessRole.label}}'), 'profile role badge must show the current role name');
+assert.ok(
+  profileWxml.includes("{{businessRole ? businessRole.label : '用户'}}"),
+  'profile role badge must show current role name with 用户 fallback'
+);
 assert.ok(profileWxml.includes('roleFunctions'), 'profile must append role functions');
 assert.ok(profileWxml.includes('bindtap="openRoleFunction"'), 'role functions must be clickable');
 assert.ok(profileWxml.includes('data-action="{{item.actionId}}"'), 'role functions must carry action id');
@@ -214,7 +217,7 @@ assert.ok(
 );
 assert.ok(profileJs.includes('/packageRole/role-apply/role-apply'), 'cooperation must navigate to role apply');
 assert.ok(profileJs.includes('openRoleApply'), 'profile must expose openRoleApply handler');
-// 门店身份展示闭环回归：角色中心入口已移除，身份由 /roles/mine 驱动、默认消费者；
+// 门店身份展示闭环回归：角色中心入口已移除，身份由 /roles/mine 驱动、默认用户；
 // 切换收敛到用户卡片上的角色徽章（switchIdentity），角色仍需在冷启动/onShow 同步。
 assert.ok(
   !profileWxml.includes('进入角色中心') && !profileWxml.includes('openRoleCenter'),
@@ -246,7 +249,7 @@ assert.ok(roleCenterJs.includes('switchRole'), 'role center must switch roles');
 assert.ok(!roleCenterJs.includes('mockSwitchRole'), 'role center must not bypass role review via mockSwitchRole');
 assert.ok(roleCenterJs.includes('switchToConsumer'), 'role center must support consumer switch');
 assert.ok(roleCenterWxml.includes('模拟角色切换'), 'role center title must be 模拟角色切换');
-assert.ok(roleCenterWxml.includes('消费端'), 'role center must include consumer option');
+assert.ok(roleCenterWxml.includes('>用户<'), 'role center must include user (consumer) option');
 assert.ok(!roleCenterJs.includes('applyRole'), 'role center must not apply roles');
 assert.ok(!roleCenterJs.includes('activateDemoRole'), 'role center must not expose demo activate');
 assert.ok(!roleCenterJs.includes('resetDemoRole'), 'role center must not expose demo reset');

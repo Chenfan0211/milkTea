@@ -9,10 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pageRoot = path.join(root, 'packageRole/role-apply/role-apply');
 
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-  assert.ok(
-    fs.existsSync(`${pageRoot}.${extension}`),
-    `缺少加盟合作申请页文件: role-apply.${extension}`
-  );
+  assert.ok(fs.existsSync(`${pageRoot}.${extension}`), `缺少加盟合作申请页文件: role-apply.${extension}`);
 }
 
 // ---------- 环境 stub ----------
@@ -104,14 +101,8 @@ resetRole();
 // ---------- 进入页面必须从后端同步角色状态 ----------
 {
   const js = fs.readFileSync(`${pageRoot}.js`, 'utf8');
-  assert.ok(
-    js.includes('syncRolesFromRemote'),
-    'onLoad 必须调用 syncRolesFromRemote，避免后端角色与本地缓存不一致'
-  );
-  assert.ok(
-    js.includes('getRoleState'),
-    '页面必须基于 getRoleState 计算已拥有角色状态'
-  );
+  assert.ok(js.includes('syncRolesFromRemote'), 'onLoad 必须调用 syncRolesFromRemote，避免后端角色与本地缓存不一致');
+  assert.ok(js.includes('getRoleState'), '页面必须基于 getRoleState 计算已拥有角色状态');
 }
 
 // ---------- 卡片上必须展示角色状态徽标 ----------
@@ -126,10 +117,7 @@ assert.ok(
 
 const wxss = fs.readFileSync(`${pageRoot}.wxss`, 'utf8');
 assert.ok(wxss.includes('.role-select__badge'), 'WXSS 必须定义状态徽标样式');
-assert.ok(
-  wxss.includes('.role-select__card.is-owned'),
-  '已拥有角色卡片必须有弱化视觉（is-owned）'
-);
+assert.ok(wxss.includes('.role-select__card.is-owned'), '已拥有角色卡片必须有弱化视觉（is-owned）');
 assert.ok(!/\b\d+px\b/.test(wxss), 'WXSS 不得使用 px 单位');
 
 resetRole();
