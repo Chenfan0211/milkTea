@@ -40,6 +40,8 @@ public class CrudService {
      * 「后台改了客服热线，小程序却一直显示旧号码」，且没有任何报错，排查成本极高。
      */
     private static final String RESOURCE_APP_CONFIG = "appConfig";
+    /** 活动城市（运营白名单，V71）：新增后需回填门店的 activity_city_id 绑定。 */
+    private static final String RESOURCE_ACTIVITY_CITIES = "activityCities";
 
     /**
      * 内置角色资源名（sys_role）与超管角色码。
@@ -235,6 +237,17 @@ public class CrudService {
         }, keyHolder);
         Number key = keyHolder.getKey();
         Map<String, Object> created = getOne(resource, key == null ? 0L : key.longValue());
+        // 活动城市新增后回填门店绑定：历史门店靠 city_id 关联 region.id，
+        // 与 activity_city.region_id 同源；只回填尚未绑定的门店，不覆盖已手动绑定的。
+        if (RESOURCE_ACTIVITY_CITIES.equals(resource) && key != null) {
+            Long regionId = toLong(values.get("region_id"));
+            if (regionId != null) {
+                jdbcTemplate.update(
+                        "update store_profile set activity_city_id = ? " +
+                        "where deleted = 0 and city_id = ? and activity_city_id is null",
+                        key.longValue(), regionId);
+            }
+        }
         writeAudit(resource, "新增", created, null, created);
         evictAppConfigCache(resource, created);
         return created;
