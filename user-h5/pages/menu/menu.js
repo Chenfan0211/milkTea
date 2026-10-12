@@ -11,6 +11,7 @@ const {
 const { buildCartId, mergeEditedCartItem, removeCartItems } = require('../../utils/cart');
 const { buildStoreMarkers } = require('../../utils/store-markers');
 const { normalizeSpecProduct } = require('../../utils/spec-sheet');
+const { yuanToFen, fenToYuan } = require('../../utils/money');
 const { refreshMemberLevelsFromRemote } = require('../../utils/member-level');
 const {
   getFavoriteStoreIds,
@@ -89,7 +90,7 @@ function summarizeCart(items) {
   const selectedItems = items.filter(item => item.selected);
   return {
     count: selectedItems.reduce((sum, item) => sum + item.quantity, 0),
-    total: Math.round(selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 10) / 10
+    total: fenToYuan(selectedItems.reduce((sum, item) => sum + yuanToFen(item.price) * item.quantity, 0))
   };
 }
 
@@ -163,10 +164,7 @@ Page(
       //     待门店到达后若 subjectId 发生了变化，再用新 subjectId 补拉一次，
       //     保证「门店选品下架的商品不出现在点单页」这一语义不被并行化破坏。
       const requestedSubjectId = this.currentStoreSubjectId();
-      return Promise.all([
-        refreshStoreCatalogFromRemote(),
-        refreshMenuFromRemote(requestedSubjectId)
-      ])
+      return Promise.all([refreshStoreCatalogFromRemote(), refreshMenuFromRemote(requestedSubjectId)])
         .then(() => {
           const latestSubjectId = this.currentStoreSubjectId();
           if (latestSubjectId !== requestedSubjectId) {
@@ -214,10 +212,7 @@ Page(
       // 谁后返回谁覆盖 setData —— 出现过「门店明明已缓存，门店选择层却又被打开」的竞态；
       // 后来又出现 onLoad / onShow 各请求一遍 stores / menu 的重复请求问题。
       // 现在把「门店 + 菜单」唯一收敛到 onShow，上述两类问题同时消除。
-      Promise.all([
-        refreshCitiesFromRemote(),
-        refreshMemberLevelsFromRemote()
-      ]);
+      Promise.all([refreshCitiesFromRemote(), refreshMemberLevelsFromRemote()]);
       api
         .fetchHomeConfig()
         .then(cfg => {

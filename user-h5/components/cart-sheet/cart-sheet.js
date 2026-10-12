@@ -1,13 +1,18 @@
+const { yuanToFen, fenToYuan } = require('../../utils/money');
+
 function roundMoney(value) {
-  return Math.round(value * 10) / 10;
+  // 按「分」取整，避免 0.04 被舍入为 0（1 位小数截断）
+  return fenToYuan(yuanToFen(value));
 }
 
 function summarize(items) {
   const selectedItems = items.filter(item => item.selected);
   const selectedCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
-  const total = roundMoney(selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0));
-  const originalTotal = roundMoney(selectedItems.reduce((sum, item) => sum + item.originalPrice * item.quantity, 0));
-  const discount = roundMoney(originalTotal - total);
+  const total = fenToYuan(selectedItems.reduce((sum, item) => sum + yuanToFen(item.price) * item.quantity, 0));
+  const originalTotal = fenToYuan(
+    selectedItems.reduce((sum, item) => sum + yuanToFen(item.originalPrice) * item.quantity, 0)
+  );
+  const discount = fenToYuan(yuanToFen(originalTotal) - yuanToFen(total));
 
   return {
     selectedItems,
