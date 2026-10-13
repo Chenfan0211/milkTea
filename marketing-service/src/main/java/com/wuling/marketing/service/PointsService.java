@@ -3,6 +3,7 @@ package com.wuling.marketing.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.marketing.dto.ExchangeOrderView;
 import com.wuling.marketing.entity.Coupon;
 import com.wuling.marketing.entity.ExchangeOrder;
 import com.wuling.marketing.entity.PointsCategory;
@@ -332,11 +333,14 @@ public class PointsService {
         return order;
     }
 
-    /** 我的兑换记录 */
-    public List<ExchangeOrder> exchangeOrders(Long userId) {
-        return exchangeOrderMapper.selectList(new LambdaQueryWrapper<ExchangeOrder>()
-                .eq(ExchangeOrder::getUserId, userId)
-                .orderByDesc(ExchangeOrder::getId));
+    /**
+     * 我的兑换记录。
+     *
+     * <p>走联表查询补齐商品名/图片 —— 兑换记录页要显示「兑换了什么」，
+     * 而 exchange_order 只有 points_product_id，裸查实体拿不到商品信息。
+     */
+    public List<ExchangeOrderView> exchangeOrders(Long userId) {
+        return exchangeOrderMapper.listMyExchangeOrders(userId);
     }
 
     /** 核销兑换单（幂等：已核销的重复核销会被拒绝） */

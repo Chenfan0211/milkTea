@@ -2,6 +2,7 @@ package com.wuling.marketing.controller;
 
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
+import com.wuling.marketing.dto.ExchangeOrderView;
 import com.wuling.marketing.dto.PointsCategoryView;
 import com.wuling.marketing.dto.StoredValuePackageDTO;
 import com.wuling.marketing.dto.StoredValueRecordDTO;
@@ -242,7 +243,7 @@ public class AppMarketingController {
     }
 
     @GetMapping("/points/exchange-orders")
-    public Result<List<ExchangeOrder>> exchangeOrders() {
+    public Result<List<ExchangeOrderView>> exchangeOrders() {
         return Result.ok(pointsService.exchangeOrders(CurrentUser.require()));
     }
 
