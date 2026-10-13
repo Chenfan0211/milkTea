@@ -39,19 +39,39 @@ Page(
           wx.showToast({ title: '兑换记录加载失败，请稍后重试', icon: 'none' });
         });
     },
-    /** 后端 ExchangeOrder -> 页面展示结构（字段缺失时兜底，避免渲染空白） */
+    /**
+     * 后端 ExchangeOrderView -> 页面展示结构（字段缺失时兜底，避免渲染空白）。
+     *
+     * 注意：name 不再回退到 exchangeNo。原实现把「兑换单号」当商品名兜底，
+     * 后端当时又没返回商品字段，导致卡片主标题显示成一串 CZ 单号。
+     * 现在商品名由后端联表 points_product 提供，缺失时给统一兜底文案。
+     */
     normalizeRecord(item) {
       const record = item && typeof item === 'object' ? item : {};
       return {
         id: String(record.id == null ? record.exchangeNo || '' : record.id),
         exchangeNo: record.exchangeNo || '',
-        name: record.name || record.productName || record.exchangeNo || '时光币兑换',
+        name: record.productName || record.name || '时光币兑换',
+        image: record.productImage || '',
+        quantity: Number(record.quantity) || 1,
         pickupCode: record.pickupCode || '',
         status: String(record.status || '').toLowerCase(),
         points: Number(record.points) || 0,
         time: record.createTime || '',
+        timeText: this.formatTime(record.createTime),
         statusLabel: this.statusText(record.status)
       };
+    },
+    /**
+     * 兑换时间展示：后端下发 ISO（2026-10-13T10:22:31）不适合直接给用户看，
+     * 这里统一裁剪为「yyyy-MM-dd HH:mm」；解析失败时原样返回（不显示 undefined）。
+     */
+    formatTime(value) {
+      if (!value) return '';
+      const text = String(value);
+      const matched = text.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+      if (matched) return matched[1] + ' ' + matched[2];
+      return text.length >= 16 ? text.slice(0, 16).replace('T', ' ') : text;
     },
     applyFilter(id, records) {
       const source = records || [];

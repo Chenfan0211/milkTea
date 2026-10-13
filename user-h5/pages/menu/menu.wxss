@@ -176,6 +176,16 @@
   min-height: 0;
 }
 
+/* 门店售罄空态：居中展示，与菜单区同尺寸占位 */
+.menu-soldout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx var(--page-gutter);
+}
+
 .category-scroll {
   flex: none;
   /* 栏宽 195rpx：按参考图（1170px 宽 = 750rpx）实测 304px 换算所得 */

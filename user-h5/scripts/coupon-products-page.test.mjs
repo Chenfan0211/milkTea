@@ -42,12 +42,18 @@ function loadPage(pageRoot) {
 }
 
 function createPageInstance(definition) {
-  return {
+  // 真实 Page 运行时会同时挂载 data 与页面方法；这里把方法一并绑定到实例，
+  // 否则 onLoad 内部通过 this.xxx() 调用其它页面方法（如 syncStoresByCity）会报 not a function。
+  const instance = {
     data: Object.assign({}, definition.data),
     setData(updates) {
       this.data = Object.assign({}, this.data, updates);
     }
   };
+  Object.keys(definition).forEach(key => {
+    if (key !== 'data' && typeof definition[key] === 'function') instance[key] = definition[key];
+  });
+  return instance;
 }
 
 for (const extension of ['js', 'json', 'wxml', 'wxss']) {

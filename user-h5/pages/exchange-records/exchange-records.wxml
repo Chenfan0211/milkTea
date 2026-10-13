@@ -20,11 +20,19 @@
   <scroll-view class="exchange-record-scroll" scroll-y show-scrollbar="{{false}}">
     <view wx:if="{{filteredRecords.length}}" class="exchange-record-list">
       <view class="exchange-record" wx:for="{{filteredRecords}}" wx:key="id">
+        <image wx:if="{{item.image}}" class="exchange-record__thumb" src="{{item.image}}" mode="aspectFill" />
         <view class="exchange-record__main">
           <text class="exchange-record__name">{{item.name}}</text>
           <text wx:if="{{item.pickupCode}}" class="exchange-record__code">自提码 {{item.pickupCode}}</text>
+          <view class="exchange-record__meta">
+            <text wx:if="{{item.timeText}}" class="exchange-record__time">{{item.timeText}}</text>
+            <text wx:if="{{item.exchangeNo}}" class="exchange-record__no">单号 {{item.exchangeNo}}</text>
+          </view>
         </view>
-        <text class="exchange-record__status">{{item.statusLabel}}</text>
+        <view class="exchange-record__side">
+          <text class="exchange-record__points">-{{item.points}}时光币</text>
+          <text class="exchange-record__status">{{item.statusLabel}}</text>
+        </view>
       </view>
     </view>
 

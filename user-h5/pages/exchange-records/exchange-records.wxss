@@ -62,6 +62,15 @@
   box-shadow: var(--shadow-card);
 }
 
+.exchange-record__thumb {
+  flex: none;
+  width: 96rpx;
+  height: 96rpx;
+  margin-right: 16rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
 .exchange-record__main {
   display: flex;
   flex: 1;
@@ -81,9 +90,40 @@
   font-size: var(--font-sm);
 }
 
-.exchange-record__status {
+.exchange-record__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.exchange-record__time {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.exchange-record__no {
+  margin-left: 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.exchange-record__side {
+  display: flex;
   flex: none;
+  flex-direction: column;
+  align-items: flex-end;
   margin-left: 16rpx;
+}
+
+.exchange-record__points {
+  color: var(--brand-green);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.exchange-record__status {
+  margin-top: 8rpx;
   color: var(--text-secondary);
   font-size: var(--font-sm);
 }

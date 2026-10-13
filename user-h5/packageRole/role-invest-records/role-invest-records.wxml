@@ -46,11 +46,11 @@
         <text class="invest-record-date__text">{{dateEndLabel}}</text>
       </view>
       <view
-        wx:if="{{dateStart || dateEnd}}"
+        wx:if="{{dateRangeDirty}}"
         class="invest-record-dates__reset"
         bindtap="resetDates"
         aria-role="button"
-        aria-label="清除时间筛选"
+        aria-label="恢复本月时间筛选"
       >
         <image class="invest-record-dates__reset-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
       </view>
@@ -110,7 +110,7 @@
         </view>
         <view class="invest-record__row">
           <text class="invest-record__label">投资预算</text>
-          <text class="invest-record__value invest-record__value--strong">¥{{item.budget}}</text>
+          <text class="invest-record__value invest-record__value--strong">{{item.budgetText ? '¥' + item.budgetText : '--'}}</text>
         </view>
 
         <view class="invest-record__foot">

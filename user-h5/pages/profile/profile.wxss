@@ -330,6 +330,13 @@
   font-size: var(--font-sm);
   text-align: center;
 }
+.gift-card-loading {
+  padding: 32rpx 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
 /* 手机号独立点击区：catchtap 阻止冒泡，点它才走手机号授权，不触发整卡跳转 */
 .user-card__phone-row {
   display: inline-flex;

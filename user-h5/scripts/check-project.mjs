@@ -46,6 +46,7 @@ const SUBPACKAGE_ROOT = 'packageRole';
 const expectedSubPageNames = [
   'resource-orders',
   'role-apply',
+  'role-commission',
   'role-center',
   'role-income',
   'role-income-detail',

@@ -90,19 +90,26 @@ function selectGiftCardDenominations(source, selection) {
   const legacyId = queryText(options.id || options.faceId);
   if (!groupId && !cardName && !legacyId) return list;
 
+  // 渐进降级：参数与库内数据对不上时（旧分享链接 / 数据被改），逐级放宽匹配，
+  // 最差也回落到全部在售面额，避免「礼品卡不存在」整页不可用。
   let result = list;
   if (groupId) {
-    result = result.filter(item => queryText(item && item.groupId) === groupId);
+    const byGroup = list.filter(item => queryText(item && item.groupId) === groupId);
+    result = byGroup.length ? byGroup : list;
   }
   if (cardName) {
-    return result.filter(item => queryText(item && (item.cardName || item.name)) === cardName);
+    const byName = result.filter(item => queryText(item && (item.cardName || item.name)) === cardName);
+    return byName.length ? byName : result;
   }
   if (!legacyId) return result;
 
   const legacyCardMatches = result.filter(item => queryText(item && (item.cardName || item.name)) === legacyId);
   if (legacyCardMatches.length) return legacyCardMatches;
 
-  return result.filter(item => queryText(item && item.id) === legacyId || queryText(item && item.code) === legacyId);
+  const byIdOrCode = result.filter(
+    item => queryText(item && item.id) === legacyId || queryText(item && item.code) === legacyId
+  );
+  return byIdOrCode.length ? byIdOrCode : result;
 }
 
 module.exports = {

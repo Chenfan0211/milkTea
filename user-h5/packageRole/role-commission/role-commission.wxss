@@ -1,0 +1,332 @@
+.commission-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.commission-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.commission-empty {
+  padding: 20rpx;
+}
+
+.commission-content {
+  padding: 24rpx var(--page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* ① 本月分佣 Hero */
+.commission-hero {
+  padding: 40rpx 32rpx 32rpx;
+  background: var(--brand-green);
+  border-radius: var(--radius-lg);
+}
+
+.commission-hero__label {
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  opacity: 0.82;
+}
+
+.commission-hero__value {
+  margin-top: 8rpx;
+  color: var(--card-bg);
+  font-size: var(--font-display);
+  font-weight: 600;
+  line-height: 72rpx;
+}
+
+.commission-hero__metrics {
+  display: flex;
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.24);
+}
+
+.commission-hero__metric {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.commission-hero__metric-value {
+  color: var(--card-bg);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.commission-hero__metric-label {
+  margin-top: 4rpx;
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  opacity: 0.82;
+}
+
+/* ② 达标进度条 */
+.commission-progress-card {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.commission-progress__head {
+  display: flex;
+  align-items: center;
+}
+
+.commission-progress__ratio {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.commission-progress__arrow {
+  margin-left: 8rpx;
+  color: var(--brand-green);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.commission-progress__track {
+  height: 20rpx;
+  margin-top: 20rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.commission-progress__fill {
+  height: 100%;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
+.commission-progress__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.commission-progress__meta {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.commission-progress__meta--reached {
+  color: var(--brand-green);
+}
+
+.commission-progress__percent {
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.commission-progress__hint {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+}
+
+.commission-progress__hint--reached {
+  color: var(--brand-green);
+}
+
+.commission-progress__rule {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--line-color);
+}
+
+.commission-progress__rule-text {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+}
+
+/* ③ / ④ 通用 section */
+.commission-section {
+  margin-top: 32rpx;
+}
+
+.commission-section__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.commission-section__icon {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 8rpx;
+}
+
+.commission-section__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+/* 门店标签 */
+.commission-tabs-scroll {
+  width: 100%;
+  height: 68rpx;
+  margin-bottom: 12rpx;
+  overflow: hidden;
+}
+
+.commission-tabs {
+  display: inline-flex;
+  align-items: center;
+  height: 68rpx;
+  white-space: nowrap;
+}
+
+.commission-tab {
+  flex: none;
+  height: 56rpx;
+  margin-right: 12rpx;
+  padding: 0 24rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 56rpx;
+  white-space: nowrap;
+  background: var(--card-bg);
+  border-radius: var(--radius-pill);
+}
+
+.commission-tab.is-active {
+  color: var(--card-bg);
+  font-weight: 600;
+  background: var(--brand-green);
+}
+
+/* 门店汇总卡 */
+.commission-stores {
+  display: flex;
+  flex-direction: column;
+}
+
+.commission-store {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.commission-store__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.commission-store__name {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.commission-store__orders {
+  margin-top: 4rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.commission-store__side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 16rpx;
+}
+
+.commission-store__sales {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.commission-store__commission {
+  margin-top: 4rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+}
+
+/* 近一年记录 */
+.commission-records {
+  display: flex;
+  flex-direction: column;
+}
+
+.commission-record {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.commission-record__month {
+  flex: none;
+  width: 140rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.commission-record__mid {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.commission-record__commission {
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.commission-record__sales {
+  margin-top: 4rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.commission-record__ratio {
+  flex: none;
+  margin-left: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.commission-record__ratio.is-reached {
+  color: var(--brand-green);
+}
+
+.commission-safe {
+  height: 20rpx;
+}

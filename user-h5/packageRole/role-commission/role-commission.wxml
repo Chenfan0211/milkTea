@@ -1,0 +1,151 @@
+<view class="commission-page">
+  <navigation-bar title="月度分佣" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="commission-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="commission-empty">
+      <empty-state
+        title="暂无权限"
+        description="仅投资人角色可查看月度分佣"
+        icon="/assets/icons/lucide/users.svg"
+      />
+    </view>
+
+    <view wx:elif="{{!view}}" class="commission-empty">
+      <empty-state
+        variant="illustration"
+        icon="/assets/images/3x/points-empty.jpg"
+        title="暂无分佣数据"
+        description="绑定投资门店产生订单后，分佣会展示在这里"
+      />
+    </view>
+
+    <view wx:else class="commission-content">
+      <!-- ① 本月分佣 Hero -->
+      <view class="commission-hero">
+        <text class="commission-hero__label">本月分佣（{{view.month}}）</text>
+        <text class="commission-hero__value">{{view.current.commissionText}}</text>
+        <view class="commission-hero__metrics">
+          <view class="commission-hero__metric">
+            <text class="commission-hero__metric-value">{{view.current.salesText}}</text>
+            <text class="commission-hero__metric-label">门店销售额</text>
+          </view>
+          <view class="commission-hero__metric">
+            <text class="commission-hero__metric-value">{{view.current.settledText}}</text>
+            <text class="commission-hero__metric-label">已结算</text>
+          </view>
+          <view class="commission-hero__metric">
+            <text class="commission-hero__metric-value">{{view.current.pendingText}}</text>
+            <text class="commission-hero__metric-label">待结算</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ② 达标进度条 -->
+      <view wx:if="{{view.rule.thresholdEnabled}}" class="commission-progress-card">
+        <view class="commission-progress__head">
+          <text class="commission-progress__ratio">当前 {{view.current.effectivePercent}}</text>
+          <text class="commission-progress__arrow">→ 达标后 {{view.rule.afterPercent}}</text>
+        </view>
+        <view class="commission-progress__track">
+          <view class="commission-progress__fill" style="width: {{view.progress.percent}}%;"></view>
+        </view>
+        <view class="commission-progress__foot">
+          <text wx:if="{{!view.progress.reached}}" class="commission-progress__meta">
+            已分佣 {{view.current.commissionText}} / {{view.rule.thresholdText}}
+          </text>
+          <text wx:else class="commission-progress__meta commission-progress__meta--reached">
+            已达标 {{view.current.commissionText}} / {{view.rule.thresholdText}}
+          </text>
+          <text class="commission-progress__percent">{{view.progress.percent}}%</text>
+        </view>
+        <text wx:if="{{!view.progress.reached}}" class="commission-progress__hint">
+          再分佣 {{view.progress.remainText}} 即享 {{view.rule.afterPercent}}（当月有效，次月 1 日重置）
+        </text>
+        <text wx:else class="commission-progress__hint commission-progress__hint--reached">
+          本月已享 {{view.rule.afterPercent}} 分佣比例
+        </text>
+        <view class="commission-progress__rule">
+          <text class="commission-progress__rule-text">
+            未达标 {{view.rule.basePercent}} ｜ 达标（≥{{view.rule.thresholdText}}）{{view.rule.afterPercent}} ｜ 自然月统计
+          </text>
+        </view>
+      </view>
+      <view wx:else class="commission-progress-card">
+        <text class="commission-progress__ratio">当前 {{view.current.effectivePercent}}</text>
+        <text class="commission-progress__hint">未配置达标分佣规则</text>
+      </view>
+
+      <!-- ③ 门店销售额汇总 -->
+      <view class="commission-section">
+        <view class="commission-section__head">
+          <image class="commission-section__icon" src="/assets/icons/lucide/store-brand.svg" mode="aspectFit" />
+          <text class="commission-section__title">门店销售额</text>
+        </view>
+
+        <scroll-view wx:if="{{storeTabs.length > 1}}" class="commission-tabs-scroll" scroll-x show-scrollbar="{{false}}">
+          <view class="commission-tabs">
+            <view
+              wx:for="{{storeTabs}}"
+              wx:key="id"
+              class="commission-tab {{activeStoreId === item.id ? 'is-active' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="switchStore"
+              aria-role="button"
+              aria-label="{{item.label}}"
+            >{{item.label}}</view>
+          </view>
+        </scroll-view>
+
+        <view wx:if="{{filteredStores.length}}" class="commission-stores">
+          <view wx:for="{{filteredStores}}" wx:key="id" class="commission-store">
+            <view class="commission-store__main">
+              <text class="commission-store__name ellipsis">{{item.name}}</text>
+              <text class="commission-store__orders">{{item.orderCount}} 单</text>
+            </view>
+            <view class="commission-store__side">
+              <text class="commission-store__sales">{{item.salesText}}</text>
+              <text class="commission-store__commission">分佣 {{item.commissionText}}</text>
+            </view>
+          </view>
+        </view>
+
+        <empty-state
+          wx:else
+          variant="illustration"
+          icon="/assets/images/3x/points-empty.jpg"
+          title="暂无门店销售"
+          description="绑定投资门店产生订单后展示"
+        />
+      </view>
+
+      <!-- ④ 近一年分佣记录 -->
+      <view class="commission-section">
+        <view class="commission-section__head">
+          <image class="commission-section__icon" src="/assets/icons/lucide/trending-up-brand.svg" mode="aspectFit" />
+          <text class="commission-section__title">近一年分佣</text>
+        </view>
+
+        <view wx:if="{{view.records.length}}" class="commission-records">
+          <view wx:for="{{view.records}}" wx:key="month" class="commission-record">
+            <text class="commission-record__month">{{item.month}}</text>
+            <view class="commission-record__mid">
+              <text class="commission-record__commission">{{item.commissionText}}</text>
+              <text class="commission-record__sales">销售额 {{item.salesText}}</text>
+            </view>
+            <text class="commission-record__ratio {{item.reached ? 'is-reached' : ''}}">{{item.effectivePercent}}</text>
+          </view>
+        </view>
+
+        <empty-state
+          wx:else
+          variant="illustration"
+          icon="/assets/images/3x/points-empty.jpg"
+          title="暂无历史分佣"
+          description="分佣记录会按月展示在这里"
+        />
+      </view>
+
+      <view class="commission-safe"></view>
+    </view>
+  </scroll-view>
+</view>

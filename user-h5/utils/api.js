@@ -548,6 +548,9 @@ function fetchInvestorStores(investorSubjectId) {
   return request({ url: `/api/v1/app/workbench/investor/${investorSubjectId}/stores`, method: 'GET' }).then(unwrap);
 }
 
+function fetchInvestorCommission(investorSubjectId) {
+  return request({ url: `/api/v1/app/workbench/investor/${investorSubjectId}/commission`, method: 'GET' }).then(unwrap);
+}
 // ============================================================
 // 提现（P2）
 // ============================================================
@@ -778,6 +781,7 @@ module.exports = {
   fetchChannelStores,
   fetchChannelOrders,
   fetchInvestorStores,
+  fetchInvestorCommission,
   fetchWithdrawRule,
   applyWithdraw,
   fetchWithdrawals,

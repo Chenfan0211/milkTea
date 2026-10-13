@@ -2,7 +2,7 @@ const { withShare } = require('../../utils/share');
 const { ensureBusinessRole } = require('../../utils/role-page');
 const { formatDateTime } = require('../../utils/date-format');
 const { getCurrentBusinessRole } = require('../../utils/roles');
-const { listApplications, INVEST_STATUS_TEXT, refreshInvestApplications } = require('../../utils/invest');
+const { listApplications, refreshInvestApplications, refreshInvestCatalog } = require('../../utils/invest');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
 const DETAIL_URL = '/packageRole/role-invest-detail/role-invest-detail';
@@ -67,6 +67,7 @@ Page(
       dateStartLabel: DATE_PLACEHOLDER.start,
       dateEndLabel: DATE_PLACEHOLDER.end,
       hasFilter: false,
+      dateRangeDirty: false,
       categories: CATEGORIES.map(item => Object.assign({}, item, { count: 0 })),
       activeCategory: 'all',
       records: [],
@@ -81,6 +82,15 @@ Page(
     onLoad(options) {
       const now = new Date();
       this.todayKey = toDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      // 默认时间区间：当月 1 号 ~ 今天（按天闭区间）。用户可在工具栏调整，重置按钮恢复到此区间。
+      const defaultStart = toDateKey(now.getFullYear(), now.getMonth() + 1, 1);
+      this.defaultRange = { start: defaultStart, end: this.todayKey };
+      this.setData({
+        dateStart: defaultStart,
+        dateStartLabel: defaultStart,
+        dateEnd: this.todayKey,
+        dateEndLabel: this.todayKey
+      });
       // 从申请页跳转过来时直接高亮对应记录。
       this.focusId = (options && options.id) || '';
       ensureBusinessRole().then(() => this.syncRole());
@@ -96,18 +106,17 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      // 先拉取申请镜像再渲染
-      refreshInvestApplications().then(() => {
+      // 必须先注入门店/城市目录，再拉申请镜像：
+      // 历史记录 extra_form 可能缺 storeName/cityName，normalizeRemoteApplication 依赖
+      // storeCatalog 按 subject_id 回填；顺序颠倒会导致城市、门店名为空。
+      Promise.all([refreshInvestCatalog(), refreshInvestApplications()]).then(() => {
         this.setData({ ready: true }, () => this.syncRecords());
       });
     },
     syncRecords() {
-      const records = listApplications().map(item =>
-        Object.assign({}, item, {
-          statusLabel: INVEST_STATUS_TEXT[item.status] || item.status,
-          timeText: formatDateTime(item.time)
-        })
-      );
+      // statusLabel 由 listApplications() 统一按内部状态映射，不在此处重复查表
+      // （历史 bug：这里用已归一化的小写状态查大写枚举表，退化成英文 pending/signed）。
+      const records = listApplications().map(item => Object.assign({}, item, { timeText: formatDateTime(item.time) }));
       this.setData({ records }, () => {
         this.applyFilter();
         if (this.focusId) {
@@ -129,9 +138,13 @@ Page(
       }));
       const filteredRecords =
         activeCategory === 'all' ? matched : matched.filter(item => item.status === activeCategory);
+      // 仅当时间偏离默认区间（当月 1 号 ~ 今天）时才显示「恢复本月」重置按钮
+      const range = this.defaultRange || {};
+      const dateRangeDirty = Boolean(dateStart && dateEnd && (dateStart !== range.start || dateEnd !== range.end));
       this.setData({
         categories,
         filteredRecords,
+        dateRangeDirty,
         hasFilter: Boolean(keyword || dateStart || dateEnd)
       });
     },
@@ -207,13 +220,15 @@ Page(
       }
       this.setData(next, () => this.applyFilter());
     },
+    /** 重置时间筛选：恢复到默认区间（当月 1 号 ~ 今天），而非清空。 */
     resetDates() {
+      const range = this.defaultRange || { start: this.todayKey, end: this.todayKey };
       this.setData(
         {
-          dateStart: '',
-          dateEnd: '',
-          dateStartLabel: DATE_PLACEHOLDER.start,
-          dateEndLabel: DATE_PLACEHOLDER.end
+          dateStart: range.start,
+          dateStartLabel: range.start,
+          dateEnd: range.end,
+          dateEndLabel: range.end
         },
         () => this.applyFilter()
       );

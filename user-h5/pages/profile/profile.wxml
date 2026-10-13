@@ -154,10 +154,10 @@
           <text class="gift-card-item__name ellipsis">{{item.name}}</text>
         </view>
       </view>
+      <view wx:elif="{{!giftCardsLoaded}}" class="gift-card-loading">加载中…</view>
       <view wx:else class="gift-card-empty">暂无礼品卡</view>
     </section-card>
   </view>
-
   <view class="tabbar-safe-space"></view>
 </scroll-view>
 

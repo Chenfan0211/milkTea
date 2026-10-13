@@ -56,7 +56,12 @@ assert.deepEqual(
   [11],
   '旧链接携带真实面额主键时必须精确匹配单个面额'
 );
-assert.deepEqual(selectGiftCardDenominations(list, { id: '不存在的卡面' }), [], '无效卡面参数不得回退展示全部礼品卡');
+// 无效参数（旧分享链接 / 卡面已下架改名）时，渐进降级回退展示全部在售面额，避免「礼品卡不存在」整页不可用。
+assert.deepEqual(
+  selectGiftCardDenominations(list, { id: '不存在的卡面' }).map(item => item.id),
+  [11, 12, 21, 31],
+  '无效卡面参数必须回退展示全部在售面额，而不是返回空'
+);
 
 const giftPageJs = fs.readFileSync(path.join(root, 'pages/gift-card/gift-card.js'), 'utf8');
 const giftPageWxml = fs.readFileSync(path.join(root, 'pages/gift-card/gift-card.wxml'), 'utf8');
@@ -257,3 +262,36 @@ assert.equal(giftRefunded.statusText, '待核销', '礼品卡退款中主状态�
 assert.doesNotMatch(giftOrdersJs, /id:\s*'refunding'/, '礼品卡订单页不得保留独立退款中主页签');
 assert.doesNotMatch(giftOrdersJs, /statusId\s*===\s*'refunding'/, '礼品卡订单筛选不得再把退款中作为主状态筛选');
 assert.match(giftOrdersJs, /id:\s*'completed',\s*label:\s*'已完成'/, '礼品卡订单已完成筛选必须使用四态文案');
+
+// ---- 「我的」页礼品卡数字口径与空态闪切回归（方案 A） ----
+// 根因：refreshAssetStats 曾用 userProfile.giftCards.length（恒为 0）覆盖礼品卡数字，
+// 且每次 onShow 都执行，导致「有卡/无卡」反复闪切。修复后：
+//  1) refreshAssetStats 不再触碰 gift / giftCards（死字段摘除）；
+//  2) 数字卡「礼品卡」只统计待核销卡（status === ACTIVE），由 applyGiftCards 唯一写入；
+//  3) 底部列表新增 giftCardsLoaded 加载态，消除「暂无」与「有卡」之间闪切。
+assert.doesNotMatch(
+  profileJs,
+  /userProfile\.giftCards\.(length|slice)/,
+  'refreshAssetStats 不得再读取 userProfile.giftCards（该字段恒为空，曾把礼品卡数字与列表清零）'
+);
+assert.doesNotMatch(
+  profileJs,
+  /giftCards:\s*userProfile\.giftCards/,
+  '礼品卡列表不得再被 refreshAssetStats 用空数组覆盖'
+);
+assert.match(
+  profileJs,
+  /pendingVerify:\s*card\.status\s*===\s*['\\"]ACTIVE['\\"]/,
+  '礼品卡待核销口径必须统一为 card.status === ACTIVE'
+);
+assert.match(
+  profileJs,
+  /if\s*\(\s*item\.id\s*===\s*['\\"]gift['\\"]\)\s*return\s+Object\.assign\(\{\},\s*item,\s*\{\s*value:\s*pendingCount\s*\}\)/,
+  '数字卡「礼品卡」必须取待核销卡数 pendingCount，而非 giftCards.length'
+);
+assert.match(profileJs, /giftCardsLoaded:\s*false/, '我的页必须声明 giftCardsLoaded 初始状态');
+assert.match(profileJs, /applyGiftCards\(cards\)/, '礼品卡远端数据必须收敛到 applyGiftCards 单一入口');
+
+const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
+assert.match(profileWxml, /giftCardsLoaded/, '我的页礼品卡区块必须依据 giftCardsLoaded 区分加载中与空态');
+assert.match(profileWxml, /gift-card-loading/, '我的页礼品卡区块必须提供加载中占位，避免「暂无」与「有卡」闪切');

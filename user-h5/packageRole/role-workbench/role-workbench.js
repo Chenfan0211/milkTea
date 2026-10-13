@@ -70,6 +70,7 @@ Page(
         verify: '/packageRole/role-verify/role-verify',
         products: '/packageRole/role-products/role-products',
         invest: '/packageRole/role-invest/role-invest',
+        commission: '/packageRole/role-commission/role-commission',
         income: '/packageRole/role-income/role-income',
         withdraw: '/packageRole/role-withdraw/role-withdraw',
         orders: '/packageRole/resource-orders/resource-orders'

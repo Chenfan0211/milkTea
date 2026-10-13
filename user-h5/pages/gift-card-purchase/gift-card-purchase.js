@@ -41,13 +41,16 @@ Page(
         .then(list => (Array.isArray(list) ? list : []))
         .catch(() => [])
         .then(list => {
-          const source = selectGiftCardDenominations(list, {
+          // 参数匹配不上时（旧分享链接 / 数据变更），selectGiftCardDenominations 已渐进降级；
+          // 这里再做一层兜底：仍为空则退回全部在售面额，只有「没有任何在售面额」才提示。
+          let source = selectGiftCardDenominations(list, {
             groupId: query.groupId,
             cardName: query.cardName,
             id: query.id
           });
+          if (!source.length) source = list;
           if (!source.length) {
-            wx.showToast({ title: '礼品卡不存在', icon: 'none' });
+            wx.showToast({ title: '暂无可购买的礼品卡', icon: 'none' });
             setTimeout(() => wx.navigateBack(), 800);
             return;
           }

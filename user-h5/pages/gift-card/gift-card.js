@@ -1,6 +1,6 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { resolveStoreCatalog, selectStore: persistSelectedStore } = require('../../utils/store');
+const { resolveStoreCatalog } = require('../../utils/store');
 const { pickGiftCardRecords, resolveGiftCardDisplay, resolveGiftCardImageUrl } = require('../../utils/gift-card');
 
 function filterGiftCardGroups(keyword, groups) {
@@ -29,9 +29,7 @@ Page(
       bannerImage: '',
       currentStore: {},
       myCards: [],
-      myCardsLoaded: false,
-      storePickerVisible: false,
-      pickerStores: []
+      myCardsLoaded: false
     },
     /** 由后台礼品卡面额（gift_card_denomination）聚合为「分组 -> 卡面」结构 */
     loadGiftCardGroups() {
@@ -93,6 +91,13 @@ Page(
       if (options && options.tab === 'mine') this.setData({ activeTab: 'mine' });
       this.loadGiftCardGroups();
       this.loadMyCards();
+      this.syncStore();
+    },
+    onShow() {
+      // 从门店选择页返回后刷新当前门店（名称/距离）
+      this.syncStore();
+    },
+    syncStore() {
       const catalog = resolveStoreCatalog();
       this.setData({ currentStore: catalog.currentStore || catalog.stores[0] || {} });
     },
@@ -100,41 +105,7 @@ Page(
       this.setData({ activeTab: event.currentTarget.dataset.tab });
     },
     selectStore() {
-      const catalog = resolveStoreCatalog();
-      this.setData({
-        storePickerVisible: true,
-        pickerStores: catalog.stores || []
-      });
-    },
-    closeStorePicker() {
-      this.setData({ storePickerVisible: false });
-    },
-    handleSelectPickerStore(event) {
-      const { id } = event.detail.store;
-      persistSelectedStore(id);
-      getApp().globalData.selectedStoreId = id;
-      const catalog = resolveStoreCatalog();
-      this.setData({
-        currentStore: catalog.currentStore || catalog.stores[0] || {},
-        storePickerVisible: false,
-        pickerStores: []
-      });
-    },
-    handleStorePhone(event) {
-      const { phone } = event.detail.store;
-      if (!phone) return;
-      wx.makePhoneCall({ phoneNumber: phone });
-    },
-    handleStoreNavigate(event) {
-      const store = event.detail.store;
-      if (!store) return;
-      wx.openLocation({
-        latitude: store.latitude,
-        longitude: store.longitude,
-        name: store.name,
-        address: store.address,
-        scale: 16
-      });
+      wx.navigateTo({ url: '/pages/coupon-stores/coupon-stores?from=gift-card' });
     },
     goBuy() {
       this.setData({ activeTab: 'buy' });

@@ -24,11 +24,46 @@ let cityCatalog = [];
 let applicationList = [];
 
 // 申请状态：审核中 / 已签约 / 已驳回（与后端 role_application.status 对齐）
+// 键为后端大写枚举，保留供外部/测试引用。
 const INVEST_STATUS_TEXT = {
   PENDING: '审核中',
   APPROVED: '已签约',
   REJECTED: '已驳回'
 };
+
+// 前端内部状态（归一化后的小写） -> 中文文案。
+// 归一化会把 APPROVED 映射为 'signed'，与大写枚举不再同名，
+// 因此展示层统一走 investStatusLabel()，避免各处查表时大小写失配退化成英文。
+const INVEST_STATUS_LABEL = {
+  pending: '审核中',
+  signed: '已签约',
+  rejected: '已驳回'
+};
+
+/**
+ * 申请状态中文文案。入参可为后端大写枚举（PENDING/APPROVED/REJECTED）
+ * 或前端归一化小写状态（pending/signed/rejected），两种口径都能命中。
+ */
+function investStatusLabel(status) {
+  const raw = String(status == null ? '' : status);
+  return INVEST_STATUS_LABEL[raw.toLowerCase()] || INVEST_STATUS_TEXT[raw.toUpperCase()] || raw;
+}
+
+/**
+ * 投资预算展示：千分位，如 200000 -> "200,000"。
+ * 入参可能是数字或字符串（含非数字字符），非法/空值返回空串，交由页面决定占位。
+ */
+function formatInvestBudget(value) {
+  if (value === undefined || value === null || value === '') return '';
+  const cleaned = String(value).replace(/[^\d.-]/g, '');
+  // 非数字内容（如 'abc'）清洗后为空或不可解析：视为无预算，返回空串，避免显示误导性的 0。
+  if (!cleaned) return '';
+  const amount = Number(cleaned);
+  if (!Number.isFinite(amount)) return '';
+  const [intPart] = Math.abs(amount).toString().split('.');
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (amount < 0 ? '-' : '') + grouped;
+}
 
 // 状态流转链路：与提现 / 收益详情页保持同一套时间线语义。
 const INVEST_FLOW = {
@@ -98,20 +133,28 @@ function normalizeRemoteApplication(item) {
     extra = {};
   }
   const status = String(item.status || '').toUpperCase();
+  const storeId = item.subject_id == null ? extra.storeId || null : item.subject_id;
+  // 历史记录的 extra_form 可能缺 storeName/cityName/address（旧版本提交或数据迁移），
+  // 此时按 subject_id 回查门店目录兜底，避免列表里门店与点位城市整行为空。
+  // 依赖 refreshInvestCatalog() 已先注入 storeCatalog；未注入时回落为空，不报错。
+  const store =
+    storeId == null ? null : storeCatalog.find(candidate => Number(candidate.subjectId) === Number(storeId)) || null;
+  const normalizedStatus = status === 'APPROVED' ? 'signed' : status === 'PENDING' ? 'pending' : 'rejected';
   return {
     id: item.id,
     orderNo: String(item.id),
     investorId: null, // 不再有前端写死的投资人 id；申请人由后端 JWT 识别
-    storeId: item.subject_id == null ? extra.storeId || null : item.subject_id,
-    storeName: extra.storeName || '',
-    cityName: extra.cityName || '',
-    address: extra.address || '',
+    storeId,
+    storeName: extra.storeName || (store && store.name) || '',
+    cityName: extra.cityName || (store && (getCityName(store.cityCode) || store.city)) || '',
+    address: extra.address || (store && store.address) || '',
     budget: extra.budget || '',
+    budgetText: formatInvestBudget(extra.budget || ''),
     contact: item.applicant_name || extra.contact || '',
     phone: item.applicant_phone || extra.phone || '',
     remark: extra.remark || '',
-    status: status === 'PENDING' ? 'pending' : status === 'APPROVED' ? 'signed' : 'rejected',
-    statusLabel: INVEST_STATUS_TEXT[status] || status,
+    status: normalizedStatus,
+    statusLabel: investStatusLabel(normalizedStatus),
     time: item.apply_time || '',
     applyTime: item.apply_time || '',
     reviewTime: item.review_time || ''
@@ -130,12 +173,17 @@ function refreshInvestCatalog() {
           subjectId: Number(store.id) || null,
           name: store.name,
           city: store.city || '',
-          cityCode: store.city === '广州市' ? 'guangzhou' : store.city === '深圳市' ? 'shenzhen' : 'changsha',
+          // 城市以后端 AppStoreDTO 为准：city 为中文名，cityCode 为行政区划码（如 4301）。
+          // 历史实现按中文名硬编码成 changsha/guangzhou，导致新增城市时城市分组/筛选失效。
+          cityCode: store.cityCode || store.city || '',
           address: store.address || '',
-          phone: store.phone || '',
           businessHours: store.businessHours || '10:00-22:00',
           // 营业状态：closed=停业（不可投资），其余（open）视为可投资
           status: store.businessStatus === 'closed' ? 'disabled' : 'enabled',
+          // 地图模式需要坐标：后端 AppStoreDTO 已返回 latitude/longitude，此处透传，
+          // 数值化失败时回落 0（前端按 hasGeo 过滤，不用 0 坐标打点）。
+          latitude: Number(store.latitude) || 0,
+          longitude: Number(store.longitude) || 0,
           investorSubjectId: store.investorSubjectId || null,
           investorId: store.investorSubjectId || null
         }));
@@ -181,6 +229,8 @@ function setInvestCatalogForTest(stores, cities) {
         phone: s.phone || '',
         businessHours: s.businessHours || '10:00-22:00',
         status: s.status || 'enabled',
+        latitude: Number(s.latitude) || 0,
+        longitude: Number(s.longitude) || 0,
         investorSubjectId: s.investorSubjectId || null,
         investorId: s.investorId || s.investorSubjectId || null
       }))
@@ -234,11 +284,16 @@ function getSpots(investorSubjectId) {
       id: store.id,
       name: store.name,
       cityCode: store.cityCode,
-      cityName: getCityName(store.cityCode),
+      // cityName 优先取后端 city（中文名），cityCatalog 仅作兜底，避免城市列表缺失时分组名为空
+      cityName: store.city || getCityName(store.cityCode) || '',
       address: store.address,
       businessHours: store.businessHours,
       phone: store.phone,
       storeStatus: store.status,
+      // 地图模式依赖：坐标缺失（0）的点位不参与打点，由 hasGeo 标记。
+      latitude: store.latitude || 0,
+      longitude: store.longitude || 0,
+      hasGeo: Boolean(store.latitude && store.longitude),
       spotStatus,
       canApply: spotStatus === 'available',
       appliedOrderNo: pending ? pending.orderNo : ''
@@ -253,7 +308,7 @@ function getSpotById(storeId, investorSubjectId) {
 function listApplications() {
   return applicationList.map(item =>
     Object.assign({}, item, {
-      statusLabel: INVEST_STATUS_TEXT[item.status.toUpperCase()] || item.status
+      statusLabel: investStatusLabel(item.status)
     })
   );
 }
@@ -336,7 +391,7 @@ function getApplicationDetail(recordId) {
   const record = applicationList.find(item => String(item.id) === String(recordId));
   if (!record) return null;
   const detail = Object.assign({}, record, {
-    statusLabel: INVEST_STATUS_TEXT[record.status.toUpperCase()] || record.status,
+    statusLabel: investStatusLabel(record.status),
     statusNote: INVEST_STATUS_NOTE[record.status] || '',
     phoneText: maskPhone(record.phone)
   });
@@ -345,6 +400,9 @@ function getApplicationDetail(recordId) {
 
 module.exports = {
   INVEST_STATUS_TEXT,
+  INVEST_STATUS_LABEL,
+  investStatusLabel,
+  formatInvestBudget,
   INVEST_STATUS_NOTE,
   INVEST_FLOW,
   refreshInvestCatalog,

@@ -317,4 +317,31 @@ assert.equal(
   '后端状态进入筛选前必须归一为小写'
 );
 
+// 兑换记录必须展示「商品名 / 消耗时光币 / 兑换时间 / 单号副行」，
+// 且不得再用兑换单号冒充商品名（历史 Bug：接口无商品字段时退化成 CZ 单号标题）。
+const normalizedRecord = exchangeRecordsDefinition.normalizeRecord.call(exchangeRecordsPage, {
+  id: 9,
+  exchangeNo: 'CZ1790538115667',
+  productName: '中杯拿铁',
+  productImage: '/assets/images/3x/product-latte.jpg',
+  points: 500,
+  quantity: 1,
+  status: 'COMPLETED',
+  createTime: '2026-10-13T10:22:31'
+});
+assert.equal(normalizedRecord.name, '中杯拿铁', '兑换记录必须展示后端商品名');
+assert.equal(normalizedRecord.points, 500, '兑换记录必须保留消耗时光币数');
+assert.equal(normalizedRecord.exchangeNo, 'CZ1790538115667', '兑换单号必须保留（放副行展示）');
+assert.equal(normalizedRecord.timeText, '2026-10-13 10:22', '兑换时间必须格式化为 yyyy-MM-dd HH:mm');
+assert.equal(
+  exchangeRecordsDefinition.normalizeRecord.call(exchangeRecordsPage, { exchangeNo: 'CZ1', createTime: '' }).name,
+  '时光币兑换',
+  '缺商品名时必须用统一兜底文案，不得回退成兑换单号'
+);
+assert.equal(exchangeRecordsDefinition.formatTime.call(exchangeRecordsPage, ''), '', '无兑换时间时不得渲染 undefined');
+assert.ok(exchangeRecordsWxml.includes('item.timeText'), '兑换记录模板必须渲染兑换时间');
+assert.ok(exchangeRecordsWxml.includes('-{{item.points}}时光币'), '兑换记录模板必须渲染「N时光币」文案');
+assert.ok(exchangeRecordsWxml.includes('单号 {{item.exchangeNo}}'), '兑换单号必须以副行形式展示');
+assert.ok(exchangeRecordsWxml.includes('exchange-record__thumb'), '兑换记录必须支持商品缩略图');
+
 console.log('时光币兑换：动态分类、数量兑换、优惠券固定一张测试通过');

@@ -1,13 +1,13 @@
 <view class="gift-page">
   <navigation-bar title="礼品卡" back="{{true}}" background="#FFFFFF" color="#2F302D" />
 
-  <view class="gift-store">
+  <view class="gift-store" bindtap="selectStore" aria-role="button" aria-label="切换门店">
     <image class="gift-store__icon" src="/assets/icons/lucide/map-pin.svg" mode="aspectFit" />
     <view class="gift-store__info">
       <text class="gift-store__name">{{currentStore.name}}</text>
       <text class="gift-store__distance">{{currentStore.distanceText}}</text>
     </view>
-    <view class="gift-store__switch" bindtap="selectStore" aria-role="button" aria-label="切换门店">
+    <view class="gift-store__switch">
       <image class="gift-store__switch-icon" src="/assets/icons/lucide/rotate-ccw.svg" mode="aspectFit" />
     </view>
   </view>
@@ -123,31 +123,5 @@
     </view>
   </scroll-view>
 
-  <!-- 门店选择弹层（半屏 bottom sheet） -->
-  <view wx:if="{{storePickerVisible}}" class="store-sheet">
-    <view class="store-sheet__mask" bindtap="closeStorePicker" />
-    <view class="store-sheet__panel">
-      <view class="store-sheet__header">
-        <text class="store-sheet__title">选择商品适用门店</text>
-        <view class="store-sheet__close" bindtap="closeStorePicker" aria-role="button" aria-label="关闭">
-          <image class="store-sheet__close-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
-        </view>
-      </view>
-      <scroll-view class="store-sheet__list" scroll-y show-scrollbar="{{false}}">
-        <view class="store-sheet__list-inner">
-          <store-list-card
-            wx:for="{{pickerStores}}"
-            wx:key="id"
-            store="{{item}}"
-            selected="{{currentStore.id === item.id}}"
-            bind:select="handleSelectPickerStore"
-            bind:phone="handleStorePhone"
-            bind:navigate="handleStoreNavigate"
-          />
-          <empty-state wx:if="{{!pickerStores.length}}" title="没有找到门店" description="换个关键词，或切换城市后再搜索" icon="/assets/icons/lucide/search.svg" />
-        </view>
-      </scroll-view>
-    </view>
-  </view>
 </view>
 

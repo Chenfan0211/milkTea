@@ -59,6 +59,22 @@
         <view class="invest-section__head">
           <image class="invest-section__icon" src="/assets/icons/lucide/map-pinned.svg" mode="aspectFit" />
           <text class="invest-section__title">可投点位</text>
+          <view class="invest-mode">
+            <view
+              class="invest-mode__item {{mode === 'list' ? 'is-active' : ''}}"
+              data-mode="list"
+              bindtap="switchMode"
+              aria-role="button"
+              aria-label="列表模式"
+            >列表</view>
+            <view
+              class="invest-mode__item {{mode === 'map' ? 'is-active' : ''}}"
+              data-mode="map"
+              bindtap="switchMode"
+              aria-role="button"
+              aria-label="地图模式"
+            >地图</view>
+          </view>
         </view>
 
         <view class="invest-search">
@@ -85,18 +101,32 @@
         <scroll-view class="invest-tabs-scroll" scroll-x show-scrollbar="{{false}}">
           <view class="invest-tabs">
             <view
-              wx:for="{{cityTabs}}"
+              wx:for="{{statusTabs}}"
               wx:key="id"
-              class="invest-tab {{activeCityId === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
+              class="invest-tab {{activeStatusId === item.id ? 'is-active' : ''}} {{item.count ? '' : 'is-empty'}}"
               data-id="{{item.id}}"
-              bindtap="switchCity"
+              bindtap="switchStatus"
               aria-role="button"
-              aria-label="{{item.label}} {{item.count}} 个"
+              aria-label="{{item.label}} {{item.count}} 个点位"
             >{{item.label}} {{item.count}}</view>
           </view>
         </scroll-view>
 
-        <view class="invest-spots">
+        <scroll-view wx:if="{{cityTabs.length}}" class="invest-city-scroll" scroll-x show-scrollbar="{{false}}">
+          <view class="invest-cities">
+            <view
+              wx:for="{{cityTabs}}"
+              wx:key="id"
+              class="invest-city {{activeCityId === item.id ? 'is-active' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="switchCity"
+              aria-role="button"
+              aria-label="切换到{{item.label}}"
+            >{{item.label}} {{item.count}}</view>
+          </view>
+        </scroll-view>
+
+        <view wx:if="{{mode === 'list'}}" class="invest-spots">
           <view
             wx:for="{{filteredSpots}}"
             wx:key="id"
@@ -118,12 +148,27 @@
           </view>
         </view>
 
+        <view wx:else class="invest-map-wrap">
+          <map
+            id="investMap"
+            class="invest-map"
+            latitude="{{mapCenter.latitude}}"
+            longitude="{{mapCenter.longitude}}"
+            scale="12"
+            markers="{{markers}}"
+            show-location="{{true}}"
+            enable-zoom
+            enable-scroll
+            bindmarkertap="handleMarkerTap"
+          />
+          <text wx:if="{{geolessCount}}" class="invest-map-tip">{{geolessCount}} 个点位暂无坐标，未在地图显示</text>
+        </view>
         <empty-state
           wx:if="{{!filteredSpots.length}}"
           variant="illustration"
           icon="/assets/images/3x/points-empty.jpg"
           title="没有匹配的点位"
-          description="换个点位名称或切换城市试试"
+          description="换个点位名称或切换状态试试"
         />
       </view>
 

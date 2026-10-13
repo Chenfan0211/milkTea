@@ -38,8 +38,7 @@ const EMPTY_PROFILE = {
   couponCount: 0,
   balance: 0,
   points: 0,
-  growth: 0,
-  giftCards: []
+  growth: 0
 };
 
 /** 后端 AppUser -> 小程序页面资料结构。 */
@@ -65,8 +64,7 @@ function normalizeRemoteProfile(user) {
     balance: roundMoney((Number(user.balance) || 0) / 100),
     points: Number(user.points) || 0,
     // 成长值 = 累计消费（元）
-    growth: roundMoney((Number(user.totalSpend) || 0) / 100),
-    giftCards: []
+    growth: roundMoney((Number(user.totalSpend) || 0) / 100)
   };
 }
 
@@ -75,8 +73,7 @@ function cloneProfile(profile) {
   return Object.assign({}, EMPTY_PROFILE, source, {
     // 兼容历史缓存中的空头像：统一回落到默认头像
     avatar: source.avatar || DEFAULT_AVATAR,
-    region: Array.isArray(source.region) ? source.region.filter(Boolean).slice(0, 3) : [],
-    giftCards: Array.isArray(source.giftCards) ? source.giftCards.map(item => Object.assign({}, item)) : []
+    region: Array.isArray(source.region) ? source.region.filter(Boolean).slice(0, 3) : []
   });
 }
 

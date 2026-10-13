@@ -66,7 +66,6 @@ Page(
       userProfile: initialProfile,
       businessRole: null,
       pendingRoleCount: 0,
-      giftCards: [],
       stats: [
         { id: 'coupon', label: '优惠券', value: initialProfile.couponCount },
         {
@@ -89,7 +88,9 @@ Page(
       // 未授权头像时的默认头像（避免空白）
       defaultAvatar: DEFAULT_AVATAR,
       // 登录弹层：未登录时「我的」页的登录入口（页内唤起，不跳独立页）
-      loginSheetVisible: false
+      loginSheetVisible: false,
+      // 礼品卡列表是否已加载（区分「加载中」与「确实无卡」，避免空态闪切）
+      giftCardsLoaded: false
     },
     onLoad() {
       this.syncLevel();
@@ -130,14 +131,36 @@ Page(
         if (item.id === 'balance')
           return Object.assign({}, item, { value: userProfile.balance, display: formatBalance(userProfile.balance) });
         if (item.id === 'coupon') return Object.assign({}, item, { value: userProfile.couponCount });
-        if (item.id === 'gift') return Object.assign({}, item, { value: userProfile.giftCards.length });
+
         return item;
       });
       this.setData({
         stats,
-        userProfile,
-        giftCards: userProfile.giftCards.slice(0, 2)
+        userProfile
       });
+    },
+    /**
+     * 应用「我的礼品卡」远端数据：
+     *   - 数字卡「礼品卡」只统计待核销卡（status === ACTIVE），口径与「我的礼品卡」页一致；
+     *   - 底部列表展示前 2 张；
+     *   - 无论有无卡都标记已加载，避免「暂无」与「有卡」之间闪切。
+     */
+    applyGiftCards(cards) {
+      const cardList = pickGiftCardRecords(cards);
+      const decorated = cardList.map(card => {
+        const display = resolveGiftCardDisplay(card);
+        return Object.assign({}, card, {
+          name: display.name,
+          image: display.image,
+          pendingVerify: card.status === 'ACTIVE'
+        });
+      });
+      const pendingCount = decorated.filter(card => card.pendingVerify).length;
+      const stats = this.data.stats.map(item => {
+        if (item.id === 'gift') return Object.assign({}, item, { value: pendingCount });
+        return item;
+      });
+      this.setData({ giftCards: decorated.slice(0, 2), stats, giftCardsLoaded: true });
     },
 
     onShow() {
@@ -193,7 +216,7 @@ Page(
             // ⚠️ 必须是「合并更新」而不是重建：saveUserProfile 内部是
             // Object.assign({}, EMPTY_PROFILE, source)，未传的字段会回落到
             // 空壳的 0 / []。若这里只挑 nickname/avatar 等字段传进去，
-            // points / balance / couponCount / giftCards 会被整体清零 ——
+            // points / balance / couponCount 会被整体清零 ——（礼品卡不在此列，已由 applyGiftCards 独立管理）
             // 表现为「从其它页返回我的页，时光币/余额/优惠券全部变 0」。
             // 因此先取当前缓存，再只覆盖远端明确返回的字段。
             // 昵称/头像等资料字段：以远端为唯一数据源，不回落到本地旧值，
@@ -244,24 +267,8 @@ Page(
         // 我的礼品卡：接口直接返回历史展示元数据，不再依赖仅上架面额接口。
         api
           .fetchMyGiftCards()
-          .then(cards => {
-            const cardList = pickGiftCardRecords(cards);
-            const decorated = cardList.map(card => {
-              const display = resolveGiftCardDisplay(card);
-              return Object.assign({}, card, {
-                name: display.name,
-                image: display.image,
-                pendingVerify: card.status === 'ACTIVE'
-              });
-            });
-            const pendingCount = decorated.filter(card => card.pendingVerify).length;
-            const stats = this.data.stats.map(item => {
-              if (item.id === 'gift') return Object.assign({}, item, { value: pendingCount });
-              return item;
-            });
-            this.setData({ giftCards: decorated.slice(0, 2), stats });
-          })
-          .catch(() => {});
+          .then(cards => this.applyGiftCards(cards))
+          .catch(() => this.setData({ giftCardsLoaded: true }));
       }
       if (typeof this.syncUserCard === 'function') this.syncUserCard();
 
@@ -477,6 +484,7 @@ Page(
         verify: '/packageRole/role-verify/role-verify',
         products: '/packageRole/role-products/role-products',
         invest: '/packageRole/role-invest/role-invest',
+        commission: '/packageRole/role-commission/role-commission',
         orders: '/packageRole/resource-orders/resource-orders',
         income: '/packageRole/role-income/role-income',
         withdraw: '/packageRole/role-withdraw/role-withdraw'

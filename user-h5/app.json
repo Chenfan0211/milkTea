@@ -41,6 +41,7 @@
       "pages": [
         "resource-orders/resource-orders",
         "role-apply/role-apply",
+        "role-commission/role-commission",
         "role-center/role-center",
         "role-income/role-income",
         "role-income-detail/role-income-detail",

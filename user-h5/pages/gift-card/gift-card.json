@@ -2,7 +2,6 @@
   "navigationStyle": "custom",
   "usingComponents": {
     "navigation-bar": "/components/navigation-bar/navigation-bar",
-    "empty-state": "/components/empty-state/empty-state",
-    "store-list-card": "/components/store-list-card/store-list-card"
+    "empty-state": "/components/empty-state/empty-state"
   }
 }

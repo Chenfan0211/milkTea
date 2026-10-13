@@ -41,7 +41,15 @@
     </view>
   </view>
 
-  <view class="menu-content">
+  <view wx:if="{{soldOut}}" class="menu-soldout">
+    <empty-state
+      icon="/assets/icons/lucide/shopping-bag.svg"
+      title="已售罄"
+      description="该门店暂无可售商品，请切换门店"
+    />
+  </view>
+
+  <view wx:if="{{!soldOut}}" class="menu-content">
     <scroll-view class="category-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view
         wx:if="{{activeMenu.groups.length}}"

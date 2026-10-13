@@ -1,7 +1,5 @@
 const api = require('./api');
 
-const LISTING_STORAGE_KEY = 'milkTea:product-listing';
-
 // 菜单内存镜像。
 //
 // 阶段 C 后菜单来自 /api/v1/app/menu：页面先 await refreshMenuFromRemote()，
@@ -17,8 +15,11 @@ let menuSyncState = { loaded: false, error: null, updatedAt: 0 };
  * 用远端数据刷新菜单镜像（页面每次展示时调用）。
  *
  * 约定：
- *   · 请求成功但返回空数组 -> 不清空镜像。宁可用上一份数据，也不要把页面打空
- *     （后端瞬时返回空比展示旧菜单更糟：用户会以为门店没商品）。
+ *   · 带门店查询且成功返回空数组 -> 清空镜像。这是「本店无任何可售商品」的
+ *     权威信号（后端已按 product_store 过滤），必须如实呈现空菜单，供点单页
+ *     展示「已售罄」空态。若保留旧镜像，会出现「选了没配选品的门店却显示
+ *     上一次门店/全量的商品」。
+ *   · 不带门店且返回空 -> 保留旧镜像（未选门店时的瞬时故障兜底）。
  *   · 请求失败 -> 保留旧镜像，但把错误记进 menuSyncState，让页面能区分
  *     「首次就没拿到」和「只是这次刷新失败」，前者需要提示用户重试。
  */
@@ -26,9 +27,16 @@ function refreshMenuFromRemote(storeSubjectId) {
   return api
     .fetchMenu(storeSubjectId)
     .then(list => {
-      if (Array.isArray(list) && list.length) {
-        menuCatalog = list;
+      const arr = Array.isArray(list) ? list : [];
+      if (arr.length) {
+        menuCatalog = arr;
+      } else if (storeSubjectId != null) {
+        // 带门店查询且成功返回空数组 = 该门店没有任何可售商品，
+        // 必须清空镜像，否则残留上一门店（或全量）菜单，
+        // 导致「门店页显示有货、提交支付才报错」的错乱。
+        menuCatalog = [];
       }
+      // storeSubjectId == null 且返回空：保留旧镜像（瞬时故障兜底）。
       menuSyncState = { loaded: true, error: null, updatedAt: Date.now() };
       return menuCatalog;
     })
@@ -57,44 +65,7 @@ function getMenuCatalog() {
   return menuCatalog;
 }
 
-// 上架状态按门店隔离：{ [storeId]: { [productId]: boolean } }
-// 未记录的默认视为上架，避免新增商品时漏配。
-function normalizeState(value) {
-  if (!value || typeof value !== 'object') return {};
-  const state = {};
-  Object.keys(value).forEach(storeId => {
-    const entry = value[storeId];
-    if (!entry || typeof entry !== 'object') return;
-    const listed = {};
-    Object.keys(entry).forEach(productId => {
-      const flag = entry[productId];
-      if (typeof flag === 'boolean') listed[productId] = flag;
-    });
-    state[storeId] = listed;
-  });
-  return state;
-}
-
-function readState() {
-  try {
-    const value = typeof wx !== 'undefined' && wx.getStorageSync ? wx.getStorageSync(LISTING_STORAGE_KEY) : '';
-    return normalizeState(value);
-  } catch (error) {
-    return {};
-  }
-}
-
-function writeState(state) {
-  try {
-    if (typeof wx !== 'undefined' && wx.setStorageSync) {
-      wx.setStorageSync(LISTING_STORAGE_KEY, normalizeState(state));
-    }
-  } catch (error) {
-    // 存储不可用时保持内存结果可用。
-  }
-}
-
-// 拍平菜单得到全量商品，附带所属 tab / 分组 / 分类。
+// 拍平菜单得到全量商品，附带所属 tab / 分组 / 分类。供购物车可售判断与测试使用。
 function flattenProducts(menus) {
   const list = [];
   (menus || []).forEach(tab => {
@@ -123,107 +94,32 @@ function flattenProducts(menus) {
   return list;
 }
 
-// 门店可选商品 = 菜单返回的全量商品。
-// 平台级上下架已由后端 product.on_sale 过滤（见 /api/v1/app/menu），前端不再维护写死商品池白名单。
+// 当前菜单镜像里的全量商品（后端已按门店过滤）。
 function getAllProducts() {
   return flattenProducts(menuCatalog);
 }
 
-// 判断某商品在指定门店是否上架；未配置时默认上架。
-function isListed(storeId, productId, state) {
-  const source = state || readState();
-  const entry = source[storeId];
-  if (!entry || typeof entry[productId] !== 'boolean') return true;
-  return entry[productId];
-}
-
-// 按门店筛选商品清单（用于选品页），保留 isListed 标记。
-function getProductsForStore(storeId) {
-  const state = readState();
-  return getAllProducts().map(item => Object.assign({}, item, { listed: isListed(storeId, item.id, state) }));
-}
-
-// 统计某门店的上架情况，供状态角标使用。
-function getListingStats(storeId) {
-  const products = getProductsForStore(storeId);
-  const listedCount = products.filter(item => item.listed).length;
-  return {
-    total: products.length,
-    listed: listedCount,
-    unlisted: products.length - listedCount
-  };
-}
-
-// 单一商品上下架。
-function setListed(storeId, productId, listed) {
-  if (!storeId || !productId) return getListingStats(storeId);
-  const state = readState();
-  const entry = Object.assign({}, state[storeId]);
-  entry[productId] = Boolean(listed);
-  state[storeId] = entry;
-  writeState(state);
-  return getListingStats(storeId);
-}
-
-// 批量上下架，一次写入避免多次触发存储。
-function setListedBatch(storeId, productIds, listed) {
-  if (!storeId || !Array.isArray(productIds) || !productIds.length) return getListingStats(storeId);
-  const state = readState();
-  const entry = Object.assign({}, state[storeId]);
-  productIds.forEach(productId => {
-    if (productId) entry[productId] = Boolean(listed);
-  });
-  state[storeId] = entry;
-  writeState(state);
-  return getListingStats(storeId);
-}
-
-// 恢复某门店的默认上架状态（全部上架）。
-function resetListing(storeId) {
-  const state = readState();
-  delete state[storeId];
-  writeState(state);
-  return getListingStats(storeId);
-}
-
-// 按门店过滤后返回菜单，供消费端（点单页 / 适用商品页）使用。
-// 分类被清空时整组隐藏，分组与 Tab 同理，避免消费端出现空分类。
-function applyListing(storeId, menus) {
-  const source = menus || menuCatalog;
-  const state = readState();
-  return source
-    .map(tab => {
-      const groups = (tab.groups || [])
-        .map(group => {
-          const categories = (group.categories || [])
-            .map(category => {
-              const products = (category.products || []).filter(product =>
-                isListed(storeId, product.id, state)
-              );
-              if (!products.length) return null;
-              return Object.assign({}, category, { products });
-            })
-            .filter(Boolean);
-          if (!categories.length) return null;
-          return Object.assign({}, group, { categories });
-        })
-        .filter(Boolean);
-      if (!groups.length) return null;
-      return Object.assign({}, tab, { groups });
-    })
-    .filter(Boolean);
-}
-
-// 消费端读取：指定门店的上架菜单；无门店时返回完整菜单。
+// 消费端读取：当前门店的菜单。
 //
-// applyListing 结果为空有两种成因，必须区分对待：
-//   1) menuCatalog 本身为空 -> 返回空数组，页面按「无菜单」处理；
-//   2) 有菜单但该门店可售商品为 0 -> 回落完整菜单，避免整页空白。
+// 菜单镜像由后端按门店选品过滤（GET /api/v1/app/menu?storeSubjectId=），
+// 前端不再维护本地上架状态，也不再「可售为 0 时回落全量菜单」——
+// 后者会让「未配置选品的门店」错误地显示平台全量商品。
+// 门店无选品时 menuCatalog 为空，由点单页按「已售罄」空态展示。
 function getListedMenuTabs(storeId) {
-  if (!menuCatalog.length) return menuCatalog;
-  if (!storeId) return menuCatalog;
-  const tabs = applyListing(storeId, menuCatalog);
-  return tabs.length ? tabs : menuCatalog;
+  // storeId 仅用于调用方语义标注；过滤已在后端完成，这里直接返回镜像。
+  return menuCatalog;
+}
+
+/**
+ * 判定某门店是否「已售罄」。
+ *
+ * 语义：已选中门店，且后端按该门店查询菜单成功返回了空（该店无任何
+ * 可售商品）。此时菜单镜像为空、且不是「首次加载失败」（无 error），
+ * 点单页据此显示「已售罄」空态，而不是残留旧菜单。
+ */
+function isStoreSoldOut(storeId) {
+  if (!storeId) return false;
+  return menuCatalog.length === 0 && menuSyncState.loaded && !menuSyncState.error;
 }
 
 /**
@@ -241,6 +137,9 @@ function getListedMenuTabs(storeId) {
  * 消费端无需再各自判空，避免 menu.groups[0] 触发 undefined 访问。
  */
 function getMergedMenuTab(storeId) {
+  // 门店售罄（有菜单但该店可售为 0）时不回落全量，
+  // 返回空 groups，交由点单页按「已售罄」空态展示。
+  if (isStoreSoldOut(storeId)) return { groups: [] };
   const tabs = getListedMenuTabs(storeId);
   if (!tabs.length) return { groups: [] };
   const first = tabs[0];
@@ -249,25 +148,23 @@ function getMergedMenuTab(storeId) {
   });
 }
 
-// 商品最终是否可售 = 门店已上架（平台级上下架已由后端 on_sale 过滤）。
+// 商品在当前门店是否可售 = 是否存在于后端返回的本店菜单镜像中。
+//
+// 平台级上下架（product.on_sale）与门店级选品（product_store）都由后端过滤，
+// 前端不再持有独立的本地上下架状态，避免两套数据源不一致。
 function isProductListed(storeId, productId) {
-  return isListed(storeId, productId);
+  if (!productId) return false;
+  return flattenProducts(menuCatalog).some(item => item.id === productId);
 }
 
 module.exports = {
-  LISTING_STORAGE_KEY,
   refreshMenuFromRemote,
   getMenuSyncState,
   setMenuCatalogForTest,
   getMenuCatalog,
-  applyListing,
   getAllProducts,
   getListedMenuTabs,
   getMergedMenuTab,
-  getListingStats,
-  getProductsForStore,
-  isProductListed,
-  resetListing,
-  setListed,
-  setListedBatch
+  isStoreSoldOut,
+  isProductListed
 };

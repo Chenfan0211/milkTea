@@ -75,7 +75,7 @@
         </view>
         <view class="detail-row">
           <text class="detail-row__label">投资预算</text>
-          <text class="detail-row__value detail-row__value--strong">¥{{record.budget}}</text>
+          <text class="detail-row__value detail-row__value--strong">{{record.budgetText ? '¥' + record.budgetText : '--'}}</text>
         </view>
         <view class="detail-row">
           <text class="detail-row__label">联系人</text>

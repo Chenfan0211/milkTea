@@ -7,7 +7,7 @@
       <text class="store-filter__address ellipsis">{{currentAddress}}</text>
       <image class="store-filter__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
     </view>
-    <view class="store-filter__city" data-label="选择城市" bindtap="showUnavailable" aria-role="button" aria-label="选择城市">
+    <view class="store-filter__city" bindtap="selectCity" aria-role="button" aria-label="选择城市">
       <text>{{currentCity}}</text>
       <image class="store-filter__city-arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
     </view>

@@ -1235,81 +1235,62 @@ assert.ok(
   'products scroll area must keep the three-section layout contract'
 );
 
-
-// 过滤逻辑：默认全上架 / 门店隔离 / 空分类隐藏
+// 消费端菜单：按门店过滤由后端完成，前端不再持有本地上架状态。
+//
+// 语义变更（方案 A）：门店未配置选品时后端返回空菜单，前端必须原样呈现空，
+// 不能再「可售为 0 时回落全量菜单」——那会让测试门店这类未配选品的门店显示平台全量商品。
 const allProducts = listing.getAllProducts();
-assert.ok(allProducts.length >= 5, 'product listing must expose the platform-approved catalog');
+assert.ok(allProducts.length >= 5, 'product listing must expose the backend menu mirror');
 assert.ok(
   allProducts.every(item => item.id && item.name && item.tabId && item.categoryLabel),
   'flattened products must carry tab and category metadata'
 );
 
-const defaultStats = listing.getListingStats('store-001');
-assert.equal(defaultStats.listed, defaultStats.total, 'products must default to listed');
-assert.equal(defaultStats.unlisted, 0, 'products must default to listed');
+// 本地上架状态相关 API 必须已移除，避免与后端 product_store 形成两套数据源
+assert.equal(listing.getListingStats, undefined, 'local getListingStats must be removed');
+assert.equal(listing.setListed, undefined, 'local setListed must be removed');
+assert.equal(listing.applyListing, undefined, 'local applyListing must be removed');
+assert.equal(listing.getProductsForStore, undefined, 'local getProductsForStore must be removed');
 
-listing.setListed('store-001', 'classic-004', false);
-const afterUnlist = listing.getListingStats('store-001');
-assert.equal(afterUnlist.unlisted, 1, 'unlisting must be reflected in stats');
-assert.equal(listing.getListingStats('store-002').unlisted, 0, 'listing state must be isolated per store');
-assert.equal(listing.isProductListed('store-001', 'classic-004'), false, 'unlisted product must report as unlisted');
-assert.equal(listing.isProductListed('store-002', 'classic-004'), true, 'other stores must keep the product listed');
-// 商品默认在售（平台级上下架已由后端 on_sale 过滤，前端不再按写死白名单二次拦截）。
+// 当前镜像内的商品视为可售；不在镜像内的视为不可售（购物车据此标记）
 assert.equal(
-  listing.isProductListed('store-001', 'classic-002'),
+  listing.isProductListed('store-001', allProducts[0].id),
   true,
-  'products must default to listed for any store'
+  'products present in the backend menu must report as listed'
 );
-
-// 消费端菜单：过滤掉下架商品
-const listedTabs = listing.getListedMenuTabs('store-001');
-const listedIds = [];
-listedTabs.forEach(tab =>
-  tab.groups.forEach(group =>
-    group.categories.forEach(category => category.products.forEach(p => listedIds.push(p.id)))
-  )
-);
-assert.ok(
-  listedIds.indexOf('classic-004') === -1,
-  'products unlisted by the store must not appear in the consumer menu'
-);
-assert.ok(listedIds.indexOf('classic-003') !== -1, 'listed products must remain in the consumer menu');
-assert.ok(listedIds.indexOf('classic-002') !== -1, 'default-listed products must reach the consumer menu');
-
-// 空分类 / 空分组 / 空 Tab 自动隐藏
-// 当前可选商品都落在 recommend 分组，逐一处理整组以验证空分组隐藏。
-const leafIds = allProducts.filter(p => p.groupId === 'recommend').map(p => p.id);
-listing.setListedBatch('store-001', leafIds, false);
-const prunedTabs = listing.getListedMenuTabs('store-001');
-const remainingGroups = [];
-prunedTabs.forEach(tab => tab.groups.forEach(group => remainingGroups.push(group.id)));
-assert.ok(remainingGroups.indexOf('recommend') === -1, 'a group whose products are all unlisted must be hidden');
-assert.ok(
-  prunedTabs.every(tab => tab.groups.length && tab.groups.every(group => group.categories.length)),
-  'empty groups and categories must never reach the consumer menu'
-);
-
-// 极端情况：全部下架时回落到默认菜单，不至于渲染空页面
-const everyId = allProducts.map(p => p.id);
-listing.setListedBatch('store-001', everyId, false);
-assert.ok(
-  listing.getListedMenuTabs('store-001').length > 0,
-  'the consumer menu must never collapse to an empty tab list'
-);
-
-// 复位
-listing.resetListing('store-001');
 assert.equal(
-  listing.getListingStats('store-001').listed,
-  listing.getListingStats('store-001').total,
-  'reset must restore every product to listed'
+  listing.isProductListed('store-001', 'not-in-menu-xxx'),
+  false,
+  'products absent from the backend menu must report as unlisted'
 );
 
-// 点单页与适用商品页必须走统一过滤入口
+// 消费端读取菜单：直接返回后端镜像（门店维度过滤已在服务端完成）
+setMenuCatalogForTest(loadMenu());
+const listedTabs = listing.getListedMenuTabs('store-001');
+assert.ok(Array.isArray(listedTabs) && listedTabs.length > 0, 'consumer menu must expose the backend mirror');
+
+// 回归（方案 A）：门店无选品（后端返回空菜单）时，消费端必须保持空，
+// 不得回落全量菜单——否则「测试门店」这种未配选品的门店会显示平台全量商品。
+setMenuCatalogForTest([]);
+assert.equal(
+  listing.getListedMenuTabs('store-001').length,
+  0,
+  'an empty store menu must stay empty and must NOT fall back to the full catalogue'
+);
+assert.equal(
+  listing.getMergedMenuTab('store-001').groups.length,
+  0,
+  'an empty store menu must expose empty groups so the menu page renders the sold-out state'
+);
+
+// 复位镜像，避免影响后续断言
+setMenuCatalogForTest(loadMenu());
+
+// 点单页与适用商品页必须走统一入口
 const menuRuntime = fs.readFileSync(path.join(root, 'pages/menu/menu.js'), 'utf8');
 assert.ok(
   menuRuntime.includes('getListedMenuTabs') && menuRuntime.includes('isProductListed'),
-  'menu page must consume the shared listing filter'
+  'menu page must consume the shared listing entry'
 );
 assert.ok(menuRuntime.includes('buildListingUpdates'), 'menu page must refresh the listing when the store changes');
 assert.ok(menuRuntime.includes('hasUnlistedInCart'), 'menu page must flag unlisted products sitting in the cart');
@@ -1326,7 +1307,7 @@ assert.ok(
 );
 
 const couponRuntime = fs.readFileSync(path.join(root, 'pages/coupon-products/coupon-products.js'), 'utf8');
-assert.ok(couponRuntime.includes('getListedMenuTabs'), 'coupon products page must consume the shared listing filter');
+assert.ok(couponRuntime.includes('getListedMenuTabs'), 'coupon products page must consume the shared listing entry');
 
 // 选品页分享：私密 + 有标题
 const productsRoute = 'packageRole/role-products/role-products';
@@ -1533,7 +1514,23 @@ for (const [file, label] of [
 ]) {
   const source = fs.readFileSync(path.join(root, file), 'utf8');
   assert.ok(source.includes("invest: '/packageRole/role-invest/role-invest'"), `${label} must route to role-invest`);
+  assert.ok(
+    source.includes("commission: '/packageRole/role-commission/role-commission'"),
+    `${label} must route to role-commission`
+  );
 }
+
+// 月度分佣：新页存在且入口已接通（不再「该功能待接入」）
+for (const ext of ['js', 'json', 'wxml', 'wxss']) {
+  assert.ok(
+    fs.existsSync(path.join(root, `packageRole/role-commission/role-commission.${ext}`)),
+    `missing role-commission.${ext}`
+  );
+}
+assert.ok(
+  appJson.subpackages?.[0]?.pages?.includes('role-commission/role-commission'),
+  'role-commission must be registered in app.json'
+);
 
 // 门店数据：启用状态 + 绑定投资人
 const investStores = loadStores();
@@ -1669,6 +1666,7 @@ assert.ok(/^\d{3}\*{4}\d{2}$/.test(applicationDetail.phoneText), 'detail must ma
 const investWxml = fs.readFileSync(path.join(investDir, 'role-invest.wxml'), 'utf8');
 const investWxss = fs.readFileSync(path.join(investDir, 'role-invest.wxss'), 'utf8');
 const investJs = fs.readFileSync(path.join(investDir, 'role-invest.js'), 'utf8');
+const investJson = fs.readFileSync(path.join(investDir, 'role-invest.json'), 'utf8');
 assert.ok(
   investWxml.includes('placeholder="搜索点位名称或地址"') && investWxml.includes('handleKeyword'),
   'invest page must provide a search field'
@@ -1679,15 +1677,59 @@ assert.ok(
     investJs.includes('spot.address'),
   'invest search must match both name and address'
 );
+// 状态维度筛选（标签数字即该状态点位数，与卡片徽标同口径）。
+assert.ok(
+  investWxml.includes('statusTabs') && investWxml.includes('switchStatus'),
+  'invest page must offer status filtering'
+);
+// 城市维度回归：跨城点位（长沙↔广州 约 500km）同屏会被缩放得不可辨识，
+// 因此地图/列表按 cityCode 拆分显示，多城市时才渲染城市切换。
 assert.ok(
   investWxml.includes('cityTabs') && investWxml.includes('switchCity'),
-  'invest page must offer city filtering'
+  'invest page must offer city filtering to split cross-city spots'
+);
+assert.ok(
+  investJs.includes('buildCityTabs') && investJs.includes('activeCityId'),
+  'invest page must define city tabs keyed by backend cityCode'
+);
+assert.ok(
+  investJs.includes('STATUS_TABS') && investJs.includes('activeStatusId'),
+  'invest page must define status tabs'
 );
 assert.ok(
   investWxml.includes('openRecords') && investWxml.includes('openSpot'),
   'invest page must expose the records entry and spot selection'
 );
 assert.ok(investWxml.includes('spot-card--{{item.spotStatus}}'), 'spot cards must reflect their status');
+// 列表 / 地图双模式：地图内嵌腾讯地图。
+assert.ok(
+  investWxml.includes("mode === 'list'") && investWxml.includes("mode === 'map'"),
+  'invest page must support list/map switching'
+);
+assert.ok(
+  investWxml.includes('bindmarkertap="handleMarkerTap"') && investWxml.includes('markers="{{markers}}"'),
+  'invest map must render tappable markers'
+);
+assert.ok(
+  investJson.includes('"renderer": "webview"'),
+  'invest page must override the global Skyline renderer, otherwise <map> renders blank'
+);
+// 进入地图必须「优先框住所有点位」：
+// 历史实现以用户定位居中 + scale=12，跨城/异地点位会被挤出视野，
+// 表现为「地图上一个点位都没有」。includePoints 自动算缩放与中心，保证点位可见。
+assert.ok(
+  investJs.includes('includeAllPoints') && investJs.includes('includePoints'),
+  'invest map must fit all in-view spots via includePoints instead of centring on the user location'
+);
+assert.ok(investWxml.includes('id="investMap"'), 'invest map needs an id so createMapContext can call includePoints');
+assert.ok(
+  investJs.includes('applyFallbackAnchor') && investJs.includes('DEFAULT_MAP_CENTER'),
+  'invest map must fall back when location is denied'
+);
+assert.ok(
+  investJs.includes('buildStoreMarkers') && investJs.includes('hasGeo'),
+  'invest markers must reuse store-markers and skip geoless spots'
+);
 assert.ok(
   !/#[0-9A-Fa-f]{3,8}\b/.test(investWxss) && /\.invest-scroll[\s\S]*?flex:\s*1[\s\S]*?min-height:\s*0/.test(investWxss),
   'invest page must use tokens and keep the three-section layout contract'
@@ -1748,11 +1790,82 @@ assert.ok(
 assert.ok(
   detailWxml.includes('{{record.orderNo}}') &&
     detailWxml.includes('{{record.storeName}}') &&
-    detailWxml.includes('{{record.budget}}') &&
+    detailWxml.includes('{{record.budgetText') &&
     detailWxml.includes('{{record.phoneText}}'),
-  'invest detail must render order no, store, budget and masked phone'
+  'invest detail must render order no, store, formatted budget and masked phone'
 );
 assert.ok(detailWxml.includes('record.failReason'), 'invest detail must surface the rejection reason');
+
+// ---- 投资申请记录：数据展示 + 中文状态 + 默认本月区间（回归） ----
+// 背景：归一化后内部状态为小写（signed），而枚举表键为大写（APPROVED），
+// 曾导致记录页与详情页状态退化成英文（pending / signed）。
+assert.equal(invest.investStatusLabel('pending'), '审核中', 'invest status pending must be Chinese');
+assert.equal(invest.investStatusLabel('signed'), '已签约', 'invest status signed must be Chinese');
+assert.equal(invest.investStatusLabel('rejected'), '已驳回', 'invest status rejected must be Chinese');
+assert.equal(invest.investStatusLabel('APPROVED'), '已签约', 'invest status must also accept backend uppercase enum');
+assert.equal(
+  invest.investStatusLabel('SIGNED'),
+  '已签约',
+  'invest status must not fall back to English for the normalized signed state'
+);
+
+// 预算格式化：千分位，非法/空值不显示为 0
+assert.equal(invest.formatInvestBudget('200000'), '200,000', 'invest budget must be thousand-separated');
+assert.equal(invest.formatInvestBudget(1234567), '1,234,567', 'invest budget must group every three digits');
+assert.equal(invest.formatInvestBudget(''), '', 'empty budget must stay empty, not 0');
+assert.equal(invest.formatInvestBudget('abc'), '', 'non-numeric budget must not render as 0');
+
+// 历史记录 extra_form 缺 storeName/cityName 时，必须按 subject_id 回查门店目录回填。
+// 注意：回填依赖门店目录里的数字 subjectId，这里显式注入一条确定的数据。
+invest.setInvestCatalogForTest(
+  [
+    {
+      code: 'ST-9001',
+      subjectId: 9001,
+      name: '回归门店',
+      city: '长沙市',
+      cityCode: 'changsha',
+      address: '湖南省长沙市'
+    }
+  ],
+  [{ code: 'changsha', name: '长沙市' }]
+);
+invest.setInvestApplicationsForTest([
+  {
+    id: 9001,
+    role_type: 'investor',
+    subject_id: 9001,
+    applicant_name: '回归',
+    applicant_phone: '13800000000',
+    extra_form: JSON.stringify({ budget: '200000' }),
+    status: 'APPROVED',
+    apply_time: '2026-09-18 18:57:07'
+  }
+]);
+const backfilled = invest.listApplications()[0];
+assert.equal(
+  backfilled.storeName,
+  '回归门店',
+  'store name must be backfilled from subject_id when extra_form omits it'
+);
+assert.equal(backfilled.cityName, '长沙市', 'city name must be backfilled from subject_id when extra_form omits it');
+assert.equal(backfilled.statusLabel, '已签约', 'backfilled record must still map status to Chinese');
+assert.equal(backfilled.budgetText, '200,000', 'backfilled record must expose formatted budget');
+
+// 记录页：默认时间为本月 1 号 ~ 今天（按天闭区间），重置恢复本月
+assert.ok(
+  recordsJs.includes('defaultRange') && recordsJs.includes('toDateKey(now.getFullYear(), now.getMonth() + 1, 1)'),
+  'invest records must default the date range to the first day of the current month'
+);
+assert.ok(
+  /resetDates\(\)\s*\{[\s\S]*?defaultRange/.test(recordsJs) &&
+    !/resetDates\(\)\s*\{[\s\S]*?DATE_PLACEHOLDER/.test(recordsJs),
+  'invest records reset must restore the default month range instead of clearing to placeholders'
+);
+assert.ok(
+  recordsWxml.includes('dateRangeDirty'),
+  'invest records must only show the reset control when the range differs from the default month'
+);
 
 // 四页分享：私密 + 有标题
 for (const route of [

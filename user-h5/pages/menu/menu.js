@@ -3,6 +3,7 @@ const api = require('../../utils/api');
 const {
   getListedMenuTabs,
   getMergedMenuTab,
+  isStoreSoldOut,
   isProductListed,
   refreshMenuFromRemote,
   getMenuCatalog,
@@ -29,7 +30,7 @@ const location = require('../../utils/location');
  * 取首个分类 id：菜单为空、分组为空或分类为空时统一返回 ''。
  *
  * 菜单来自接口，可能出现「门店已上架但菜单未就绪 / 该门店下架全部商品」，
- * 此时 applyListing 会把空分组整组过滤掉，activeMenu.groups 为空数组。
+ * 此时后端已按门店过滤（本店未上架的整组被剔除），activeMenu.groups 为空数组。
  * 这里必须做完整防御，否则首屏与下拉刷新会抛
  * `Cannot read properties of undefined (reading 'categories')`。
  */
@@ -116,6 +117,7 @@ Page(
       currentStore: {},
       orderMode: 'pickup',
       activeMenu: {},
+      soldOut: false,
       selectedCategoryId: '',
       selectedGroupId: '',
       scrollIntoView: '',
@@ -225,7 +227,10 @@ Page(
       const app = getApp();
       const catalog = resolveStoreCatalog();
       // 点单页不展示顶部页签：其余 TAB 的分组已并入首个 TAB，同级展示
-      const activeMenu = getMergedMenuTab(catalog.currentStore && catalog.currentStore.id);
+      const storeId = catalog.currentStore && catalog.currentStore.id;
+      const activeMenu = getMergedMenuTab(storeId);
+      // 门店售罄：菜单有数据但该店可售商品为 0，显示「已售罄」空态而非全量菜单。
+      const soldOut = isStoreSoldOut(storeId);
       // 门店/选择层数据与菜单是否就绪无关，必须先算出来。
       // 历史 bug：这段原本写在「有菜单」分支里，菜单为空时提前 return 会连带跳过，
       // 导致门店选择层拿不到 pickerStores（列表空白），用户无法选门店自救。
@@ -240,6 +245,7 @@ Page(
             base,
             {
               activeMenu: { groups: [] },
+              soldOut,
               selectedCategoryId: '',
               selectedGroupId: '',
               scrollIntoView: '',
@@ -256,6 +262,7 @@ Page(
           base,
           {
             activeMenu,
+            soldOut: false,
             selectedCategoryId: getFirstCategoryId(activeMenu),
             selectedGroupId: getFirstGroupId(activeMenu),
             scrollIntoView: '',
