@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -64,9 +65,24 @@ public class ProductQueryService {
         this.redisManager = redisManager;
     }
 
-    /** 菜单缓存 key（CACHE 命名空间，TTL 5 分钟） */
+    /**
+     * 全量菜单模板缓存 key（CACHE 命名空间，TTL 5 分钟）。
+     *
+     * <p>不含门店维度的「平台全量菜单」：仅用于不传 storeSubjectId 的旧调用，
+     * 以及作为按门店构建时的组装源。门店维度缓存见 {@link #STORE_MENU_CACHE_PREFIX}。
+     */
     private static final String MENU_CACHE_KEY = "menu:all";
     private static final Duration MENU_CACHE_TTL = Duration.ofMinutes(5);
+
+    /**
+     * 门店菜单缓存 key 前缀（CACHE 命名空间，TTL 5 分钟）。
+     *
+     * <p><b>为什么按门店分别缓存</b>：不同门店选品不同，若共用一个 key（历史上的
+     * {@code menu:all}），要么被迫返回全量、要么每次请求都做内存过滤。按门店缓存
+     * 「已过滤结果」后，命中即返回，避免「缓存命中绕过过滤器」这类问题。
+     * 完整 key：{@code wuling:cache:menu:store:{storeSubjectId}}。
+     */
+    private static final String STORE_MENU_CACHE_PREFIX = "menu:store:";
 
     /** 商品详情缓存 key 前缀（CACHE 命名空间，TTL 5 分钟） */
     private static final String PRODUCT_CACHE_PREFIX = "product:detail:";
@@ -83,13 +99,45 @@ public class ProductQueryService {
     }
 
     /**
-     * 菜单（可选按门店选品过滤）。
+     * 菜单（按门店选品过滤）。
      *
-     * <p>缓存的是「全量菜单」（{@code menu:all}）；门店过滤在缓存命中后于内存完成 ——
-     * 因为过滤维度是门店，若按门店分别缓存会让 key 数量随门店数膨胀。
-     * 门店未上架的商品从各分类中剔除；分类被清空时整组隐藏，避免点单页出现空分类。
+     * <p>分层缓存：
+     * <ul>
+     *   <li>{@code menu:all}：平台全量菜单模板，供不传门店的旧调用；</li>
+     *   <li>{@code menu:store:{id}}：某门店「已过滤」后的菜单，命中即返回。</li>
+     * </ul>
+     * 门店未上架的商品从各分类中剔除；分类被清空时整组隐藏，避免点单页出现空分类；
+     * 门店若未配置任何选品，返回空菜单（不再回落平台全量）。
      */
     public List<MenuDTO.MenuTab> getMenu(Long storeSubjectId) {
+        // 未选门店（旧调用）：走「平台全量菜单」缓存，语义与历史一致
+        if (storeSubjectId == null) {
+            return getPlatformMenu();
+        }
+
+        // 门店维度：缓存「已按本店选品过滤后的结果」。
+        // 历史 bug：共用一个 menu:all 缓存且命中即返回，门店过滤只在缓存未命中时执行，
+        // 导致热缓存下所有门店（含未配选品的测试门店）都看到平台全量菜单。
+        String cacheKey = redisManager.key(RedisNamespace.CACHE, STORE_MENU_CACHE_PREFIX + storeSubjectId);
+        String cached = safeGet(cacheKey);
+        if (cached != null) {
+            List<MenuDTO.MenuTab> hit = parseMenuCache(cached);
+            if (hit != null) {
+                return hit;
+            }
+        }
+
+        // 未命中：以全量模板为基础做门店过滤，再按门店缓存
+        List<MenuDTO.MenuTab> filtered = filterMenuByStore(getPlatformMenu(), storeSubjectId);
+        safeSet(cacheKey, filtered, MENU_CACHE_TTL);
+        return filtered;
+    }
+
+    /**
+     * 平台全量菜单（不按门店过滤），走独立缓存 {@code menu:all}。
+     * 未选门店的旧调用与门店菜单组装的共同基础。
+     */
+    private List<MenuDTO.MenuTab> getPlatformMenu() {
         // 缓存优先：菜单数据读多写少，命中后跳过 3 次全表查询 + 43KB 组装
         String cached = safeGetMenuCache();
         if (cached != null) {
@@ -148,7 +196,7 @@ public class ProductQueryService {
 
         // 写回缓存（序列化失败不影响返回）
         safeSetMenuCache(tabs);
-        return filterMenuByStore(tabs, storeSubjectId);
+        return tabs;
     }
 
     /**
@@ -286,6 +334,26 @@ public class ProductQueryService {
         }
     }
 
+    /** 按完整 key 读缓存；Redis 不可用或未命中返回 null（fail-open，回源 DB）。 */
+    private String safeGet(String fullKey) {
+        try {
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            return redis.opsForValue().get(fullKey);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 按完整 key 写缓存；序列化或 Redis 失败时静默忽略。 */
+    private void safeSet(String fullKey, Object value, Duration ttl) {
+        try {
+            StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
+            redis.opsForValue().set(fullKey, objectMapper.writeValueAsString(value), ttl);
+        } catch (Exception e) {
+            // 缓存写入失败不影响业务
+        }
+    }
+
     /** 读菜单缓存；Redis 不可用或未命中返回 null（fail-open，回源 DB）。 */
     private String safeGetMenuCache() {
         try {
@@ -316,13 +384,53 @@ public class ProductQueryService {
         }
     }
 
-    /** 菜单数据变更后失效缓存（供商品/分类/规格的增删改调用）。 */
+    /**
+     * 菜单数据变更后失效缓存（供商品/分类/规格的增删改调用）。
+     *
+     * <p>平台全量菜单 {@code menu:all} 与各门店菜单 {@code menu:store:*} 都要清：
+     * 商品上下架 / 分类调整会同时影响两者，漏清任一都会让点单页短暂显示旧菜单。
+     */
     public void evictMenuCache() {
         try {
             StringRedisTemplate redis = redisManager.template(RedisNamespace.CACHE);
             redis.delete(redisManager.key(RedisNamespace.CACHE, MENU_CACHE_KEY));
+            // 门店维度按前缀清理。
+            // 注意：生产禁用 KEYS（redis.conf rename-command），必须用 SCAN 游标迭代，
+            // 否则这里会抛 ERR unknown command 'KEYS'，门店菜单缓存永远清不掉。
+            // 各 key 仍有 TTL 兜底，即使清理失败也会在 5 分钟内自然过期。
+            deleteByPattern(redis, redisManager.key(RedisNamespace.CACHE, STORE_MENU_CACHE_PREFIX + "*"));
         } catch (Exception e) {
             // 删除失败可忽略，缓存 TTL 兜底
+        }
+    }
+
+    /**
+     * 按前缀删除 key（SCAN 游标迭代，禁止使用 KEYS）。
+     *
+     * <p>逐批 DELETE，避免一次性拉取大量 key 造成 Redis 阻塞；
+     * 单次 SCAN 上限 500，配合 TTL 兜底，性能与正确性兼顾。
+     */
+    private void deleteByPattern(StringRedisTemplate redis, String pattern) {
+        Set<String> batch = new java.util.HashSet<>();
+        try {
+            redis.execute((org.springframework.data.redis.core.RedisCallback<Void>) connection -> {
+                org.springframework.data.redis.core.ScanOptions options =
+                        org.springframework.data.redis.core.ScanOptions.scanOptions().match(pattern).count(500).build();
+                try (org.springframework.data.redis.core.Cursor<byte[]> cursor = connection.scan(options)) {
+                    while (cursor.hasNext()) {
+                        batch.add(new String(cursor.next(), java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                } catch (Exception e) {
+                    // 游标异常：已收集的批次仍可删除，剩余交给 TTL
+                }
+                return null;
+            });
+        } catch (Exception e) {
+            // SCAN 不可用时放弃，交给 TTL
+            return;
+        }
+        if (!batch.isEmpty()) {
+            redis.delete(batch);
         }
     }
 
