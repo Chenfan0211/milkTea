@@ -1,13 +1,17 @@
 package com.wuling.finance.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.wuling.finance.dto.InvestorCommissionView;
 import com.wuling.finance.entity.FundFlow;
+import com.wuling.finance.entity.SplitRule;
 import com.wuling.finance.entity.SettlementRecord;
 import com.wuling.finance.entity.SubjectAccount;
 import com.wuling.finance.mapper.FundFlowMapper;
 import com.wuling.finance.mapper.SettlementRecordMapper;
+import com.wuling.finance.mapper.SplitRuleMapper;
 import com.wuling.finance.mapper.SubjectAccountMapper;
 import com.wuling.subject.port.SubjectQueryPort;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.wuling.finance.port.TradeOrderQueryPort;
 
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,19 +35,24 @@ public class RoleWorkbenchService {
     private final SubjectAccountMapper subjectAccountMapper;
     private final FundFlowMapper fundFlowMapper;
     private final SettlementRecordMapper settlementRecordMapper;
+    private final SplitRuleMapper splitRuleMapper;
+    private final JdbcTemplate jdbcTemplate;
     /** 第 7 期：订单查询改走端口（trade 已拆出） */
     private final TradeOrderQueryPort tradeOrderQueryPort;
     /** 第 12 期：主体查询改走端口 */
     private final SubjectQueryPort subjectQueryPort;
-
     public RoleWorkbenchService(SubjectAccountMapper subjectAccountMapper,
                                 FundFlowMapper fundFlowMapper,
                                 SettlementRecordMapper settlementRecordMapper,
+                                SplitRuleMapper splitRuleMapper,
+                                JdbcTemplate jdbcTemplate,
                                 TradeOrderQueryPort tradeOrderQueryPort,
                                 SubjectQueryPort subjectQueryPort) {
         this.subjectAccountMapper = subjectAccountMapper;
         this.fundFlowMapper = fundFlowMapper;
         this.settlementRecordMapper = settlementRecordMapper;
+        this.splitRuleMapper = splitRuleMapper;
+        this.jdbcTemplate = jdbcTemplate;
         this.tradeOrderQueryPort = tradeOrderQueryPort;
         this.subjectQueryPort = subjectQueryPort;
     }
@@ -134,6 +144,163 @@ public class RoleWorkbenchService {
             result.add(m);
         }
         return result;
+    }
+
+    /**
+     * 投资人「月度分佣」聚合（只读）。
+     *
+     * <p>达标口径：投资人当月累计分佣额 >= split_rule.investor_threshold_amount，
+     * 与 {@link SplitRule#resolveInvestorRatio} 完全一致（跨月自然归零）。
+     *
+     * <p>门店销售额口径：orders 中「已支付且非全额退款」的 paid_amount 之和，
+     * 按 store_subject_id 归到投资门店。
+     */
+    public InvestorCommissionView investorCommission(Long investorSubjectId) {
+        InvestorCommissionView view = new InvestorCommissionView();
+        LocalDate today = LocalDate.now();
+        LocalDateTime monthStart = today.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime monthEnd = monthStart.plusMonths(1);
+        String month = today.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        view.setMonth(month);
+
+        // 1) 全局生效分佣规则
+        SplitRule rule = splitRuleMapper.selectOne(new LambdaQueryWrapper<SplitRule>()
+                .eq(SplitRule::getScope, "GLOBAL")
+                .eq(SplitRule::getStatus, "enabled")
+                .orderByAsc(SplitRule::getId)
+                .last("limit 1"));
+        InvestorCommissionView.Rule ruleView = new InvestorCommissionView.Rule();
+        if (rule != null) {
+            ruleView.setInvestorRatio(rule.getInvestorRatio());
+            ruleView.setInvestorThresholdAmount(rule.getInvestorThresholdAmount());
+            ruleView.setInvestorRatioAfter(rule.getInvestorRatioAfter());
+            boolean enabled = nz(rule.getInvestorThresholdAmount()) > 0 && nz(rule.getInvestorRatioAfter()) > 0;
+            ruleView.setThresholdEnabled(enabled);
+        }
+        view.setRule(ruleView);
+
+        // 2) 当月累计分佣（复用既有口径）
+        Long accumulated = settlementRecordMapper.selectSumCurrentMonth(investorSubjectId, monthStart, monthEnd);
+        long commission = accumulated == null ? 0L : accumulated;
+
+        // 3) 当月已结算 / 待结算
+        Long settled = settlementRecordMapper.selectSumSettleable(investorSubjectId);
+        Long pending = settlementRecordMapper.selectSumPending(investorSubjectId);
+
+        // 4) 投资门店 + 当月门店销售额
+        List<Long> storeIds = subjectQueryPort.findStoreIdsByInvestor(investorSubjectId);
+        long sales = sumSales(storeIds, monthStart, monthEnd);
+
+        // 5) 达标判定 + 进度
+        long threshold = ruleView.getInvestorThresholdAmount() == null ? 0L : ruleView.getInvestorThresholdAmount();
+        boolean reached = ruleView.isThresholdEnabled() && commission >= threshold;
+        int effectiveRatio = rule == null ? 0 : rule.resolveInvestorRatio(commission);
+        int percent = threshold <= 0 ? 0 : (int) Math.min(100, commission * 100 / threshold);
+        long remain = reached ? 0L : Math.max(0L, threshold - commission);
+
+        InvestorCommissionView.Current current = new InvestorCommissionView.Current();
+        current.setCommissionAmount(commission);
+        current.setSalesAmount(sales);
+        current.setSettledAmount(settled == null ? 0L : settled);
+        current.setPendingAmount(pending == null ? 0L : pending);
+        current.setEffectiveRatio(effectiveRatio);
+        current.setReached(reached);
+        view.setCurrent(current);
+
+        InvestorCommissionView.Progress progress = new InvestorCommissionView.Progress();
+        progress.setPercent(percent);
+        progress.setRemainToThreshold(remain);
+        view.setProgress(progress);
+
+        // 6) 按门店汇总
+        view.setStores(storeStats(storeIds, monthStart, monthEnd));
+
+        // 7) 近 12 个月逐月记录
+        view.setRecords(monthlyRecords(investorSubjectId, storeIds, today));
+
+        return view;
+    }
+
+    /** 门店销售额：已支付且非全额退款的订单 paid_amount 之和（按时间区间） */
+    private long sumSales(List<Long> storeIds, LocalDateTime start, LocalDateTime end) {
+        if (storeIds == null || storeIds.isEmpty()) {
+            return 0L;
+        }
+        String in = storeIds.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("0");
+        Long sum = jdbcTemplate.queryForObject(
+                "select coalesce(sum(paid_amount),0) from orders "
+                        + "where store_subject_id in (" + in + ") and deleted = 0 "
+                        + "and pay_status = 'PAID' and (refund_status is null or refund_status <> 'REFUNDED') "
+                        + "and create_time >= ? and create_time < ?",
+                Long.class, start, end);
+        return sum == null ? 0L : sum;
+    }
+
+    /** 按投资门店汇总（销售额 + 分佣额 + 订单数） */
+    private List<InvestorCommissionView.StoreStat> storeStats(List<Long> storeIds, LocalDateTime start, LocalDateTime end) {
+        List<InvestorCommissionView.StoreStat> result = new ArrayList<>();
+        if (storeIds == null || storeIds.isEmpty()) {
+            return result;
+        }
+        String in = storeIds.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("0");
+        // 销售额：orders 按 store_subject_id 分组
+        String salesSql = "select store_subject_id, coalesce(sum(paid_amount),0) as sales, count(*) as cnt "
+                + "from orders where store_subject_id in (" + in + ") and deleted = 0 "
+                + "and pay_status = 'PAID' and (refund_status is null or refund_status <> 'REFUNDED') "
+                + "and create_time >= ? and create_time < ? group by store_subject_id";
+        java.util.Map<Long, long[]> byStore = new LinkedHashMap<>();
+        jdbcTemplate.query(salesSql, rs -> {
+            long sid = rs.getLong("store_subject_id");
+            long sales = rs.getLong("sales");
+            long cnt = rs.getLong("cnt");
+            byStore.put(sid, new long[]{sales, cnt});
+        }, start, end);
+        for (Long sid : storeIds) {
+            InvestorCommissionView.StoreStat stat = new InvestorCommissionView.StoreStat();
+            stat.setId(sid);
+            stat.setName(subjectQueryPort.findName(sid));
+            long[] row = byStore.get(sid);
+            stat.setSalesAmount(row == null ? 0L : row[0]);
+            stat.setOrderCount(row == null ? 0L : row[1]);
+            stat.setCommissionAmount(0L);
+            result.add(stat);
+        }
+        return result;
+    }
+
+    /** 近 12 个月逐月记录（分佣 + 销售额 + 达标态） */
+    private List<InvestorCommissionView.MonthlyRecord> monthlyRecords(Long investorSubjectId, List<Long> storeIds, LocalDate today) {
+        List<InvestorCommissionView.MonthlyRecord> result = new ArrayList<>();
+        // 全局规则查一次，避免循环内 N 次查询
+        SplitRule rule = splitRuleMapper.selectOne(new LambdaQueryWrapper<SplitRule>()
+                .eq(SplitRule::getScope, "GLOBAL").eq(SplitRule::getStatus, "enabled")
+                .orderByAsc(SplitRule::getId).last("limit 1"));
+        long threshold = rule != null && nz(rule.getInvestorThresholdAmount()) > 0 && nz(rule.getInvestorRatioAfter()) > 0
+                ? rule.getInvestorThresholdAmount() : 0L;
+        LocalDate cursor = today.withDayOfMonth(1);
+        for (int i = 0; i < 12; i++) {
+            LocalDateTime start = cursor.atStartOfDay();
+            LocalDateTime end = cursor.plusMonths(1).atStartOfDay();
+            InvestorCommissionView.MonthlyRecord rec = new InvestorCommissionView.MonthlyRecord();
+            rec.setMonth(cursor.format(DateTimeFormatter.ofPattern("yyyy-MM")));
+            Long acc = settlementRecordMapper.selectSumCurrentMonth(investorSubjectId, start, end);
+            long commission = acc == null ? 0L : acc;
+            rec.setCommissionAmount(commission);
+            rec.setSalesAmount(sumSales(storeIds, start, end));
+            rec.setReached(threshold > 0 && commission >= threshold);
+            rec.setEffectiveRatio(rule == null ? 0 : rule.resolveInvestorRatio(commission));
+            result.add(rec);
+            cursor = cursor.minusMonths(1);
+        }
+        return result;
+    }
+
+    private int nz(Integer v) {
+        return v == null ? 0 : v;
+    }
+
+    private long nz(Long v) {
+        return v == null ? 0L : v;
     }
 
     /** 工作台概览数据 */

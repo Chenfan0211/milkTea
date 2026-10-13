@@ -1,6 +1,7 @@
 package com.wuling.finance.controller;
 
 import com.wuling.common.api.Result;
+import com.wuling.finance.dto.InvestorCommissionView;
 import com.wuling.finance.entity.FundFlow;
 import com.wuling.finance.entity.SettlementRecord;
 import com.wuling.finance.service.RoleWorkbenchService;
@@ -62,6 +63,13 @@ public class RoleWorkbenchController {
     }
 
     // ---------- 投资人 ----------
+
+    /** 投资人「月度分佣」聚合（本月汇总 + 达标进度 + 门店销售额 + 近 12 个月记录） */
+    @GetMapping("/investor/{investorSubjectId}/commission")
+    public Result<InvestorCommissionView> investorCommission(@PathVariable Long investorSubjectId) {
+        return Result.ok(workbenchService.investorCommission(investorSubjectId));
+    }
+
 
     @GetMapping("/investor/{investorSubjectId}/stores")
     public Result<List<Map<String, Object>>> investorStores(@PathVariable Long investorSubjectId) {
