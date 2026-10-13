@@ -346,9 +346,9 @@ function downloadTemplate() {
   const text = cfg.template();
   const csvWb = XLSX.read(text, { type: 'string' });
   const csvSheet = csvWb.Sheets[csvWb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(csvSheet, { header: 1, defval: '' }) as any[][];
+  const templateRows = XLSX.utils.sheet_to_json(csvSheet, { header: 1, defval: '' }) as any[][];
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const ws = XLSX.utils.aoa_to_sheet(templateRows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
   XLSX.writeFile(wb, cfg.title + '导入模板.xlsx');
