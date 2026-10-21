@@ -55,6 +55,13 @@ class GatewayAuthPolicyTest {
     }
 
     @Test
+    void tongueEndpointsShouldRequireAuth() {
+        assertTrue(policy.requiresAuth("/api/v1/app/tongue/detections"));
+        assertTrue(policy.requiresAuth("/api/v1/app/tongue/reports"));
+        assertTrue(policy.requiresAuth("/api/v1/app/tongue/reports/1/image"));
+    }
+
+    @Test
     void adminEndpointsShouldRequireAuth() {
         assertTrue(policy.requiresAuth("/api/v1/admin/crud/orders"));
         assertTrue(policy.requiresAuth("/api/v1/admin/auth/roles"));

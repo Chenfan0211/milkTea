@@ -1,0 +1,120 @@
+<view class="recommendation-stores">
+  <map
+    class="recommendation-stores__map"
+    latitude="{{anchor.latitude}}"
+    longitude="{{anchor.longitude}}"
+    scale="14"
+    markers="{{markers}}"
+    show-location="{{true}}"
+    enable-zoom
+    enable-scroll
+    bindmarkertap="handleMarkerTap"
+  />
+
+  <navigation-bar
+    ext-class="recommendation-stores__nav"
+    variant="transparent"
+    back="{{true}}"
+    delta="{{0}}"
+    bind:back="handleBack"
+  >
+    <view slot="center" class="recommendation-stores__nav-title-wrap">
+      <text class="recommendation-stores__nav-title">选择门店</text>
+    </view>
+  </navigation-bar>
+
+  <view class="recommendation-stores__filter">
+    <view class="recommendation-stores__city" bindtap="selectCity" aria-role="button" aria-label="选择城市">
+      <text>{{cityName}}</text>
+      <image class="recommendation-stores__city-arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+    </view>
+    <view class="recommendation-stores__search">
+      <image class="recommendation-stores__search-icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+      <input
+        class="recommendation-stores__search-input"
+        value="{{searchKeyword}}"
+        placeholder="搜索门店"
+        placeholder-class="recommendation-stores__search-placeholder"
+        confirm-type="search"
+        bindinput="handleSearchInput"
+      />
+      <view wx:if="{{searchKeyword}}" class="recommendation-stores__search-clear" bindtap="clearSearch" aria-role="button" aria-label="清空搜索">
+        <image src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+    <view class="recommendation-stores__locate" bindtap="handleLocate" aria-role="button" aria-label="重新定位">
+      <image class="recommendation-stores__locate-icon" src="/assets/icons/lucide/locate-fixed.svg" mode="aspectFit" />
+    </view>
+  </view>
+
+  <view wx:if="{{!error}}" class="recommendation-stores__hint">
+    <image class="recommendation-stores__hint-icon" src="/assets/icons/lucide/leaf-brand.svg" mode="aspectFit" />
+    <text class="recommendation-stores__hint-text">{{hint}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="recommendation-stores__loading">
+    <text class="recommendation-stores__loading-text">正在匹配附近门店...</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="recommendation-stores__error">
+    <empty-state
+      icon="/assets/icons/lucide/circle-alert-warning.svg"
+      title="无法选择门店"
+      description="{{error}}"
+    />
+    <view class="recommendation-stores__back" bindtap="handleBack" aria-role="button" aria-label="返回上一页">
+      返回上一页
+    </view>
+  </view>
+
+  <scroll-view
+    wx:else
+    class="recommendation-stores__list"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    scroll-into-view="{{scrollIntoView}}"
+  >
+    <view class="recommendation-stores__list-inner">
+      <view wx:if="{{priorityStores.length}}" class="recommendation-stores__group">
+        <text class="recommendation-stores__group-title">优先推荐</text>
+        <store-list-card
+          wx:for="{{priorityStores}}"
+          wx:key="id"
+          id="store-{{item.id}}"
+          store="{{item}}"
+          availability="{{item.recommendationBadge}}"
+          loading="{{selectingStoreId === item.id}}"
+          bind:select="handleSelectStore"
+          bind:phone="handleStorePhone"
+          bind:navigate="handleStoreNavigate"
+        />
+      </view>
+
+      <view wx:if="{{otherStores.length}}" class="recommendation-stores__group">
+        <text class="recommendation-stores__group-title">其他门店</text>
+        <text class="recommendation-stores__group-note">5 公里外或暂无推荐商品，按距离排序；选中后再校验可售</text>
+        <store-list-card
+          wx:for="{{otherStores}}"
+          wx:key="id"
+          id="store-{{item.id}}"
+          store="{{item}}"
+          availability="{{item.recommendationBadge}}"
+          loading="{{selectingStoreId === item.id}}"
+          bind:select="handleSelectStore"
+          bind:phone="handleStorePhone"
+          bind:navigate="handleStoreNavigate"
+        />
+      </view>
+
+      <empty-state
+        wx:if="{{!priorityStores.length && !otherStores.length}}"
+        icon="/assets/icons/lucide/search.svg"
+        title="没有找到门店"
+        description="换个关键词，或重新定位后再试"
+      />
+
+      <view class="recommendation-stores__safe"></view>
+    </view>
+  </scroll-view>
+</view>

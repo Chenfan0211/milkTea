@@ -95,6 +95,22 @@ public final class MqConstants {
     public static final String COUPON_EVENT_QUEUE = "wuling.coupon.event.queue";
     public static final String COUPON_EVENT_ROUTING_KEY = "wuling.coupon.event";
 
+    /**
+      设备消息队列（茶机对接）。
+
+      场景：阿里云 MNS（轻量消息队列）推送的「设备状态 / 胶囊冲泡记录」，
+      由常驻消费端拉取后【转投本队列】，再由 DeviceMessageConsumer 落库。
+
+      为什么不让 MNS 消费端直接写库：转投可复用现有幂等（MqIdempotent）、
+      延迟重试与死信队列基建，第三方消息解析/网络抖动不会直接丢数据。
+
+      一致性说明：MNS 侧以「RabbitMQ 发布确认成功」为 ack 条件，
+      未确认则不删消息，由 MNS 重投（at-least-once）；
+      落库侧再用业务唯一键幂等兜底，重复消息不会产生重复记录。
+    */
+    public static final String DEVICE_MESSAGE_QUEUE = "wuling.device.message.queue";
+    public static final String DEVICE_MESSAGE_ROUTING_KEY = "wuling.device.message";
+
     // ---------- 死信队列（每个业务队列一个 DLQ） ----------
 
     public static final String ORDER_TIMEOUT_DLQ = ORDER_TIMEOUT_QUEUE + ".dlq";
@@ -104,6 +120,7 @@ public final class MqConstants {
     public static final String FINANCE_SPLIT_DLQ = FINANCE_SPLIT_QUEUE + ".dlq";
     public static final String FINANCE_REVERSE_DLQ = FINANCE_REVERSE_QUEUE + ".dlq";
     public static final String COUPON_EVENT_DLQ = COUPON_EVENT_QUEUE + ".dlq";
+    public static final String DEVICE_MESSAGE_DLQ = DEVICE_MESSAGE_QUEUE + ".dlq";
 
     /** 消息重试头（记录已重试次数，由消费者更新） */
     public static final String HEADER_RETRY_COUNT = "x-retry-count";

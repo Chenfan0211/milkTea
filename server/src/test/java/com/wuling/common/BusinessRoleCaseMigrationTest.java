@@ -40,8 +40,12 @@ class BusinessRoleCaseMigrationTest {
     private static final Path REVIEW_CTRL =
             Paths.get("src/main/java/com/wuling/subject/controller/SubjectBindingController.java");
 
+    /**
+     * 判定实现已从 InternalQueryController 收敛到 StoreOperatorService
+     * （内部接口与小程序侧接口共用同一口径），随后者检查大小写归一。
+     */
     private static final Path OPERATOR_CHECK =
-            Paths.get("src/main/java/com/wuling/common/internal/InternalQueryController.java");
+            Paths.get("src/main/java/com/wuling/subject/service/StoreOperatorService.java");
 
     private static final Set<String> CANONICAL = Set.of("STORE", "INVESTOR", "CHANNEL");
 

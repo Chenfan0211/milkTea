@@ -52,7 +52,9 @@ class CouponServiceTest {
 
         List<UserCouponView> result = service.myCoupons(1L, CouponService.UNUSED);
 
-        assertEquals(2, result.size(), "只应保留当前有效的 UNUSED 券");
+        // 未使用 Tab = 当前有效的 UNUSED 券 + 被订单占用（LOCKED）的券：
+        // 占用中的券必须让用户看到（前端标注「订单占用中」），只是不可用。
+        assertEquals(3, result.size(), "未使用 Tab 应含可用券与订单占用中的券");
         UserCouponView first = result.get(0);
         assertEquals(101L, first.getId(), "展示 ID 必须是用户券主键，不是模板 code");
         assertEquals("可用券11", first.getName());
@@ -62,7 +64,11 @@ class CouponServiceTest {
         assertTrue(first.getUsable());
         assertEquals("DAYS", first.getValidityType());
         assertTrue(result.stream().anyMatch(item -> item.getId().equals(105L)));
-        assertFalse(result.stream().anyMatch(item -> item.getId().equals(102L) || item.getId().equals(103L) || item.getId().equals(104L)));
+        UserCouponView lockedView = result.stream().filter(item -> item.getId().equals(103L)).findFirst().orElseThrow();
+        assertFalse(lockedView.getUsable(), "订单占用中的券不可用");
+        assertFalse(lockedView.getExpired(), "订单占用不等于已过期");
+        // 已使用券不进「未使用」；已过期未用券改由「已过期」Tab 承接（见下）
+        assertFalse(result.stream().anyMatch(item -> item.getId().equals(102L) || item.getId().equals(104L)));
     }
 
     @Test
@@ -102,7 +108,9 @@ class CouponServiceTest {
         assertEquals(1, result.size(), "PENDING 只应返回未到生效时间的券");
         assertEquals(501L, result.get(0).getId());
         assertEquals("UNUSED", result.get(0).getStatus());
-        assertTrue(result.get(0).getUsable());
+        // 待生效券不可用：不计入「优惠券 N 张」，也不能下单
+        assertFalse(result.get(0).getUsable(), "待生效券必须 usable=false");
+        assertFalse(result.get(0).getExpired(), "待生效不等于已过期");
     }
 
     @Test
@@ -207,7 +215,78 @@ class CouponServiceTest {
         assertTrue(result.get(0).getUsable());
     }
 
-    /** 带延迟生效天数的券模板。 */
+    @Test
+    @DisplayName("已过期 Tab：库表 EXPIRED 与「仍是 UNUSED 但已过有效期」都要返回（核心回归）")
+    void myCouponsExpiredReturnsOverdueUnusedCoupons() {
+        LocalDateTime now = LocalDateTime.now();
+        Coupon daysCoupon = coupon(61L, "DAYS", now.minusDays(20), null, 7);
+        Coupon rangeCoupon = coupon(62L, "RANGE", now.minusDays(20), now.minusDays(1), null);
+
+        // 过期未用券：库里仍是 UNUSED，没有任何任务会把它写成 EXPIRED —— 必须现算
+        UserCoupon overdueUnused = userCoupon(601L, 1L, 61L, "UNUSED", now.minusDays(20));
+        UserCoupon expiredRow = userCoupon(602L, 1L, 62L, "EXPIRED", now.minusDays(20));
+        UserCoupon stillValid = userCoupon(603L, 1L, 61L, "UNUSED", now.minusDays(1));
+        UserCoupon usedOverdue = userCoupon(604L, 1L, 61L, "USED", now.minusDays(20));
+
+        when(userCouponMapper.selectList(any(Wrapper.class)))
+                .thenReturn(List.of(overdueUnused, expiredRow, stillValid, usedOverdue));
+        when(couponMapper.selectBatchIds(anyCollection())).thenReturn(List.of(daysCoupon, rangeCoupon));
+
+        List<UserCouponView> result = service.myCoupons(1L, CouponService.EXPIRED);
+
+        assertEquals(2, result.size(), "已过期 = 库表 EXPIRED + 过期未用的 UNUSED");
+        assertTrue(result.stream().allMatch(UserCouponView::getExpired), "已过期 Tab 的券 expired 必须为 true");
+        assertTrue(result.stream().anyMatch(item -> item.getId().equals(601L)),
+                "过期但仍为 UNUSED 的券必须出现在「已过期」（否则用户会看到券凭空消失）");
+        assertTrue(result.stream().noneMatch(item -> item.getId().equals(603L)), "仍有效的券不属于已过期");
+        assertTrue(result.stream().noneMatch(item -> item.getId().equals(604L)),
+                "已使用券属于「已使用」而不是「已过期」（终态优先）");
+    }
+
+    @Test
+    @DisplayName("四态互斥：同一批券在四个 Tab 里各出现一次，不重不漏")
+    void myCouponsFourTabsAreMutuallyExclusive() {
+        LocalDateTime now = LocalDateTime.now();
+        Coupon active = coupon(71L, "RANGE", now.minusDays(1), now.plusDays(5), null);
+        Coupon future = coupon(72L, "RANGE", now.plusDays(2), now.plusDays(9), null);
+        Coupon overdue = coupon(73L, "DAYS", now.minusDays(30), null, 7);
+
+        UserCoupon availableUnused = userCoupon(701L, 1L, 71L, "UNUSED", now.minusHours(1));
+        UserCoupon locked = userCoupon(702L, 1L, 71L, "LOCKED", now.minusHours(1));
+        UserCoupon pending = userCoupon(703L, 1L, 72L, "UNUSED", now.minusHours(1));
+        UserCoupon overdueUnused = userCoupon(704L, 1L, 73L, "UNUSED", now.minusDays(30));
+        UserCoupon expiredRow = userCoupon(705L, 1L, 73L, "EXPIRED", now.minusDays(30));
+        UserCoupon usedRow = userCoupon(706L, 1L, 73L, "USED", now.minusDays(30));
+
+        when(userCouponMapper.selectList(any(Wrapper.class)))
+                .thenReturn(List.of(availableUnused, locked, pending, overdueUnused, expiredRow, usedRow));
+        when(couponMapper.selectBatchIds(anyCollection())).thenReturn(List.of(active, future, overdue));
+
+        List<Long> union = new java.util.ArrayList<>();
+        for (String tab : List.of(CouponService.UNUSED, CouponService.PENDING,
+                CouponService.EXPIRED, CouponService.USED)) {
+            List<UserCouponView> rows = service.myCoupons(1L, tab);
+            if (CouponService.UNUSED.equals(tab)) {
+                assertEquals(2, rows.size(), "未使用 = 可用券 + 订单占用中");
+            }
+            union.addAll(rows.stream().map(UserCouponView::getId).toList());
+        }
+
+        assertEquals(6, union.size(), "六个 Tab 的归属总数必须等于券数（不重不漏）");
+        assertEquals(union.size(), union.stream().distinct().count(), "同一张券不得出现在两个 Tab");
+    }
+
+    @Test
+    @DisplayName("过期归档：按批扫描并逐张幂等更新（已被别处归档的返回 0 不计入）")
+    void archiveOverdueUnusedArchivesScannedIds() {
+        when(userCouponMapper.selectOverdueUnusedIds(200)).thenReturn(List.of(801L, 802L));
+        when(userCouponMapper.expireOverdueUnused(801L)).thenReturn(1);
+        when(userCouponMapper.expireOverdueUnused(802L)).thenReturn(0);
+
+        assertEquals(1, service.archiveOverdueUnused(200), "只有真正更新的张数才算归档");
+        verify(userCouponMapper).expireOverdueUnused(801L);
+        verify(userCouponMapper).expireOverdueUnused(802L);
+    }    /** 带延迟生效天数的券模板。 */
     private Coupon delayedCoupon(Long id, Integer delayDays, Integer validityDays) {
         Coupon coupon = coupon(id, "DAYS", null, null, validityDays);
         coupon.setEffectiveDelayDays(delayDays);

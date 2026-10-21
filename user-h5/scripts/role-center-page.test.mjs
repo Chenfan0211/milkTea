@@ -75,6 +75,7 @@ const {
   hasRole,
   isRoleActive,
   resetRole,
+  resolveRoleActionRoute,
   switchRole,
   switchToConsumer
 } = require(path.join(root, 'utils/roles.js'));
@@ -211,10 +212,12 @@ assert.ok(profileWxml.includes('bindtap="openRoleFunction"'), 'role functions mu
 assert.ok(profileWxml.includes('data-action="{{item.actionId}}"'), 'role functions must carry action id');
 assert.ok(profileJs.includes('actionId: item.id'), 'buildRoleFunctions must expose actionId');
 assert.ok(profileJs.includes('openRoleFunction'), 'profile must expose openRoleFunction handler');
+// 路由由 utils/roles.js 统一解析（两处入口共用一份映射，避免再次出现「只改了一边」）
 assert.ok(
-  profileJs.includes('/packageRole/role-verify/role-verify'),
-  'role function must navigate to dedicated function page'
+  profileJs.includes('resolveRoleActionRoute'),
+  'role function must navigate to dedicated function page via utils/roles.js'
 );
+assert.equal(resolveRoleActionRoute('verify'), '/packageRole/role-verify/role-verify', 'verify 必须解析到核销页');
 assert.ok(profileJs.includes('/packageRole/role-apply/role-apply'), 'cooperation must navigate to role apply');
 assert.ok(profileJs.includes('openRoleApply'), 'profile must expose openRoleApply handler');
 // 门店身份展示闭环回归：角色中心入口已移除，身份由 /roles/mine 驱动、默认用户；

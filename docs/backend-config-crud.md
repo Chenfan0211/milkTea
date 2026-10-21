@@ -18,15 +18,15 @@
 
 登记「资源名 → 表名 / 可写字段 / 可搜索字段 / 排序」：
 
-| 资源名                 | 表            | 说明        |
-| ---------------------- | ------------- | ----------- |
-| `dictEntries`          | sys_dict_item | 数据字典    |
+| 资源名                 | 表            | 说明                         |
+| ---------------------- | ------------- | ---------------------------- |
+| `dictEntries`          | sys_dict_item | 数据字典                     |
 | `dictTypes`            | sys_dict_type | 字典类型（分组中文名，只读） |
-| `cities` / `provinces` | region        | 城市 / 省份 |
-| `features`             | feature_flag  | 功能开关    |
-| `subjects`             | biz_subject   | 经营主体    |
-| `storeTypes`           | sys_dict_item | 门店类型    |
-| `users`                | app_user      | 小程序用户  |
+| `cities` / `provinces` | region        | 城市 / 省份                  |
+| `features`             | feature_flag  | 功能开关                     |
+| `subjects`             | biz_subject   | 经营主体                     |
+| `storeTypes`           | sys_dict_item | 门店类型                     |
+| `users`                | app_user      | 小程序用户                   |
 
 ### 2. 安全设计（重点）
 

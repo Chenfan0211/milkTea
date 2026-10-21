@@ -95,6 +95,14 @@ curl http://127.0.0.1:8080/api/v1/app/products/classic-001
 - `FILE_STORAGE_ROOT=/data/wuling/uploads`
 - `FILE_PUBLIC_BASE_URL=/api/v1/files/public`
 - `JWT_SECRET`：使用生产密钥管理注入，不能使用开发默认值
+- `TONGUE_APP_SECRET`：舌象体质检测第三方密钥，仅通过生产密钥管理注入；`TONGUE_APP_KEY`/`TONGUE_APP_ID` 已有非敏感默认值
+
+## 七、小程序舌象报告媒体域名
+
+舌象报告中的图片、MP3 和 MP4 直接使用第三方媒体地址。上线前必须在微信公众平台将
+`https://linkhealth.tcmbrain.com` 配置为小程序的 `downloadFile` 合法域名，否则开发者工具
+勾选“不校验合法域名”时可见，真机上的图片、音频和视频会加载失败。后端接口域名无需加入
+小程序 request 合法域名，因为 `appSecret` 只在服务端使用。
 
 具名卷示例：
 
@@ -149,6 +157,22 @@ volumes:
 volumes:
   - /opt/wuling/app/certs:/opt/wuling/app/certs:ro
 ```
+
+## 七之二、茶机设备队列（慧养智萃）配置
+
+对接方通过阿里云轻量消息队列（原 MNS）推送「设备在线状态 + 胶囊冲泡记录」，
+消费端常驻在 `server` 服务内。**默认关闭**，未拿到密钥时无需配置任何变量。
+
+拿到密钥后在 `secrets.env` 追加：
+
+- `MNS_ENABLED=true`：置 true 后必须同时提供下面 4 项，否则 `server` 拒绝启动（fail-fast）
+- `MNS_ENDPOINT`：对方提供的 endpoint，形如 `http://<账号ID>.mns.cn-shanghai.aliyuncs.com`
+- `MNS_QUEUE`：队列名
+- `MNS_AK`、`MNS_SK`：AccessKeyId / AccessKeySecret
+- 可选：`MNS_WAIT_SECONDS`（长轮询秒数，默认 30）、`MNS_ERROR_BACKOFF_MS`（异常退避，默认 15000）
+
+前置条件：`server` 容器需可出公网访问 MNS endpoint（安全组/出网策略需放通）。
+详细字段口径、上线步骤与排障见 `docs/设备对接-慧养智萃茶机.md`。
 
 容器内两个 `WXPAY_*_KEY_PATH` 必须落在该挂载目录内且运行用户可读。生产 Nginx
 必须将两个回调地址通过 HTTPS 暴露给微信，证书域名和 ICP 备案状态需与商户平台一致。

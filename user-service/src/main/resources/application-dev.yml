@@ -26,6 +26,13 @@ spring:
     password: ${RABBITMQ_PASSWORD:}
 
 app:
+  internal:
+    # 本地 dev 关闭 Nacos，内部调用改走 127.0.0.1 直连。
+    direct-connect: true
+    # product-service 本地端口（8091）
+    product-base: http://127.0.0.1:8091
+  tongue:
+    file-base-url: http://127.0.0.1:8082
   jwt:
     secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}
   wx:

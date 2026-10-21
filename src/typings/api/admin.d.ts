@@ -224,5 +224,41 @@ declare namespace Api {
       currentStatus: string;
       openCondition: string;
     }
+
+    /**
+     * 茶机设备台账（慧养智萃茶机队列对接）。
+     *
+     * 字段名与后端 AdminDeviceDTO 一一对应：
+     * CI 的 DedicatedEndpointConsistencyTest 会校验页面直读列与后端返回字段一致。
+     */
+    interface Device {
+      id: number;
+      deviceSn: string;
+      deviceName: string | null;
+      alias: string | null;
+      storeSubjectId: number | null;
+      storeName: string | null;
+      onlineStatus: string | null;
+      lastReportTime: string | null;
+      lastStatusChangeTime: string | null;
+      enabled: number | null;
+      remark: string | null;
+      bindTime: string | null;
+      createTime: string | null;
+    }
+
+    /** 设备↔门店绑定历史一条记录 */
+    interface DeviceBinding {
+      id: number;
+      action: string;
+      actionLabel: string;
+      storeSubjectId: number | null;
+      storeName: string | null;
+      bindTime: string | null;
+      unbindTime: string | null;
+      operator: string | null;
+      remark: string | null;
+      createTime: string | null;
+    }
   }
 }

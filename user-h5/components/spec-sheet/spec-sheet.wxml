@@ -122,8 +122,8 @@
       </view>
       <view wx:if="{{mode === 'edit'}}" class="spec-sheet__button spec-sheet__button--confirm" bindtap="handleUpdateCart" aria-role="button" aria-label="确定修改">确定修改</view>
       <view wx:else class="spec-sheet__buttons">
-        <view class="spec-sheet__button spec-sheet__button--secondary" bindtap="handleBuy" aria-role="button" aria-label="立即购买">立即购买</view>
-        <view class="spec-sheet__button spec-sheet__button--primary" bindtap="handleAddCart" aria-role="button" aria-label="加入购物车">加入购物车</view>
+        <view wx:if="{{actions !== 'cart'}}" class="spec-sheet__button spec-sheet__button--secondary" bindtap="handleBuy" aria-role="button" aria-label="立即购买">立即购买</view>
+        <view wx:if="{{actions !== 'buy'}}" class="spec-sheet__button spec-sheet__button--primary" bindtap="handleAddCart" aria-role="button" aria-label="加入购物车">加入购物车</view>
       </view>
     </view>
 

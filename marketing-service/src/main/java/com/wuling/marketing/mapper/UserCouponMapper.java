@@ -7,6 +7,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
+
 public interface UserCouponMapper extends BaseMapper<UserCoupon> {
 
     /**
@@ -40,8 +42,14 @@ public interface UserCouponMapper extends BaseMapper<UserCoupon> {
             + "where id = #{id} and status = 'LOCKED' and lock_order_id = #{orderId} and deleted = 0")
     int releaseLocked(@Param("id") Long id, @Param("orderId") Long orderId);
 
-    /** 退款恢复：仅 USED/LOCKED 可改为目标状态。 */
-    @Update("update user_coupon set status = #{toStatus}, lock_order_id = null, update_time = now() "
+    /**
+     * 退款恢复：仅 USED/LOCKED 可改为目标状态（UNUSED 或 EXPIRED）。
+     *
+     * <p><b>必须同时清空 use_time</b>：券回到「未使用 / 已过期」后就不再是已使用状态，
+     * 留着上次的核销时间会让「状态 ↔ 字段」自相矛盾。
+     * 巡检项「非已使用却带 use_time」正是守这条（CouponIntegrityMonitor）。
+     */
+    @Update("update user_coupon set status = #{toStatus}, lock_order_id = null, use_time = null, update_time = now() "
             + "where id = #{id} and status in ('USED','LOCKED') and deleted = 0")
     int restoreAfterRefund(@Param("id") Long id, @Param("toStatus") String toStatus);
 
@@ -49,4 +57,24 @@ public interface UserCouponMapper extends BaseMapper<UserCoupon> {
     @Select("select count(*) from user_coupon where id = #{id} and user_id = #{userId} "
             + "and status in ('LOCKED','USED') and lock_order_id = #{orderId} and deleted = 0")
     int countLockedByOrder(@Param("id") Long id, @Param("userId") Long userId, @Param("orderId") Long orderId);
+
+    /**
+     * 扫描「已过有效期但仍是 UNUSED」的券 id（分批），供过期归档任务使用。
+     *
+     * <p>DAYS 类型（领取后 N 天）没有 validity_end，过期时间只能现算 ——
+     * 口径与 {@code CouponService#deriveTab} 保持一致（延迟生效天数也要算进去）。
+     */
+    @Select("select uc.id from user_coupon uc join coupon c on c.id = uc.coupon_id "
+            + "where uc.status = 'UNUSED' and uc.deleted = 0 "
+            + "and ((c.validity_type = 'DAYS' and c.validity_days > 0 and uc.receive_time is not null "
+            + "and now() > date_add(date_add(uc.receive_time, interval ifnull(c.effective_delay_days, 0) day), "
+            + "interval c.validity_days day)) "
+            + "or (c.validity_type = 'RANGE' and c.validity_end is not null and now() > c.validity_end)) "
+            + "order by uc.id limit #{limit}")
+    List<Long> selectOverdueUnusedIds(@Param("limit") int limit);
+
+    /** 归档单张过期未用券（where status='UNUSED' 保证重复执行幂等）。 */
+    @Update("update user_coupon set status = 'EXPIRED', update_time = now() "
+            + "where id = #{id} and status = 'UNUSED' and deleted = 0")
+    int expireOverdueUnused(@Param("id") Long id);
 }

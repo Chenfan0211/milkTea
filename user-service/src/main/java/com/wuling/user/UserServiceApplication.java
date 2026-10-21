@@ -10,7 +10,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 /**
  * 用户服务启动类（第 11 期拆分）。
  *
- * 端口 8085，由网关按 /api/v1/app/auth/** 路由。
+ * 端口 8085，由网关按 /api/v1/app/auth/** 与 /api/v1/app/tongue/** 路由。
  *
  * scanBasePackages：本服务含 com.wuling.user（业务）与 com.wuling.common /
  * com.wuling.security（公共能力），需放宽扫描范围。

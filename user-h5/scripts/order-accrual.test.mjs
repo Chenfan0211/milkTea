@@ -133,7 +133,16 @@ const after = getUserProfile();
 assert.equal(after.balance, 741, '本地余额必须以后端返回为准（74100 分 -> 741 元）');
 assert.equal(after.points, 25, '时光币以服务端口径回读');
 
+const salePage = createPage();
+salePage.data.items = [
+  { productId: 'herbal-001', price: 14.9, originalPrice: 17, priceMode: 'sale', quantity: 1, name: '加料茶饮' }
+];
+salePage.data.paymentMethod = 'wechat';
+definition.refreshSummary.call(salePage);
+assert.equal(salePage.data.paidAmountFen, 1490, 'sale 模式确认订单必须使用详情页最终单价，不得按原价重算');
+
 const source = require('fs').readFileSync(path.join(root, 'pages/order-confirm/order-confirm.js'), 'utf8');
+assert.ok(!source.includes('nextBalance'), '页面不得再本地计算余额（nextBalance 必须已移除，否则余额可被绕过）');
 assert.ok(!source.includes('nextBalance'), '页面不得再本地计算余额（nextBalance 必须已移除，否则余额可被绕过）');
 assert.ok(source.includes('payOrderByBalance'), '页面必须调用服务端余额支付接口');
 assert.ok(!source.includes('prepay') && !source.includes('requestPayment'), '储值余额支付不得调用微信预支付接口');

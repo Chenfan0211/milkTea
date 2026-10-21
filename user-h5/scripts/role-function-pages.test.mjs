@@ -66,11 +66,12 @@ for (const route of [
   assert.notEqual(getShareTitle(route), '五零时光新中式养生茶饮', `${route} must not fall back to default title`);
 }
 
-// 路由：profile 按 actionId 跳转三个功能页，不再进工作台
+// 路由：两个入口页（「我的功能」与「角色工作台」）统一走 utils/roles.js 的唯一映射。
+// 历史 bug：两处各写一份 routeMap，新增 devices/brew 时只改了工作台那份，
+// 「我的 → 设备管理」点了弹「该功能待接入」，所以这里改成按 action id 全量校验。
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
-assert.ok(profileJs.includes('/packageRole/role-verify/role-verify'), 'profile must route verify');
-assert.ok(profileJs.includes('/packageRole/role-income/role-income'), 'profile must route income');
-assert.ok(profileJs.includes('/packageRole/role-withdraw/role-withdraw'), 'profile must route withdraw');
+assert.ok(profileJs.includes('resolveRoleActionRoute'), 'profile must resolve role routes from utils/roles.js');
+assert.ok(!/const routeMap = \{/.test(profileJs), 'profile must not keep a local routeMap copy');
 
 // 「我的」页余额改储值余额
 assert.ok(profileJs.includes("label: '储值余额'"), 'profile balance label must be 储值余额');
@@ -78,7 +79,8 @@ assert.ok(profileJs.includes('/pages/stored-value/stored-value'), 'balance tap m
 
 // role-workbench handleAction 同样跳转
 const workbenchJs = fs.readFileSync(path.join(root, 'packageRole/role-workbench/role-workbench.js'), 'utf8');
-assert.ok(workbenchJs.includes('/packageRole/role-verify/role-verify'), 'workbench must route verify');
+assert.ok(workbenchJs.includes('resolveRoleActionRoute'), 'workbench must resolve role routes from utils/roles.js');
+assert.ok(!/const routeMap = \{/.test(workbenchJs), 'workbench must not keep a local routeMap copy');
 
 // 核销页 WXML 含扫码/输码/确认核销
 const verifyWxml = fs.readFileSync(path.join(root, 'packageRole/role-verify/role-verify.wxml'), 'utf8');
@@ -603,8 +605,10 @@ const SPACING_FROZEN = [
   15,
   18,
   28,
+  56, // 舌诊功能卡到测试提示
   72,
   120,
+  152, // 舌诊提示区到开始测试主按钮
   127,
   280, // 验收测试显式固化
   58,
@@ -1020,16 +1024,28 @@ assert.equal(getBoundStore('investor'), null, 'non-store roles must not bind a s
 assert.equal(getBoundStore('resource'), null, 'non-store roles must not bind a store');
 assert.equal(getBoundStore('store'), null, 'bound store must be null until /roles/mine provides a subject');
 
-for (const [file, label] of [
-  ['packageRole/role-workbench/role-workbench.js', 'workbench'],
-  ['pages/profile/profile.js', 'profile']
-]) {
-  const source = fs.readFileSync(path.join(root, file), 'utf8');
-  assert.ok(
-    source.includes("products: '/packageRole/role-products/role-products'"),
-    `${label} must route to role-products`
-  );
+// 角色功能入口 → 目标页：每个角色的每个入口都必须解析出「已注册且真实存在」的页面。
+// 这条守卫覆盖全部 action（不再只抽查 products），新增入口忘了登记时直接失败。
+const { resolveRoleActionRoute } = require(path.join(root, 'utils/roles.js'));
+const roleSubPackagePages = ((appJson.subpackages || []).find(item => item.root === 'packageRole') || {}).pages || [];
+for (const roleId of ['store', 'investor', 'resource']) {
+  const dashboard = getDashboard(roleId);
+  assert.ok(dashboard && Array.isArray(dashboard.actions) && dashboard.actions.length, `${roleId} 必须有功能入口`);
+  for (const action of dashboard.actions) {
+    const url = resolveRoleActionRoute(action.id);
+    assert.ok(url, `${roleId} 的入口「${action.id}」未登记路由，点击会弹「该功能待接入」`);
+    const subPage = String(url).replace('/packageRole/', '');
+    assert.ok(roleSubPackagePages.includes(subPage), `${action.id} 的目标页 ${subPage} 必须在 app.json 分包内注册`);
+    assert.ok(fs.existsSync(path.join(root, `packageRole/${subPage}.js`)), `${action.id} 的目标页文件必须存在`);
+  }
 }
+assert.equal(resolveRoleActionRoute('devices'), '/packageRole/role-devices/role-devices', 'devices 必须指向门店设备页');
+assert.equal(
+  resolveRoleActionRoute('brew'),
+  '/packageRole/role-brew-records/role-brew-records',
+  'brew 必须指向冲泡记录页'
+);
+assert.equal(resolveRoleActionRoute('not-registered-yet'), null, '未登记的 action 必须返回 null（由页面兜底提示）');
 
 // 选品页：图标 / 搜索 / 双维筛选 / 开关 / 批量
 const productsAction = getDashboard('store').actions.find(action => action.id === 'products');
@@ -1475,12 +1491,15 @@ assert.ok(
 assert.ok(/\.action-card\s*\{/.test(workbenchWxss), 'workbench actions must be grouped in a shared card');
 assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(workbenchWxss), 'workbench WXSS must use design tokens only');
 
-// profile 必须能路由资源方订单页
-assert.ok(
-  fs
-    .readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8')
-    .includes("orders: '/packageRole/resource-orders/resource-orders'"),
+// profile（我的功能）必须能路由资源方订单页：走统一映射解析，而不是本地字面量
+assert.equal(
+  resolveRoleActionRoute('orders'),
+  '/packageRole/resource-orders/resource-orders',
   'profile must route the resource orders page'
+);
+assert.ok(
+  fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8').includes('resolveRoleActionRoute'),
+  'profile must resolve role action routes from utils/roles.js'
 );
 
 // ===== 投资人点位申请 =====
@@ -1503,20 +1522,21 @@ for (const [dir, name] of [
   assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(wxss), `${name} WXSS must use design tokens only`);
 }
 
-// 投资人入口：仪表盘 action + 两处 routeMap
+// 投资人入口：仪表盘 action + 统一映射解析（两个入口页共用同一份路由来源）
 assert.ok(
   getDashboard('investor').actions.some(action => action.id === 'invest'),
   'investor dashboard must expose the invest action'
 );
-for (const [file, label] of [
-  ['packageRole/role-workbench/role-workbench.js', 'workbench'],
-  ['pages/profile/profile.js', 'profile']
-]) {
-  const source = fs.readFileSync(path.join(root, file), 'utf8');
-  assert.ok(source.includes("invest: '/packageRole/role-invest/role-invest'"), `${label} must route to role-invest`);
+assert.equal(resolveRoleActionRoute('invest'), '/packageRole/role-invest/role-invest', 'invest 必须指向点位投资申请页');
+assert.equal(
+  resolveRoleActionRoute('commission'),
+  '/packageRole/role-commission/role-commission',
+  'commission 必须指向月度分佣页'
+);
+for (const file of ['packageRole/role-workbench/role-workbench.js', 'pages/profile/profile.js']) {
   assert.ok(
-    source.includes("commission: '/packageRole/role-commission/role-commission'"),
-    `${label} must route to role-commission`
+    fs.readFileSync(path.join(root, file), 'utf8').includes('resolveRoleActionRoute'),
+    `${file} 必须走统一路由映射`
   );
 }
 

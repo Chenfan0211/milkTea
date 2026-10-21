@@ -1,0 +1,65 @@
+<view class="capture-page">
+  <navigation-bar title="体质健康管理" back="{{true}}" background="transparent" color="#2F302D" />
+
+  <scroll-view class="capture-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="capture-content">
+      <view class="capture-heading"><text>拍摄舌头</text></view>
+
+      <view
+        wx:if="{{photoPath}}"
+        class="capture-photo"
+        bindtap="choosePhoto"
+        aria-role="button"
+        aria-label="重新拍摄或选择舌象照片"
+      >
+        <image class="capture-photo__image" src="{{photoPath}}" mode="aspectFill" />
+        <view wx:if="{{submitting}}" class="capture-photo__mask">
+          <text class="capture-photo__mask-text">检测中...</text>
+        </view>
+      </view>
+
+      <view
+        wx:else
+        class="capture-guide"
+        bindtap="choosePhoto"
+        aria-role="button"
+        aria-label="拍摄或选择舌象照片"
+      >
+        <image
+          class="capture-guide__image"
+          src="/assets/images/3x/tongue-capture-guide.jpg"
+          mode="aspectFit"
+          aria-role="img"
+          aria-label="舌象拍摄示范，请完整伸出舌头"
+        />
+      </view>
+
+      <view class="capture-tips">
+        <view class="capture-tip">
+          <text class="capture-tip__index">1</text>
+          <text class="capture-tip__text">请保证光线充足、舌头未被染色</text>
+        </view>
+        <view class="capture-tip">
+          <text class="capture-tip__index">2</text>
+          <text class="capture-tip__text">请拍摄完整舌头（包含舌尖）</text>
+        </view>
+      </view>
+
+      <view class="capture-bottom">
+        <text wx:if="{{devtoolsHint}}" class="capture-devtools-hint">{{devtoolsHint}}</text>
+        <text class="capture-disclaimer">本服务为AI生成内容，结果仅供参考</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="capture-bar">
+    <view
+      class="capture-shutter {{submitting ? 'is-disabled' : ''}}"
+      bindtap="choosePhoto"
+      aria-role="button"
+      aria-label="拍摄舌头并开始检测"
+    >
+      <view class="capture-shutter__inner"></view>
+    </view>
+  </view>
+</view>

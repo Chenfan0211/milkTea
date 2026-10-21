@@ -93,3 +93,10 @@
   background: var(--brand-green);
   border-radius: 999rpx;
 }
+.cart-bar-dock.is-safe {
+  bottom: env(safe-area-inset-bottom);
+}
+
+.cart-bar-dock.is-action-bar {
+  bottom: calc(112rpx + env(safe-area-inset-bottom));
+}

@@ -229,6 +229,8 @@ const local: App.I18n.Schema = {
     subject: '主体管理',
     subject_platform: '平台主体',
     subject_store: '门店管理',
+    subject_device: '设备管理',
+    'subject_device-brew': '冲泡记录',
     subject_channel: '资源方管理',
     subject_investor: '投资人管理',
     subject_supplier: '供应商管理',

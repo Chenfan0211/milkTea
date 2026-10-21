@@ -12,6 +12,15 @@ const { formatOrderAmount } = require('../data/mock');
 
 const COUPON_STORAGE_KEY = 'milkTea:coupons';
 
+/**
+ * 「可用券张数」独立缓存。
+ *
+ * 为什么不能直接数券包列表：券包缓存是全 Tab 共用的一个键，
+ * 用户点过「已使用」Tab 后缓存里就全是已使用券（usable=false），
+ * 首页/我的页若按它现算会把张数算成 0。这里只在「未使用口径」的拉取时写入。
+ */
+const USABLE_COUNT_STORAGE_KEY = 'milkTea:coupons:usable-count';
+
 function cloneCoupons(list) {
   return (list || []).map(item => Object.assign({}, item));
 }
@@ -35,6 +44,24 @@ function writeStorageCoupons(list) {
   }
   const app = typeof getApp === 'function' ? getApp() : null;
   if (app && app.globalData) app.globalData.coupons = list;
+}
+
+function readUsableCouponCount() {
+  try {
+    const cached = typeof wx !== 'undefined' && wx.getStorageSync ? wx.getStorageSync(USABLE_COUNT_STORAGE_KEY) : null;
+    if (typeof cached === 'number' && cached >= 0) return cached;
+  } catch (error) {
+    // ignore storage errors
+  }
+  return null;
+}
+
+function writeUsableCouponCount(count) {
+  try {
+    if (typeof wx !== 'undefined' && wx.setStorageSync) wx.setStorageSync(USABLE_COUNT_STORAGE_KEY, count);
+  } catch (error) {
+    // ignore storage errors
+  }
 }
 
 function formatDateTime(value) {
@@ -101,8 +128,11 @@ function normalizeRemoteCoupon(item) {
     source: source.source || '',
     effectiveDelayDays: Number.isFinite(Number(source.effectiveDelayDays)) ? Number(source.effectiveDelayDays) : 0,
     effectiveDelayText: buildEffectiveDelayText(source),
-    expired: source.usable === false || Boolean(source.expired),
+    // 过期由服务端统一判定（UserCouponView.expired）：不能用 usable === false 推断 ——
+    // 已使用 / 订单占用中的券同样是 usable === false，会被误当成「已过期」。
+    expired: Boolean(source.expired) || source.status === 'EXPIRED',
     usable: source.usable !== false,
+    locked: source.status === 'LOCKED',
     status: source.status || ''
   };
 }
@@ -114,6 +144,10 @@ function refreshCouponsFromRemote(status) {
     }
     const coupons = list.map(normalizeRemoteCoupon);
     writeStorageCoupons(coupons);
+    // 只有「未使用口径」的结果能代表可用券张数：其它 Tab 不得污染这个计数
+    if (!status || status === 'UNUSED') {
+      writeUsableCouponCount(coupons.filter(c => c.usable !== false && !c.expired).length);
+    }
     return coupons;
   });
 }
@@ -122,8 +156,16 @@ function getCoupons() {
   return cloneCoupons(readStorageCoupons() || []);
 }
 
-/** 当前可用券数（首页「优惠券N张」展示用）。 */
+/**
+ * 当前可用券数（首页「优惠券N张」、我的页展示用）。
+ *
+ * 口径 = 「未使用」Tab 里的可用券：已生效、未过期、未被订单占用；
+ * 待生效（PENDING）与订单占用中（LOCKED）都不计入。
+ */
 function getUsableCouponCount() {
+  const cached = readUsableCouponCount();
+  if (cached !== null) return cached;
+  // 兼容还没有独立计数缓存的老数据：按券包缓存现算
   return getCoupons().filter(c => c.usable !== false && !c.expired).length;
 }
 

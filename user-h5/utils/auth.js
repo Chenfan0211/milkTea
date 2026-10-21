@@ -20,6 +20,33 @@ const USER_CACHE_KEY = 'milkTea:auth:user-cache';
 const USER_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
 // 未注册用户的一次性注册凭证（后端按 openid 查无此人时下发）
 const REGISTER_KEY = 'milkTea:auth:register';
+// 当前登录用户 id：用于识别「同一台设备换了账号」，并隔离用户级本地缓存
+const USER_ID_KEY = 'milkTea:auth:user-id';
+
+/**
+ * 用户级本地缓存（必须按用户隔离）。
+ *
+ * 这些缓存的内容都是「某个用户自己的数据」，同一台设备换账号后如果不清，
+ * 新用户会先看到上一个用户的券张数、时光币/余额、经营角色、收藏门店等 ——
+ * 既是数据串号也是隐私问题（真实反馈：「每个用户的券数据要隔离」）。
+ *
+ * 注意：门店/定位/门店类型等**设备级**缓存在下面这份清单之外，
+ * 它们是位置信息、与账号无关，登出不必清（清了会白白多打几次接口）。
+ */
+const USER_SCOPED_KEYS = [
+  'milkTea:coupons',
+  'milkTea:coupons:usable-count',
+  'milkTea:user-profile',
+  'milkTea:tongue-profile',
+  'milkTea:recommendation-carts',
+  'milkTea:auth:user-cache',
+  'milkTea:business-role',
+  'milkTea:business-role-subject',
+  'milkTea:business-role-subject-name',
+  'milkTea:favorite-store-ids',
+  'milkTea:invest-applications',
+  'milkTea:points:seq'
+];
 
 function readStorage(key) {
   try {
@@ -54,7 +81,25 @@ function getCachedUser() {
   return readStorage(USER_KEY) || null;
 }
 
+/** 当前登录用户 id（字符串）；未登录/未知返回 null */
+function getUserId() {
+  const value = readStorage(USER_ID_KEY);
+  return value === '' || value === null || value === undefined ? null : String(value);
+}
+
+/** 清空用户级缓存（登出、换账号时调用） */
+function clearUserScopedCaches() {
+  USER_SCOPED_KEYS.forEach(removeStorage);
+}
+
 function saveSession(payload) {
+  const nextUserId = payload && payload.userId !== null && payload.userId !== undefined ? String(payload.userId) : '';
+  // 换账号（或旧身份未知）：先清掉上一个用户的业务缓存，避免新用户看到旧用户的数据。
+  // 同一用户重复登录不清，保住缓存避免每次登录都白跑一遍接口。
+  if (nextUserId && nextUserId !== getUserId()) {
+    clearUserScopedCaches();
+  }
+  if (nextUserId) writeStorage(USER_ID_KEY, nextUserId);
   if (payload && payload.token) writeStorage(TOKEN_KEY, payload.token);
   if (payload) writeStorage(USER_KEY, payload);
   return payload;
@@ -63,6 +108,8 @@ function saveSession(payload) {
 function clearSession() {
   removeStorage(TOKEN_KEY);
   removeStorage(USER_KEY);
+  removeStorage(USER_ID_KEY);
+  clearUserScopedCaches();
   try {
     if (typeof wx !== 'undefined' && wx.removeStorageSync) {
       wx.removeStorageSync('milkTea:wx:session');
@@ -333,6 +380,10 @@ function registerBySms(registerToken, phone, code) {
 module.exports = {
   TOKEN_KEY,
   USER_KEY,
+  USER_ID_KEY,
+  USER_SCOPED_KEYS,
+  getUserId,
+  clearUserScopedCaches,
   isLoginPending,
   preparePhoneAuthorization,
   isSessionInvalidError,

@@ -83,8 +83,8 @@ for (const level of memberLevels) {
   assert.ok(Array.isArray(level.benefits) && level.benefits.length > 0, `${level.level} 必须有核心权益`);
 }
 
-// 两处入口都必须能跳转等级说明页
-for (const page of ['member/member', 'member-rights/member-rights']) {
+// 会员面板入口（我的 → 会员权益）必须能跳转等级说明页
+for (const page of ['member-rights/member-rights']) {
   const js = fs.readFileSync(path.join(root, `pages/${page}.js`), 'utf8');
   const wxmlOfPage = fs.readFileSync(path.join(root, `pages/${page}.wxml`), 'utf8');
   assert.ok(js.includes('/pages/member-level-rules/member-level-rules'), `${page} 必须跳转等级说明页`);

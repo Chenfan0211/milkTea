@@ -337,4 +337,38 @@ public class RabbitConfig {
         return BindingBuilder.bind(couponEventDlq()).to(dlxExchange())
                 .with(MqConstants.COUPON_EVENT_DLQ);
     }
+
+    // ==================== 设备消息（茶机对接） ====================
+
+    /**
+     * 设备消息队列。
+     *
+     * <p>消息来源是阿里云 MNS 的第三方推送，经 MnsPoller 规范化后转投到这里。
+     * 解析/落库失败按既有规则：延迟重试 → 超限进 DLQ，
+     * 保证第三方报文不会因一次异常被静默丢弃。</p>
+     */
+    @Bean
+    public Queue deviceMessageQueue() {
+        return QueueBuilder.durable(MqConstants.DEVICE_MESSAGE_QUEUE)
+                .withArgument("x-dead-letter-exchange", MqConstants.DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", MqConstants.DEVICE_MESSAGE_DLQ)
+                .build();
+    }
+
+    @Bean
+    public Binding deviceMessageBinding() {
+        return BindingBuilder.bind(deviceMessageQueue()).to(businessExchange())
+                .with(MqConstants.DEVICE_MESSAGE_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue deviceMessageDlq() {
+        return QueueBuilder.durable(MqConstants.DEVICE_MESSAGE_DLQ).build();
+    }
+
+    @Bean
+    public Binding deviceMessageDlqBinding() {
+        return BindingBuilder.bind(deviceMessageDlq()).to(dlxExchange())
+                .with(MqConstants.DEVICE_MESSAGE_DLQ);
+    }
 }

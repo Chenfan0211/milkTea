@@ -2,7 +2,9 @@ Component({
   properties: {
     store: { type: Object, value: {} },
     selected: { type: Boolean, value: false },
-    favoriteInteractive: { type: Boolean, value: false }
+    favoriteInteractive: { type: Boolean, value: false },
+    availability: { type: Object, value: null },
+    loading: { type: Boolean, value: false }
   },
   methods: {
     noop() {},

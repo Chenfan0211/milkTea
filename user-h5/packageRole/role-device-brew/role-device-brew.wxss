@@ -1,0 +1,228 @@
+/* 门店经营角色 · 单设备冲泡明细：三段式固定型骨架（固定设备头 + 独立滚动区） */
+.device-brew-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.device-brew-toolbar {
+  flex: none;
+  padding: 20rpx var(--page-gutter);
+  background: var(--card-bg);
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.device-hero {
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.device-hero__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.device-hero__name {
+  flex: 1;
+  min-width: 0;
+  margin-right: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.device-hero__status {
+  flex: none;
+  padding: 4rpx 16rpx;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-sm);
+}
+
+.device-hero__status--online {
+  color: var(--brand-green);
+  background: var(--brand-soft);
+}
+
+.device-hero__status--offline,
+.device-hero__status--unknown {
+  color: var(--text-muted);
+  background: var(--page-bg-neutral);
+}
+
+.device-hero__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.device-hero__label {
+  flex: none;
+  margin-right: 20rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.device-hero__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: right;
+}
+
+.device-brew-ranges {
+  display: flex;
+  align-items: center;
+  margin-top: 20rpx;
+}
+
+.device-brew-range {
+  height: 56rpx;
+  margin-right: 16rpx;
+  padding: 0 24rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 56rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-pill);
+}
+
+.device-brew-range.is-active {
+  color: #ffffff;
+  background: var(--brand-green);
+}
+
+.device-brew-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+}
+
+.device-brew-meta__text {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.device-brew-refresh {
+  display: flex;
+  align-items: center;
+  height: 56rpx;
+  padding: 0 20rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.device-brew-refresh__icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+}
+
+.device-brew-refresh__label {
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+}
+
+.device-brew-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.device-brew-scroll__inner {
+  padding: 20rpx var(--page-gutter) 0;
+}
+
+.device-brew-loading,
+.device-brew-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.device-brew-error {
+  flex-direction: column;
+}
+
+.device-brew-error__action {
+  margin-top: 16rpx;
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.device-brew-list,
+.brew-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.brew-card {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+}
+
+.brew-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.brew-card__tea {
+  flex: 1;
+  min-width: 0;
+  margin-right: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.brew-card__time {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.brew-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.brew-card__label {
+  flex: none;
+  margin-right: 20rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.brew-card__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: right;
+}
+
+.device-brew-end {
+  padding: 20rpx 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.device-brew-safe {
+  height: calc(20rpx + env(safe-area-inset-bottom));
+}

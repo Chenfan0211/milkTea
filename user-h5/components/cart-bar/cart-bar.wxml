@@ -1,4 +1,4 @@
-<view class="cart-bar-dock">
+<view class="cart-bar-dock {{placement === 'safe' ? 'is-safe' : placement === 'actionBar' ? 'is-action-bar' : ''}}">
   <view class="cart-bar">
     <view class="cart-bar__cart" bindtap="handleCart" aria-role="button" aria-label="购物车">
       <view class="cart-bar__icon">

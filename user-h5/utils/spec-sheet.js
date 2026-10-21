@@ -83,7 +83,9 @@ function buildSpecState(product = {}, options = {}) {
 
   for (const group of specGroups) {
     const selected =
-      group.options.find(option => selectedIds.includes(option.id)) || group.options.find(option => option.selected);
+      group.options.find(option => selectedIds.includes(option.id)) ||
+      group.options.find(option => option.selected) ||
+      group.options[0];
 
     group.options = group.options.map(option =>
       Object.assign({}, option, {
@@ -98,9 +100,14 @@ function buildSpecState(product = {}, options = {}) {
   }
 
   const addOnTotal = selectedOptions.reduce((sum, option) => sum + (option.priceDelta || 0), 0);
-  const listPrice = detail.originalBasePrice || detail.startPrice || product.originalPrice || product.price || 0;
-  const vipLevel = getUserProfile().vipLevel || '';
-  const memberBasePrice = calcMemberPrice(listPrice, vipLevel);
+  const priceMode = options.priceMode === 'sale' ? 'sale' : '';
+  const saleBasePrice = Number(detail.startPrice || product.price || 0);
+  const listPrice = Number(detail.originalBasePrice || product.originalPrice || saleBasePrice);
+  let memberBasePrice = saleBasePrice;
+  if (priceMode !== 'sale') {
+    const vipLevel = getUserProfile().vipLevel || '';
+    memberBasePrice = calcMemberPrice(listPrice, vipLevel);
+  }
   const memberPrice = roundMoney(memberBasePrice + addOnTotal);
   const originalPrice = roundMoney(listPrice + addOnTotal);
   const storedValueDiscount = roundMoney(detail.storedValuePrice || product.storedValuePrice || 0);
@@ -109,6 +116,7 @@ function buildSpecState(product = {}, options = {}) {
 
   return {
     expanded: false,
+    priceMode,
     quantity: Math.max(1, Number(options.initialQuantity) || 1),
     favorite: false,
     showTasteTip: options.mode !== 'edit',

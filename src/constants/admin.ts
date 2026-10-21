@@ -30,6 +30,9 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   'review_role-detail': { title: '角色开通审核详情', roles: op, hideInMenu: true },
   subject_platform: { title: '平台主体', order: 1, roles: op, keepAlive: true },
   subject_store: { title: '门店管理', order: 2, roles: op, keepAlive: true },
+  // 茶机设备（慧养智萃茶机队列对接）：设备台账 + 设备上报的冲泡记录
+  subject_device: { title: '设备管理', order: 6, roles: op, keepAlive: true },
+  'subject_device-brew': { title: '冲泡记录', order: 7, roles: op, keepAlive: true },
   subject_channel: { title: '资源方管理', order: 3, roles: op, keepAlive: true },
   subject_investor: { title: '投资人管理', order: 4, roles: op, keepAlive: true },
   subject_supplier: { title: '供应商管理', order: 5, roles: op, keepAlive: true },

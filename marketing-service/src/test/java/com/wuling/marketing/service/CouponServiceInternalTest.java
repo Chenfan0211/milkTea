@@ -368,7 +368,30 @@ class CouponServiceInternalTest {
         return coupon;
     }
 
-    private UserCoupon holder(Long id, Long userId, Long couponId, String status, Long lockOrderId) {
+    @Test
+    @DisplayName("用户隔离：缺 userId 直接拒绝，不允许凭 userCouponId 操作任意券")
+    void consumeAndRestoreRequireUserId() {
+        assertThrows(BusinessException.class, () -> service.consume(null, 17L, "123"));
+        assertThrows(BusinessException.class, () -> service.restoreAfterRefund(null, 18L, "456"));
+
+        verify(userCouponMapper, never()).consumeLocked(anyLong(), anyLong());
+        verify(userCouponMapper, never()).restoreAfterRefund(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("用户隔离：不能核销/恢复别人的券（不是自己的一律「优惠券不存在」）")
+    void cannotOperateOtherUsersCoupon() {
+        UserCoupon others = holder(41L, 99L, 20L, CouponService.LOCKED, 123L);
+        when(userCouponMapper.selectByIdForUpdate(41L)).thenReturn(others);
+
+        assertEquals("优惠券不存在",
+                assertThrows(BusinessException.class, () -> service.consume(9L, 41L, "123")).getMessage());
+        assertEquals("优惠券不存在",
+                assertThrows(BusinessException.class, () -> service.restoreAfterRefund(9L, 41L, "123")).getMessage());
+
+        verify(userCouponMapper, never()).consumeLocked(anyLong(), anyLong());
+        verify(userCouponMapper, never()).restoreAfterRefund(anyLong(), any());
+    }    private UserCoupon holder(Long id, Long userId, Long couponId, String status, Long lockOrderId) {
         UserCoupon holder = new UserCoupon();
         holder.setId(id);
         holder.setUserId(userId);

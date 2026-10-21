@@ -10,7 +10,9 @@ const expectedPages = [
   'pages/launch/launch',
   'pages/home/home',
   'pages/menu/menu',
-  'pages/member/member',
+  'pages/product-detail/product-detail',
+  'pages/recommendation-stores/recommendation-stores',
+  'pages/tongue/tongue',
   'pages/orders/orders',
   'pages/profile/profile',
   'pages/auth-login/auth-login',
@@ -43,11 +45,16 @@ const expectedPages = [
   'pages/pay-success/pay-success'
 ];
 const SUBPACKAGE_ROOT = 'packageRole';
+const HEALTH_SUBPACKAGE_ROOT = 'packageHealth';
+const HEALTH_SUBPAGE_NAMES = ['capture', 'report', 'history'];
 const expectedSubPageNames = [
   'resource-orders',
   'role-apply',
+  'role-brew-records',
   'role-commission',
   'role-center',
+  'role-devices',
+  'role-device-brew',
   'role-income',
   'role-income-detail',
   'role-income-records',
@@ -69,7 +76,7 @@ const expectedSubPages = expectedSubPageNames.map(name => `${SUBPACKAGE_ROOT}/${
 const expectedTabBarPages = [
   'pages/home/home',
   'pages/menu/menu',
-  'pages/member/member',
+  'pages/tongue/tongue',
   'pages/orders/orders',
   'pages/profile/profile'
 ];
@@ -91,7 +98,12 @@ const expectedRuntimeImages = new Map([
   ['assets/images/3x/points-product-half.jpg', { width: 510, height: 456, maxBytes: 15 * 1024 }],
   ['assets/images/3x/points-empty.jpg', { width: 650, height: 520, maxBytes: 15 * 1024 }],
   ['assets/images/3x/points-signin-calendar.jpg', { width: 600, height: 400, maxBytes: 80 * 1024 }],
-  ['assets/images/3x/stored-value-banner.jpg', { width: 1053, height: 468, maxBytes: 120 * 1024 }]
+  ['assets/images/3x/stored-value-banner.jpg', { width: 1053, height: 468, maxBytes: 120 * 1024 }],
+  ['assets/images/3x/tea-gongting-shupu.jpg', { width: 264, height: 360, maxBytes: 60 * 1024 }],
+  ['assets/images/3x/tea-chunyun-xiaozhong.jpg', { width: 264, height: 360, maxBytes: 60 * 1024 }],
+  ['assets/images/3x/tea-dahongpao.jpg', { width: 264, height: 360, maxBytes: 60 * 1024 }],
+  ['assets/images/3x/tea-yunling-yimi.jpg', { width: 264, height: 360, maxBytes: 60 * 1024 }],
+  ['assets/images/3x/tongue-capture-guide.jpg', { width: 636, height: 722, maxBytes: 80 * 1024 }]
 ]);
 const requiredPackIgnore = ['design/reference', 'assets/temp', 'scripts', 'docs'];
 const errors = [];
@@ -118,13 +130,19 @@ for (const page of [...expectedPages, ...expectedSubPages]) {
 if (JSON.stringify(appJson.pages) !== JSON.stringify(expectedPages)) {
   errors.push(`app.json pages 必须为: ${expectedPages.join(', ')}`);
 }
-if (!Array.isArray(appJson.subpackages) || appJson.subpackages.length !== 1) {
-  errors.push('app.json 必须包含且仅包含 1 个 subpackages 分包（角色中心）');
+if (!Array.isArray(appJson.subpackages) || appJson.subpackages.length !== 2) {
+  errors.push('app.json 必须包含角色中心与舌象检测 2 个 subpackages 分包');
 } else {
-  const sub = appJson.subpackages[0];
-  const subFull = (sub.pages || []).map(p => `${sub.root}/${p}`);
-  if (sub.root !== SUBPACKAGE_ROOT || JSON.stringify(subFull) !== JSON.stringify(expectedSubPages)) {
-    errors.push(`app.json subpackages 必须为 root=${SUBPACKAGE_ROOT} 且包含角色中心页面`);
+  const roleSub = appJson.subpackages.find(item => item.root === SUBPACKAGE_ROOT);
+  const healthSub = appJson.subpackages.find(item => item.root === HEALTH_SUBPACKAGE_ROOT);
+  const rolePages = roleSub ? (roleSub.pages || []).map(p => `${roleSub.root}/${p}`) : [];
+  const healthPages = healthSub ? (healthSub.pages || []).map(p => `${healthSub.root}/${p}`) : [];
+  if (!roleSub || JSON.stringify(rolePages) !== JSON.stringify(expectedSubPages)) {
+    errors.push(`app.json subpackages 必须包含 root=${SUBPACKAGE_ROOT} 的角色中心页面`);
+  }
+  const expectedHealthPages = HEALTH_SUBPAGE_NAMES.map(page => `${HEALTH_SUBPACKAGE_ROOT}/pages/${page}/${page}`);
+  if (!healthSub || JSON.stringify(healthPages) !== JSON.stringify(expectedHealthPages)) {
+    errors.push(`app.json subpackages 必须包含 root=${HEALTH_SUBPACKAGE_ROOT} 的检测/报告/历史页面`);
   }
 }
 
@@ -410,7 +428,7 @@ if (
   ![
     '/pages/home/home',
     '/pages/menu/menu',
-    '/pages/member/member',
+    '/pages/tongue/tongue',
     '/pages/orders/orders',
     '/pages/profile/profile'
   ].every((item, index) => item === tabPaths[index])

@@ -1,7 +1,8 @@
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { formatDateTime } = require('../../utils/date-format');
-const { getUserProfile, roundMoney } = require('../../utils/user-profile'); auth = require('../../utils/auth');
+const { getUserProfile, roundMoney } = require('../../utils/user-profile');
+auth = require('../../utils/auth');
 
 const PAGE_SIZE = 20;
 

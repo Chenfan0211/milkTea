@@ -45,6 +45,7 @@
     "preview": "vite preview",
     "release": "sa release",
     "sync:admin-images": "node scripts/sync-admin-images.mjs",
+    "test:device-import": "tsx scripts/device-import-xlsx.test.ts",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
     "update-pkg": "sa update-pkg"
   },
@@ -61,6 +62,7 @@
     "dayjs": "1.11.20",
     "defu": "6.1.7",
     "echarts": "6.0.0",
+    "exceljs": "4.4.0",
     "json5": "2.2.3",
     "naive-ui": "2.44.1",
     "nprogress": "0.2.0",
@@ -69,8 +71,7 @@
     "vue": "3.5.34",
     "vue-draggable-plus": "0.6.1",
     "vue-i18n": "11.4.2",
-    "vue-router": "5.0.7",
-    "xlsx": "^0.18.5"
+    "vue-router": "5.0.7"
   },
   "devDependencies": {
     "@elegant-router/vue": "0.3.8",

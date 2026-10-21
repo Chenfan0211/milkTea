@@ -18,12 +18,25 @@
 >
 > **当前已登记的间距豁免值**（2026-09-21 全量排查后归档，均为参考图还原所需，禁止再扩散到新代码）：
 >
-> | 位置                                                                 | 值                    | 用途                                                             |
-> | -------------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------- |
-> | `pages/home/home.wxss` `.user-strip`                                 | `padding: 0 62rpx`    | 首页用户信息栏左右留白对齐参考图                                 |
-> | `pages/menu/menu.wxss` `.menu-tabs__item`                            | `margin-right: 58rpx` | 点单顶部菜单 Tab 间距对齐参考图                                  |
-> | `pages/menu/menu.wxss` `.store-page__map`                            | `height: 640rpx`      | 门店页顶部地图区高度对齐参考图比例                               |
-> | `pages/profile-data/profile-data.wxss` `.profile-data-scroll__inner` | `padding-top: 100rpx` | 个人资料页顶部让位参考图（同规则内的 `280rpx` 已被验收测试固化） |
+> | 位置                                                                                   | 值                              | 用途                                                                         |
+> | -------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
+> | `pages/home/home.wxss` `.user-strip`                                                   | `padding: 0 62rpx`              | 首页用户信息栏左右留白对齐参考图                                             |
+> | `pages/menu/menu.wxss` `.menu-tabs__item`                                              | `margin-right: 58rpx`           | 点单顶部菜单 Tab 间距对齐参考图                                              |
+> | `pages/menu/menu.wxss` `.store-page__map`                                              | `height: 640rpx`                | 门店页顶部地图区高度对齐参考图比例                                           |
+> | `pages/recommendation-stores/recommendation-stores.wxss` `.recommendation-stores__map` | `height: 640rpx`                | 独立门店页沿用点单门店层地图高度                                             |
+> | `pages/profile-data/profile-data.wxss` `.profile-data-scroll__inner`                   | `padding-top: 100rpx`           | 个人资料页顶部让位参考图（同规则内的 `280rpx` 已被验收测试固化）             |
+> | `pages/tongue/tongue.wxss` `.health-content`                                           | `padding: 24rpx 32rpx`          | 舌诊页左右边距对齐参考图（图1/图4/图5 实测一致，均为 32rpx，替换默认 20rpx） |
+> | `pages/tongue/tongue.wxss` `.health-avatar`                                            | `margin-right: 16rpx`           | 舌诊 Tab 头像按参考图贴近导航栏右侧                                          |
+> | `pages/tongue/tongue.wxss` `.health-feature__tile`                                     | `width: 160rpx; height: 160rpx` | 功能卡图标底按参考图缩放                                                     |
+> | `pages/tongue/tongue.wxss` `.health-notes`                                             | `margin-top: 56rpx`             | 功能卡到两条测试提示的间距                                                   |
+> | `pages/tongue/tongue.wxss` `.health-cta-wrap`                                          | `margin-top: 152rpx`            | 提示区到开始测试主按钮的间距                                                 |
+> | `pages/tongue/tongue.wxss` `.health-history-entry`                                     | `margin-top: 120rpx`            | 主按钮到体质辨识记录的间距                                                   |
+> | packageHealth/pages/capture/capture.wxss .capture-heading                              | margin-top: 72rpx               | 拍摄页绿色「拍摄舌头」标题顶部间距                                           |
+> | packageHealth/pages/capture/capture.wxss .capture-guide                                | margin-top: 96rpx               | 拍摄页空态引导图顶部间距                                                     |
+> | packageHealth/pages/capture/capture.wxss .capture-guide + .capture-tips                | margin-top: 16rpx               | 引导图到两条拍摄提示的间距                                                   |
+> | components/health-profile-sheet/health-profile-sheet.wxss .profile-sheet\_\_panel      | width: 620rpx; height: 628rpx   | 舌诊个人信息弹窗居中尺寸，按参考图固化                                       |
+> | components/health-profile-sheet/health-profile-sheet.wxss .profile-sheet\_\_option     | height: 176rpx                  | 性别选择卡高度按参考图固化                                                   |
+> | components/health-profile-sheet/health-profile-sheet.wxss .profile-sheet\_\_birth-row  | height: 128rpx                  | 出生年年份选择卡高度按参考图固化                                             |
 >
 > 新增类似取值前必须先确认参考图依据，并在本表登记；未登记的非档位间距一律视为违规。
 
@@ -81,6 +94,29 @@
 | `--store-decor-leaf`  | `#A6C685` | 卡片右下角叶芽水印（允许用 opacity 降淡） |
 
 同一张卡片的固化为：白底 `--card-bg`、`min-height: 372rpx`、内边距 `20rpx 24rpx`、卡片间距 `32rpx`、圆角 `--radius-lg`；店名 `--font-xl`、横幅与地址/时间/胶囊文字 `--font-caption` / `--font-sm`、排队行 `--font-base`；电话与导航按钮 72rpx 圆形、间距 24rpx、定位在右 24rpx / 下 20rpx。
+
+#### 2.1.2 舌诊 · 体质健康管理（参考图固化值）
+
+舌诊链路（`pages/tongue`、`packageHealth/pages/capture|report|history`、`components/health-profile-sheet`）
+按参考图 1–10 固化了以下 token；它们只服务于舌诊页面，不改动上面的全站品牌色。
+取色口径：直接对参考图逐点采样（脚本见 `docs/tongue-redesign-spec.md`），禁止凭肉眼近似。
+
+| Token                      | 值                                                                            | 用途                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `--health-gradient-top`    | `#C4DA9C`                                                                     | 舌诊页顶部渐变起点（图1 x=8 / y=20 采样）                                     |
+| `--health-gradient-mid`    | `#E1EFC5`                                                                     | 舌诊页渐变中段（图1 y=200 采样）                                              |
+| `--health-page-gradient`   | `linear-gradient(180deg, #C4DA9C 0%, #E1EFC5 30%, #F7F7F7 52%, #F7F7F7 100%)` | 舌诊页完整背景渐变，页面根节点通过 `background-color + background-image` 引用 |
+| `--health-cta-from`        | `#D2E963`                                                                     | 「开始测试」按钮渐变上端（图1 y=460 采样）                                    |
+| `--health-cta-to`          | `#C4DA92`                                                                     | 「开始测试」按钮渐变下端（图1 y=600 采样）                                    |
+| `--health-tab-track`       | `#D5E3BB`                                                                     | 详情页五个 Tab 的轨道底色（图5 y=225 采样）                                   |
+| `--health-tab-active`      | `#AECD7F`                                                                     | 详情页 Tab 选中态底色（图5 y=205 采样）                                       |
+| `--health-surface-tint`    | `#F9FCF2`                                                                     | 浅色内容块底色（检查记录卡、描述块、商品卡）                                  |
+| `--health-feature-pill-bg` | `rgba(255, 255, 255, 0.7)`                                                    | 功能卡标题胶囊与中央导向箭头底色                                              |
+| `--health-cta-shell`       | `rgba(255, 255, 255, 0.5)`                                                    | 开始测试按钮外圈光晕底色                                                      |
+| `--health-cta-shadow`      | `0 12rpx 30rpx rgba(83, 136, 44, 0.14)`                                       | 开始测试按钮浅绿色柔和阴影                                                    |
+
+页面背景固定引用 `--health-page-gradient`，即「顶部渐变约到屏高一半处收平」，与参考图纵向采样一致；
+Skyline 下必须分别写 `background-color` 与 `background-image`，不得使用会被忽略的 `background: linear-gradient(...)` 简写。
 
 ### 2.2 字号与字重
 
@@ -188,6 +224,11 @@
 
 适用：需要固定头部 / 页签，且中间区域独立滚动的页面（点单、订单页）。
 
+舌诊相关页面（`pages/tongue`、`packageHealth/pages/capture|report|history`）同样使用模式 B：
+根部固定 `100vh` + `overflow: hidden`，导航栏与（拍摄页的）底部快门栏固定，
+中间 `scroll-view` 承载内容；背景统一使用 `--health-gradient-*` 渐变 token，
+页面左右边距 32rpx（见本章豁免表登记）。
+
 ```xml
 <view class="page-shell">
   <navigation-bar title="页面标题" background="#FFFFFF" color="#2F302D" />
@@ -227,11 +268,11 @@
 
 ### Tab 页统一约定
 
-Tab 页（首页 / 点单 / 会员专区 / 订单 / 我的）必须在 `onShow` 同步选中态：
+Tab 页（首页 / 点单 / 舌诊 / 订单 / 我的）必须在 `onShow` 同步选中态：
 
 ```js
 onShow() {
-  if (this.getTabBar) this.getTabBar().setData({ selected: 0 }) // 首页0 点单1 会员专区2 订单3 我的4
+  if (this.getTabBar) this.getTabBar().setData({ selected: 0 }) // 首页0 点单1 舌诊2 订单3 我的4
 }
 ```
 

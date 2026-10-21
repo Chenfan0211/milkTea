@@ -265,7 +265,10 @@ const config: AdminListConfig = {
       { key: 'address', label: '地址', required: true },
       { key: 'phone', label: '电话', required: true }
     ],
-    template: () => '名称,门店类型,城市,负责人,地址,电话\n新门店,奶茶/饮品,长沙,店长5,某详细地址,0731-0000\n',
+    template: () => [
+      ['名称', '门店类型', '城市', '负责人', '地址', '电话'],
+      ['新门店', '奶茶/饮品', '长沙', '店长5', '某详细地址', '0731-0000']
+    ],
     parse: rows => {
       const errors: string[] = [];
       const ok: Record<string, any>[] = [];

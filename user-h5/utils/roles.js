@@ -71,6 +71,18 @@ const ROLE_DASHBOARD_META = {
         icon: '/assets/icons/lucide/shopping-bag.svg',
         description: '从运营后台商品中选择门店在售商品'
       },
+      {
+        id: 'devices',
+        label: '设备管理',
+        icon: '/assets/icons/lucide/device.svg',
+        description: '查看本店茶机与在线状态'
+      },
+      {
+        id: 'brew',
+        label: '冲泡记录',
+        icon: '/assets/icons/lucide/brew-record.svg',
+        description: '查看本店设备的胶囊冲泡记录'
+      },
       { id: 'income', label: '每日收益', icon: '/assets/icons/lucide/banknote.svg', description: '含退款冲正后净额' },
       { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '小额即时，大额后台审核' }
     ]
@@ -121,6 +133,40 @@ function getRoleDefinitions() {
 
 function getRoleMeta(roleId) {
   return roleDefinitions.find(item => item.id === roleId) || null;
+}
+
+/**
+ * 角色功能入口 → 目标页面（**唯一来源**）。
+ *
+ * 背景：「我的功能」网格与「角色工作台」都按 {@link ROLE_DASHBOARD_META} 的 actions 渲染入口，
+ * 早期两处各自维护了一份 routeMap 拷贝 —— 新增 `devices` / `brew` 时只改了工作台那份，
+ * 导致「我的 → 设备管理」点了弹「该功能待接入」。因此这里收敛成一份映射，
+ * 两个页面统一走 {@link resolveRoleActionRoute}，新增角色功能只要在这里登记一次。
+ */
+const ROLE_ACTION_ROUTES = {
+  // 门店
+  verify: '/packageRole/role-verify/role-verify',
+  products: '/packageRole/role-products/role-products',
+  devices: '/packageRole/role-devices/role-devices',
+  brew: '/packageRole/role-brew-records/role-brew-records',
+  // 收益与提现（三类角色共用）
+  income: '/packageRole/role-income/role-income',
+  withdraw: '/packageRole/role-withdraw/role-withdraw',
+  // 投资人
+  invest: '/packageRole/role-invest/role-invest',
+  commission: '/packageRole/role-commission/role-commission',
+  // 资源方
+  orders: '/packageRole/resource-orders/resource-orders'
+};
+
+/**
+ * 按 action id 解析目标页面。
+ *
+ * @returns {string|null} 未登记的功能返回 null，由页面提示「该功能待接入」
+ */
+function resolveRoleActionRoute(actionId) {
+  if (!actionId) return null;
+  return ROLE_ACTION_ROUTES[actionId] || null;
 }
 
 /** 前端角色 id -> 后端提现接口要求的 roleType 枚举。 */
@@ -707,6 +753,135 @@ function getVerifyData(roleId) {
   const remote = getRemoteVerify(role);
   if (remote) return remote;
   return { pool: [], records: [] };
+}
+
+// ============================================================
+// 门店设备 / 冲泡记录（只读）
+//
+// 数据来自设备域接口（/api/v1/app/workbench/store/{id}/devices 与 /brew-records），
+// 后端按「当前用户是否经营该门店」校验归属，前端只传门店主体 ID。
+// 台账维护（新增 / 绑定 / 解绑 / 改名）属运营职责，小程序侧一律只读。
+// ============================================================
+
+/** 冲泡记录时间范围选项（默认近 7 天；与后台「冲泡记录」页口径一致）。 */
+const STORE_BREW_RANGES = [
+  { id: '7d', label: '近 7 天', days: 7 },
+  { id: '30d', label: '近 30 天', days: 30 }
+];
+
+/** 门店侧单页条数（后端上限 50，取 20 兼顾首屏速度与流量）。 */
+const STORE_DEVICE_PAGE_SIZE = 20;
+
+/** 设备行 → 页面直读结构（在线状态三态：在线 / 离线 / 未上报）。 */
+function normalizeStoreDevice(row) {
+  const source = row || {};
+  const status = String(source.onlineStatus || '').toUpperCase();
+  const online = status === 'ONLINE';
+  return {
+    id: source.id,
+    deviceSn: source.deviceSn || '',
+    deviceName: source.deviceName || '',
+    displayName: source.alias || source.deviceSn || '未命名设备',
+    statusKey: online ? 'online' : status === 'OFFLINE' ? 'offline' : 'unknown',
+    statusLabel: online ? '在线' : status === 'OFFLINE' ? '离线' : '未上报',
+    lastReportTime: source.lastReportTime || '',
+    bindTime: source.bindTime || ''
+  };
+}
+
+/** 冲泡记录行 → 页面直读结构（后端只为本店返回数据，无需前端再过滤门店）。 */
+function normalizeStoreBrewRecord(row) {
+  const source = row || {};
+  return {
+    id: source.id,
+    timeText: source.baseCreateTime || '',
+    teaName: source.teaName || '未知茶品',
+    teaCode: source.teaCode || '',
+    deviceLabel: source.alias || source.deviceSn || '',
+    deviceSn: source.deviceSn || '',
+    customerCode: source.customerCode || '',
+    madeDay: source.madeDay || '',
+    serialNumber: source.serialNumber || ''
+  };
+}
+
+/** 时间范围 → { id, from, to }（yyyy-MM-dd，两端都含当天，由后端换算成开区间上界）。 */
+function storeBrewDateRange(rangeId) {
+  const range = STORE_BREW_RANGES.find(item => item.id === rangeId) || STORE_BREW_RANGES[0];
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (range.days - 1));
+  return { id: range.id, from: formatDayKey(start), to: formatDayKey(end) };
+}
+
+/** 当前门店主体 ID；非门店角色或无主体返回 null。 */
+function currentStoreSubjectId() {
+  const role = (getCurrentBusinessRole() || {}).id;
+  if (role !== 'store') return null;
+  const subjectId = getCurrentSubjectId();
+  return subjectId == null ? null : subjectId;
+}
+
+/**
+ * 拉取本店设备清单（分页）。
+ *
+ * @param {object} options page（从 1 开始）/ size
+ * @returns {Promise<{records:object[], total:number, current:number, size:number}|null>}
+ *          非门店角色返回 null，由页面提示并回角色中心
+ */
+function loadStoreDevices(options) {
+  const subjectId = currentStoreSubjectId();
+  if (subjectId == null) return Promise.resolve(null);
+  const query = options || {};
+  const page = query.page > 0 ? query.page : 1;
+  const size = query.size > 0 ? query.size : STORE_DEVICE_PAGE_SIZE;
+  return api.fetchStoreDevices(subjectId, { current: page, size }).then(result => {
+    const records = ((result && result.records) || []).map(normalizeStoreDevice);
+    return {
+      records,
+      total: Number(result && result.total) || records.length,
+      current: Number(result && result.current) || page,
+      size: Number(result && result.size) || size
+    };
+  });
+}
+
+/** 本店设备概览：{ total, online }；非门店角色返回 null。 */
+function loadStoreDeviceSummary() {
+  const subjectId = currentStoreSubjectId();
+  if (subjectId == null) return Promise.resolve(null);
+  return api.fetchStoreDeviceSummary(subjectId).then(summary => ({
+    total: Number(summary && summary.total) || 0,
+    online: Number(summary && summary.online) || 0
+  }));
+}
+
+/**
+ * 拉取本店冲泡记录（分页）。
+ *
+ * @param {object} options page / size / rangeId（见 STORE_BREW_RANGES）/ keyword（多字段模糊搜索）
+ *                        / deviceSn（'' 或 'all' 表示全部设备，兼容保留）
+ * @returns {Promise<{records:object[], total:number, current:number, size:number, range:object}|null>}
+ */
+function loadStoreBrewRecords(options) {
+  const subjectId = currentStoreSubjectId();
+  if (subjectId == null) return Promise.resolve(null);
+  const query = options || {};
+  const page = query.page > 0 ? query.page : 1;
+  const size = query.size > 0 ? query.size : STORE_DEVICE_PAGE_SIZE;
+  const range = storeBrewDateRange(query.rangeId);
+  const params = { current: page, size, from: range.from, to: range.to };
+  if (query.keyword) params.keyword = String(query.keyword).trim();
+  if (query.deviceSn && query.deviceSn !== 'all') params.deviceSn = query.deviceSn;
+  return api.fetchStoreBrewRecords(subjectId, params).then(result => {
+    const records = ((result && result.records) || []).map(normalizeStoreBrewRecord);
+    return {
+      records,
+      total: Number(result && result.total) || records.length,
+      current: Number(result && result.current) || page,
+      size: Number(result && result.size) || size,
+      range
+    };
+  });
 }
 
 /**
@@ -1428,6 +1603,7 @@ function warmUpRoleData(roleId) {
 
 module.exports = {
   ROLE_STORAGE_KEY,
+  ROLE_ACTION_ROUTES,
   ROLE_STATUS_ACTIVE,
   ROLE_STATUS_NONE,
   ROLE_STATUS_PENDING,
@@ -1461,12 +1637,21 @@ module.exports = {
   getWithdrawRule,
   hasRole,
   isRoleActive,
+  loadStoreBrewRecords,
+  loadStoreDeviceSummary,
+  loadStoreDevices,
+  normalizeStoreBrewRecord,
+  normalizeStoreDevice,
   normalizeCommissionOrder,
   normalizeSettlement,
   normalizeWithdrawal,
   resetRole,
+  resolveRoleActionRoute,
   roleTypeOf,
+  STORE_BREW_RANGES,
+  STORE_DEVICE_PAGE_SIZE,
   setCurrentBusinessRole,
+  storeBrewDateRange,
   submitWithdraw,
   switchRole,
   switchToConsumer,

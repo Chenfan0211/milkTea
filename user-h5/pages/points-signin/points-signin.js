@@ -1,5 +1,6 @@
 const { withShare } = require('../../utils/share');
-const loginGuard = require('../../utils/login-guard'); auth = require('../../utils/auth');
+const loginGuard = require('../../utils/login-guard');
+auth = require('../../utils/auth');
 const api = require('../../utils/api');
 const { buildMonthCells, buildWeekDates, calculateContinuousDays } = require('../../utils/points-signin');
 const { getPoints, notifyPointsChanged } = require('../../utils/points');
@@ -45,20 +46,20 @@ Page(
       if (!auth.isLoggedIn()) {
         this.signinStateReady = false;
       } else {
-      api
-        .fetchSigninDates()
-        .then(dates => {
-          const signedDates = Array.isArray(dates) ? dates : [];
-          const app = getApp();
-          app.globalData.signedDates = signedDates;
-          app.globalData.continuousDays = calculateContinuousDays(signedDates);
-          this.signinStateReady = true;
-          this.syncSignInState();
-        })
-        .catch(() => {
-          // 状态拉取失败：标记未就绪，避免把「拉取失败」误判为「今天没签到」
-          this.signinStateReady = false;
-        });
+        api
+          .fetchSigninDates()
+          .then(dates => {
+            const signedDates = Array.isArray(dates) ? dates : [];
+            const app = getApp();
+            app.globalData.signedDates = signedDates;
+            app.globalData.continuousDays = calculateContinuousDays(signedDates);
+            this.signinStateReady = true;
+            this.syncSignInState();
+          })
+          .catch(() => {
+            // 状态拉取失败：标记未就绪，避免把「拉取失败」误判为「今天没签到」
+            this.signinStateReady = false;
+          });
       }
       // 签到规则与奖励由后台配置
       api

@@ -103,7 +103,11 @@ class DedicatedEndpointConsistencyTest {
             "server/src/main/java/com/wuling/finance/controller/AdminFinanceQueryController.java",
             "server/src/main/java/com/wuling/auth/controller/AdminAccountController.java",
             "server/src/main/java/com/wuling/auth/controller/AdminRoleMenuController.java",
-            "server/src/main/java/com/wuling/auth/controller/AdminAuthQueryController.java"
+            "server/src/main/java/com/wuling/auth/controller/AdminAuthQueryController.java",
+            // 茶机设备（慧养智萃茶机队列对接）：设备列表 / 绑定 / 解绑走专用接口，
+            // 列表列字段口径以 AdminDeviceDTO 为准（DTO 字段由本测试的规则 2b 提取）。
+            "server/src/main/java/com/wuling/device/controller/AdminDeviceController.java",
+            "server/src/main/java/com/wuling/device/dto/AdminDeviceDTO.java"
     );
 
     /** 已接入专用接口校验的页面（相对仓库根）。未登记的页面会让测试失败，提醒补登记。 */
@@ -160,7 +164,12 @@ class DedicatedEndpointConsistencyTest {
             // 兑换记录 / 礼品卡订单：走 AdminMarketingController 专用接口
             // （exchange-orders / gift-card-orders 联表补齐展示字段）
             "src/views/marketing/exchange/index.vue",
-            "src/views/marketing/gift-order/index.vue"
+            "src/views/marketing/gift-order/index.vue",
+            // 设备管理页：设备列表/绑定/解绑走 AdminDeviceController 专用接口
+            // （门店名实时 join、未绑定 IS NULL 筛选、绑定历史同事务写入）。
+            // 注：冲泡记录页（src/views/subject/device-brew）走通用 CRUD 只读资源
+            // deviceBrewRecords，不调用 service/api，故不在本测试覆盖范围。
+            "src/views/subject/device/index.vue"
     );
 
     /** 后端行字段名 -> 是否可用（含 SQL select 出来的列，做 camel/snake 双向匹配）。 */

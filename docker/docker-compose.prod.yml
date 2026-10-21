@@ -225,6 +225,8 @@ services:
     environment:
       <<: *backend-env
       JAVA_OPTS: '-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError'
+      # 舌象第三方密钥只通过生产密钥管理注入，不写入仓库。
+      TONGUE_APP_SECRET: ${TONGUE_APP_SECRET:-}
     ports:
       - '127.0.0.1:8085:8085'
     volumes:

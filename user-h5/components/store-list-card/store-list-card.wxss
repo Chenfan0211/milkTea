@@ -133,6 +133,31 @@
   margin-right: 8rpx;
 }
 
+.store-list-card__availability {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8rpx;
+  padding: 0 16rpx;
+  font-size: var(--font-caption);
+  line-height: 40rpx;
+  border-radius: var(--radius-pill);
+}
+
+.store-list-card__availability--success {
+  color: var(--brand-green);
+  background: var(--brand-soft);
+}
+
+.store-list-card__availability--warning {
+  color: var(--accent-orange);
+  background: var(--tag-gold-bg);
+}
+
+.store-list-card__availability--muted {
+  color: var(--text-muted);
+  background: var(--page-bg-neutral);
+}
+
 .store-list-card__address {
   display: -webkit-box;
   margin-top: 4rpx;

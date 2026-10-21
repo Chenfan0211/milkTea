@@ -78,6 +78,11 @@ spring:
           uri: lb://wuling-user-service
           predicates:
             - Path=/api/v1/app/auth/**
+        # 舌象检测（用户服务，需登录）
+        - id: tongue-app
+          uri: lb://wuling-user-service
+          predicates:
+            - Path=/api/v1/app/tongue/**
         # ---------- 营销服务（第 5 期拆分）----------
         #
         # 注意顺序：Spring Cloud Gateway 按定义顺序匹配，先命中先返回。

@@ -41,6 +41,11 @@ spring:
           uri: http://127.0.0.1:8085
           predicates:
             - Path=/api/v1/app/auth/**
+        # 舌象检测（用户服务本地直连，需登录）
+        - id: tongue-app
+          uri: http://127.0.0.1:8085
+          predicates:
+            - Path=/api/v1/app/tongue/**
         # 交易服务（本地直连，第 7 期）
         - id: trade-app
           uri: http://127.0.0.1:8084

@@ -7,6 +7,7 @@ const { getUserProfile, refreshUserProfileFromRemote } = require('../../utils/us
 const { calcMemberPrice } = require('../../utils/member-level');
 const { refreshCouponsFromRemote } = require('../../utils/coupons');
 const { requestOrderPayment } = require('../../utils/order-payment');
+const recommendationCart = require('../../utils/recommendation-cart-state');
 
 function roundMoney(value) {
   return Math.round(value * 10) / 10;
@@ -103,7 +104,7 @@ function calculateOrder(items, paymentMethod, coupon) {
   list.forEach(item => {
     const quantity = Math.max(0, Number(item.quantity) || 0);
     const listPrice = Number(item.originalPrice || item.price || 0);
-    const memberUnitFen = toFen(calcMemberPrice(listPrice, vipLevel));
+    const memberUnitFen = item.priceMode === 'sale' ? toFen(item.price) : toFen(calcMemberPrice(listPrice, vipLevel));
     count += quantity;
     originalFen += toFen(listPrice) * quantity;
     memberTotalFen += memberUnitFen * quantity;
@@ -224,7 +225,9 @@ Page(
       const orderMode = pending.orderMode || app.globalData.orderMode || 'pickup';
       // 缓存本次结算来源与条目 id，供支付成功后清空购物车（避免 pendingOrder 被后端订单覆盖丢失）
       this.settledFromCart = pending.fromCart === true;
-      this.settledCartIds = (pending.items || []).map(item => item.id);
+      this.settledCartScope = pending.cartScope || 'store';
+      this.settledCartIds = (pending.items || []).map(item => item.cartItemId || item.id);
+      this.settledCartReportId = pending.reportId || '';
       this.applyOrder(pending.items, store, orderMode);
       this.loadCoupons();
     },
@@ -521,6 +524,15 @@ Page(
     markSettledCart() {
       const app = getApp();
       if (!this.settledFromCart) return;
+      if (this.settledCartScope === 'recommendation') {
+        if (this.settledCartReportId)
+          recommendationCart.markSettled(this.settledCartReportId, this.settledCartIds || []);
+        return;
+      }
+      if (this.settledCartScope === 'detail') {
+        app.globalData.settledDetailCartIds = this.settledCartIds || [];
+        return;
+      }
       app.globalData.settledCartIds = this.settledCartIds || [];
     },
 

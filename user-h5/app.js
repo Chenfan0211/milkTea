@@ -10,6 +10,23 @@ const {
 const entryLogin = require('./utils/entry-login');
 const authState = require('./utils/auth-state');
 const { refreshUserProfileFromRemote } = require('./utils/user-profile');
+const recommendationCart = require('./utils/recommendation-cart-state');
+
+function clearRecommendationCartCleanup(app) {
+  if (app.recommendationCartCleanupTimer) {
+    clearTimeout(app.recommendationCartCleanupTimer);
+    app.recommendationCartCleanupTimer = null;
+  }
+}
+
+function scheduleRecommendationCartCleanup(app) {
+  clearRecommendationCartCleanup(app);
+  const delay = Math.max(1000, recommendationCart.nextCleanupAt() - Date.now());
+  app.recommendationCartCleanupTimer = setTimeout(() => {
+    recommendationCart.cleanupExpired();
+    scheduleRecommendationCartCleanup(app);
+  }, delay);
+}
 
 function syncStoreGlobals(app, catalog) {
   app.globalData.selectedStoreId = catalog.currentStore ? catalog.currentStore.id : null;
@@ -81,6 +98,8 @@ App({
     return this.globalData.authState;
   },
   onLaunch() {
+    recommendationCart.cleanupExpired();
+    scheduleRecommendationCartCleanup(this);
     // 门店 / 城市数据来自后端接口（阶段 C 后不再有本地假数据）。
     Promise.all([refreshCitiesFromRemote(), refreshStoreCatalogFromRemote()]).then(() => {
       syncStoreGlobals(this, resolveStoreCatalog());
@@ -103,10 +122,13 @@ App({
     });
   },
   onShow() {
+    recommendationCart.cleanupExpired();
+    scheduleRecommendationCartCleanup(this);
     syncStoreGlobals(this, resolveStoreCatalog());
     this.syncAuthState();
   },
   onHide() {
+    clearRecommendationCartCleanup(this);
     handleAppHide();
   }
 });

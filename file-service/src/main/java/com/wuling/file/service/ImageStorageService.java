@@ -190,6 +190,38 @@ public class ImageStorageService {
         }
     }
 
+    /**
+     * 删除服务生成的图片文件。仅用于失败补偿；不暴露为公开接口。
+     * 删除不存在的安全文件视为幂等成功。
+     */
+    public void deleteImage(String storedName) {
+        if (storedName == null || !PUBLIC_NAME.matcher(storedName).matches()) {
+            throw new InvalidFilePathException("非法文件路径");
+        }
+        Path candidate = storageRoot.resolve(storedName).normalize();
+        if (!candidate.getParent().equals(storageRoot)) {
+            throw new InvalidFilePathException("非法文件路径");
+        }
+        if (!Files.exists(candidate, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) {
+            throw new InvalidFilePathException("非法文件路径");
+        }
+        try {
+            Path realRoot = storageRoot.toRealPath();
+            Path realFile = candidate.toRealPath();
+            if (!realFile.startsWith(realRoot)) {
+                throw new InvalidFilePathException("非法文件路径");
+            }
+            Files.delete(realFile);
+        } catch (NoSuchFileException ignored) {
+            // 并发补偿删除：目标已消失，按幂等成功处理。
+        } catch (IOException e) {
+            throw new IllegalStateException("图片删除失败: " + storedName, e);
+        }
+    }
+
     /** 编码结果落盘：UUID 命名 + 防覆盖 + 防路径越界 */
     private StoredImage writeEncoded(String originalFilename, byte[] encoded,
                                       FileType type, String suffix) {

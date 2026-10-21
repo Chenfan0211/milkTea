@@ -1,0 +1,151 @@
+.profile-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1200;
+}
+
+.profile-sheet__mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.profile-sheet__panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: 620rpx;
+  box-sizing: border-box;
+  height: 628rpx;
+  padding: 28rpx 32rpx 8rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  transform: translate(-50%, -50%);
+}
+
+.profile-sheet__title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 40rpx;
+  text-align: center;
+}
+
+.profile-sheet__subtitle {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 32rpx;
+  text-align: center;
+}
+
+.profile-sheet__options {
+  display: flex;
+  margin-top: 32rpx;
+}
+
+.profile-sheet__option {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 176rpx;
+  color: var(--text-secondary);
+  background: var(--page-bg-neutral);
+  border: 2rpx solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.profile-sheet__option + .profile-sheet__option {
+  margin-left: 16rpx;
+}
+
+.profile-sheet__option.is-active {
+  color: var(--text-main);
+  background: var(--card-bg);
+  border-color: var(--text-main);
+}
+
+.profile-sheet__option-icon {
+  width: 72rpx;
+  height: 72rpx;
+  opacity: 0.42;
+}
+
+.profile-sheet__option.is-active .profile-sheet__option-icon {
+  opacity: 1;
+}
+
+.profile-sheet__option-label {
+  margin-top: 12rpx;
+  font-size: var(--font-base);
+}
+
+.profile-sheet__birth-row {
+  display: flex;
+  align-items: center;
+  height: 128rpx;
+  margin-top: 24rpx;
+  padding: 0 24rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
+.profile-sheet__label {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.profile-sheet__birth-picker {
+  display: flex;
+  flex: 1;
+  align-self: stretch;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.profile-sheet__birth-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-sheet__value {
+  color: var(--brand-green);
+  font-size: var(--font-base);
+}
+
+.profile-sheet__arrow {
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 8rpx;
+  opacity: 0.55;
+}
+
+.profile-sheet__submit {
+  height: 80rpx;
+  margin-top: 48rpx;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  line-height: 80rpx;
+  text-align: center;
+  background: var(--health-cta-to);
+  border-radius: var(--radius-pill);
+}

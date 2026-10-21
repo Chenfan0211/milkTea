@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 const { withShare } = require('../../utils/share');
-const { formatOrderAmount } = require('../../data/mock'); auth = require('../../utils/auth');
+const { formatOrderAmount } = require('../../data/mock');
+auth = require('../../utils/auth');
 
 function toYuan(fen) {
   const value = Number(fen);

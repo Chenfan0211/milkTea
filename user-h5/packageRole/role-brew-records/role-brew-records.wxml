@@ -1,0 +1,134 @@
+<view class="brew-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="brew-toolbar">
+    <view class="brew-search">
+      <image class="brew-search__icon" src="/assets/icons/lucide/search.svg" mode="aspectFit" />
+      <input
+        class="brew-search__input"
+        value="{{keyword}}"
+        placeholder="搜索茶品 / 设备 / 客户代码 / 序列号"
+        placeholder-class="brew-search__placeholder"
+        confirm-type="search"
+        bindinput="handleKeyword"
+        bindconfirm="confirmSearch"
+        aria-label="搜索茶品、设备、客户代码或序列号"
+      />
+      <view
+        wx:if="{{keyword}}"
+        class="brew-search__clear"
+        bindtap="clearKeyword"
+        aria-role="button"
+        aria-label="清空搜索"
+      >
+        <image class="brew-search__clear-icon" src="/assets/icons/lucide/x.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="brew-toolbar__head">
+      <text class="brew-toolbar__summary">共 {{total}} 条 · {{rangeText}}</text>
+      <view class="brew-toolbar__refresh" bindtap="refresh" aria-role="button" aria-label="刷新冲泡记录">
+        <image class="brew-toolbar__refresh-icon" src="/assets/icons/lucide/refresh-cw.svg" mode="aspectFit" />
+        <text class="brew-toolbar__refresh-text">刷新</text>
+      </view>
+    </view>
+
+    <view class="brew-ranges">
+      <view
+        wx:for="{{ranges}}"
+        wx:key="id"
+        class="brew-range {{activeRangeId === item.id ? 'is-active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="switchRange"
+        aria-role="button"
+        aria-label="按{{item.label}}筛选"
+      >{{item.label}}</view>
+    </view>
+  </view>
+
+  <scroll-view
+    class="brew-scroll"
+    scroll-y
+    show-scrollbar="{{false}}"
+    refresher-enabled="{{true}}"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="refresh"
+    bindscrolltolower="onReachBottom"
+  >
+    <view class="brew-scroll__inner">
+      <view wx:if="{{loading && !records.length}}" class="brew-loading">
+        <text class="brew-loading__text">正在加载冲泡记录…</text>
+      </view>
+
+      <view
+        wx:elif="{{loadError}}"
+        class="brew-error"
+        bindtap="reload"
+        aria-role="button"
+        aria-label="重新加载冲泡记录"
+      >
+        <text class="brew-error__text">{{loadError}}</text>
+        <text class="brew-error__action">点击重试</text>
+      </view>
+
+      <view wx:elif="{{records.length}}" class="brew-list">
+        <view
+          class="brew-card"
+          wx:for="{{records}}"
+          wx:key="id"
+          aria-role="article"
+          aria-label="{{item.teaName}} {{item.timeText}}"
+        >
+          <view class="brew-card__head">
+            <text class="brew-card__tea ellipsis">{{item.teaName}}</text>
+            <text class="brew-card__time">{{item.timeText}}</text>
+          </view>
+
+          <view class="brew-card__row">
+            <text class="brew-card__label">设备</text>
+            <text class="brew-card__value ellipsis">{{item.deviceLabel || '—'}}</text>
+          </view>
+
+          <view class="brew-card__row">
+            <text class="brew-card__label">茶品编码</text>
+            <text class="brew-card__value">{{item.teaCode || '—'}}</text>
+          </view>
+
+          <view class="brew-card__row">
+            <text class="brew-card__label">客户代码</text>
+            <text class="brew-card__value">{{item.customerCode || '—'}}</text>
+          </view>
+
+          <view class="brew-card__row">
+            <text class="brew-card__label">生产日期</text>
+            <text class="brew-card__value">{{item.madeDay || '—'}}</text>
+          </view>
+
+          <view class="brew-card__row">
+            <text class="brew-card__label">序列号</text>
+            <text class="brew-card__value">{{item.serialNumber || '—'}}</text>
+          </view>
+        </view>
+      </view>
+
+      <empty-state
+        wx:elif="{{hasFilter}}"
+        icon="/assets/icons/lucide/search.svg"
+        title="没有匹配的冲泡记录"
+        description="换个关键词，或调整时间范围再试"
+      />
+
+      <empty-state
+        wx:else
+        icon="/assets/icons/lucide/brew-record.svg"
+        title="暂无冲泡记录"
+        description="本店设备上报胶囊冲泡数据后，记录会展示在这里"
+      />
+
+      <view wx:if="{{records.length && !hasMore}}" class="brew-end">已显示全部记录</view>
+      <view wx:if="{{loadingMore}}" class="brew-end">正在加载更多…</view>
+
+      <view class="brew-safe"></view>
+    </view>
+  </scroll-view>
+</view>

@@ -66,32 +66,38 @@ public class CouponService {
     }
 
     /**
-     * 我的优惠券（按状态筛选）。
+     * 我的优惠券（按 Tab 筛选）。
      *
-     * <p>status 语义：
+     * <p><b>四态口径（唯一）</b>：未使用 / 待生效 / 已过期 / 已使用，由 {@link #deriveTab} 统一推导，
+     * 一张券只会出现在一个 Tab：
      * <ul>
-     *   <li>USED / LOCKED / EXPIRED —— 终态，直接按 user_coupon.status 透传；</li>
-     *   <li>UNUSED 或不传（旧调用 / 「我的」页统计）—— 返回「已生效且未过期」的可用券；</li>
-     *   <li>PENDING —— 虚拟状态，返回「仍是 UNUSED 但生效时间尚未开始」的待生效券。</li>
+     *   <li>未使用：仍是 UNUSED 且已生效未过期，<b>外加被订单占用（LOCKED）的券</b>（前端标注「订单占用中」）；</li>
+     *   <li>待生效：仍是 UNUSED 但生效时间未到；</li>
+     *   <li>已过期：库表 EXPIRED，<b>或仍是 UNUSED 但已过有效期</b>；</li>
+     *   <li>已使用：库表 USED（含之后过了有效期的 —— 终态优先）。</li>
      * </ul>
+     *
+     * <p><b>为什么「已过期」必须现算</b>：DAYS 类型券（领取后 N 天）库里没有过期时间落点，
+     * 也没有任务把过期券写成 EXPIRED；若只按 status 查，「已过期」Tab 永远为空，
+     * 而过期未用的券又会被「未使用」的可用性过滤掉 —— 用户会看到券凭空消失。
      *
      * <p>展示 ID 始终使用 user_coupon.id。
      */
     public List<UserCouponView> myCoupons(Long userId, String status) {
-        boolean pending = PENDING.equalsIgnoreCase(status);
-        // 终态（USED / LOCKED / EXPIRED）直接按库表状态透传；
-        // UNUSED / PENDING / 不传 都从 UNUSED 池里按生效时间进一步区分。
-        boolean terminal = USED.equalsIgnoreCase(status)
-                || LOCKED.equalsIgnoreCase(status)
-                || EXPIRED.equalsIgnoreCase(status);
+        String tab = normalizeTab(status);
 
         LambdaQueryWrapper<UserCoupon> query = new LambdaQueryWrapper<UserCoupon>()
                 .eq(UserCoupon::getUserId, userId)
                 .orderByDesc(UserCoupon::getId);
-        if (terminal) {
-            query.eq(UserCoupon::getStatus, status);
-        } else {
-            query.eq(UserCoupon::getStatus, UNUSED);
+        // 只查可能与目标 Tab 相关的库表状态；最终归类一律由 deriveTab 判定。
+        switch (tab) {
+            case USED -> query.eq(UserCoupon::getStatus, USED);
+            // 已过期：库表 EXPIRED +「仍是 UNUSED 但已过有效期」（后者没有落库，必须现算）
+            case EXPIRED -> query.in(UserCoupon::getStatus, List.of(EXPIRED, UNUSED));
+            // 待生效：仍是 UNUSED，按生效时间区分
+            case PENDING -> query.eq(UserCoupon::getStatus, UNUSED);
+            // 未使用：可用券 + 被订单占用的券（占用中的券也要让用户看到，前端标注「订单占用中」）
+            default -> query.in(UserCoupon::getStatus, List.of(UNUSED, LOCKED));
         }
         List<UserCoupon> userCoupons = userCouponMapper.selectList(query);
         if (userCoupons == null || userCoupons.isEmpty()) {
@@ -123,33 +129,62 @@ public class CouponService {
             }
             Coupon coupon = couponById.get(userCoupon.getCouponId());
             CouponValidity validity = resolveValidity(userCoupon, coupon, now);
-            if (terminal) {
-                // 终态直接透传（仅保留与请求状态一致的券，兜底 SQL 过滤失效场景）。
-                if (!status.equalsIgnoreCase(userCoupon.getStatus())) {
-                    continue;
-                }
-                UserCouponView view = toView(userCoupon, coupon, validity);
-                view.setUsable(false);
-                result.add(view);
+            // 四态互斥：只保留归类等于请求 Tab 的券
+            if (!tab.equals(deriveTab(userCoupon, validity))) {
                 continue;
             }
-            // UNUSED / PENDING / 不传：兜底过滤，仅处理 UNUSED 状态的券。
-            if (!UNUSED.equals(userCoupon.getStatus())) {
-                continue;
-            }
-            if (pending) {
-                // 待生效：已领取但尚未到生效时间。
-                if (!validity.started()) {
-                    result.add(toView(userCoupon, coupon, validity));
-                }
-                continue;
-            }
-            // 可用（UNUSED / 不传）：已生效且未过期。
-            if (validity.started() && validity.usable()) {
-                result.add(toView(userCoupon, coupon, validity));
-            }
+            UserCouponView view = toView(userCoupon, coupon, validity);
+            view.setExpired(EXPIRED.equals(tab));
+            // usable =「此刻能不能拿去下单」：只有「未使用 Tab 里的 UNUSED 券」为 true；
+            // 订单占用中 / 待生效 / 已使用 / 已过期都是 false
+            //（前端券张数与下单页选券都依赖这个语义）。
+            view.setUsable(UNUSED.equals(tab) && !LOCKED.equals(userCoupon.getStatus()));
+            result.add(view);
         }
         return result;
+    }
+
+    /** Tab 归一：不传/未知值一律按「未使用」处理（兼容旧调用与「我的」页计数口径）。 */
+    private String normalizeTab(String status) {
+        if (status == null || status.isBlank()) {
+            return UNUSED;
+        }
+        return switch (status.trim().toUpperCase()) {
+            case PENDING, USED, EXPIRED -> status.trim().toUpperCase();
+            // LOCKED 与未知值都归到「未使用」口径（小程序没有独立的「锁定」Tab）
+            default -> UNUSED;
+        };
+    }
+
+    /**
+     * 优惠券四态推导（列表与计数共用的唯一口径）。
+     *
+     * <p>库表 status 只有 UNUSED / LOCKED / USED / EXPIRED，而「过期」对 DAYS 类型券没有落点，
+     * 因此这里把「状态 + 有效性」合成用户看到的四个 Tab：
+     * 已使用（终态优先）→ 已过期 → 订单占用/未使用 → 待生效。
+     *
+     * @return 四态之一；未知状态返回 null（不展示）
+     */
+    private String deriveTab(UserCoupon userCoupon, CouponValidity validity) {
+        String status = userCoupon.getStatus();
+        if (USED.equals(status)) {
+            // 终态：用过就一直算「已使用」，之后过了有效期也不改归类
+            return USED;
+        }
+        if (EXPIRED.equals(status)) {
+            return EXPIRED;
+        }
+        if (LOCKED.equals(status)) {
+            // 下单占用中：仍在「未使用」展示（前端标注「订单占用中」），但不可用
+            return UNUSED;
+        }
+        if (!UNUSED.equals(status)) {
+            return null;
+        }
+        if (!validity.started()) {
+            return PENDING;
+        }
+        return validity.usable() ? UNUSED : EXPIRED;
     }
 
     private UserCouponView toView(UserCoupon userCoupon, Coupon coupon, CouponValidity validity) {
@@ -538,12 +573,22 @@ public class CouponService {
         return Math.min(amount, orderAmount);
     }
 
-    /** 返回用户券状态；重复核销按已核销处理，不重复写。 */
+    /**
+     * 返回用户券状态；重复核销按已核销处理，不重复写。
+     *
+     * <p><b>userId 必填（fail-closed）</b>：用户券与用户是绑定关系，
+     * 状态流转必须带「这是谁的券」；缺 userId 时若跳过归属校验，
+     * 就给了「凭 userCouponId 操作他人券」的口子。所有调用方（支付核销 MQ 事件、
+     * 内部接口）都会带上订单归属的 userId。
+     */
     @Transactional(rollbackFor = Exception.class)
     public Boolean consume(Long userId, Long userCouponId, String orderNo) {
+        if (userId == null || userCouponId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "缺少 userId 或 userCouponId");
+        }
         long orderId = OrderNoCodec.toLockOrderId(orderNo);
         UserCoupon uc = userCouponMapper.selectByIdForUpdate(userCouponId);
-        if (uc == null || (userId != null && !userId.equals(uc.getUserId()))) {
+        if (uc == null || !userId.equals(uc.getUserId())) {
             throw new BusinessException(ResultCode.NOT_FOUND, "优惠券不存在");
         }
         if (USED.equals(uc.getStatus())) {
@@ -560,7 +605,7 @@ public class CouponService {
             boolean alreadyConsumed = latest != null
                     && USED.equals(latest.getStatus())
                     && orderId == (latest.getLockOrderId() == null ? Long.MIN_VALUE : latest.getLockOrderId())
-                    && (userId == null || userId.equals(latest.getUserId()));
+                    && userId.equals(latest.getUserId());
             if (alreadyConsumed) {
                 return Boolean.TRUE;
             }
@@ -586,9 +631,12 @@ public class CouponService {
     /** 支付后退款恢复，返回最终状态。 */
     @Transactional(rollbackFor = Exception.class)
     public String restoreAfterRefund(Long userId, Long userCouponId, String orderNo) {
+        if (userId == null || userCouponId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "缺少 userId 或 userCouponId");
+        }
         long orderId = OrderNoCodec.toLockOrderId(orderNo);
         UserCoupon uc = userCouponMapper.selectByIdForUpdate(userCouponId);
-        if (uc == null || (userId != null && !userId.equals(uc.getUserId()))) {
+        if (uc == null || !userId.equals(uc.getUserId())) {
             throw new BusinessException(ResultCode.NOT_FOUND, "优惠券不存在");
         }
         if (!USED.equals(uc.getStatus()) && !LOCKED.equals(uc.getStatus())) {
@@ -619,7 +667,43 @@ public class CouponService {
         release(String.valueOf(orderId), "订单取消或超时");
     }
 
-    private boolean hasActiveDuplicate(UserCoupon current) {
+    /**
+     * 把「已过有效期但仍是 UNUSED」的券归档为 EXPIRED（分批、幂等）。
+     *
+     * <p><b>列表不依赖它</b>：DAYS 类型券在库里没有过期时间落点，「已过期」Tab 由
+     * {@link #deriveTab} 现算保证永远正确；归档只为状态可索引、可统计、可对账 ——
+     * 本任务停摆不会让用户看到错分类，这是刻意设计。
+     *
+     * @param batchSize 单批扫描上限
+     * @return 本批实际归档张数
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public int archiveOverdueUnused(int batchSize) {
+        int size = batchSize <= 0 ? 200 : batchSize;
+        List<Long> ids = userCouponMapper.selectOverdueUnusedIds(size);
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        int archived = 0;
+        for (Long id : ids) {
+            archived += userCouponMapper.expireOverdueUnused(id);
+        }
+        if (archived > 0 && auditLogMapper != null) {
+            AuditLog log = new AuditLog();
+            log.setOperator("system");
+            log.setModule("COUPON");
+            log.setAction("EXPIRE_SWEEP");
+            log.setTarget("batch:" + archived);
+            log.setBeforeValue(UNUSED);
+            log.setAfterValue(EXPIRED);
+            log.setReason("过期未用券批量归档（仅用于可统计，展示层不依赖）");
+            log.setIp("internal");
+            log.setCreateTime(LocalDateTime.now());
+            log.setUpdateTime(LocalDateTime.now());
+            auditLogMapper.insert(log);
+        }
+        return archived;
+    }    private boolean hasActiveDuplicate(UserCoupon current) {
         List<UserCoupon> active = userCouponMapper.selectList(new LambdaQueryWrapper<UserCoupon>()
                 .eq(UserCoupon::getUserId, current.getUserId())
                 .eq(UserCoupon::getCouponId, current.getCouponId())

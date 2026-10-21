@@ -233,6 +233,8 @@ const local: App.I18n.Schema = {
     subject: 'Subject',
     subject_platform: 'Platform',
     subject_store: 'Store',
+    subject_device: 'Device',
+    'subject_device-brew': 'Brew Records',
     subject_channel: 'Resource',
     subject_investor: 'Investor',
     subject_supplier: 'Supplier',

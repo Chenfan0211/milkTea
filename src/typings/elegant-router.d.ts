@@ -55,6 +55,8 @@ declare module "@elegant-router/types" {
     "review_role-detail": "/review/role-detail";
     "subject": "/subject";
     "subject_channel": "/subject/channel";
+    "subject_device": "/subject/device";
+    "subject_device-brew": "/subject/device-brew";
     "subject_investor": "/subject/investor";
     "subject_platform": "/subject/platform";
     "subject_store": "/subject/store";
@@ -169,6 +171,8 @@ declare module "@elegant-router/types" {
     | "review_role-detail"
     | "review_role"
     | "subject_channel"
+    | "subject_device-brew"
+    | "subject_device"
     | "subject_investor"
     | "subject_platform"
     | "subject_store"

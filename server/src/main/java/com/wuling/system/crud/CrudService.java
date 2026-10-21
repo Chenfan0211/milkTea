@@ -208,6 +208,7 @@ public class CrudService {
     public Map<String, Object> create(String resource, Map<String, Object> payload) {
         CrudRegistry.Resource def = require(resource);
         guardSuperOnly(resource);
+        guardReadOnly(def, "新增");
         Map<String, Object> values = filterWritable(def, payload);
         guardSplitRule(def, values, true);
         guardPointsCategoryCreate(def, values);
@@ -257,6 +258,7 @@ public class CrudService {
     public Map<String, Object> update(String resource, long id, Map<String, Object> payload) {
         CrudRegistry.Resource def = require(resource);
         guardSuperOnly(resource);
+        guardReadOnly(def, "编辑");
         guardBuiltinRoleWrite(resource, id, false);
         Map<String, Object> values = filterWritable(def, payload);
         guardSplitRule(def, values, false);
@@ -287,6 +289,7 @@ public class CrudService {
     public void delete(String resource, long id) {
         CrudRegistry.Resource def = require(resource);
         guardSuperOnly(resource);
+        guardReadOnly(def, "删除");
         guardBuiltinRoleWrite(resource, id, true);
         // 逻辑删除后记录带 deleted=1，但审计仍需原始内容，故统一在删除前取出
         Map<String, Object> before = getOne(resource, id);
@@ -847,6 +850,21 @@ public class CrudService {
             }
         }
         return null;
+    }
+
+    /**
+     * 只读资源守卫（writable 为空的资源不允许任何写操作）。
+     *
+     * <p>为什么必须显式拦截：{@code filterWritable} 只过滤「字段白名单」——
+     * 对「payload 里没有任何可写字段」的动作它根本拦不住：
+     * {@code delete()} 会直接执行 {@code set deleted = 1}，
+     * 把设备上报的冲泡记录/状态流水这类<b>事实数据</b>软删掉，
+     * 而接口照样返回 200。历史上「只读资源」只写在注释和文档里，代码并没有守住。
+     */
+    private void guardReadOnly(CrudRegistry.Resource def, String action) {
+        if (def.writable().isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "只读资源不支持" + action);
+        }
     }
 
     private CrudRegistry.Resource require(String resource) {

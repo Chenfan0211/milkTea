@@ -21,7 +21,7 @@ import {
 import type { PaginationProps, UploadFileInfo } from 'naive-ui';
 import { toSelectOptions } from './types';
 import { useAdminStore } from '@/store/modules/admin';
-import * as XLSX from 'xlsx';
+import { downloadXlsxTemplate, readXlsxRows } from './xlsx';
 import { geocodeAddress } from '@/utils/tencent-map';
 import type { AdminListConfig, FormField, RowAction } from './types';
 import DetailModal from './DetailModal.vue';
@@ -135,6 +135,13 @@ const importRows = ref<Record<string, string>[]>([]);
 const importErrors = ref<string[]>([]);
 const importPreview = ref<Record<string, any>[]>([]);
 const importFileName = ref('');
+
+const importHint = computed(() => {
+  const cfg = props.config.importConfig;
+  if (!cfg) return '';
+  const maxMb = Math.floor((cfg.maxFileSize ?? 10 * 1024 * 1024) / 1024 / 1024);
+  return `仅支持 .xlsx，单文件不超过 ${maxMb}MB，最多 ${cfg.maxRows ?? 5000} 行`;
+});
 
 function openModal(mode: 'add' | 'edit', row: any) {
   modalMode.value = mode;
@@ -301,57 +308,31 @@ function openImport() {
   importFileName.value = '';
 }
 
-function parseWorkbook(data: ArrayBuffer): Record<string, string>[] {
-  // codepage: 936（GBK/GB18030）：Excel 另存 CSV 时中文常落成 GBK 编码且无 BOM，
-  // 若不指定 codepage，XLSX.read 会把中文表头读成乱码，导致 row[f.label] 匹配不到、
-  // 全部字段被判「必填缺失」。936 对 .xlsx（二进制）无副作用，只影响 CSV 文本解码。
-  const wb = XLSX.read(data, { type: 'array', codepage: 936 });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
-  const fields = props.config.importConfig?.fields ?? [];
-  return json.map(row => {
-    const out: Record<string, string> = {};
-    for (const f of fields) out[f.key] = String(row[f.label] ?? row[f.key] ?? '').trim();
-    return out;
-  });
-}
-
-function handleImportFile(options: { file: any }) {
+async function handleImportFile(options: { file: any }) {
   const file = options.file;
-  if (!file) return;
+  const cfg = props.config.importConfig;
+  if (!file || !cfg) return;
   importFileName.value = file.name || '';
-  const reader = new FileReader();
-  reader.addEventListener('load', (e: any) => {
-    try {
-      const parsedRows = parseWorkbook(e.target.result);
-      const result = props.config.importConfig?.parse?.(parsedRows) ?? { ok: parsedRows, errors: [] };
-      importRows.value = parsedRows;
-      importPreview.value = result.ok;
-      importErrors.value = result.errors;
-    } catch (err: any) {
-      importErrors.value = [String(err?.message || err)];
-      importPreview.value = [];
-    }
-  });
-  reader.readAsArrayBuffer(file.file);
+  try {
+    const parsedRows = await readXlsxRows(file.file, cfg);
+    const result = cfg.parse(parsedRows);
+    importRows.value = parsedRows;
+    importPreview.value = result.ok;
+    importErrors.value = result.errors;
+  } catch (err: any) {
+    importErrors.value = [String(err?.message || err)];
+    importPreview.value = [];
+  }
 }
 
-function downloadTemplate() {
+async function downloadTemplate() {
   const cfg = props.config.importConfig;
   if (!cfg) return;
-  // 模板统一导出为 .xlsx：xlsx 内部为 UTF-8 XML，中文不会像 CSV 那样
-  // 因 GBK 编码 / 无 BOM 而乱码，也彻底规避「下载后 Excel 另存又变 GBK」的坑。
-  // 用 XLSX.read(type:'string') 把 template() 的 CSV 文本（含逗号转义）解析成
-  // 工作表，再以 aoa 形式重建成新 workbook 导出，避免手写 split(',') 拆坏含逗号的字段。
-  const text = cfg.template();
-  const csvWb = XLSX.read(text, { type: 'string' });
-  const csvSheet = csvWb.Sheets[csvWb.SheetNames[0]];
-  const templateRows = XLSX.utils.sheet_to_json(csvSheet, { header: 1, defval: '' }) as any[][];
-
-  const ws = XLSX.utils.aoa_to_sheet(templateRows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-  XLSX.writeFile(wb, cfg.title + '导入模板.xlsx');
+  try {
+    await downloadXlsxTemplate(cfg);
+  } catch (error: any) {
+    window.$message?.error(error?.message || '模板下载失败');
+  }
 }
 
 async function confirmImport() {
@@ -362,6 +343,12 @@ async function confirmImport() {
   }
   try {
     const result = await cfg.commit(importPreview.value);
+    if (result.errors?.length) {
+      importErrors.value = result.errors;
+      importPreview.value = [];
+      window.$message?.warning('导入校验未通过，请按提示修正后重试');
+      return;
+    }
     importVisible.value = false;
     window.$message?.success(
       '导入完成：新增 ' + result.added + ' 条' + (result.skipped ? '，跳过 ' + result.skipped + ' 条' : '')
@@ -739,6 +726,7 @@ defineExpose({ reload: loadData });
     <NCard :bordered="false" :title="config.title" class="card-wrapper">
       <template #header-extra>
         <NSpace wrap>
+          <NButton v-if="config.importConfig" size="small" @click="openImport">导入</NButton>
           <NButton
             v-for="(action, index) in config.toolbar ?? []"
             :key="index"
@@ -748,7 +736,6 @@ defineExpose({ reload: loadData });
           >
             {{ action.label }}
           </NButton>
-          <NButton v-if="config.importConfig" size="small" @click="openImport">导入</NButton>
 
           <NPopover v-model:show="columnSettingsVisible" trigger="click" placement="bottom-end" :width="220">
             <template #trigger>
@@ -819,6 +806,9 @@ defineExpose({ reload: loadData });
           <NButton size="small" class="ml-8px" @click="handleReset">重置</NButton>
         </div>
       </NForm>
+
+      <!-- 页面自定义横幅（如设备管理的 MNS 队列自检状态）：由各页面通过 #banner 插槽注入 -->
+      <slot name="banner"></slot>
 
       <NDataTable
         remote
@@ -895,11 +885,12 @@ defineExpose({ reload: loadData });
       <NSpace vertical>
         <NSpace align="center" wrap>
           <NButton size="small" @click="downloadTemplate">下载模板</NButton>
-          <NUpload :show-file-list="false" accept=".xlsx,.xls,.csv" @change="handleImportFile">
+          <NUpload :show-file-list="false" accept=".xlsx" @change="handleImportFile">
             <NButton size="small" type="primary">选择文件上传</NButton>
           </NUpload>
           <span v-if="importFileName" style="font-size: 13px; color: #666">{{ importFileName }}</span>
         </NSpace>
+        <div style="font-size: 13px; color: #9b9b96">{{ importHint }}</div>
         <div v-if="importErrors.length" style="max-height: 160px; overflow: auto">
           <div v-for="(e, i) in importErrors" :key="i" style="color: #e65a5a; font-size: 13px; line-height: 1.6">
             {{ e }}
@@ -908,7 +899,9 @@ defineExpose({ reload: loadData });
         <div v-if="importPreview.length" style="font-size: 13px; color: #333">可导入 {{ importPreview.length }} 条</div>
         <div class="flex flex-wrap justify-end gap-12px">
           <NButton @click="importVisible = false">取消</NButton>
-          <NButton type="primary" :disabled="!importPreview.length" @click="confirmImport">确认导入</NButton>
+          <NButton type="primary" :disabled="!importPreview.length || importErrors.length > 0" @click="confirmImport">
+            确认导入
+          </NButton>
         </div>
       </NSpace>
     </NModal>

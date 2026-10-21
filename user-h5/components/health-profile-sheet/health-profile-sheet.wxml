@@ -1,0 +1,50 @@
+<view wx:if="{{visible}}" class="profile-sheet">
+  <view class="profile-sheet__mask" bindtap="handleClose"></view>
+  <view class="profile-sheet__panel" aria-role="dialog" aria-label="个人信息">
+    <text class="profile-sheet__title">个人信息</text>
+    <text class="profile-sheet__subtitle">为推荐更精准，请填写准确信息</text>
+
+    <view class="profile-sheet__options">
+      <view
+        class="profile-sheet__option {{draftGender === 'male' ? 'is-active' : ''}}"
+        data-gender="male"
+        bindtap="selectGender"
+        aria-role="button"
+        aria-label="男"
+      >
+        <image class="profile-sheet__option-icon" src="/assets/icons/lucide/profile-male.svg" mode="aspectFit" />
+        <text class="profile-sheet__option-label">男</text>
+      </view>
+      <view
+        class="profile-sheet__option {{draftGender === 'female' ? 'is-active' : ''}}"
+        data-gender="female"
+        bindtap="selectGender"
+        aria-role="button"
+        aria-label="女"
+      >
+        <image class="profile-sheet__option-icon" src="/assets/icons/lucide/profile-female.svg" mode="aspectFit" />
+        <text class="profile-sheet__option-label">女</text>
+      </view>
+    </view>
+
+    <view class="profile-sheet__birth-row">
+      <text class="profile-sheet__label">出生年</text>
+      <picker
+        class="profile-sheet__birth-picker"
+        mode="selector"
+        range="{{birthYearOptions}}"
+        value="{{birthYearIndex}}"
+        bindchange="handleYearChange"
+        aria-role="button"
+        aria-label="选择出生年"
+      >
+        <view class="profile-sheet__birth-value">
+          <text class="profile-sheet__value">{{draftBirthYear}}</text>
+          <image class="profile-sheet__arrow" src="/assets/icons/lucide/chevron-down.svg" mode="aspectFit" />
+        </view>
+      </picker>
+    </view>
+
+    <view class="profile-sheet__submit" bindtap="handleSave" aria-role="button" aria-label="保存个人信息">保存</view>
+  </view>
+</view>

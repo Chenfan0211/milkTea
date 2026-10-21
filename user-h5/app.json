@@ -3,7 +3,9 @@
     "pages/launch/launch",
     "pages/home/home",
     "pages/menu/menu",
-    "pages/member/member",
+    "pages/product-detail/product-detail",
+    "pages/recommendation-stores/recommendation-stores",
+    "pages/tongue/tongue",
     "pages/orders/orders",
     "pages/profile/profile",
     "pages/auth-login/auth-login",
@@ -41,8 +43,11 @@
       "pages": [
         "resource-orders/resource-orders",
         "role-apply/role-apply",
+        "role-brew-records/role-brew-records",
         "role-commission/role-commission",
         "role-center/role-center",
+        "role-devices/role-devices",
+        "role-device-brew/role-device-brew",
         "role-income/role-income",
         "role-income-detail/role-income-detail",
         "role-income-records/role-income-records",
@@ -60,6 +65,10 @@
         "role-withdraw-rules/role-withdraw-rules",
         "role-workbench/role-workbench"
       ]
+    },
+    {
+      "root": "packageHealth",
+      "pages": ["pages/capture/capture", "pages/report/report", "pages/history/history"]
     }
   ],
   "entryPagePath": "pages/launch/launch",
@@ -91,8 +100,8 @@
         "text": "点单"
       },
       {
-        "pagePath": "pages/member/member",
-        "text": "会员专区"
+        "pagePath": "pages/tongue/tongue",
+        "text": "舌诊"
       },
       {
         "pagePath": "pages/orders/orders",

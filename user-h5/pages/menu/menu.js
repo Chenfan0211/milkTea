@@ -9,7 +9,8 @@ const {
   getMenuCatalog,
   getMenuSyncState
 } = require('../../utils/product-listing');
-const { buildCartId, mergeEditedCartItem, removeCartItems } = require('../../utils/cart');
+const { buildCartId, buildCartItem, mergeCartItem, mergeEditedCartItem, removeCartItems } = require('../../utils/cart');
+const { mergeRecommendationItems } = require('../../utils/recommendation-cart');
 const { buildStoreMarkers } = require('../../utils/store-markers');
 const { normalizeSpecProduct } = require('../../utils/spec-sheet');
 const { yuanToFen, fenToYuan } = require('../../utils/money');
@@ -304,8 +305,13 @@ Page(
       this.setTabBarHidden(false);
       // 清掉一次性来源标记：门店层开合已由 catalog 状态决定，不再依赖它分支
       this.returningFrom = '';
+      const pendingRecommendationCart = this.consumeRecommendationCart();
       this.consumeSettledCart();
-      this.refreshThenSync().then(() => this.notifyMenuLoadFailure());
+      this.refreshThenSync()
+        .then(() => {
+          if (pendingRecommendationCart) this.applyRecommendationCart(pendingRecommendationCart);
+        })
+        .then(() => this.notifyMenuLoadFailure());
     },
     /** 点击当前 Tab（已在点单页）时同样走统一入口，保证每次点进来都刷新。 */
     onTabItemTap() {
@@ -424,6 +430,54 @@ Page(
       const pickerStores = applyFavoriteState(resolveStoreCatalog().stores, getFavoriteStoreIds());
       this.setData({ pickerSearchKeyword: '', pickerStores });
     },
+
+    /** 读取独立门店页交来的一次性加购请求；消费后立即清空，避免切换 Tab 时重复触发。 */
+    consumeRecommendationCart() {
+      const app = getApp();
+      const pending = app.globalData.pendingRecommendationCart;
+      if (!pending || !Array.isArray(pending.items) || !pending.items.length) {
+        app.globalData.pendingRecommendationCart = null;
+        return null;
+      }
+      app.globalData.pendingRecommendationCart = null;
+      return pending;
+    },
+
+    /** 把独立门店页构建好的条目合并进购物车，并按当前门店菜单重算可售状态。 */
+    applyRecommendationCart(pending) {
+      const storeId = this.data.currentStore && this.data.currentStore.id;
+      const merged = mergeRecommendationItems(this.data.cartItems, pending.items || []);
+      const cartItems = merged.map(item => {
+        const listed = isProductListed(storeId, item.productId);
+        return Object.assign({}, item, {
+          listed,
+          selected: listed ? item.selected : false
+        });
+      });
+      const summary = summarizeCart(cartItems);
+      this.setData({
+        cartItems,
+        cartCount: summary.count,
+        cartTotal: summary.total,
+        cartVisible: cartItems.length > 0,
+        hasUnlistedInCart: cartItems.some(item => item.selected && item.listed === false)
+      });
+      this.showRecommendationCartResult(pending.missing || []);
+    },
+
+    /** 加购结果提示：全有售提示成功，部分缺货提示「已下架」。 */
+    showRecommendationCartResult(missing) {
+      if (!missing.length) {
+        wx.showToast({ title: '已加入购物车', icon: 'none' });
+        return;
+      }
+      const names = missing.map(item => item.name).filter(Boolean);
+      const title =
+        missing.length === 1 && names[0]
+          ? `${names[0]}已下架，其余已加入`
+          : `${missing.length}件商品已下架，其余已加入`;
+      wx.showToast({ title, icon: 'none' });
+    },
     /**
      * 门店选择层里选中门店。
      *
@@ -477,10 +531,13 @@ Page(
         .then(result => {
           wx.hideLoading();
           this.setData({ locating: false });
+          const deviceLocated =
+            result &&
+            (result.source === location.LOCATION_SOURCE.DEVICE || result.source === location.LOCATION_SOURCE.CACHE);
           const catalog = resolveStoreCatalog();
           this.syncGlobals(catalog);
           this.setData(this.buildCatalogUpdates(catalog, { openPicker: true }));
-          if (result && result.source === location.LOCATION_SOURCE.DEVICE) {
+          if (deviceLocated) {
             wx.showToast({ title: `已定位到${result.cityName || '当前位置'}`, icon: 'none' });
             this.refreshPickerRealDistance();
             return;
@@ -633,30 +690,19 @@ Page(
         storedValueDiscount,
         specText
       } = event.detail;
-      const selectedOptionIds = selectedOptions.map(option => option.id);
-      const cartId = buildCartId(product.id, selectedOptionIds);
-      const cartItems = this.data.cartItems.map(item => ({ ...item }));
-      const existing = cartItems.find(item => item.id === cartId);
-
-      if (existing) {
-        existing.quantity += quantity;
-      } else {
-        cartItems.push({
-          id: cartId,
-          productId: product.id,
-          selectedOptionIds,
-          name: product.name,
-          spec: specText,
-          price: unitPrice,
-          originalPrice,
-          storedValuePrice: storedValuePrice || 0,
-          storedValueDiscount: storedValueDiscount || 0,
+      const cartItems = mergeCartItem(
+        this.data.cartItems,
+        buildCartItem({
+          product,
+          selectedOptions,
           quantity,
-          selected: true,
-          listed: true,
-          image: product.image
-        });
-      }
+          unitPrice,
+          originalPrice,
+          storedValuePrice,
+          storedValueDiscount,
+          specText
+        })
+      );
 
       const summary = summarizeCart(cartItems);
       this.setTabBarHidden(false);

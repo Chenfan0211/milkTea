@@ -72,6 +72,11 @@
           版本锁定 0.2.14（0.2.x 系列稳定版）。
         -->
         <wechatpay-java.version>0.2.14</wechatpay-java.version>
+        <!--
+          阿里云轻量消息队列（原 MNS）SDK：茶机设备状态/冲泡记录队列消费。
+          版本锁定 1.3.1（1.x 系列稳定版，对应 MNS 原 API 协议）。
+        -->
+        <aliyun-sdk-mns.version>1.3.1</aliyun-sdk-mns.version>
     </properties>
 
     <dependencyManagement>
@@ -99,6 +104,29 @@
                 <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!--
+              阿里云轻量消息队列（原 MNS）SDK（茶机设备队列对接）。
+
+              版本集中在此声明，server 模块按需引用不带版本号。
+
+              为什么排除 jaxb-runtime：SDK 依赖的是 JAXB 2.x（javax.xml.bind 命名空间），
+              而 Spring Boot 3.3.x BOM 管理的 jaxb-runtime 是 4.x（jakarta 命名空间）。
+              两者包名不同、不可互换，被 BOM 顶掉会导致 SDK 运行时
+              NoClassDefFoundError: javax/xml/bind/...。故此处排除传递依赖，
+              需要 JAXB 的服务自行显式引入 2.3.x（见 server/pom.xml）。
+            -->
+            <dependency>
+                <groupId>com.aliyun.mns</groupId>
+                <artifactId>aliyun-sdk-mns</artifactId>
+                <version>${aliyun-sdk-mns.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.glassfish.jaxb</groupId>
+                        <artifactId>jaxb-runtime</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -34,6 +34,12 @@
       <image wx:if="{{store.queueIcon}}" class="store-list-card__status-icon" src="{{store.queueIcon}}" mode="aspectFit" />
       <text>{{store.statusText}}</text>
     </view>
+    <view wx:if="{{loading}}" class="store-list-card__availability store-list-card__availability--muted">
+      <text>正在加购...</text>
+    </view>
+    <view wx:elif="{{availability.text}}" class="store-list-card__availability store-list-card__availability--{{availability.tone}}">
+      <text>{{availability.text}}</text>
+    </view>
 
     <text class="store-list-card__address">{{store.address}}</text>
     <text class="store-list-card__hours">{{store.businessHours}}</text>

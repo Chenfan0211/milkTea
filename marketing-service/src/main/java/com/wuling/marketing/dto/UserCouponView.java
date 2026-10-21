@@ -32,7 +32,16 @@ public class UserCouponView {
     private Integer effectiveDelayDays;
     private LocalDateTime receiveTime;
     private LocalDateTime expireAt;
+    /**
+     * 此刻能不能拿去下单 / 核销。<b>不是「有没有过期」</b> —— 已使用、订单占用中、已过期都是 false。
+     */
     private Boolean usable;
+    /**
+     * 该券当前的归类是不是「已过期」（库表 EXPIRED，或仍是 UNUSED 但已过有效期）。
+     *
+     * <p>由服务端统一判定：前端不得再用 {@code usable == false} 推断过期 —— 已使用券同样是 usable=false。
+     */
+    private Boolean expired;
     private String status;
     private Long lockOrderId;
     private LocalDateTime useTime;

@@ -13,7 +13,7 @@
 const TAB_BAR_PAGES = [
   '/pages/home/home',
   '/pages/menu/menu',
-  '/pages/member/member',
+  '/pages/tongue/tongue',
   '/pages/orders/orders',
   '/pages/profile/profile'
 ];

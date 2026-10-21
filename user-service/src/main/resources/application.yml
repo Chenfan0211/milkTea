@@ -10,6 +10,11 @@ server:
 spring:
   application:
     name: wuling-user-service
+  servlet:
+    multipart:
+      # 舌象图片上传：单文件 5MB、整请求 6MB，与 file-service/网关保持一致
+      max-file-size: 5MB
+      max-request-size: 6MB
   # ---------- 数据库连接池（P0 统一显式配置） ----------
   # 默认 Spring Boot 的 maximum-pool-size=10、connection-timeout=30s 在
   # 高并发下会导致「连接池耗尽 -> 30s 死等 -> 雪崩」。这里统一显式收紧：
@@ -48,6 +53,22 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 app:
+  # 内部服务调用：不经网关（网关只路由 /api/v1/** 与 /auth/**），仅回环/内网可达。
+  internal:
+    # true = 本地 dev 直连 127.0.0.1；false = 通过 Nacos 服务名负载均衡
+    direct-connect: ${APP_INTERNAL_DIRECT_CONNECT:false}
+    # product-service 基址：舌象报告按商品名匹配商城商品卡
+    product-base: ${INTERNAL_PRODUCT_BASE:http://wuling-product-service}
+  # 舌象第三方服务：secret 必须由环境变量 TONGUE_APP_SECRET 注入，仓库不保存真实值
+  tongue:
+    base-url: ${TONGUE_BASE_URL:https://linkhealth.tcmbrain.com/hzsg}
+    app-key: ${TONGUE_APP_KEY:wlsg}
+    app-secret: ${TONGUE_APP_SECRET:}
+    app-id: ${TONGUE_APP_ID:100101}
+    connect-timeout: ${TONGUE_CONNECT_TIMEOUT:10s}
+    detection-read-timeout: ${TONGUE_DETECTION_READ_TIMEOUT:60s}
+    report-read-timeout: ${TONGUE_REPORT_READ_TIMEOUT:30s}
+    file-base-url: ${TONGUE_FILE_BASE_URL:http://wuling-file-service}
   # 请求日志开关（生产默认脱敏；排查时可临时置 true 输出全量参数，排查完务必关闭）
   log:
     request:

@@ -1,0 +1,494 @@
+{
+  "_note": "真实第三方报告接口响应摘录（2026-10-16 抓取，湿热质）：保留第三方原始 HTML 形态，用于小程序渲染模型回归。",
+  "id": 2,
+  "physique": "湿热质",
+  "summarize": "湿热质 约占所有人群的7.6%， 调理以清热利湿、疏肝健脾为核心。",
+  "reportStatus": "READY",
+  "createdAt": "2026-10-16T20:35:29",
+  "hasImage": true,
+  "productList": [
+    {
+      "goodsId": "08565bb048a54651ba26808ac4480da5",
+      "goodsName": "滇绿",
+      "reason": null,
+      "media": null
+    },
+    {
+      "goodsId": "3baf04675b794153987c59bac0bf2b2a",
+      "goodsName": "葛根枳椇茶",
+      "reason": null,
+      "media": null
+    },
+    {
+      "goodsId": "44c8d4cc3d0840c3aa1fa769330f9549",
+      "goodsName": "金银菊花茶",
+      "reason": null,
+      "media": null
+    },
+    {
+      "goodsId": "581fdd1c9a17439fa5789ad223cb8e76",
+      "goodsName": "绿茶",
+      "reason": null,
+      "media": null
+    },
+    {
+      "goodsId": "8dfc4399cf4446d08ffc702b35a6e5a9",
+      "goodsName": "茉莉花茶",
+      "reason": null,
+      "media": null
+    }
+  ],
+  "reportGroups": [
+    {
+      "id": "1",
+      "title": "概况",
+      "products": [],
+      "sections": [
+        {
+          "id": "1.1",
+          "level": 1,
+          "title": "体质概述",
+          "content": "<p style=\"text-align: justify;\">湿热质<font face=\"Calibri\">约占所有人群的7.6%，</font>调理以清热利湿、疏肝健脾为核心。</p>",
+          "descriptions": [],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "1.4",
+          "level": 1,
+          "title": "舌象分析",
+          "content": null,
+          "descriptions": [],
+          "media": null,
+          "analysis": {
+            "factors": [
+              {
+                "tongueType": "舌色",
+                "tongueVal": "红",
+                "highlight": "tongueColor"
+              },
+              {
+                "tongueType": "苔色",
+                "tongueVal": "白苔",
+                "highlight": ""
+              },
+              {
+                "tongueType": "舌形",
+                "tongueVal": "胖大,瘀斑,裂纹,齿痕",
+                "highlight": "tongueShape"
+              },
+              {
+                "tongueType": "苔质",
+                "tongueVal": "厚苔,腐苔",
+                "highlight": "mossQuality"
+              },
+              {
+                "tongueType": "津液",
+                "tongueVal": "燥苔",
+                "highlight": "bodyFluid"
+              }
+            ],
+            "features": [
+              {
+                "tongueType": "舌色指数",
+                "tongueVal": "1.27",
+                "difference": "3"
+              },
+              {
+                "tongueType": "苔色指数",
+                "tongueVal": "0.96",
+                "difference": "2"
+              },
+              {
+                "tongueType": "胖瘦指数",
+                "tongueVal": "1.44",
+                "difference": "3"
+              },
+              {
+                "tongueType": "厚薄指数",
+                "tongueVal": "1.30",
+                "difference": "3"
+              },
+              {
+                "tongueType": "腐腻指数",
+                "tongueVal": "1.63",
+                "difference": "1"
+              }
+            ]
+          }
+        },
+        {
+          "id": "1.5",
+          "level": 1,
+          "title": "健康特点",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【总体特征】",
+              "content": "体内湿热，以面垢油光、口苦、苔黄腻等表现为主要特征。"
+            },
+            {
+              "title": "【常见表现】",
+              "content": "<p>面垢油光，易生痤疮，口苦口干，身重困倦，大便黏滞不畅或燥结，小便短黄，男性易阴囊潮湿，女性易带下增多，舌质偏红，苔黄腻，脉滑数，易患痤疮、脂溢性脱发等病。</p>"
+            }
+          ],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "1.7",
+          "level": 1,
+          "title": "中医调理",
+          "content": "<p>1、湿热体质的调理应以清热利湿、疏肝健脾为核心；&nbsp;</p><p>2、饮食中应清淡，忌辛辣油腻及烟酒，多食用清热利湿的食物，如绿豆、苦瓜、冬瓜等；&nbsp;</p><p>3、保持良好的生活习惯，避免熬夜和过度劳累；适当进行体育锻炼，促进汗液排出；&nbsp;</p><p>4、必要时可结合中医药调理，如清热利湿的中成药或食疗方案，并遵医嘱进行药物治疗。</p>",
+          "descriptions": [],
+          "media": null,
+          "analysis": null
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "饮食",
+      "products": [
+        {
+          "goodsId": "2.6.1",
+          "goodsName": "滇绿",
+          "reason": "【推荐理由】 滇绿性寒，滋味浓醇，具有清热利湿、解毒降火的作用，适合湿热体质面垢油光、口干口苦者，可帮助清除体内湿热。",
+          "media": {
+            "kind": "IMAGE",
+            "thumbnail": null,
+            "source": null
+          }
+        },
+        {
+          "goodsId": "2.6.2",
+          "goodsName": "葛根枳椇茶",
+          "reason": "【推荐理由】 葛根解酒毒，枳椇子利尿，缓解酒后头痛、恶心等湿热症状。",
+          "media": {
+            "kind": "IMAGE",
+            "thumbnail": null,
+            "source": null
+          }
+        },
+        {
+          "goodsId": "2.6.3",
+          "goodsName": "金银菊花茶",
+          "reason": "【推荐理由】 金银花、菊花清热解毒，疏散风热，适合夏季湿热导致的痤疮、目赤肿痛。",
+          "media": {
+            "kind": "IMAGE",
+            "thumbnail": null,
+            "source": null
+          }
+        },
+        {
+          "goodsId": "2.6.4",
+          "goodsName": "绿茶",
+          "reason": "【推荐理由】 绿茶性寒，清热解毒、利尿除湿，适合湿热体质面垢油光、口苦口臭者，可有效清除体内湿热。",
+          "media": {
+            "kind": "IMAGE",
+            "thumbnail": null,
+            "source": null
+          }
+        },
+        {
+          "goodsId": "2.6.5",
+          "goodsName": "茉莉花茶",
+          "reason": "【推荐理由】 茉莉花茶性凉，清香解郁，能清热利湿、解毒除烦，适合湿热体质口苦口臭、小便黄赤者，夏季饮用尤佳。",
+          "media": {
+            "kind": "IMAGE",
+            "thumbnail": null,
+            "source": null
+          }
+        }
+      ],
+      "sections": []
+    },
+    {
+      "id": "3",
+      "title": "穴位",
+      "products": [],
+      "sections": [
+        {
+          "id": "3.1",
+          "level": 1,
+          "title": "穴位调理方式",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【调理原则】",
+              "content": "湿热体质常表现为体内湿热交织，穴位调理时需清热利湿，调和体内阴阳。"
+            },
+            {
+              "title": "【穴位选取】",
+              "content": "选取三阴交、阴陵泉等穴位，以清热泻火，利湿排浊。"
+            }
+          ],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "3.2",
+          "level": 1,
+          "title": "穴位操作",
+          "content": null,
+          "descriptions": [],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "3.2.1",
+          "level": 2,
+          "title": "阴陵泉穴",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【定位】",
+              "content": "属足太阴脾经，位于小腿内侧，胫骨内侧髁下缘与胫骨内侧缘之间的凹陷中。"
+            },
+            {
+              "title": "【手法】",
+              "content": "此穴可采用指揉或拍打的方法，以穴位感到酸胀为度，每穴操作2～3分钟，每天1～2次。"
+            },
+            {
+              "title": "【功效】",
+              "content": "具有健脾利水、通利三焦之功效。"
+            }
+          ],
+          "media": {
+            "kind": "VIDEO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/e14dfeb1-6865-4666-a6c6-a1c9d4d4acab.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/7c59eb46-bf17-4447-89d7-6f1786535baf.mp4"
+          },
+          "analysis": null
+        },
+        {
+          "id": "3.2.2",
+          "level": 2,
+          "title": "三阴交穴",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【定位】",
+              "content": "为足太阴脾经常用腧穴之一，位于小腿内侧，当足内踝尖上3寸。采用同身取穴法，3寸也就是4个手横指距离。"
+            },
+            {
+              "title": "【手法】",
+              "content": "此穴可采用指揉的方法，以穴位感到酸胀为度，每个穴位按揉2～3分钟，每天操作1～2次。"
+            },
+            {
+              "title": "【功效】",
+              "content": "可达到活血调经，益气健脾，培补肝肾等作用。"
+            }
+          ],
+          "media": {
+            "kind": "VIDEO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/0c25f062-812a-4984-b959-828e16ae53b0.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/f0d3809b-534a-4735-9726-3a25b172a0f9.mp4"
+          },
+          "analysis": null
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "title": "情志",
+      "products": [],
+      "sections": [
+        {
+          "id": "4.1",
+          "level": 1,
+          "title": "情志调理方式",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【情志表现】",
+              "content": "性格急躁，情绪容易波动，容易心烦意乱。"
+            },
+            {
+              "title": "【调理原则】",
+              "content": "保持心情平和，避免过度紧张和焦虑，可常听古筝、琴、鼓等乐器。"
+            }
+          ],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "4.2",
+          "level": 1,
+          "title": "调体音乐",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【五脏相音】",
+              "content": "<p>多听宫音、羽音，健脾化湿，滋阴清热；缓解倦怠无力，虚火上炎、心烦失眠。</p><p><br></p><p><b>&nbsp;宫音：</b>代表乐《流水》，主调和脾胃，促进全身气机稳定；可稳定心理，如缓解比赛前情绪紧张。&nbsp;</p><p><b>羽音：</b>代表乐《梅花三弄》，主调节肾气，促进全身气机的下降；可镇定安神，抑制兴奋，帮助入眠。</p>"
+            },
+            {
+              "title": "【推荐乐曲】",
+              "content": "可选《梅花三弄》《流水》《春江花月夜》《月光奏鸣曲》等"
+            }
+          ],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "4.2.1",
+          "level": 2,
+          "title": "《梅花三弄》",
+          "content": null,
+          "descriptions": [],
+          "media": {
+            "kind": "AUDIO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/09f36273-06c8-4e91-a0c3-0a75592c75aa.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/97bce675-c13e-4aca-b8ed-0a12929b889f.mp3"
+          },
+          "analysis": null
+        },
+        {
+          "id": "4.2.2",
+          "level": 2,
+          "title": "《流水》",
+          "content": null,
+          "descriptions": [],
+          "media": {
+            "kind": "AUDIO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/ffb80e00-3dbf-43a7-87f6-968112d97878.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/02d30bdf-a5ae-437c-a813-1ae1e19bfba7.mp3"
+          },
+          "analysis": null
+        },
+        {
+          "id": "4.3",
+          "level": 1,
+          "title": "呼吸冥想",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【简介】",
+              "content": "冥想(Meditation)是一种觉知运动，并非锻炼肌肉，而是人体的神经系统。通过停止思想，把注意力聚焦于呼吸、身体感觉、肌肉伸展等方式，来提高觉知力、改善情绪。"
+            },
+            {
+              "title": "【作用原理】",
+              "content": "现代神经科学借助 fMRI 等影像技术，证明冥想会缩小杏仁核、增加前额叶皮层厚度，有效抑制焦虑、抑郁情绪，并增强注意力、认知能力、记忆力。"
+            }
+          ],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "4.3.1",
+          "level": 2,
+          "title": "什么是冥想",
+          "content": null,
+          "descriptions": [],
+          "media": {
+            "kind": "VIDEO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/266a1790-745f-4f2b-9569-f33b4575bfb7.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/4aa0f1e0-8326-40cd-bf8e-a01e693462a1.mp4"
+          },
+          "analysis": null
+        },
+        {
+          "id": "4.3.2",
+          "level": 2,
+          "title": "如何应对压力",
+          "content": null,
+          "descriptions": [],
+          "media": {
+            "kind": "VIDEO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/f9adf6fc-e9d1-4528-9f4b-6a45df6c9d6c.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/5edbb067-3c48-412a-812d-97de3347d7ef.mp4"
+          },
+          "analysis": null
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "运动",
+      "products": [],
+      "sections": [
+        {
+          "id": "5.1",
+          "level": 1,
+          "title": "运动调理方式",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【调理方法】",
+              "content": "<p>1、湿热质者湿浊内阻，阳气偏盛，平时可适当增加长跑、游泳、登山、武术、球类等运动强度较大的活动将体内多余阳气散发出来，或者俯卧撑、引体向上、杠铃等力量训练｡&nbsp;</p><p>2、在大负荷的运动中，能消耗体内多余的热量，通过出汗，排泄体内多余的水分，以清热除湿，纠正体质偏颇。</p>"
+            },
+            {
+              "title": "【注意事项】",
+              "content": "<p>1、运动应避开暑期闷热的环境｡&nbsp;</p><p>2、运动出汗后及时更换潮湿衣服，避免吹风受寒。</p>"
+            }
+          ],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "5.2",
+          "level": 1,
+          "title": "中医健身功法",
+          "content": null,
+          "descriptions": [],
+          "media": null,
+          "analysis": null
+        },
+        {
+          "id": "5.2.1",
+          "level": 2,
+          "title": "《八段锦》",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【简介】",
+              "content": "功法分为八段，每段一个动作，故名“八段锦”;无需器械，简单易学，作用极其显著;适合于男女老少，可使瘦者健壮，肥者减肥。&nbsp;"
+            }
+          ],
+          "media": {
+            "kind": "VIDEO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/01899b51-4924-40d9-8745-123cfa14cb43.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/7ef0e373-8903-485d-a916-ae23100bf674.mp4"
+          },
+          "analysis": null
+        },
+        {
+          "id": "5.2.2",
+          "level": 2,
+          "title": "《六字诀》",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【简介】",
+              "content": "六字诀是以呼吸吐纳为主，配合嘘、呵、呼、呬、吹、嘻6种独特的吐音方法，调整肝、心、脾、肺、肾、三焦乃至全身的气机运行。"
+            }
+          ],
+          "media": {
+            "kind": "VIDEO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/7b3329f5-cec7-429c-aea9-8ccd4e910c06.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/3dbb65fa-777b-4913-820c-cdb3b2b8f37d.mp4"
+          },
+          "analysis": null
+        },
+        {
+          "id": "5.2.3",
+          "level": 2,
+          "title": "《明目功》",
+          "content": null,
+          "descriptions": [
+            {
+              "title": "【简介】",
+              "content": "明目功动静结合、练形养气，特别适合用眼过度群体，科学测试表明，具有改善视力、调节眼局部组织功能、优化整体身心状态等显著作用。"
+            }
+          ],
+          "media": {
+            "kind": "VIDEO",
+            "thumbnail": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/5321400e-088f-4ead-a892-4dea11502209.jpg",
+            "source": "https://linkhealth.tcmbrain.com/tongue/preview/other/20240716/e19a0f18-c7aa-4500-9b1b-39eb46da9acf.mp4"
+          },
+          "analysis": null
+        }
+      ]
+    }
+  ]
+}

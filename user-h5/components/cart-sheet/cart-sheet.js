@@ -27,7 +27,12 @@ function summarize(items) {
 Component({
   properties: {
     visible: { type: Boolean, value: false },
-    items: { type: Array, value: [] }
+    placement: { type: String, value: 'tabbar' },
+    items: { type: Array, value: [] },
+    showCheckout: { type: Boolean, value: false },
+    checkoutLabel: { type: String, value: '去结算' },
+    showEdit: { type: Boolean, value: true },
+    offsetForTabbar: { type: Boolean, value: true }
   },
   data: {
     summary: summarize([])

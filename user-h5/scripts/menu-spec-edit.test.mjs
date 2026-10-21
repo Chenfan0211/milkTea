@@ -1313,7 +1313,7 @@ const tabPaths = [...tabBarJs.matchAll(/pagePath:\s*'([^']+)'/g)].map(match => m
 assert.equal(tabPaths.length, 5, '底部导航必须保留五个 Tab 页面');
 assert.deepEqual(
   tabPaths,
-  ['/pages/home/home', '/pages/menu/menu', '/pages/member/member', '/pages/orders/orders', '/pages/profile/profile'],
+  ['/pages/home/home', '/pages/menu/menu', '/pages/tongue/tongue', '/pages/orders/orders', '/pages/profile/profile'],
   '底部导航路径必须与五个 Tab 页面逐项一致'
 );
 assert.ok(
@@ -1806,7 +1806,7 @@ assert.ok(
     /\.cart-sheet__panel\s*\{[\s\S]*?position:\s*absolute/.test(cartSheetWxss),
   '购物车必须包含遮罩和底部弹层'
 );
-assert.ok(/\.cart-sheet__list\s*\{[\s\S]*?height:\s*230rpx/.test(cartSheetWxss), '购物车商品列表必须使用固定可视高度');
+assert.ok(/\.cart-sheet__list\s*\{[\s\S]*?height:\s*510rpx/.test(cartSheetWxss), '购物车商品列表必须使用固定可视高度');
 // 阶段 C 假数据清理：购物车不再预置商品，初始必须为空且不使用本地 mock 数据。
 assert.equal(initialCartItems, undefined, 'data/mock.js 不得再导出 initialCartItems 假数据');
 assert.ok(!menuJs.includes('initialCartItems'), '点单页不得再引用本地购物车假数据');

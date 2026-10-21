@@ -35,7 +35,6 @@ const EMPTY_PROFILE = {
   vipLevel: '',
   nextLevel: '',
   totalSpend: 0,
-  couponCount: 0,
   balance: 0,
   points: 0,
   growth: 0
@@ -59,7 +58,10 @@ function normalizeRemoteProfile(user) {
     nextLevel: '',
     // totalSpend 后端为「分」，前端按「元」展示（成长值 = 累计消费，1 元 = 1 成长值）
     totalSpend: roundMoney((Number(user.totalSpend) || 0) / 100),
-    couponCount: 0,
+    // 注意：此处**不得**放置 couponCount 之类的「券包派生字段」。
+    // /auth/me 不返回券数量，历史上这里写死 couponCount: 0，页面一旦用它渲染，
+    // 就会把券包接口刚取到的真实张数覆盖成 0（见 profile.js 的资产卡重算）。
+    // 优惠券张数唯一数据源是 utils/coupons 的缓存，页面请用 getUsableCouponCount()。
     // balance 后端为「分」，前端按「元」展示（保留 2 位小数，禁止 Math.round 取整丢分）
     balance: roundMoney((Number(user.balance) || 0) / 100),
     points: Number(user.points) || 0,

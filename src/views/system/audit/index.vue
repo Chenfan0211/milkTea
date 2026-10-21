@@ -23,7 +23,11 @@ const moduleOptions = computed(() => {
 const moduleLabels: Record<string, string> = {
   AUTH: '鉴权',
   PAY: '支付',
-  WITHDRAW: '提现'
+  WITHDRAW: '提现',
+  // 优惠券（含过期归档任务写入的 COUPON/EXPIRE_SWEEP）
+  COUPON: '优惠券',
+  // 设备台账删除/恢复（慧养智萃茶机对接）：删除原因写在 audit_log.reason
+  DEVICE: '设备'
 };
 
 const actionLabels: Record<string, string> = {
@@ -43,7 +47,9 @@ const actionLabels: Record<string, string> = {
   BIND: '绑定',
   UNBIND: '解绑',
   ENABLE: '启用',
-  DISABLE: '停用'
+  DISABLE: '停用',
+  RESTORE: '恢复',
+  EXPIRE_SWEEP: '过期归档'
 };
 
 function moduleText(v: any) {

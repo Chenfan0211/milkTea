@@ -58,6 +58,30 @@ class AdminRbacGuardTest {
                 "迁移中未出现 R_SUPER —— 超管唯一性回填逻辑可能丢失");
     }
 
+    /**
+     * 收集所有「写入 sys_menu 种子」的迁移文件。
+     *
+     * <p>为什么不是只读 V39：V39 已在生产执行，Flyway 校验 checksum，
+     * <b>已应用的迁移不可修改</b>；后续新增菜单只能放在新迁移里
+     * （见 V52、V76 的做法）。只盯死 V39 会让「新菜单」与守卫互相打架，
+     * 因此这里按内容自动发现全部菜单种子迁移，守卫意图（每个前端路由都要有菜单登记）保持不变。
+     */
+    private static List<Path> menuSeedMigrations(Path root) throws IOException {
+        Path dir = root.resolve("server/src/main/resources/db/migration");
+        List<Path> all = new java.util.ArrayList<>();
+        try (var s = Files.list(dir)) {
+            s.filter(f -> f.getFileName().toString().endsWith(".sql")).sorted().forEach(all::add);
+        }
+        List<Path> seeds = new java.util.ArrayList<>();
+        for (Path f : all) {
+            String sql = Files.readString(f, StandardCharsets.UTF_8);
+            if (sql.contains("INSERT INTO sys_menu") || sql.contains("INSERT INTO `sys_menu`")) {
+                seeds.add(f);
+            }
+        }
+        return seeds;
+    }
+
     /** 2) 前端路由表里的每个菜单 code，迁移种子数据里都要有（防止动态菜单模式下菜单凭空消失） */
     @Test
     void migrationSeedShouldCoverEveryFrontendMenu() throws IOException {
@@ -69,7 +93,14 @@ class AdminRbacGuardTest {
         }
 
         String routeSrc = Files.readString(routes, StandardCharsets.UTF_8);
-        String seed = Files.readString(migration, StandardCharsets.UTF_8);
+        List<Path> seedMigrations = menuSeedMigrations(root);
+        assertTrue(seedMigrations.size() >= 3,
+                "只发现 " + seedMigrations.size() + " 个菜单种子迁移（预期至少 V39/V52/V76）—— 解析逻辑可能失效");
+        StringBuilder seedBuilder = new StringBuilder();
+        for (Path f : seedMigrations) {
+            seedBuilder.append(Files.readString(f, StandardCharsets.UTF_8)).append('\n');
+        }
+        String seed = seedBuilder.toString();
 
         // 逐个路由 name 检查（只查 name: 'xxx' 形式，足够覆盖本项目的路由写法）
         List<String> missing = new java.util.ArrayList<>();
@@ -179,6 +210,19 @@ class AdminRbacGuardTest {
                         + "动态菜单模式下前端拿不到任何菜单");
         assertTrue(route.contains("menuCodesOf"),
                 "/route/isRouteExist 未按账号菜单判定 —— 恒返回 true 会绕过 403 逻辑");
+    }
+
+    /** 设备管理所有接口必须在进入业务服务前校验 subject_device 菜单权限。 */
+    @Test
+    void deviceControllerMustGuardEveryEndpointWithDeviceMenu() throws IOException {
+        String controller = readIfExists(repoRoot().resolve(
+                "server/src/main/java/com/wuling/device/controller/AdminDeviceController.java"));
+        assertTrue(controller.contains("rbacGuard.assertMenuAccess(\"subject_device\""),
+                "设备接口未统一校验 subject_device 菜单权限");
+        long guardCalls = controller.lines().filter(line -> line.contains("assertDeviceMenu(")
+                && !line.contains("private void")).count();
+        assertTrue(guardCalls >= 9,
+                "设备管理每个端点都必须先调用 assertDeviceMenu，实际仅发现 " + guardCalls + " 处");
     }
 
     /** 5) 菜单重命名只能改 name，不能顺手改动路由或权限锚点。 */

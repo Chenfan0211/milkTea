@@ -40,14 +40,25 @@ public class DlqMonitor {
 
     private static final Logger log = LoggerFactory.getLogger(DlqMonitor.class);
 
-    /** 被监控的 DLQ 列表（与 MqConstants 中的定义保持一致） */
-    private static final List<String> MONITORED = List.of(
+    /**
+     * 被监控的 DLQ 列表（与 MqConstants 中的定义保持一致）。
+     *
+     * <p>刻意保持包级可见（而非 private）：DlqMonitorTest 必须按同一份清单造桩，
+     * 否则「新增 DLQ 却忘了同步测试桩」会让队列被误判为「不存在」而刷 WARNING ——
+     * 2026-10 新增 COUPON_EVENT_DLQ / DEVICE_MESSAGE_DLQ 时就是这样把 4 个用例跑红的。
+     */
+    static final List<String> MONITORED = List.of(
             MqConstants.ORDER_TIMEOUT_DLQ,
             MqConstants.PAYMENT_SUCCESS_DLQ,
             MqConstants.SETTLEMENT_NOTIFY_DLQ,
             MqConstants.FINANCE_SPLIT_DLQ,
             MqConstants.FINANCE_REVERSE_DLQ,
-            MqConstants.EXCHANGE_VERIFY_DLQ
+            MqConstants.EXCHANGE_VERIFY_DLQ,
+            MqConstants.COUPON_EVENT_DLQ,
+            // 茶机设备消息（慧养智萃对接）：解析/落库重试超限后进该队列。
+            // 设备数据不进资金链路，但「一直接收不到设备数据」很难被业务侧察觉，
+            // 必须靠 DLQ 告警主动暴露，否则只能等运营发现后台没有新记录。
+            MqConstants.DEVICE_MESSAGE_DLQ
     );
 
     private final AmqpAdmin amqpAdmin;

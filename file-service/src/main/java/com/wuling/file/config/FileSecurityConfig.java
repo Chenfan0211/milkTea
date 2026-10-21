@@ -41,6 +41,8 @@ public class FileSecurityConfig implements WebMvcConfigurer {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/files/**").permitAll()
+                        // 内部接口不注册网关路由，仅供服务间调用；不要为它增加公开管理入口。
+                        .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         // ERROR 转发不能再次被认证链拦截，否则业务异常会被误报为 401。
                         .requestMatchers("/error").permitAll()

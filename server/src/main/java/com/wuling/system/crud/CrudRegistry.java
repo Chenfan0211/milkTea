@@ -44,7 +44,9 @@ public final class CrudRegistry {
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),
                     List.of("item_code", "item_name"), "sort asc, id asc", List.of("dict_type"))),
             // 字典类型：为「数据字典」页提供 分组编码 -> 中文名（dict_name）的唯一来源。
-            // writable 留空 => 只读资源，前端即使误调写接口也会被白名单全部丢弃，不产生写风险。
+            // writable 留空 => 只读资源；写接口由 CrudService#guardReadOnly 直接 400。
+            // 只靠字段白名单是拦不住的：删除动作的 payload 是空的，白名单全部丢弃等于不校验，
+            // delete() 会直接 set deleted = 1（曾实测把事实数据软删掉）。
             Map.entry("dictTypes", new Resource("dictTypes", "sys_dict_type",
                     List.of(),
                     List.of("dict_type", "dict_name"), "dict_type asc")),
@@ -227,7 +229,25 @@ public final class CrudRegistry {
             // 运营配置（首页入口 / 活动说明 / 我的页宫格 / 城市 / 签到规则文案）
             Map.entry("appConfig", new Resource("appConfig", "app_config",
                     List.of("config_key", "config_name", "value", "sort", "status", "remark"),
-                    List.of("config_key", "config_name"), "sort asc, id asc"))
+                    List.of("config_key", "config_name"), "sort asc, id asc")),
+
+            // ---------- 茶机设备（对接杭州智萃谷 MNS 队列，V75 建表） ----------
+            // 冲泡记录 / 状态流水都是【设备上报的事实数据】，后台只读：
+            //   · writable 留空 => 只读资源，写接口由 CrudService#guardReadOnly 直接 400，
+            //     设备上报的事实数据不能被后台改删（页面也不提供写入口）；
+            //   · 门店名是写入时刻的快照（设备可能换绑），列表直接读，不做实时 join；
+            //   · 时间筛选走 CrudController 的 ge_/lt_ 前缀（左闭右开），
+            //     故 base_create_time 必须进 filterable 白名单。
+            Map.entry("deviceBrewRecords", new Resource("deviceBrewRecords", "device_brew_record",
+                    List.of(),
+                    List.of("device_sn", "tea_code", "tea_name", "store_name"),
+                    "base_create_time desc, id desc",
+                    List.of("store_subject_id", "device_sn", "made_day", "base_create_time"))),
+            Map.entry("deviceStatusLogs", new Resource("deviceStatusLogs", "device_status_log",
+                    List.of(),
+                    List.of("device_sn"),
+                    "id desc",
+                    List.of("device_sn", "store_subject_id", "base_create_time")))
     );
 
     private CrudRegistry() {

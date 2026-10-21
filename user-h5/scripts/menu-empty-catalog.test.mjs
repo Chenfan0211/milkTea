@@ -457,13 +457,14 @@ assert.ok(getMenuCatalog().length > 0, '刷新失败必须保留旧镜像，不�
   assert.ok(priceBody, '必须能定位到服务端同口径计价函数体');
   const body = priceBody[1];
 
+  assert.ok(/item\.priceMode\s*===\s*['"]sale['"]/.test(body), '计价函数必须识别详情页最终售价模式');
   assert.ok(
     /calcMemberPrice\(/.test(body),
-    '计价函数必须调用 calcMemberPrice 计算会员价，不得直接用 item.price（会漏掉折扣）'
+    '默认会员价路径必须继续调用 calcMemberPrice，不得把 sale 模式扩散到普通点单'
   );
   assert.ok(
     /originalPrice\s*\|\|\s*item\.price/.test(body),
-    '计价函数必须以商品原价（originalPrice）为打折基数，与卡片/弹层/后端一致'
+    '默认会员价路径仍必须以商品原价（originalPrice）为打折基数'
   );
   assert.ok(
     /calcMemberPrice\s*=\s*require/.test(confirmJs.replace(/\n\s*/g, ' ')) ||

@@ -1,0 +1,221 @@
+/* 门店经营角色 · 冲泡记录（只读）：三段式固定型骨架（固定筛选头 + 独立滚动区） */
+.brew-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.brew-toolbar {
+  flex: none;
+  padding: 20rpx var(--page-gutter);
+  background: var(--card-bg);
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+/* 搜索框：与门店选品页同款结构（图标 + 输入 + 清空） */
+.brew-search {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  margin-bottom: 20rpx;
+  padding: 0 20rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-pill);
+}
+
+.brew-search__icon {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+}
+
+.brew-search__input {
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.brew-search__placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-base);
+}
+
+.brew-search__clear {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  margin-left: 8rpx;
+}
+
+.brew-search__clear-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.brew-toolbar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brew-toolbar__summary {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.brew-toolbar__refresh {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 56rpx;
+  margin-left: 16rpx;
+  padding: 0 20rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.brew-toolbar__refresh-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+}
+
+.brew-toolbar__refresh-text {
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+}
+
+.brew-ranges {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+}
+
+.brew-range {
+  height: 56rpx;
+  margin-right: 16rpx;
+  padding: 0 24rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 56rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-pill);
+}
+
+.brew-range.is-active {
+  color: #ffffff;
+  background: var(--brand-green);
+}
+
+.brew-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.brew-scroll__inner {
+  padding: 20rpx var(--page-gutter) 0;
+}
+
+.brew-loading,
+.brew-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320rpx;
+}
+
+.brew-loading__text,
+.brew-error__text {
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.brew-error {
+  flex-direction: column;
+}
+
+.brew-error__action {
+  margin-top: 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.brew-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.brew-card {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+}
+
+.brew-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.brew-card__tea {
+  flex: 1;
+  min-width: 0;
+  margin-right: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.brew-card__time {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.brew-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.brew-card__label {
+  flex: none;
+  margin-right: 20rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.brew-card__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: right;
+}
+
+.brew-end {
+  padding: 20rpx 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.brew-safe {
+  height: calc(20rpx + env(safe-area-inset-bottom));
+}

@@ -2,6 +2,7 @@ package com.wuling.auth.service;
 
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.security.AdminUser;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -63,8 +64,29 @@ public class AdminRbacGuard {
 
     /** 当前登录账号是否为超管（未登录/非管理端上下文时返回 false） */
     public boolean currentIsSuper() {
-        Long userId = com.wuling.security.AdminUser.getUserId();
+        Long userId = AdminUser.getUserId();
         return userId != null && isSuperAccount(userId);
+    }
+
+    /** 当前操作者必须拥有指定菜单权限；超级管理员直通。 */
+    public void assertMenuAccess(String menuCode, String action) {
+        if (currentIsSuper()) {
+            return;
+        }
+        Long userId = AdminUser.getUserId();
+        if (userId == null) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权执行该操作：" + action);
+        }
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(distinct m.id) from sys_menu m "
+                        + "join sys_role_menu rm on rm.menu_id = m.id and rm.deleted = 0 "
+                        + "join sys_role r on r.id = rm.role_id and r.deleted = 0 and r.status = 1 "
+                        + "join sys_user_role ur on ur.role_id = r.id and ur.deleted = 0 "
+                        + "where ur.user_id = ? and m.deleted = 0 and m.code = ?",
+                Integer.class, userId, menuCode);
+        if (count == null || count == 0) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权执行该操作：" + action);
+        }
     }
 
     /**

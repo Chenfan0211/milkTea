@@ -1,5 +1,6 @@
 Component({
   properties: {
+    placement: { type: String, value: 'tabbar' },
     count: { type: Number, value: 2 },
     total: { type: Number, value: 16 }
   },

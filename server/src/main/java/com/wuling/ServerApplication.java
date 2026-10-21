@@ -13,7 +13,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "com.wuling.auth.mapper",
         "com.wuling.subject.mapper",
         "com.wuling.system.mapper",
-        "com.wuling.finance.mapper"
+        "com.wuling.finance.mapper",
+        "com.wuling.device.mapper"
 })
 public class ServerApplication {
 

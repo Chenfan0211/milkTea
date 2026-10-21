@@ -15,7 +15,9 @@ const REFERRER_PARAM = 'referrerId';
 const PAGE_SHARE_TITLES = {
   'pages/home/home': '五零时光新中式养生茶饮',
   'pages/menu/menu': '五零时光点单',
-  'pages/member/member': '五零时光会员专区',
+  'pages/product-detail/product-detail': '五零时光商品详情',
+  'pages/recommendation-stores/recommendation-stores': '五零时光选择门店',
+  'pages/tongue/tongue': '五零时光舌象体质检测',
   'pages/member-level-rules/member-level-rules': '五零时光会员等级说明',
   'pages/orders/orders': '五零时光订单',
   'pages/profile/profile': '五零时光会员中心',
@@ -45,6 +47,9 @@ const PAGE_SHARE_TITLES = {
   'packageRole/role-verify/role-verify': '五零时光核销订单',
   'packageRole/role-products/role-products': '五零时光门店选品',
   'packageRole/role-product-detail/role-product-detail': '五零时光商品详情',
+  'packageRole/role-devices/role-devices': '五零时光门店设备',
+  'packageRole/role-brew-records/role-brew-records': '五零时光冲泡记录',
+  'packageRole/role-device-brew/role-device-brew': '五零时光设备冲泡明细',
   'packageRole/role-commission/role-commission': '五零时光月度分佣',
   'packageRole/role-income/role-income': '五零时光经营收益',
   'packageRole/role-invest/role-invest': '五零时光点位投资申请',
@@ -74,6 +79,7 @@ const PRIVATE_PAGES = new Set([
   'pages/order-detail/order-detail',
   'pages/order-confirm/order-confirm',
   'pages/pay-success/pay-success',
+  'pages/recommendation-stores/recommendation-stores',
   'pages/points-detail/points-detail',
   'pages/exchange-records/exchange-records',
   'pages/member-rights/member-rights',
@@ -83,6 +89,9 @@ const PRIVATE_PAGES = new Set([
   'packageRole/role-verify/role-verify',
   'packageRole/role-products/role-products',
   'packageRole/role-product-detail/role-product-detail',
+  'packageRole/role-devices/role-devices',
+  'packageRole/role-brew-records/role-brew-records',
+  'packageRole/role-device-brew/role-device-brew',
   'packageRole/role-commission/role-commission',
   'packageRole/role-income/role-income',
   'packageRole/role-invest/role-invest',
@@ -104,7 +113,8 @@ const SAFE_SHARE_PARAMS = {
   'pages/gift-card-purchase/gift-card-purchase': ['id'],
   'pages/coupon-stores/coupon-stores': ['couponId'],
   'pages/coupon-products/coupon-products': ['couponId', 'storeId'],
-  'pages/city-picker/city-picker': ['city']
+  'pages/city-picker/city-picker': ['city'],
+  'pages/product-detail/product-detail': ['productId']
 };
 
 function normalizeRoute(route) {

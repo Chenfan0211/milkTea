@@ -1,0 +1,550 @@
+.report-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    var(--health-gradient-top) 0%,
+    var(--health-gradient-mid) 30%,
+    var(--page-bg-neutral) 52%,
+    var(--page-bg-neutral) 100%
+  );
+}
+
+.report-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.report-content {
+  padding: 24rpx 32rpx 48rpx;
+}
+
+.report-loading,
+.report-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 600rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.report-error__icon {
+  width: 72rpx;
+  height: 72rpx;
+  margin-bottom: 20rpx;
+}
+
+.report-error__retry {
+  margin-top: 24rpx;
+  padding: 0 24rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  line-height: 64rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.report-record {
+  padding: 28rpx 32rpx;
+  background: var(--health-surface-tint);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.report-record__label {
+  display: block;
+  color: var(--brand-dark);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.report-record__value {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.report-record__time {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.report-panel {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.report-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.report-panel__title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.report-panel__hint {
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.report-tabs {
+  display: flex;
+  margin-top: 20rpx;
+  padding: 6rpx;
+  background: var(--health-tab-track);
+  border-radius: var(--radius-pill);
+}
+
+.report-tabs__item {
+  flex: 1;
+  color: var(--brand-dark);
+  font-size: var(--font-sm);
+  line-height: 60rpx;
+  text-align: center;
+  border-radius: var(--radius-pill);
+}
+
+.report-tabs__item.is-active {
+  color: var(--card-bg);
+  font-weight: 600;
+  background: var(--health-tab-active);
+}
+
+.report-status {
+  margin-top: 20rpx;
+  padding: 16rpx 24rpx;
+  color: var(--brand-dark);
+  font-size: var(--font-sm);
+  background: var(--brand-soft);
+  border-radius: var(--radius-md);
+}
+
+.report-empty {
+  margin-top: 20rpx;
+  padding: 80rpx 24rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.report-card {
+  margin-top: 20rpx;
+  padding: 28rpx 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.report-card__title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.report-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.report-card__add-all {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 56rpx;
+  margin-left: 20rpx;
+  padding: 0 20rpx;
+  color: var(--card-bg);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
+.report-card__add-all-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+}
+
+.report-text {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.report-chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.report-chip {
+  margin: 0 12rpx 12rpx 0;
+  padding: 8rpx 20rpx;
+  color: var(--brand-dark);
+  font-size: var(--font-sm);
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.report-analysis {
+  margin-top: 16rpx;
+}
+
+.report-analysis__grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.report-analysis__cell {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  padding: 12rpx 0;
+}
+
+.report-analysis__label {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.report-analysis__value {
+  margin-top: 4rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.report-analysis__indices {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+  padding: 8rpx 0;
+  background: var(--health-surface-tint);
+  border-radius: var(--radius-md);
+}
+
+.report-analysis__index {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 33.33%;
+  padding: 12rpx 0;
+}
+
+.report-analysis__index-label {
+  color: var(--text-secondary);
+  font-size: var(--font-caption);
+}
+
+.report-analysis__index-value {
+  margin-top: 4rpx;
+  color: var(--brand-dark);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.report-descriptions {
+  margin-top: 16rpx;
+}
+
+.report-description {
+  margin-top: 12rpx;
+  padding: 16rpx;
+  background: var(--health-surface-tint);
+  border-radius: var(--radius-md);
+}
+
+.report-description__title {
+  display: block;
+  color: var(--brand-dark);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.report-description__text {
+  display: block;
+  margin-top: 6rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.report-media {
+  margin-top: 16rpx;
+}
+
+.report-poster {
+  position: relative;
+  width: 100%;
+  height: 360rpx;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-md);
+}
+
+.report-poster__image {
+  width: 100%;
+  height: 100%;
+}
+
+.report-poster__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  height: 96rpx;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.report-poster__play-icon {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.report-poster__duration {
+  position: absolute;
+  right: 16rpx;
+  bottom: 16rpx;
+  padding: 0 12rpx;
+  color: var(--card-bg);
+  font-size: var(--font-caption);
+  line-height: 36rpx;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: var(--radius-xs);
+}
+
+.report-video,
+.report-image {
+  display: block;
+  width: 100%;
+  height: 360rpx;
+  margin-top: 12rpx;
+  background: var(--dark-fill);
+  border-radius: var(--radius-md);
+}
+
+.report-audio {
+  display: flex;
+  align-items: center;
+  padding: 16rpx;
+  background: var(--health-surface-tint);
+  border-radius: var(--radius-md);
+}
+
+.report-audio + .report-audio {
+  margin-top: 12rpx;
+}
+
+.report-audio__cover {
+  flex: none;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: var(--radius-sm);
+}
+
+.report-audio__copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+
+.report-audio__title {
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.report-audio__meta {
+  margin-top: 4rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.report-audio__action {
+  flex: none;
+  padding: 0 20rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  line-height: 52rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.report-pills {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 20rpx;
+}
+
+.report-pill {
+  margin: 0 12rpx 12rpx 0;
+  padding: 8rpx 24rpx;
+  color: var(--brand-dark);
+  font-size: var(--font-sm);
+  background: var(--health-tab-track);
+  border-radius: var(--radius-pill);
+}
+
+.report-pill.is-active {
+  color: var(--card-bg);
+  font-weight: 600;
+  background: var(--health-tab-active);
+}
+
+.report-sub {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--line-color);
+}
+
+.report-sub:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.report-sub__title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.report-products {
+  margin-top: 12rpx;
+}
+
+.report-product {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 16rpx;
+  padding: 20rpx;
+  background: var(--health-surface-tint);
+  border-radius: var(--radius-md);
+}
+
+.report-product__image {
+  flex: none;
+  width: 176rpx;
+  height: 240rpx;
+  border-radius: var(--radius-sm);
+}
+
+.report-product__copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: 24rpx;
+}
+
+.report-product__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.report-product__name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.report-product__price {
+  flex: none;
+  margin-left: 16rpx;
+  color: var(--brand-green);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.report-product__tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.report-product__tag {
+  margin: 0 8rpx 8rpx 0;
+  padding: 0 12rpx;
+  color: var(--tag-light-text);
+  font-size: var(--font-caption);
+  line-height: 32rpx;
+  background: var(--tag-light-bg);
+  border-radius: var(--radius-xs);
+}
+
+.report-product__constitutions {
+  margin-top: 4rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-caption);
+  line-height: 34rpx;
+}
+
+.report-product__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 12rpx;
+}
+
+.report-product__detail {
+  flex: none;
+  padding: 0 20rpx;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 56rpx;
+  background: var(--health-cta-to);
+  border-radius: var(--radius-pill);
+}
+.report-product__reason {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-caption);
+  line-height: 34rpx;
+}
+
+.report-disclaimer {
+  margin-top: 24rpx;
+  padding: 20rpx 24rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 36rpx;
+  background: var(--health-surface-tint);
+  border-radius: var(--radius-md);
+}

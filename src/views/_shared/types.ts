@@ -74,20 +74,36 @@ export interface ImportField {
   key: string;
   label: string;
   required?: boolean;
+  /** 模板列宽（字符数） */
+  width?: number;
+  /** 模板中的下拉选项 */
+  options?: string[];
 }
 
 export interface ImportConfig {
   title: string;
+  /** 导入数据工作表名，默认使用 title */
+  sheetName?: string;
+  /** 允许的最大数据行数 */
+  maxRows?: number;
+  /** 允许的最大文件字节数 */
+  maxFileSize?: number;
   fields: ImportField[];
-  /** 生成模板（CSV 字符串，首行为表头） */
-  template: () => string;
+  /** 生成模板数据行；第一行为表头 */
+  template: () => (string | number)[][];
+  /** 可选填写说明，写入第二个工作表 */
+  instructions?: (string | number)[][];
   /** 解析并校验导入数据，返回合法行与错误信息 */
   parse: (rows: Record<string, string>[]) => { ok: Record<string, any>[]; errors: string[] };
-  /** 批量提交（写入 store） */
   /** 批量提交。远端模式下为异步写库，故允许返回 Promise。 */
-  commit: (
-    rows: Record<string, any>[]
-  ) => { added: number; skipped: number } | Promise<{ added: number; skipped: number }>;
+  commit: (rows: Record<string, any>[]) => ImportCommitResult | Promise<ImportCommitResult>;
+}
+
+export interface ImportCommitResult {
+  added: number;
+  skipped: number;
+  /** 后端整批校验失败时返回的行级错误；有值时不得视为导入成功。 */
+  errors?: string[];
 }
 export interface AdminListConfig {
   title: string;

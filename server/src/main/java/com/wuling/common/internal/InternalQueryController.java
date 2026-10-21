@@ -5,6 +5,7 @@ import com.wuling.finance.entity.SettlementRecord;
 import com.wuling.finance.mapper.SettlementRecordMapper;
 import com.wuling.subject.entity.BizSubject;
 import com.wuling.subject.mapper.BizSubjectMapper;
+import com.wuling.subject.service.StoreOperatorService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,18 +52,21 @@ public class InternalQueryController {
     private final BizSubjectMapper bizSubjectMapper;
     private final SettlementRecordMapper settlementRecordMapper;
     /**
-     * 用户角色授权表（user_role_grant）与 app_user 归属 user-service，
-     * server 模块不依赖其 Java 实体，跨模块读表统一走 JdbcTemplate
-     * （与 AppRoleController 的做法一致）。
+     * 分账快照归属 finance 域、由本控制器只读直查（低频内部调用），
+     * 故这里仍保留 JdbcTemplate。
      */
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    /** 「是否经营该门店」判定：内部接口与 app 接口共用，避免口径漂移 */
+    private final StoreOperatorService storeOperatorService;
 
     public InternalQueryController(BizSubjectMapper bizSubjectMapper,
                                    SettlementRecordMapper settlementRecordMapper,
-                                   org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
+                                   org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                                   StoreOperatorService storeOperatorService) {
         this.bizSubjectMapper = bizSubjectMapper;
         this.settlementRecordMapper = settlementRecordMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.storeOperatorService = storeOperatorService;
     }
 
     /**
@@ -89,12 +93,9 @@ public class InternalQueryController {
      * （越权核销 = 订单被他人放行、分账流向错误门店）。
      * 该判断必须在服务端完成，不能信任前端传入的主体 ID。
      *
-     * <p><b>口径</b>：满足其一即视为有权经营：
-     * <ol>
-     *   <li>{@code user_role_grant} 中存在 (user_id, role_code=STORE, subject_id, status=active) 记录；</li>
-     *   <li>{@code app_user.bound_subject_id = subjectId} 且 {@code business_role = 'store'}。</li>
-     * </ol>
-     * 与小程序 {@code /api/v1/app/roles/mine} 的判定口径保持一致。
+     * <p><b>判定口径见 {@link StoreOperatorService#canOperate(Long, Long)}</b>：
+     * 该判定同时被小程序门店侧数据接口（设备 / 冲泡记录）复用，
+     * 收敛到服务里是为了避免多处复制 SQL 后口径漂移。
      *
      * @param userId    小程序用户 ID（取自 JWT）
      * @param subjectId 门店主体 ID
@@ -103,24 +104,7 @@ public class InternalQueryController {
     @GetMapping("/store-operator-check")
     public Map<String, Object> storeOperatorCheck(@RequestParam Long userId,
                                                   @RequestParam Long subjectId) {
-        if (userId == null || subjectId == null) {
-            return Map.of("allowed", false);
-        }
-        // 1) 授权表：显式授予且已生效
-        Long granted = jdbcTemplate.queryForObject(
-                "select count(*) from user_role_grant "
-                        + "where user_id = ? and role_code = 'STORE' and subject_id = ? "
-                        + "and status = 'active' and deleted = 0",
-                Long.class, userId, subjectId);
-        if (granted != null && granted > 0) {
-            return Map.of("allowed", true);
-        }
-        // 2) 当前绑定主体：business_role=STORE（UPPER 归一，兼容历史小写存量）且绑定到该门店
-        Long bound = jdbcTemplate.queryForObject(
-                "select count(*) from app_user "
-                        + "where id = ? and bound_subject_id = ? and UPPER(business_role) = 'STORE' and deleted = 0",
-                Long.class, userId, subjectId);
-        return Map.of("allowed", bound != null && bound > 0);
+        return Map.of("allowed", storeOperatorService.canOperate(userId, subjectId));
     }
 
     /**

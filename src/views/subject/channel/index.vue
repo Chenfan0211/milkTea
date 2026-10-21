@@ -213,7 +213,10 @@ const config: AdminListConfig = {
       { key: 'location', label: '所在地' },
       { key: 'storeType', label: '门店类型' }
     ],
-    template: () => '编码,名称,所在地,门店类型\nRS-1004,资源方丁,长沙市,奶茶/饮品\n',
+    template: () => [
+      ['编码', '名称', '所在地', '门店类型'],
+      ['RS-1004', '资源方丁', '长沙市', '奶茶/饮品']
+    ],
     parse: rows => {
       const errors: string[] = [];
       const ok: Record<string, any>[] = [];

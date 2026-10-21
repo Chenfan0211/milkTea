@@ -1,6 +1,6 @@
 <view wx:if="{{visible}}" class="cart-sheet-root" catchtouchmove="noop">
   <view class="cart-sheet__mask" bindtap="handleClose"></view>
-  <view class="cart-sheet__panel" catchtap="noop">
+  <view class="cart-sheet__panel {{offsetForTabbar ? '' : 'is-full-bottom'}} {{placement === 'floating' ? 'is-floating' : ''}} {{placement === 'actionBar' ? 'is-action-bar' : ''}}" catchtap="noop">
     <view class="cart-sheet__discount">
       <text>已享受折扣优惠，共减免</text>
       <text class="cart-sheet__discount-price">¥{{summary.discount}}</text>
@@ -33,7 +33,7 @@
         <view class="cart-item__image-wrap">
           <image class="cart-item__image" src="{{item.image}}" mode="aspectFit" />
           <text wx:if="{{item.isNew}}" class="cart-item__new">新</text>
-          <view class="cart-item__edit" data-id="{{item.id}}" bindtap="handleEdit" aria-role="button" aria-label="编辑规格">
+          <view wx:if="{{showEdit}}" class="cart-item__edit" data-id="{{item.id}}" bindtap="handleEdit" aria-role="button" aria-label="编辑规格">
             <image class="cart-item__edit-icon" src="/assets/icons/lucide/pencil.svg" mode="aspectFit" />
           </view>
         </view>
@@ -63,6 +63,15 @@
         </view>
       </view>
     </scroll-view>
-
+    <view wx:if="{{showCheckout && summary.selectedCount}}" class="cart-sheet__checkout">
+      <view class="cart-sheet__checkout-info">
+        <view class="cart-sheet__checkout-icon-wrap">
+          <image class="cart-sheet__checkout-icon" src="/assets/icons/lucide/shopping-bag-white.svg" mode="aspectFit" />
+          <text class="cart-sheet__checkout-count">{{summary.selectedCount}}</text>
+        </view>
+        <text class="cart-sheet__checkout-total">¥{{summary.total}}</text>
+      </view>
+      <view class="cart-sheet__checkout-action" bindtap="handleCheckout" aria-role="button" aria-label="{{checkoutLabel}}">{{checkoutLabel}}</view>
+    </view>
   </view>
 </view>

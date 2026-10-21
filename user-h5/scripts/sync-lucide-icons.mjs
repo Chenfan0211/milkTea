@@ -12,8 +12,10 @@ const jobs = [
   { source: 'cup-soda', output: 'menu', color: '#9B9B96' },
   { source: 'cup-soda', output: 'menu-active', color: '#53882C' },
   { source: 'crown', output: 'member', color: '#666762' },
-  { source: 'crown', output: 'member-active', color: '#53882C' },
   { source: 'crown', output: 'member-gold', color: '#D4A017', fill: true },
+  // 舌诊 Tab：Lucide 无舌形图标，用听诊器表达「诊断」语义
+  { source: 'stethoscope', output: 'tongue', color: '#9B9B96' },
+  { source: 'stethoscope', output: 'tongue-active', color: '#53882C' },
   { source: 'clipboard-list', output: 'orders', color: '#9B9B96' },
   { source: 'clipboard-list', output: 'orders-active', color: '#53882C' },
   { source: 'circle-user-round', output: 'profile', color: '#9B9B96' },
@@ -108,6 +110,9 @@ const jobs = [
   { source: 'users', output: 'users-brand', color: '#53882C' },
   { source: 'user-plus', output: 'user-plus', color: '#747570' },
   { source: 'scan-line', output: 'scan-line', color: '#747570' },
+  { source: 'camera', output: 'camera', color: '#747570' },
+  { source: 'history', output: 'history', color: '#53882C' },
+  { source: 'image', output: 'image', color: '#9B9B96' },
   { source: 'banknote', output: 'banknote', color: '#747570' },
   { source: 'badge-percent', output: 'badge-percent', color: '#747570' },
   { source: 'crown', output: 'crown-gold', color: '#D4A017', fill: true },
@@ -120,7 +125,20 @@ const jobs = [
   { source: 'trending-up', output: 'trending-up-muted', color: '#9B9B96' },
   { source: 'store', output: 'store-white', color: '#FFFFFF' },
   { source: 'trending-up', output: 'trending-up-white', color: '#FFFFFF' },
-  { source: 'users', output: 'users-white', color: '#FFFFFF' }
+  { source: 'users', output: 'users-white', color: '#FFFFFF' },
+  // 门店经营角色 · 设备管理 / 冲泡记录入口
+  { source: 'cpu', output: 'device', color: '#666762' },
+  { source: 'coffee', output: 'brew-record', color: '#666762' },
+  // 舌诊 · 体质健康管理：功能卡图标、记录入口、视频播放三角
+  { source: 'mars', output: 'profile-male', color: '#2F302D' },
+  { source: 'venus', output: 'profile-female', color: '#2F302D' },
+  { source: 'scan-face', output: 'scan-face-brand', color: '#53882C' },
+  { source: 'leaf', output: 'leaf-brand', color: '#53882C' },
+  { source: 'spray-can', output: 'spray-can', color: '#666762' },
+  { source: 'coffee', output: 'coffee-brand', color: '#53882C' },
+  { source: 'glass-water', output: 'glass-water', color: '#666762' },
+  { source: 'list', output: 'list-muted', color: '#9B9B96' },
+  { source: 'play', output: 'play-white', color: '#FFFFFF', fill: true }
 ];
 
 fs.mkdirSync(outputDir, { recursive: true });

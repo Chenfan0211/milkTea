@@ -1,0 +1,95 @@
+<view class="health-page">
+  <navigation-bar title="体质健康管理" background="transparent" color="#2F302D">
+    <view slot="right" class="health-avatar" bindtap="openProfileSheet" aria-role="button" aria-label="编辑个人信息">
+      <image class="health-avatar__image" src="{{avatar}}" mode="aspectFill" />
+    </view>
+  </navigation-bar>
+
+  <scroll-view class="health-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="health-content">
+      <view class="health-features">
+        <view class="health-feature" bindtap="startDetect" aria-role="button" aria-label="中医体质辨识">
+          <view class="health-feature__tile">
+            <image class="health-feature__image" src="/assets/icons/lucide/scan-face-brand.svg" mode="aspectFit" />
+          </view>
+          <view class="health-feature__title"><text>中医体质辨识</text></view>
+          <view class="health-feature__line">
+            <image class="health-feature__check" src="/assets/icons/lucide/check-brand.svg" mode="aspectFit" />
+            <text>舌面分析</text>
+          </view>
+          <view class="health-feature__line">
+            <image class="health-feature__check" src="/assets/icons/lucide/check-brand.svg" mode="aspectFit" />
+            <text>中医体质</text>
+          </view>
+          <view class="health-feature__line">
+            <image class="health-feature__check" src="/assets/icons/lucide/check-brand.svg" mode="aspectFit" />
+            <text>健康状态</text>
+          </view>
+        </view>
+
+        <view class="health-features__arrow" aria-hidden="true">
+          <image class="health-features__arrow-icon" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+        </view>
+
+        <view class="health-feature" bindtap="openPlan" aria-role="button" aria-label="调理方案">
+          <view class="health-feature__tile">
+            <image class="health-feature__image" src="/assets/icons/lucide/coffee-brand.svg" mode="aspectFit" />
+          </view>
+          <view class="health-feature__title"><text>调理方案</text></view>
+          <view class="health-feature__line">
+            <image class="health-feature__check" src="/assets/icons/lucide/check-brand.svg" mode="aspectFit" />
+            <text>饮食调理</text>
+          </view>
+          <view class="health-feature__line">
+            <image class="health-feature__check" src="/assets/icons/lucide/check-brand.svg" mode="aspectFit" />
+            <text>形体运动</text>
+          </view>
+          <view class="health-feature__line">
+            <image class="health-feature__check" src="/assets/icons/lucide/check-brand.svg" mode="aspectFit" />
+            <text>穴位保健</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="health-notes">
+        <view class="health-note">
+          <image class="health-note__icon" src="/assets/icons/lucide/brew-record.svg" mode="aspectFit" />
+          <text class="health-note__text">饭后半小时再测试</text>
+        </view>
+        <view class="health-note">
+          <image class="health-note__icon" src="/assets/icons/lucide/glass-water.svg" mode="aspectFit" />
+          <text class="health-note__text">勿食有色食品</text>
+        </view>
+      </view>
+
+      <view class="health-cta-wrap">
+        <view
+          class="health-cta {{submitting ? 'is-disabled' : ''}}"
+          bindtap="startDetect"
+          aria-role="button"
+          aria-label="开始测试"
+        >
+          <view class="health-cta__inner">
+            <text class="health-cta__text">{{submitting ? '检测中' : '开始测试'}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="health-history-entry" bindtap="openHistory" aria-role="button" aria-label="查看体质辨识记录">
+        <image class="health-history-entry__icon" src="/assets/icons/lucide/list-muted.svg" mode="aspectFit" />
+        <text class="health-history-entry__text">体质辨识记录</text>
+      </view>
+
+      <view class="tabbar-safe-space"></view>
+    </view>
+  </scroll-view>
+
+  <health-profile-sheet
+    visible="{{sheetVisible}}"
+    gender="{{sheetGender}}"
+    birthYear="{{sheetBirthYear}}"
+    bind:close="closeProfileSheet"
+    bind:save="handleSheetSave"
+  />
+
+</view>

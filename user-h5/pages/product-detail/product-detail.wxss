@@ -1,0 +1,336 @@
+.product-detail-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg-neutral);
+}
+
+.product-detail-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.product-detail-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 600rpx;
+  padding: 0 32rpx;
+}
+
+.product-detail-retry {
+  margin-top: 24rpx;
+  padding: 0 24rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  line-height: 64rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.product-detail-content {
+  padding: 24rpx 32rpx calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 40rpx);
+}
+
+.product-detail-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320rpx;
+  padding: 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.product-detail-hero__image {
+  width: 100%;
+  height: 360rpx;
+}
+
+.product-detail-hero__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.product-detail-hero__empty-icon {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.product-detail-hero__empty-text {
+  margin-top: 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.product-detail-hero__note {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+  text-align: center;
+}
+
+.product-detail-card {
+  margin-top: 20rpx;
+  padding: 28rpx 24rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.product-detail-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.product-detail-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.product-detail-price-label {
+  flex: none;
+  margin-left: 16rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.product-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.product-detail-tag {
+  margin: 0 8rpx 8rpx 0;
+  padding: 0 12rpx;
+  color: var(--tag-light-text);
+  font-size: var(--font-caption);
+  line-height: 32rpx;
+  background: var(--tag-light-bg);
+  border-radius: var(--radius-xs);
+}
+
+.product-detail-price {
+  display: flex;
+  align-items: baseline;
+  margin-top: 16rpx;
+}
+
+.product-detail-price__value {
+  color: var(--brand-green);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.product-detail-price__original {
+  margin-left: 16rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-decoration: line-through;
+}
+
+.product-detail-promo {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--accent-orange);
+  font-size: var(--font-sm);
+}
+
+.product-detail-desc {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.product-detail-card__title {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.product-detail-row {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 16rpx;
+}
+
+.product-detail-row__label {
+  flex: none;
+  width: 140rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.product-detail-row__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+
+.product-detail-spec {
+  margin-top: 20rpx;
+}
+
+.product-detail-spec__label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.product-detail-spec__options {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.product-detail-spec__option {
+  display: inline-flex;
+  align-items: center;
+  height: 56rpx;
+  margin: 0 12rpx 12rpx 0;
+  padding: 0 20rpx;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+  border: 2rpx solid var(--line-color);
+  border-radius: var(--radius-pill);
+}
+
+.product-detail-spec__option.is-selected {
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  border-color: var(--brand-green);
+}
+
+.product-detail-spec__option-label {
+  font-size: var(--font-sm);
+}
+
+.product-detail-spec__option-delta {
+  margin-left: 8rpx;
+  color: var(--brand-green);
+  font-size: var(--font-caption);
+}
+
+.product-detail-quantity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--line-color);
+}
+
+.product-detail-quantity__label {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.product-detail-quantity__stepper {
+  display: flex;
+  align-items: center;
+}
+
+.product-detail-quantity__step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  border: 2rpx solid var(--brand-green);
+  border-radius: 50%;
+}
+
+.product-detail-quantity__step.is-disabled {
+  opacity: 0.35;
+}
+
+.product-detail-quantity__step--plus {
+  background: var(--brand-green);
+}
+
+.product-detail-quantity__icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.product-detail-quantity__value {
+  width: 64rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  text-align: center;
+}
+.product-detail-tip {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 40rpx;
+}
+.product-detail-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  box-shadow: 0 -8rpx 28rpx rgba(49, 73, 28, 0.08);
+}
+
+.product-detail-bar__price {
+  flex: none;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.product-detail-bar__actions {
+  display: flex;
+  align-items: center;
+  margin-left: 20rpx;
+}
+
+.product-detail-bar__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 176rpx;
+  height: 80rpx;
+  padding: 0 24rpx;
+  font-size: var(--font-base);
+  border-radius: var(--radius-pill);
+}
+
+.product-detail-bar__button + .product-detail-bar__button {
+  margin-left: 16rpx;
+}
+
+.product-detail-bar__button--cart {
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+}
+
+.product-detail-bar__button--buy {
+  color: var(--card-bg);
+  background: var(--brand-green);
+}

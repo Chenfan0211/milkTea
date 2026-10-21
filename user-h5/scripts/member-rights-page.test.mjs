@@ -8,7 +8,6 @@ const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storage = {};
 let memberRightsDefinition;
-let memberDefinition;
 
 globalThis.wx = {
   showShareMenu() {},
@@ -36,14 +35,11 @@ assert.ok(memberRightsDefinition && memberRightsDefinition.data, '会员权益�
 const rightsWxml = fs.readFileSync(path.join(root, 'pages/member-rights/member-rights.wxml'), 'utf8');
 const rightsJson = JSON.parse(fs.readFileSync(path.join(root, 'pages/member-rights/member-rights.json'), 'utf8'));
 
-// ---- 会员专区 Tab ----
-globalThis.Page = page => {
-  memberDefinition = page;
-};
-assert.doesNotThrow(() => require(path.join(root, 'pages/member/member.js')), '会员专区脚本必须能正常加载');
-const memberWxml = fs.readFileSync(path.join(root, 'pages/member/member.wxml'), 'utf8');
-const memberJson = JSON.parse(fs.readFileSync(path.join(root, 'pages/member/member.json'), 'utf8'));
-const memberJs = fs.readFileSync(path.join(root, 'pages/member/member.js'), 'utf8');
+// ---- 会员专区 Tab 已下线：会员面板只由「我的 → 会员权益」承载 ----
+assert.ok(
+  !fs.existsSync(path.join(root, 'pages/member/member.wxml')),
+  '会员专区页面必须已下线（会员等级与权益统一收敛到会员权益页）'
+);
 
 // ---- 共享会员面板组件 ----
 const panelRoot = path.join(root, 'components/member-panel/member-panel');
@@ -53,11 +49,8 @@ for (const extension of ['js', 'json', 'wxml', 'wxss']) {
 const panelWxml = fs.readFileSync(`${panelRoot}.wxml`, 'utf8');
 const panelWxss = fs.readFileSync(`${panelRoot}.wxss`, 'utf8');
 
-// 两页都必须通过同一组件渲染，且含等级说明入口
-for (const [label, wxml, json] of [
-  ['会员权益页', rightsWxml, rightsJson],
-  ['会员专区', memberWxml, memberJson]
-]) {
+// 会员权益页必须通过共享组件渲染，且含等级说明入口
+for (const [label, wxml, json] of [['会员权益页', rightsWxml, rightsJson]]) {
   assert.ok(wxml.includes('<member-panel'), `${label}必须使用会员面板组件`);
   assert.ok(json.usingComponents && json.usingComponents['member-panel'], `${label}必须注册会员面板组件`);
   assert.ok(wxml.includes('bind:openrules="openLevelRules"'), `${label}必须接通等级说明入口`);
@@ -112,10 +105,7 @@ assert.ok(
 assert.ok(panelWxml.includes('item.mutedIcon'), '未达成等级特权图标必须切换到灰色图标');
 
 // 页面必须移除旧的成长值渠道与时光币规则区块
-for (const [label, wxml] of [
-  ['会员权益页', rightsWxml],
-  ['会员专区', memberWxml]
-]) {
+for (const [label, wxml] of [['会员权益页', rightsWxml]]) {
   assert.ok(!wxml.includes('消费杯数成长值'), `${label}不得展示消费杯数渠道`);
   assert.ok(!wxml.includes('pointsEarningRules'), `${label}不得展示时光币获取方式区块`);
 }
@@ -259,12 +249,6 @@ assert.equal(rightsPage.data.currentLevel, 'Lv2', '会员权益页必须同步�
 assert.equal(rightsPage.data.levels.length, 3, '会员权益页必须下发三档等级');
 assert.equal(rightsPage.data.axis.length, 3, '会员权益页必须下发三个进度节点');
 
-const memberPage = createPage(memberDefinition);
-await memberDefinition.onShow.call(memberPage);
-assert.equal(memberPage.data.currentLevel, 'Lv2', '会员专区必须同步当前等级');
-assert.ok(memberJs.includes('selected: 2'), '会员专区必须同步 Tab 选中态');
-assert.ok(!memberJs.includes('pointsEarningRules'), '会员专区不得再引用时光币规则数据');
-
 // 设计规范
 assert.ok(!panelWxml.includes('<button'), '会员面板不得使用原生 button');
 assert.ok(
@@ -296,4 +280,4 @@ assert.ok(
 );
 assert.ok(!/\b\d+px\b/.test(panelWxss), '会员面板 WXSS 不得使用 px');
 
-console.log('会员专区样式、等级说明入口、成长值逻辑与特权渲染测试通过');
+console.log('会员权益页样式、等级说明入口、成长值逻辑与特权渲染测试通过');

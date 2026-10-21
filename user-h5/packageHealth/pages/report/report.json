@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "navigation-bar": "/components/navigation-bar/navigation-bar",
+    "cart-bar": "/components/cart-bar/cart-bar",
+    "cart-sheet": "/components/cart-sheet/cart-sheet"
+  }
+}

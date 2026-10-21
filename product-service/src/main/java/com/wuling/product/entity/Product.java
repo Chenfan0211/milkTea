@@ -19,6 +19,8 @@ public class Product {
     private String name;
     private Long categoryId;
     private String tags;
+    /** 适宜体质（JSON 数组文本，舌诊养生茶饮卡片展示用）。 */
+    private String suitableConstitutions;
     private String description;
     private Long price;
     private Long originalPrice;

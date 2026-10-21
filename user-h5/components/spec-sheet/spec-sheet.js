@@ -5,6 +5,7 @@ Component({
     visible: { type: Boolean, value: false },
     product: { type: Object, value: {} },
     mode: { type: String, value: 'add' },
+    actions: { type: String, value: 'both' },
     initialQuantity: { type: Number, value: 1 },
     initialSelectedOptionIds: { type: Array, value: [] }
   },

@@ -3,9 +3,16 @@ const loginGuard = require('../../utils/login-guard');
 const { refreshCouponsFromRemote } = require('../../utils/coupons');
 
 /**
- * 券列表 Tab：文案 + 后端 status 枚举。
- * 「待生效」对应领券时使用时间尚未开始的券 —— 后端 myCoupons 会把这类券
- * 视为不可用（validity.usable() === false），凭 UNUSED + 未生效时间区分。
+ * 券列表 Tab：文案 + 后端四态口径。
+ *
+ * 后端 myCoupons 统一推导四态（CouponService#deriveTab），一张券只落一个 Tab：
+ *   未使用 = UNUSED 已生效未过期 + LOCKED 订单占用中（占用中标注「订单占用中」且不可用）
+ *   待生效 = UNUSED 但生效时间未到
+ *   已过期 = EXPIRED 或「UNUSED 但已过有效期」（DAYS 类型券库里没有过期落点，靠现算）
+ *   已使用 = USED（终态优先，之后过了有效期也不改归类）
+ *
+ * 「能不能用」看后端的 usable；「是不是过期」看后端的 expired ——
+ * 两者不能互相推断（已使用券同样是 usable=false）。
  */
 const COUPON_TABS = [
   { value: 'UNUSED', label: '未使用' },
@@ -15,6 +22,26 @@ const COUPON_TABS = [
 ];
 
 const USABLE_TABS = ['UNUSED', 'PENDING'];
+
+/** 终态 Tab：到期时间已经过去是常态，文案必须说清「已于 xx 过期」。 */
+const TERMINAL_TABS = ['USED', 'EXPIRED'];
+
+/** 订单占用中（LOCKED）：券仍显示在「未使用」Tab，但不可用。 */
+const LOCKED_TEXT = '订单占用中';
+
+/**
+ * 已使用 / 已过期券的到期文案。
+ *
+ * 已使用券之后过了有效期是正常的（终态优先），但卡片若仍写「xx 到期」，
+ * 看起来就像「都过期了却被分到已使用」，所以这里显式写成「已于 xx 过期」。
+ */
+function pastExpiryText(coupon) {
+  const raw = coupon && coupon.expireAt ? String(coupon.expireAt) : '';
+  if (!raw) return '';
+  const ms = Date.parse(raw.replace(' ', 'T'));
+  if (!Number.isFinite(ms) || ms >= Date.now()) return '';
+  return `已于 ${raw.replace('T', ' ').slice(0, 16)} 过期`;
+}
 
 const EMPTY_STATES = {
   UNUSED: { title: '暂无可用优惠券', description: '去点单页看看，新获得的优惠券会展示在这里' },
@@ -76,13 +103,20 @@ Page(
     },
     /** 按当前 Tab 决定卡片展示态：动作按钮 / 数量角标 / 禁用配色。 */
     decorateCoupon(coupon, status) {
-      const usable = USABLE_TABS.indexOf(status) !== -1;
+      // 未使用 / 待生效属于「可操作区」；能否点「去使用」还要看券本身
+      //（订单占用中、待生效的券后端返回 usable=false，不能下单）
+      const tabUsable = USABLE_TABS.indexOf(status) !== -1;
+      const usable = tabUsable && coupon.usable !== false;
+      // 已使用 / 已过期卡片：把已经过去的到期时间说清楚，避免看起来像「还在有效期」
+      const overdueText = TERMINAL_TABS.indexOf(status) !== -1 ? pastExpiryText(coupon) : '';
+      const statusLabel = COUPON_TABS.filter(item => item.value === status).map(item => item.label)[0];
       return Object.assign({}, coupon, {
         expanded: false,
         usable,
-        showCount: usable,
-        disabled: !usable,
-        statusText: usable ? '' : COUPON_TABS.filter(item => item.value === status).map(item => item.label)[0]
+        showCount: tabUsable,
+        disabled: !tabUsable,
+        expiryText: overdueText || coupon.expiryText,
+        statusText: coupon.locked && status === 'UNUSED' ? LOCKED_TEXT : statusLabel || ''
       });
     },
     switchTab(event) {

@@ -201,6 +201,8 @@ const routeMap: RouteMap = {
   "review_role-detail": "/review/role-detail",
   "subject": "/subject",
   "subject_channel": "/subject/channel",
+  "subject_device": "/subject/device",
+  "subject_device-brew": "/subject/device-brew",
   "subject_investor": "/subject/investor",
   "subject_platform": "/subject/platform",
   "subject_store": "/subject/store",

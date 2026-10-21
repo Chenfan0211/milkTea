@@ -1,6 +1,6 @@
 const { withShare } = require('../../utils/share');
 const { ensureRolesLoaded } = require('../../utils/role-page');
-const { getActiveRoles, getDashboard, warmUpRoleData } = require('../../utils/roles');
+const { getActiveRoles, getDashboard, resolveRoleActionRoute, warmUpRoleData } = require('../../utils/roles');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
 
@@ -66,16 +66,8 @@ Page(
     },
     handleAction(event) {
       const { id } = event.currentTarget.dataset;
-      const routeMap = {
-        verify: '/packageRole/role-verify/role-verify',
-        products: '/packageRole/role-products/role-products',
-        invest: '/packageRole/role-invest/role-invest',
-        commission: '/packageRole/role-commission/role-commission',
-        income: '/packageRole/role-income/role-income',
-        withdraw: '/packageRole/role-withdraw/role-withdraw',
-        orders: '/packageRole/resource-orders/resource-orders'
-      };
-      const url = routeMap[id];
+      // 路由与「我的功能」共用 utils/roles.js 里的同一份映射（唯一来源）
+      const url = resolveRoleActionRoute(id);
       if (!url) {
         wx.showToast({ title: '该功能待接入', icon: 'none' });
         return;

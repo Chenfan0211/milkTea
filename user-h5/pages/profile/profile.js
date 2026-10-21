@@ -14,6 +14,7 @@ const {
   getCurrentBusinessRole,
   getPendingRoles,
   getDashboard,
+  resolveRoleActionRoute,
   switchRole,
   switchToConsumer,
   syncRolesFromRemote
@@ -22,7 +23,7 @@ const loginGuard = require('../../utils/login-guard');
 const auth = require('../../utils/auth');
 const authState = require('../../utils/auth-state');
 const api = require('../../utils/api');
-const { refreshCouponsFromRemote } = require('../../utils/coupons');
+const { getUsableCouponCount, refreshCouponsFromRemote } = require('../../utils/coupons');
 const { pickGiftCardRecords, resolveGiftCardDisplay } = require('../../utils/gift-card');
 
 const initialProfile = getUserProfile();
@@ -67,7 +68,8 @@ Page(
       businessRole: null,
       pendingRoleCount: 0,
       stats: [
-        { id: 'coupon', label: '优惠券', value: initialProfile.couponCount },
+        // 优惠券张数只能从券包缓存派生：资料缓存（/auth/me）不含券数量
+        { id: 'coupon', label: '优惠券', value: getUsableCouponCount() },
         {
           id: 'balance',
           label: '储值余额',
@@ -119,6 +121,13 @@ Page(
      * 原先这两处各写一份 stats 组装逻辑，远端回来时漏了刷新，
      * 导致「我的」页时光币长期停留在旧值（与时光币商城不一致）。
      *
+     * 优惠券张数的口径：只认券包缓存（utils/coupons）里的可用券，
+     * 与首页「优惠券N张」、券包「未使用」Tab 完全一致。
+     * 历史上这里读的是资料缓存里的 userProfile.couponCount，而该字段被写死为 0，
+     * 于是 fetchMe 的这次重算会把券包接口刚取到的张数覆盖成 0 ——
+     * 表现为「进页面是 1，从储值余额页返回后变 0」（两条请求谁后返回谁赢）。
+     * 张数改为从券包缓存派生后，两条链路读的是同一份数据，竞争自然消失。
+     *
      * 同时把最新时光币写回 globalData 会话镜像，保证其他页面读到同一份数据。
      */
     refreshAssetStats() {
@@ -130,7 +139,7 @@ Page(
         if (item.id === 'points') return Object.assign({}, item, { value: points });
         if (item.id === 'balance')
           return Object.assign({}, item, { value: userProfile.balance, display: formatBalance(userProfile.balance) });
-        if (item.id === 'coupon') return Object.assign({}, item, { value: userProfile.couponCount });
+        if (item.id === 'coupon') return Object.assign({}, item, { value: getUsableCouponCount() });
 
         return item;
       });
@@ -216,8 +225,9 @@ Page(
             // ⚠️ 必须是「合并更新」而不是重建：saveUserProfile 内部是
             // Object.assign({}, EMPTY_PROFILE, source)，未传的字段会回落到
             // 空壳的 0 / []。若这里只挑 nickname/avatar 等字段传进去，
-            // points / balance / couponCount 会被整体清零 ——（礼品卡不在此列，已由 applyGiftCards 独立管理）
-            // 表现为「从其它页返回我的页，时光币/余额/优惠券全部变 0」。
+            // points / balance 会被整体清零 ——（礼品卡已由 applyGiftCards 独立管理，
+            // 优惠券张数已由券包缓存派生，两者都不在此列）
+            // 表现为「从其它页返回我的页，时光币/余额变 0」。
             // 因此先取当前缓存，再只覆盖远端明确返回的字段。
             // 昵称/头像等资料字段：以远端为唯一数据源，不回落到本地旧值，
             // 否则个人资料页修改后回到我的页仍显示旧昵称/头像。
@@ -253,16 +263,13 @@ Page(
           })
           .catch(() => {});
         // 我的优惠券数量与优惠券列表共用同一远端刷新方法，统一只取 UNUSED 可用券。
+        // 刷新成功后统一走 refreshAssetStats() 重算（口径来自券包缓存），
+        // 不再由本处单独拼一份 stats，避免与 fetchMe 的重算互相覆盖。
         refreshCouponsFromRemote('UNUSED')
-          .then(coupons => {
-            const count = Array.isArray(coupons) ? coupons.length : 0;
-            const stats = this.data.stats.map(item =>
-              item.id === 'coupon' ? Object.assign({}, item, { value: count }) : item
-            );
-            this.setData({ stats });
-          })
+          .then(() => this.refreshAssetStats())
           .catch(() => {
-            // 保留上一次成功结果，失败时不清零，避免把网络异常误显示为零张。
+            // 保留上一次成功结果（券包缓存未被覆盖），失败时不清零，
+            // 避免把网络异常误显示为零张。
           });
         // 我的礼品卡：接口直接返回历史展示元数据，不再依赖仅上架面额接口。
         api
@@ -480,16 +487,9 @@ Page(
       const { action } = event.currentTarget.dataset;
       const roleId = this.data.businessRole && this.data.businessRole.id;
       if (!roleId || !action) return;
-      const routeMap = {
-        verify: '/packageRole/role-verify/role-verify',
-        products: '/packageRole/role-products/role-products',
-        invest: '/packageRole/role-invest/role-invest',
-        commission: '/packageRole/role-commission/role-commission',
-        orders: '/packageRole/resource-orders/resource-orders',
-        income: '/packageRole/role-income/role-income',
-        withdraw: '/packageRole/role-withdraw/role-withdraw'
-      };
-      const url = routeMap[action];
+      // 路由统一由 utils/roles.js 提供（与「角色工作台」共用同一份映射），
+      // 避免两处各写一份导致新增功能时只改了一边（历史上「设备管理」就踩过）。
+      const url = resolveRoleActionRoute(action);
       if (!url) {
         wx.showToast({ title: '该功能待接入', icon: 'none' });
         return;

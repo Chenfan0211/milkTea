@@ -1,5 +1,6 @@
+const { resolveAssetUrl } = require('./asset-url');
 const config = require('../config');
-const { request, unwrap } = require('./request');
+const { request, unwrap, readToken } = require('./request');
 
 /**
  * 小程序端统一接口层。
@@ -476,6 +477,54 @@ function fetchStoreVerifyPool(subjectId) {
 }
 
 /**
+ * 门店设备清单（只读）。
+ *
+ * 只返回「当前绑定在本店名下」的设备；台账维护（新增 / 绑定 / 解绑）在运营后台，
+ * 小程序侧不提供写操作。越权由后端校验：调用者不是该门店经营者时返回 403。
+ */
+function fetchStoreDevices(subjectId, params) {
+  const query = Object.assign({}, params || {});
+  const data = {};
+  ['current', 'size'].forEach(key => {
+    const value = query[key];
+    if (value !== undefined && value !== null && value !== '') data[key] = value;
+  });
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/devices`,
+    method: 'GET',
+    data
+  }).then(unwrap);
+}
+
+/** 门店设备概览：{ total, online }（在线数不能只数当前页，由后端聚合） */
+function fetchStoreDeviceSummary(subjectId) {
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/devices/summary`,
+    method: 'GET'
+  }).then(unwrap);
+}
+
+/**
+ * 门店冲泡记录（只读，按写入时刻归属门店过滤，含已解绑设备的历史记录）。
+ *
+ * @param {object} params current / size / keyword（多字段模糊搜索）/ deviceSn（编码精确筛选，兼容保留）
+ *                      / from / to（yyyy-MM-dd，均含当天）
+ */
+function fetchStoreBrewRecords(subjectId, params) {
+  const query = Object.assign({}, params || {});
+  const data = {};
+  ['current', 'size', 'keyword', 'deviceSn', 'from', 'to'].forEach(key => {
+    const value = query[key];
+    if (value !== undefined && value !== null && value !== '') data[key] = value;
+  });
+  return request({
+    url: `/api/v1/app/workbench/store/${subjectId}/brew-records`,
+    method: 'GET',
+    data
+  }).then(unwrap);
+}
+
+/**
  * 执行门店核销（扫码 / 输码）。
  *
  * 核销是资金相关写操作：后端会校验「当前登录用户确实经营该门店」
@@ -514,6 +563,102 @@ function verifyStoreOrder(subjectId, code, meta) {
 
 function fetchMemberLevels() {
   return request({ url: '/api/v1/app/member-levels', method: 'GET' }).then(unwrap);
+}
+
+// ============================================================
+// 舌象体质检测
+// ============================================================
+
+/**
+ * 上传舌照并执行体质检测。
+ * wx.uploadFile 不经过 request.js，需要显式携带登录 token。
+ */
+function detectTongue(options) {
+  const opts = options || {};
+  return new Promise((resolve, reject) => {
+    if (!opts.filePath) {
+      reject(new Error('请先选择舌象照片'));
+      return;
+    }
+    if (typeof wx === 'undefined' || !wx.uploadFile) {
+      reject(new Error('当前环境不支持图片上传'));
+      return;
+    }
+    const token = readToken();
+    wx.uploadFile({
+      url: (config.BASE_URL || '') + '/api/v1/app/tongue/detections',
+      filePath: opts.filePath,
+      name: 'image',
+      formData: {
+        age: String(opts.age),
+        sex: String(opts.sex || '')
+      },
+      header: token ? { Authorization: 'Bearer ' + token } : {},
+      timeout: 75000,
+      success(res) {
+        let body = null;
+        try {
+          body = JSON.parse((res && res.data) || '');
+        } catch (error) {
+          reject(new Error('检测服务返回格式异常'));
+          return;
+        }
+        try {
+          resolve(unwrap(body));
+        } catch (error) {
+          reject(error);
+        }
+      },
+      fail() {
+        reject(new Error('舌象上传失败，请检查网络后重试'));
+      }
+    });
+  });
+}
+
+function fetchTongueReports() {
+  return request({ url: '/api/v1/app/tongue/reports', method: 'GET' }).then(unwrap);
+}
+
+function fetchTongueReport(id) {
+  return request({ url: `/api/v1/app/tongue/reports/${id}`, method: 'GET' }).then(unwrap);
+}
+
+function refreshTongueReport(id) {
+  return request({ url: `/api/v1/app/tongue/reports/${id}/refresh`, method: 'POST' }).then(unwrap);
+}
+
+function deleteTongueReport(id) {
+  return request({ url: `/api/v1/app/tongue/reports/${id}`, method: 'DELETE' }).then(unwrap);
+}
+
+/**
+ * 下载鉴权舌照，返回小程序可直接展示的临时文件路径。
+ * image 组件不支持自定义 Authorization，因此必须先 downloadFile。
+ */
+function downloadTongueImage(id) {
+  return new Promise((resolve, reject) => {
+    if (typeof wx === 'undefined' || !wx.downloadFile) {
+      reject(new Error('当前环境不支持图片下载'));
+      return;
+    }
+    const token = readToken();
+    wx.downloadFile({
+      url: (config.BASE_URL || '') + `/api/v1/app/tongue/reports/${id}/image`,
+      header: token ? { Authorization: 'Bearer ' + token } : {},
+      timeout: 30000,
+      success(res) {
+        if (res && res.statusCode === 200 && res.tempFilePath) {
+          resolve(res.tempFilePath);
+          return;
+        }
+        reject(new Error('舌照读取失败'));
+      },
+      fail() {
+        reject(new Error('舌照读取失败'));
+      }
+    });
+  });
 }
 
 // ============================================================
@@ -767,6 +912,9 @@ module.exports = {
   fetchRoleApplications,
   fetchStoreVerifyRecords,
   fetchStoreVerifyPool,
+  fetchStoreDevices,
+  fetchStoreDeviceSummary,
+  fetchStoreBrewRecords,
   fetchStoreProducts,
   fetchStoreProductDetail,
   updateStoreListing,
@@ -774,6 +922,13 @@ module.exports = {
   verifyStoreOrder,
   verifyStoreExchange,
   fetchMemberLevels,
+  detectTongue,
+  resolveAssetUrl,
+  fetchTongueReports,
+  fetchTongueReport,
+  refreshTongueReport,
+  deleteTongueReport,
+  downloadTongueImage,
   fetchWorkbenchOverview,
   fetchWorkbenchFlows,
   fetchWorkbenchSettlements,

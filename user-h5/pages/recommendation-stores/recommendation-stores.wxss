@@ -1,0 +1,221 @@
+.recommendation-stores {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--store-page-mint);
+}
+
+.recommendation-stores__map {
+  position: relative;
+  flex: none;
+  width: 100%;
+  /* 地图区高度：与点单门店层一致，已登记为档位豁免值 */
+  height: 640rpx;
+}
+
+.recommendation-stores__nav {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.recommendation-stores__nav-title-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recommendation-stores__nav-title {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.recommendation-stores__filter {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 104rpx;
+  margin: -24rpx 20rpx 0;
+  padding: 0 20rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+}
+
+.recommendation-stores__city {
+  display: flex;
+  flex: none;
+  align-items: center;
+  max-width: 160rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.recommendation-stores__city-arrow {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+  margin-left: 4rpx;
+}
+
+.recommendation-stores__search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  height: 48rpx;
+  margin-left: 16rpx;
+  padding: 0 16rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-md);
+}
+
+.recommendation-stores__search-icon {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.recommendation-stores__search-input {
+  flex: 1;
+  min-width: 0;
+  height: 48rpx;
+  margin-left: 8rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.recommendation-stores__search-placeholder {
+  color: var(--text-muted);
+}
+
+.recommendation-stores__search-clear {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.recommendation-stores__search-clear image {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.recommendation-stores__locate {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  margin-left: 12rpx;
+  background: var(--page-bg-neutral);
+  border-radius: 50%;
+}
+
+.recommendation-stores__locate-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.recommendation-stores__hint {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin: 12rpx 20rpx 0;
+  padding: 12rpx 20rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-md);
+}
+
+.recommendation-stores__hint-icon {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+}
+
+.recommendation-stores__hint-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--brand-dark);
+  font-size: var(--font-caption);
+  line-height: 32rpx;
+}
+
+.recommendation-stores__loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 40rpx 20rpx;
+}
+
+.recommendation-stores__loading-text {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.recommendation-stores__error {
+  flex: 1;
+  min-height: 0;
+  padding: 40rpx 20rpx 0;
+}
+
+.recommendation-stores__back {
+  align-self: center;
+  margin-top: 20rpx;
+  padding: 0 24rpx;
+  color: var(--brand-green);
+  font-size: var(--font-sm);
+  line-height: 64rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+}
+
+.recommendation-stores__list {
+  flex: 1;
+  min-height: 0;
+}
+
+.recommendation-stores__list-inner {
+  padding: 20rpx;
+}
+
+.recommendation-stores__group + .recommendation-stores__group {
+  margin-top: 24rpx;
+}
+
+.recommendation-stores__group-title {
+  display: block;
+  margin: 0 0 12rpx;
+  color: var(--store-card-title);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.recommendation-stores__group-note {
+  display: block;
+  margin: 0 0 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+  line-height: 32rpx;
+}
+
+.recommendation-stores__safe {
+  height: 40rpx;
+}

@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * 用户服务鉴权拦截器注册（第 11 期）。
  *
  * 需登录的接口（与 server 原 WebConfig 中 auth 相关条目保持一致）：
- * me / sms / avatar / nickname / phone / profile / location。
+ * me / sms / avatar / nickname / phone / profile / location，以及 /api/v1/app/tongue/**。
  *
  * 公开：wx-login（获取凭证的入口）。
  */
@@ -34,7 +34,8 @@ public class UserSecurityConfig implements WebMvcConfigurer {
                         "/api/v1/app/auth/profile",
                         "/api/v1/app/auth/profile-fields",
                         "/api/v1/app/auth/referrals/count",
-                        "/api/v1/app/auth/location"
+                        "/api/v1/app/auth/location",
+                        "/api/v1/app/tongue/**"
                 );
         // wx-login 不在此列：它是获取凭证的入口，本身无需登录。
     }

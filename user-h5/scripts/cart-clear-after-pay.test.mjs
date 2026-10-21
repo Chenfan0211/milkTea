@@ -64,5 +64,10 @@ assert.ok(
   confirmJs.includes('app.globalData.settledCartIds = this.settledCartIds'),
   '确认页必须写 settledCartIds 到 globalData'
 );
+assert.ok(
+  confirmJs.includes('settledCartReportId') && confirmJs.includes('markSettled'),
+  '推荐购物车必须按 reportId 标记并清理已结算条目'
+);
+assert.ok(confirmJs.includes('cartScope'), '确认页必须识别详情页购物车范围');
 
 console.log('支付后清空购物车测试通过');

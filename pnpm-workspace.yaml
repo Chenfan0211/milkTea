@@ -8,3 +8,5 @@ allowBuilds:
 shamefullyHoist: true
 ignoreWorkspaceRootCheck: true
 linkWorkspacePackages: true
+overrides:
+  brace-expansion@2.1.0: 2.1.7

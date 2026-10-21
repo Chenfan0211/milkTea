@@ -476,6 +476,30 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'subject_device',
+        path: '/subject/device',
+        component: 'view.subject_device',
+        meta: {
+          title: '设备管理',
+          order: 6,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'subject_device-brew',
+        path: '/subject/device-brew',
+        component: 'view.subject_device-brew',
+        meta: {
+          title: '冲泡记录',
+          order: 7,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
         name: 'subject_investor',
         path: '/subject/investor',
         component: 'view.subject_investor',

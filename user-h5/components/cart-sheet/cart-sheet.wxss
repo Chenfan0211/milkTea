@@ -29,6 +29,14 @@
   border-radius: 24rpx 24rpx 0 0;
 }
 
+.cart-sheet__panel.is-floating {
+  bottom: calc(var(--cart-bar-height) + env(safe-area-inset-bottom));
+}
+
+.cart-sheet__panel.is-action-bar {
+  bottom: calc(112rpx + var(--cart-bar-height) + env(safe-area-inset-bottom));
+}
+
 .cart-sheet__discount {
   display: flex;
   flex: none;
@@ -111,7 +119,8 @@
 }
 
 .cart-sheet__list {
-  height: 230rpx;
+  /* 两条商品约 198rpx×2 + 底部悬浮购物车栏遮挡 114rpx */
+  height: 510rpx;
 }
 
 .cart-item {
@@ -293,4 +302,74 @@
   color: var(--dark-fill);
   font-size: 28rpx;
   text-align: center;
+}
+.cart-sheet__panel.is-full-bottom {
+  bottom: env(safe-area-inset-bottom);
+}
+
+.cart-sheet__checkout {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 112rpx;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  border-top: 1rpx solid var(--line-color);
+}
+
+.cart-sheet__checkout-info {
+  display: flex;
+  align-items: center;
+}
+
+.cart-sheet__checkout-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  background: var(--dark-fill);
+  border-radius: 50%;
+}
+
+.cart-sheet__checkout-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.cart-sheet__checkout-count {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  min-width: 30rpx;
+  height: 30rpx;
+  padding: 0 7rpx;
+  color: var(--card-bg);
+  font-size: var(--font-caption);
+  line-height: 30rpx;
+  text-align: center;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
+.cart-sheet__checkout-total {
+  margin-left: 20rpx;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.cart-sheet__checkout-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 176rpx;
+  height: 80rpx;
+  padding: 0 28rpx;
+  color: var(--card-bg);
+  font-size: var(--font-base);
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
 }

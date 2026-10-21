@@ -1,0 +1,637 @@
+{
+  "detection": {
+    "reportId": "fixture-report-id",
+    "physique": "测试体质",
+    "summarize": "",
+    "productList": [
+      {
+        "goodsId": "vendor-goods-1",
+        "goodsName": "滇绿"
+      },
+      {
+        "goodsId": "vendor-goods-2",
+        "goodsName": "葛根枳椇茶"
+      },
+      {
+        "goodsId": "vendor-goods-3",
+        "goodsName": "金银菊花茶"
+      },
+      {
+        "goodsId": "vendor-goods-4",
+        "goodsName": "绿茶"
+      },
+      {
+        "goodsId": "vendor-goods-5",
+        "goodsName": "茉莉花茶"
+      }
+    ]
+  },
+  "report": {
+    "id": "fixture-report",
+    "children": [
+      {
+        "id": "1",
+        "title": "概况",
+        "children": [
+          {
+            "id": "1.1",
+            "title": "体质概述",
+            "descriptions": null,
+            "content": "<p>示例正文</p>",
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": {
+              "data": null,
+              "physiqueMainType": "测试体质",
+              "physiqueTypes": null,
+              "factor": null,
+              "feature": null,
+              "source": null
+            },
+            "children": null
+          },
+          {
+            "id": "1.4",
+            "title": "舌象分析",
+            "descriptions": null,
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": {
+              "data": null,
+              "physiqueMainType": null,
+              "physiqueTypes": null,
+              "factor": [
+                {
+                  "tongueVal": "示例舌色1",
+                  "highlight": "tongueColor",
+                  "tongueType": "舌色"
+                },
+                {
+                  "tongueVal": "示例苔色2",
+                  "highlight": "mossColor",
+                  "tongueType": "苔色"
+                },
+                {
+                  "tongueVal": "示例舌形3",
+                  "highlight": "tongueShape",
+                  "tongueType": "舌形"
+                },
+                {
+                  "tongueVal": "示例苔质4",
+                  "highlight": "mossQuality",
+                  "tongueType": "苔质"
+                },
+                {
+                  "tongueVal": "示例津液5",
+                  "highlight": "bodyFluid",
+                  "tongueType": "津液"
+                }
+              ],
+              "feature": [
+                {
+                  "tongueVal": "1.1",
+                  "difference": "3",
+                  "tongueType": "舌色指数"
+                },
+                {
+                  "tongueVal": "1.2",
+                  "difference": "3",
+                  "tongueType": "苔色指数"
+                },
+                {
+                  "tongueVal": "1.3",
+                  "difference": "3",
+                  "tongueType": "胖瘦指数"
+                },
+                {
+                  "tongueVal": "1.4",
+                  "difference": "3",
+                  "tongueType": "厚薄指数"
+                },
+                {
+                  "tongueVal": "1.5",
+                  "difference": "3",
+                  "tongueType": "腐腻指数"
+                }
+              ],
+              "source": null
+            },
+            "children": null
+          },
+          {
+            "id": "1.5",
+            "title": "健康特点",
+            "descriptions": [
+              {
+                "title": "【总体特征】",
+                "content": "示例说明"
+              },
+              {
+                "title": "【常见表现】",
+                "content": "示例说明"
+              }
+            ],
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": null
+          },
+          {
+            "id": "1.7",
+            "title": "中医调理",
+            "descriptions": null,
+            "content": "<p>示例正文</p>",
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": null
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "title": "饮食",
+        "children": [
+          {
+            "id": "2.6",
+            "title": "推荐商品",
+            "descriptions": null,
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": [
+              {
+                "id": "2.6.1",
+                "title": "滇绿",
+                "descriptions": [
+                  {
+                    "title": "【推荐理由】",
+                    "content": "示例推荐理由"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "picture",
+                  "thumbnail": null,
+                  "source": null
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "2.6.2",
+                "title": "葛根枳椇茶",
+                "descriptions": [
+                  {
+                    "title": "【推荐理由】",
+                    "content": "示例推荐理由"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "picture",
+                  "thumbnail": null,
+                  "source": null
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "2.6.3",
+                "title": "金银菊花茶",
+                "descriptions": [
+                  {
+                    "title": "【推荐理由】",
+                    "content": "示例推荐理由"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "picture",
+                  "thumbnail": null,
+                  "source": null
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "2.6.4",
+                "title": "绿茶",
+                "descriptions": [
+                  {
+                    "title": "【推荐理由】",
+                    "content": "示例推荐理由"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "picture",
+                  "thumbnail": null,
+                  "source": null
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "2.6.5",
+                "title": "茉莉花茶",
+                "descriptions": [
+                  {
+                    "title": "【推荐理由】",
+                    "content": "示例推荐理由"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "picture",
+                  "thumbnail": null,
+                  "source": null
+                },
+                "props": null,
+                "children": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "title": "穴位",
+        "children": [
+          {
+            "id": "3.1",
+            "title": "穴位调理方式",
+            "descriptions": [
+              {
+                "title": "【调理原则】",
+                "content": "示例说明"
+              },
+              {
+                "title": "【穴位选取】",
+                "content": "示例说明"
+              }
+            ],
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": null
+          },
+          {
+            "id": "3.2",
+            "title": "穴位操作",
+            "descriptions": null,
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": [
+              {
+                "id": "3.2.1",
+                "title": "阴陵泉穴",
+                "descriptions": [
+                  {
+                    "title": "【定位】",
+                    "content": "示例说明"
+                  },
+                  {
+                    "title": "【手法】",
+                    "content": "示例说明"
+                  },
+                  {
+                    "title": "【功效】",
+                    "content": "示例说明"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/3.2.1.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/3.2.1.mp4"
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "3.2.2",
+                "title": "三阴交穴",
+                "descriptions": [
+                  {
+                    "title": "【定位】",
+                    "content": "示例说明"
+                  },
+                  {
+                    "title": "【手法】",
+                    "content": "示例说明"
+                  },
+                  {
+                    "title": "【功效】",
+                    "content": "示例说明"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/3.2.2.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/3.2.2.mp4"
+                },
+                "props": null,
+                "children": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "title": "情志",
+        "children": [
+          {
+            "id": "4.1",
+            "title": "情志调理方式",
+            "descriptions": [
+              {
+                "title": "【情志表现】",
+                "content": "示例说明"
+              },
+              {
+                "title": "【调理原则】",
+                "content": "示例说明"
+              }
+            ],
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": null
+          },
+          {
+            "id": "4.2",
+            "title": "调体音乐",
+            "descriptions": [
+              {
+                "title": "【五脏相音】",
+                "content": "示例说明"
+              },
+              {
+                "title": "【推荐乐曲】",
+                "content": "示例说明"
+              }
+            ],
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": [
+              {
+                "id": "4.2.1",
+                "title": "《梅花三弄》",
+                "descriptions": [],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/4.2.1.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/4.2.1.mp3"
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "4.2.2",
+                "title": "《流水》",
+                "descriptions": [],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/4.2.2.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/4.2.2.mp3"
+                },
+                "props": null,
+                "children": null
+              }
+            ]
+          },
+          {
+            "id": "4.3",
+            "title": "呼吸冥想",
+            "descriptions": [
+              {
+                "title": "【简介】",
+                "content": "示例说明"
+              },
+              {
+                "title": "【作用原理】",
+                "content": "示例说明"
+              }
+            ],
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": [
+              {
+                "id": "4.3.1",
+                "title": "什么是冥想",
+                "descriptions": [],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/4.3.1.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/4.3.1.mp4"
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "4.3.2",
+                "title": "如何应对压力",
+                "descriptions": [],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/4.3.2.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/4.3.2.mp4"
+                },
+                "props": null,
+                "children": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "title": "运动",
+        "children": [
+          {
+            "id": "5.1",
+            "title": "运动调理方式",
+            "descriptions": [
+              {
+                "title": "【调理方法】",
+                "content": "示例说明"
+              },
+              {
+                "title": "【注意事项】",
+                "content": "示例说明"
+              }
+            ],
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": null
+          },
+          {
+            "id": "5.2",
+            "title": "中医健身功法",
+            "descriptions": null,
+            "content": null,
+            "reference": null,
+            "storeUrl": null,
+            "isBuy": null,
+            "media": null,
+            "props": null,
+            "children": [
+              {
+                "id": "5.2.1",
+                "title": "《八段锦》",
+                "descriptions": [
+                  {
+                    "title": "【简介】",
+                    "content": "示例说明"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/5.2.1.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/5.2.1.mp4"
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "5.2.2",
+                "title": "《六字诀》",
+                "descriptions": [
+                  {
+                    "title": "【简介】",
+                    "content": "示例说明"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/5.2.2.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/5.2.2.mp4"
+                },
+                "props": null,
+                "children": null
+              },
+              {
+                "id": "5.2.3",
+                "title": "《明目功》",
+                "descriptions": [
+                  {
+                    "title": "【简介】",
+                    "content": "示例说明"
+                  }
+                ],
+                "content": null,
+                "reference": null,
+                "storeUrl": null,
+                "isBuy": null,
+                "media": {
+                  "id": null,
+                  "type": "video",
+                  "thumbnail": "https://linkhealth.tcmbrain.com/example/5.2.3.jpg",
+                  "source": "https://linkhealth.tcmbrain.com/example/5.2.3.mp4"
+                },
+                "props": null,
+                "children": null
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

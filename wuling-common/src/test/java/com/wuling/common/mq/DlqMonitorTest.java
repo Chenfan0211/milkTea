@@ -69,6 +69,29 @@ class DlqMonitorTest {
         @Override public java.util.Properties getQueueProperties(String queueName) { return null; }
     }
 
+    /**
+     * 把所有被监控的 DLQ 置为 0。
+     *
+     * <p>刻意从 {@link DlqMonitor#MONITORED} 取清单，而不是在测试里再抄一份：
+     * 抄一份的代价就是「新增 DLQ 却忘了同步桩」——桩里没有的队列会被 getQueueInfo 返回 null，
+     * 于是被判成「队列不存在」发 WARNING，用例集体变红（2026-10 已实际发生）。
+     */
+    private static void stubAllZero(StubAdmin admin) {
+        for (String q : DlqMonitor.MONITORED) {
+            admin.setCount(q, 0);
+        }
+    }
+
+    @Test
+    void monitoredListShouldCoverNewlyAddedDlqs() {
+        assertTrue(DlqMonitor.MONITORED.contains(MqConstants.COUPON_EVENT_DLQ),
+                "优惠券事件 DLQ 必须被监控");
+        assertTrue(DlqMonitor.MONITORED.contains(MqConstants.DEVICE_MESSAGE_DLQ),
+                "设备消息 DLQ 必须被监控，否则消息进死信后无人察觉");
+        assertTrue(DlqMonitor.MONITORED.size() >= 8,
+                "被监控 DLQ 数量应随 MqConstants 增长（新增 DLQ 时同步补进 MONITORED）");
+    }
+
     private DlqMonitor monitor(StubAdmin admin, RecordingChannel ch) {
         return new DlqMonitor(admin, ch, true, 1);
     }
@@ -78,11 +101,7 @@ class DlqMonitorTest {
         StubAdmin admin = new StubAdmin();
         RecordingChannel ch = new RecordingChannel();
         // 全部置 0，只有 split 队列有 3 条
-        for (String q : List.of(MqConstants.ORDER_TIMEOUT_DLQ, MqConstants.PAYMENT_SUCCESS_DLQ,
-                MqConstants.SETTLEMENT_NOTIFY_DLQ, MqConstants.FINANCE_REVERSE_DLQ,
-                MqConstants.EXCHANGE_VERIFY_DLQ)) {
-            admin.setCount(q, 0);
-        }
+        stubAllZero(admin);
         admin.setCount(MqConstants.FINANCE_SPLIT_DLQ, 3);
 
         monitor(admin, ch).checkDlq();
@@ -96,12 +115,8 @@ class DlqMonitorTest {
     void shouldWarnWhenDlqNotDeclared() {
         StubAdmin admin = new StubAdmin();
         RecordingChannel ch = new RecordingChannel();
-        // 5 个正常，1 个不存在（模拟漏声明 DLQ）
-        for (String q : List.of(MqConstants.ORDER_TIMEOUT_DLQ, MqConstants.PAYMENT_SUCCESS_DLQ,
-                MqConstants.SETTLEMENT_NOTIFY_DLQ, MqConstants.FINANCE_REVERSE_DLQ)) {
-            admin.setCount(q, 0);
-        }
-        admin.setCount(MqConstants.EXCHANGE_VERIFY_DLQ, 0);
+        // 全部正常，只有 split 未声明（模拟漏声明 DLQ）
+        stubAllZero(admin);
         admin.setMissing(MqConstants.FINANCE_SPLIT_DLQ);
 
         monitor(admin, ch).checkDlq();
@@ -115,11 +130,7 @@ class DlqMonitorTest {
     void shouldNotRepeatAlertOnConsecutiveRuns() {
         StubAdmin admin = new StubAdmin();
         RecordingChannel ch = new RecordingChannel();
-        for (String q : List.of(MqConstants.ORDER_TIMEOUT_DLQ, MqConstants.PAYMENT_SUCCESS_DLQ,
-                MqConstants.SETTLEMENT_NOTIFY_DLQ, MqConstants.FINANCE_SPLIT_DLQ,
-                MqConstants.FINANCE_REVERSE_DLQ, MqConstants.EXCHANGE_VERIFY_DLQ)) {
-            admin.setCount(q, 0);
-        }
+        stubAllZero(admin);
         admin.setCount(MqConstants.FINANCE_SPLIT_DLQ, 5);
 
         DlqMonitor m = monitor(admin, ch);
@@ -134,11 +145,7 @@ class DlqMonitorTest {
     void shouldNotifyRecovery() {
         StubAdmin admin = new StubAdmin();
         RecordingChannel ch = new RecordingChannel();
-        for (String q : List.of(MqConstants.ORDER_TIMEOUT_DLQ, MqConstants.PAYMENT_SUCCESS_DLQ,
-                MqConstants.SETTLEMENT_NOTIFY_DLQ, MqConstants.FINANCE_REVERSE_DLQ,
-                MqConstants.EXCHANGE_VERIFY_DLQ)) {
-            admin.setCount(q, 0);
-        }
+        stubAllZero(admin);
         admin.setCount(MqConstants.FINANCE_SPLIT_DLQ, 2);
 
         DlqMonitor m = monitor(admin, ch);

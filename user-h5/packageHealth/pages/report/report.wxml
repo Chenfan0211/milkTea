@@ -1,0 +1,225 @@
+<template name="reportMedia">
+  <view class="report-media">
+    <view
+      wx:if="{{media.kind === 'AUDIO'}}"
+      class="report-audio"
+      data-key="{{media.key}}"
+      data-kind="{{media.kind}}"
+      data-source="{{media.source}}"
+      bindtap="handleMediaTap"
+      aria-role="button"
+      aria-label="播放或暂停{{media.title}}"
+    >
+      <image wx:if="{{media.poster}}" class="report-audio__cover" src="{{media.poster}}" mode="aspectFill" />
+      <view class="report-audio__copy">
+        <text class="report-audio__title">{{media.title}}</text>
+        <text wx:if="{{media.duration}}" class="report-audio__meta">时长 {{media.duration}}</text>
+      </view>
+      <text class="report-audio__action">{{activeMediaKey === media.key && audioPlaying ? '暂停' : '播放'}}</text>
+    </view>
+
+    <block wx:else>
+      <view
+        class="report-poster"
+        data-key="{{media.key}}"
+        data-kind="{{media.kind}}"
+        data-source="{{media.source}}"
+        bindtap="handleMediaTap"
+        aria-role="button"
+        aria-label="播放{{media.title}}"
+      >
+        <image class="report-poster__image" src="{{media.poster}}" mode="aspectFill" />
+        <view wx:if="{{media.kind === 'VIDEO'}}" class="report-poster__play">
+          <image class="report-poster__play-icon" src="/assets/icons/lucide/play-white.svg" mode="aspectFit" />
+        </view>
+        <text wx:if="{{media.duration}}" class="report-poster__duration">{{media.duration}}</text>
+      </view>
+      <video
+        wx:if="{{activeMediaKey === media.key && media.kind === 'VIDEO'}}"
+        class="report-video"
+        src="{{media.source}}"
+        poster="{{media.poster}}"
+        controls
+        autoplay
+      ></video>
+      <image
+        wx:if="{{activeMediaKey === media.key && media.kind === 'IMAGE'}}"
+        class="report-image"
+        src="{{media.source || media.poster}}"
+        mode="aspectFit"
+      />
+    </block>
+  </view>
+</template>
+
+<view class="report-page">
+  <navigation-bar title="详情" back="{{true}}" background="transparent" color="#2F302D" />
+
+  <scroll-view class="report-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="report-content">
+      <view wx:if="{{loading}}" class="report-loading">报告加载中...</view>
+
+      <view wx:elif="{{error}}" class="report-error">
+        <image class="report-error__icon" src="/assets/icons/lucide/circle-alert-warning.svg" mode="aspectFit" />
+        <text class="report-error__text">{{error}}</text>
+        <view class="report-error__retry" bindtap="load" aria-role="button" aria-label="重新加载报告">重新加载</view>
+      </view>
+
+      <block wx:else>
+        <view class="report-record">
+          <text class="report-record__label">检查记录</text>
+          <text class="report-record__value">{{profileSummary ? profileSummary + ' · ' : ''}}{{report.physique || '体质待生成'}}</text>
+          <text class="report-record__time">检测时间：{{report.createdAt}}</text>
+        </view>
+
+        <view class="report-panel">
+          <view class="report-panel__head">
+            <text class="report-panel__title">报告详情</text>
+            <text class="report-panel__hint">内容由AI生成，结果仅供参考</text>
+          </view>
+          <view class="report-tabs">
+            <view
+              wx:for="{{tabs}}"
+              wx:key="key"
+              class="report-tabs__item {{index === activeTabIndex ? 'is-active' : ''}}"
+              data-index="{{index}}"
+              bindtap="switchTab"
+              aria-role="button"
+              aria-label="{{item.label}}"
+            >{{item.label}}</view>
+          </view>
+        </view>
+
+        <view wx:if="{{statusNote}}" class="report-status">{{statusNote}}</view>
+
+        <view wx:if="{{!blocks.length}}" class="report-empty">本次报告的{{tabs[activeTabIndex].label}}内容暂未生成</view>
+
+        <view wx:for="{{blocks}}" wx:for-item="block" wx:key="id" class="report-card">
+          <view class="report-card__head">
+            <text class="report-card__title">{{block.title}}</text>
+            <view
+              wx:if="{{block.isProducts && block.products.length}}"
+              class="report-card__add-all"
+              data-block="{{block.id}}"
+              bindtap="handleAddAllProducts"
+              aria-role="button"
+              aria-label="一键加购{{block.title}}全部推荐商品"
+            >
+              <image class="report-card__add-all-icon" src="/assets/icons/lucide/shopping-bag-white.svg" mode="aspectFit" />
+              <text>一键加购</text>
+            </view>
+          </view>
+
+          <view wx:if="{{block.isChip}}" class="report-chips">
+            <text wx:for="{{block.chips}}" wx:for-item="chip" wx:key="*this" class="report-chip">{{chip}}</text>
+          </view>
+
+          <view wx:if="{{block.isAnalysis}}" class="report-analysis">
+            <view class="report-analysis__grid">
+              <view wx:for="{{block.factors}}" wx:for-item="factor" wx:key="tongueType" class="report-analysis__cell">
+                <text class="report-analysis__label">{{factor.tongueType}}</text>
+                <text class="report-analysis__value">{{factor.tongueVal}}</text>
+              </view>
+            </view>
+            <view class="report-analysis__indices">
+              <view wx:for="{{block.features}}" wx:for-item="feature" wx:key="tongueType" class="report-analysis__index">
+                <text class="report-analysis__index-label">{{feature.tongueType}}</text>
+                <text class="report-analysis__index-value">{{feature.tongueVal}}</text>
+              </view>
+            </view>
+          </view>
+
+          <rich-text wx:if="{{block.hasContent}}" class="report-text" nodes="{{block.content}}"></rich-text>
+
+          <view wx:if="{{block.hasDescriptions}}" class="report-descriptions">
+            <view wx:for="{{block.descriptions}}" wx:for-item="item" wx:key="title" class="report-description">
+              <text wx:if="{{item.title}}" class="report-description__title">{{item.title}}</text>
+              <text wx:if="{{item.text}}" class="report-description__text">{{item.text}}</text>
+            </view>
+          </view>
+
+          <block wx:if="{{block.media}}">
+            <template is="reportMedia" data="{{media: block.media, activeMediaKey: activeMediaKey, audioPlaying: audioPlaying}}" />
+          </block>
+
+          <view wx:if="{{block.isProducts}}" class="report-products">
+            <view
+              wx:for="{{block.products}}"
+              wx:for-item="product"
+              wx:key="id"
+              class="report-product"
+              data-id="{{product.productId}}"
+              bindtap="openProductDetail"
+              aria-role="button"
+              aria-label="查看{{product.name}}详情"
+            >
+              <image wx:if="{{product.image}}" class="report-product__image" src="{{product.image}}" mode="aspectFill" />
+              <view class="report-product__copy">
+                <view class="report-product__head">
+                  <text class="report-product__name">{{product.name}}</text>
+                </view>
+                <view wx:if="{{product.tags.length}}" class="report-product__tags">
+                  <text wx:for="{{product.tags}}" wx:for-item="tag" wx:key="*this" class="report-product__tag">{{tag}}</text>
+                </view>
+                <text wx:if="{{product.constitutions.length}}" class="report-product__constitutions">适宜体质：{{product.constitutions}}</text>
+                <text wx:if="{{product.reason}}" class="report-product__reason">推荐理由：{{product.reason}}</text>
+                <view class="report-product__footer">
+                  <text wx:if="{{product.price}}" class="report-product__price">{{product.price}}</text>
+                  <view class="report-product__detail" data-id="{{product.productId}}" catchtap="openProductDetail" aria-role="button" aria-label="查看{{product.name}}详情">查看详情</view>
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <view wx:if="{{block.pills.length}}" class="report-pills">
+            <view
+              wx:for="{{block.pills}}"
+              wx:for-item="pill"
+              wx:key="*this"
+              class="report-pill {{pill === block.activePill ? 'is-active' : ''}}"
+              data-block="{{block.id}}"
+              data-pill="{{pill}}"
+              bindtap="switchPill"
+              aria-role="button"
+              aria-label="{{pill}}"
+            >{{pill}}</view>
+          </view>
+
+          <view wx:for="{{block.subBlocks}}" wx:for-item="sub" wx:key="id" class="report-sub">
+            <text class="report-sub__title">{{sub.title}}</text>
+            <rich-text wx:if="{{sub.hasContent}}" class="report-text" nodes="{{sub.content}}"></rich-text>
+            <view wx:if="{{sub.hasDescriptions}}" class="report-descriptions">
+              <view wx:for="{{sub.descriptions}}" wx:for-item="item" wx:key="title" class="report-description">
+                <text wx:if="{{item.title}}" class="report-description__title">{{item.title}}</text>
+                <text wx:if="{{item.text}}" class="report-description__text">{{item.text}}</text>
+              </view>
+            </view>
+            <block wx:if="{{sub.media}}">
+              <template is="reportMedia" data="{{media: sub.media, activeMediaKey: activeMediaKey, audioPlaying: audioPlaying}}" />
+            </block>
+          </view>
+        </view>
+
+        <view class="report-disclaimer">结果仅供健康参考，不构成医疗诊断。如有健康问题，请咨询专业医生。</view>
+      </block>
+    </view>
+  </scroll-view>
+  <cart-bar
+    wx:if="{{cartCount > 0}}"
+    placement="safe"
+    count="{{cartCount}}"
+    total="{{cartTotal}}"
+    bind:cart="handleCartOpen"
+    bind:checkout="handleCartCheckout"
+  />
+  <cart-sheet
+    visible="{{cartVisible}}"
+    items="{{cartItems}}"
+    show-edit="{{false}}"
+    placement="floating"
+    bind:close="closeRecommendationCart"
+    bind:change="handleCartChange"
+    bind:checkout="handleCartCheckout"
+    bind:info="handleCartInfo"
+  />
+</view>

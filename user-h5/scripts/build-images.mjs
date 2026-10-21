@@ -42,6 +42,48 @@ const jobs = [
     maxBytes: 120 * 1024,
     crop: { x: 24, y: 224, width: 702, height: 312 },
     cleanLeft: { width: 256, startSampleX: 30, endSampleX: 251 }
+  },
+  // 舌诊 · 养生茶饮商品图（参考图裁切 → 3x 运行图，统一 264×360 卡片比例）
+  {
+    source: 'tongue-tea/gongting-shupu.png',
+    output: 'tea-gongting-shupu.jpg',
+    width: 264,
+    height: 360,
+    maxBytes: 60 * 1024,
+    cover: true
+  },
+  {
+    source: 'tongue-tea/chunyun-xiaozhong.png',
+    output: 'tea-chunyun-xiaozhong.jpg',
+    width: 264,
+    height: 360,
+    maxBytes: 60 * 1024,
+    cover: true
+  },
+  {
+    source: 'tongue-tea/dahongpao.png',
+    output: 'tea-dahongpao.jpg',
+    width: 264,
+    height: 360,
+    maxBytes: 60 * 1024,
+    cover: true
+  },
+  {
+    source: 'tongue-tea/yunling-yimi.png',
+    output: 'tea-yunling-yimi.jpg',
+    width: 264,
+    height: 360,
+    maxBytes: 60 * 1024,
+    cover: true
+  },
+  // 舌诊 · 拍摄舌头空态引导图（444×504 原图 → 424×482rpx 的 3x 输出）
+  {
+    source: 'tongue-capture-guide.jpg',
+    output: 'tongue-capture-guide.jpg',
+    width: 636,
+    height: 722,
+    maxBytes: 80 * 1024,
+    cover: true
   }
 ];
 

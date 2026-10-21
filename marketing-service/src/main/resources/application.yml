@@ -75,6 +75,15 @@ app:
     enabled: true
     cron: '0 * * * * ?'
     batch-size: 200
+  # 优惠券「过期未用」归档扫描（兜底：myCoupons 的「已过期」是现算的，本任务只为状态可索引/可统计）
+  coupon-expire-scan:
+    enabled: true
+    cron: '0 */5 * * * ?'
+    batch-size: 500
+  # 优惠券数据完整性巡检（只告警不自动改数）：已使用但无订单号 / 同用户同模板重复持有
+  coupon-integrity-check:
+    enabled: true
+    cron: '0 */10 * * * ?'
   # 事务内事件 outbox 扫描发布器（储值/优惠券/分账/冲正等最终一致事件）
   outbox:
     enabled: ${OUTBOX_ENABLED:true}

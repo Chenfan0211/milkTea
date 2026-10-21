@@ -1,0 +1,102 @@
+<view class="devices-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <view class="devices-toolbar">
+    <view class="devices-toolbar__head">
+      <view class="devices-toolbar__text">
+        <text class="devices-toolbar__summary">共 {{total}} 台 · 在线 {{online}} 台</text>
+        <text wx:if="{{updatedLabel}}" class="devices-toolbar__updated">更新于 {{updatedLabel}}</text>
+      </view>
+      <view
+        class="devices-toolbar__refresh"
+        bindtap="refresh"
+        aria-role="button"
+        aria-label="刷新设备列表"
+      >
+        <image class="devices-toolbar__refresh-icon" src="/assets/icons/lucide/refresh-cw.svg" mode="aspectFit" />
+        <text class="devices-toolbar__refresh-text">刷新</text>
+      </view>
+    </view>
+  </view>
+
+  <scroll-view
+    class="devices-scroll"
+    scroll-y
+    show-scrollbar="{{false}}"
+    refresher-enabled="{{true}}"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="refresh"
+    bindscrolltolower="onReachBottom"
+  >
+    <view class="devices-scroll__inner">
+      <view wx:if="{{loading && !devices.length}}" class="devices-loading">
+        <text class="devices-loading__text">正在加载设备…</text>
+      </view>
+
+      <view
+        wx:elif="{{loadError}}"
+        class="devices-error"
+        bindtap="reload"
+        aria-role="button"
+        aria-label="重新加载设备"
+      >
+        <text class="devices-error__text">{{loadError}}</text>
+        <text class="devices-error__action">点击重试</text>
+      </view>
+
+      <view wx:elif="{{devices.length}}" class="devices-list">
+        <view
+          class="device-card"
+          wx:for="{{devices}}"
+          wx:key="id"
+          data-device-sn="{{item.deviceSn}}"
+          data-device-name="{{item.deviceName}}"
+          data-display-name="{{item.displayName}}"
+          data-status-key="{{item.statusKey}}"
+          data-status-label="{{item.statusLabel}}"
+          data-last-report-time="{{item.lastReportTime}}"
+          bindtap="openDeviceBrew"
+          aria-role="button"
+          aria-label="查看{{item.displayName}}冲泡明细"
+        >
+          <view class="device-card__head">
+            <text class="device-card__name ellipsis">{{item.displayName}}</text>
+            <text class="device-card__status device-card__status--{{item.statusKey}}">{{item.statusLabel}}</text>
+          </view>
+
+          <view class="device-card__row">
+            <text class="device-card__label">设备编码</text>
+            <text class="device-card__value ellipsis">{{item.deviceSn}}</text>
+          </view>
+
+          <view wx:if="{{item.deviceName}}" class="device-card__row">
+            <text class="device-card__label">设备ID</text>
+            <text class="device-card__value ellipsis">{{item.deviceName}}</text>
+          </view>
+
+          <view class="device-card__row">
+            <text class="device-card__label">最近上报</text>
+            <text class="device-card__value">{{item.lastReportTime || '暂无上报'}}</text>
+          </view>
+
+          <view class="device-card__entry">
+            <text class="device-card__entry-text">查看冲泡明细</text>
+            <image class="device-card__entry-icon" src="/assets/icons/lucide/chevron-right-brand.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+
+      <empty-state
+        wx:else
+        icon="/assets/icons/lucide/device.svg"
+        title="暂无绑定设备"
+        description="设备由运营在后台建档并绑定到本店，绑定后这里会自动显示"
+      />
+
+      <view wx:if="{{devices.length && !hasMore}}" class="devices-end">已显示全部设备</view>
+      <view wx:if="{{loadingMore}}" class="devices-end">正在加载更多…</view>
+
+      <view class="devices-safe"></view>
+    </view>
+  </scroll-view>
+</view>

@@ -1,0 +1,37 @@
+<view class="history-page">
+  <navigation-bar title="体质识别记录" back="{{true}}" background="transparent" color="#2F302D" />
+
+  <scroll-view class="history-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="history-content">
+      <view wx:if="{{reports.length}}" class="history-list">
+        <view
+          wx:for="{{reports}}"
+          wx:key="id"
+          class="history-item"
+          data-id="{{item.id}}"
+          bindtap="openReport"
+          aria-role="button"
+          aria-label="查看{{item.physique}}详情"
+        >
+          <view class="history-item__main">
+            <view class="history-item__head">
+              <text wx:if="{{item.profile}}" class="history-item__profile">{{item.profile}}</text>
+              <text class="history-item__physique">{{item.physique}}</text>
+            </view>
+            <text class="history-item__time">检测时间：{{item.date}}</text>
+          </view>
+          <view class="history-item__action">查看详情</view>
+        </view>
+      </view>
+
+      <empty-state
+        wx:elif="{{!loading}}"
+        icon="/assets/icons/lucide/file-search-brand.svg"
+        title="暂无体质识别记录"
+        description="完成一次舌象检测后，报告会保存在这里"
+      />
+
+      <view wx:else class="history-loading">体质辨识记录加载中...</view>
+    </view>
+  </scroll-view>
+</view>

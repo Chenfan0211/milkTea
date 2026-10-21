@@ -16,10 +16,10 @@ Component({
         activeIcon: '/assets/icons/lucide/menu-active.svg'
       },
       {
-        pagePath: '/pages/member/member',
-        text: '会员专区',
-        icon: '/assets/icons/lucide/member.svg',
-        activeIcon: '/assets/icons/lucide/member-active.svg'
+        pagePath: '/pages/tongue/tongue',
+        text: '舌诊',
+        icon: '/assets/icons/lucide/tongue.svg',
+        activeIcon: '/assets/icons/lucide/tongue-active.svg'
       },
       {
         pagePath: '/pages/orders/orders',

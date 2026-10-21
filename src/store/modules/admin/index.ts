@@ -63,6 +63,9 @@ const REMOTE_RESOURCES: Record<string, string> = {
   // 主体管理
   subjects: 'subjects',
   users: 'users',
+  // 茶机设备（慧养智萃茶机队列对接）：冲泡记录 / 状态流水为只读事实数据
+  deviceBrewRecords: 'deviceBrewRecords',
+  deviceStatusLogs: 'deviceStatusLogs',
   // 商品配置（第3批）
   productCategories: 'productCategories',
   specs: 'specs',

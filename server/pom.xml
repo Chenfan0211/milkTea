@@ -97,6 +97,71 @@
             <artifactId>flyway-mysql</artifactId>
         </dependency>
 
+        <!--
+          阿里云轻量消息队列（原 MNS）官方 SDK：茶机设备状态/冲泡记录队列消费。
+
+          为什么用官方 SDK 而非手写 HTTP 签名：MNS 的请求签名（HMAC-SHA1）、
+          XML 响应解析与长轮询参数细节多，手写出错代价是「消息收不到」
+          或「重复消费」，官方 SDK 是唯一权威实现。
+
+          注意：SDK 版本锁定在父 POM 的 dependencyManagement（见 aliyun-sdk-mns.version），
+          其传递依赖（httpasyncclient / commons-lang3 / gson / jaxb-runtime）已做收敛，
+          避免与 Spring Boot 3.3.5 管理的版本冲突。
+        -->
+        <dependency>
+            <groupId>com.aliyun.mns</groupId>
+            <artifactId>aliyun-sdk-mns</artifactId>
+        </dependency>
+        <!--
+          JAXB 2.x（javax.xml.bind 命名空间）。
+
+          为什么必须显式引入：MNS SDK 内部用 JAXB 解析错误响应
+          （com.aliyun.mns.common.http.ExceptionResultParser -> JAXBResultParser），
+          而 JDK 17 已移除 JAXB；Spring Boot 3.3.x BOM 管理的是 4.x（jakarta 命名空间），
+          包名不同、不能替用。缺失时一旦对方返回错误（如密钥错误、无权限）
+          就会抛 NoClassDefFoundError，连错误原因都看不到。
+
+          三者版本必须成套（2.3.x + 1.2.x），且要排除掉 BOM 顶替的 jakarta 4.x/2.x。
+        -->
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <version>2.3.6</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>jakarta.xml.bind</groupId>
+                    <artifactId>jakarta.xml.bind-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>jakarta.activation</groupId>
+                    <artifactId>jakarta.activation-api</artifactId>
+                </exclusion>
+                <!--
+                  txw2 同属 JAXB 2.x 运行时，Boot BOM 会把它顶成 4.0.5（jakarta 世代）。
+                  2.3.6 与 4.x 的运行时接口不保证兼容，故一并排除后显式锁定 2.3.6。
+                -->
+                <exclusion>
+                    <groupId>org.glassfish.jaxb</groupId>
+                    <artifactId>txw2</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>txw2</artifactId>
+            <version>2.3.6</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>2.3.3</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.activation</groupId>
+            <artifactId>jakarta.activation-api</artifactId>
+            <version>1.2.2</version>
+        </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -129,6 +194,19 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+          H2（test 作用域）：设备消息链路端到端测试用内存库。
+          为什么加：DeviceServiceTest 全部 mock mapper，无法发现
+          「实体字段 ↔ 建表 DDL 列」漂移、唯一键去重、通用 CRUD 白名单等只有真 SQL 才暴露的问题；
+          DeviceFlowEndToEndTest 直接把真实迁移脚本 V75 跑在 H2(MySQL 兼容模式) 上，
+          用真 mapper + 真 JdbcTemplate 跑「报文 → 解析 → 消费 → 落库 → 后台查询」。
+          版本由 spring-boot-dependencies BOM 统一管理，不单独指定。
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

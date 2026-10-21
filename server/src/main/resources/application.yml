@@ -114,6 +114,24 @@ app:
     callback-secret: ${PAY_CALLBACK_SECRET:}
     # 回调时间戳允许漂移窗口（毫秒），默认 5 分钟，用于防重放
     callback-tolerance-ms: ${PAY_CALLBACK_TOLERANCE_MS:300000}
+  # ---------- 阿里云轻量消息队列（原 MNS）：慧养智萃茶机设备数据 ----------
+  # 对方推送「设备在线状态 + 胶囊冲泡记录」，本项目常驻长轮询消费。
+  #
+  # 默认关闭：拿到 AK/SK/queueName 之前 enabled=false，消费端不启动、不影响应用运行。
+  # 一旦显式置 true 却缺配置，服务拒绝启动（fail-fast），
+  # 避免出现「以为在消费、其实一条都没收到」的静默故障。
+  #
+  # 密钥只从部署侧注入（/opt/wuling/app/secrets.env），不写入仓库。
+  mns:
+    enabled: ${MNS_ENABLED:false}
+    endpoint: ${MNS_ENDPOINT:}
+    queue-name: ${MNS_QUEUE:}
+    access-key-id: ${MNS_AK:}
+    access-key-secret: ${MNS_SK:}
+    # 长轮询等待秒数（MNS 上限 30）：越大越省请求，但停机时退出最多等这么久
+    wait-seconds: ${MNS_WAIT_SECONDS:30}
+    # 轮询异常后的退避（毫秒），避免网络/权限异常时刷满日志
+    error-backoff-ms: ${MNS_ERROR_BACKOFF_MS:15000}
 
 # 告警通道配置（第 9 期）
 # 当前为日志通道；生产 25 端口被封，接 SMTP 需邮件授权码（见 docs）
