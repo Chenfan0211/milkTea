@@ -94,9 +94,9 @@ class ReferralRewardServiceTest {
 
         service.rewardFirstOrder(20L, "ORDER-1");
 
-        verify(pointsService).change(10L, "EARN", 3L, "referral", "ORDER-1", "邀请好友首单奖励");
+        verify(pointsService).change(10L, "EARN", 3L, "referral", "ORDER-1", "邀请好友首单奖励", null);
         verify(couponService).issueReferralCoupon(10L, 300L);
-        verify(pointsService).change(20L, "EARN", 3L, "referral", "ORDER-1", "好友首单奖励");
+        verify(pointsService).change(20L, "EARN", 3L, "referral", "ORDER-1", "好友首单奖励", null);
         verify(couponService).issueReferralCoupon(20L, 300L);
         assertEquals("COMPLETED", pending.getStatus());
         assertEquals("PAID", pending.getFirstOrderStatus());
@@ -138,8 +138,8 @@ class ReferralRewardServiceTest {
 
         service.rewardFirstOrder(20L, "ORDER-1");
 
-        verify(pointsService).change(10L, "EARN", 3L, "referral", "ORDER-1", "邀请好友首单奖励");
-        verify(pointsService).change(20L, "EARN", 3L, "referral", "ORDER-1", "好友首单奖励");
+        verify(pointsService).change(10L, "EARN", 3L, "referral", "ORDER-1", "邀请好友首单奖励", null);
+        verify(pointsService).change(20L, "EARN", 3L, "referral", "ORDER-1", "好友首单奖励", null);
         verify(referralRecordMapper).updateById(pending);
     }
 }

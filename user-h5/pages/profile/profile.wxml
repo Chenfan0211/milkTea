@@ -100,7 +100,26 @@
       <text class="pending-notice__text">您有 {{pendingRoleCount}} 个角色申请审核中</text>
     </view>
 
-    <image class="promo-banner" src="/assets/images/3x/profile-banner.jpg" mode="widthFix" bindtap="openMenu" aria-label="抹茶轻茉莉新品" />
+    <swiper
+      wx:if="{{profileBanners.length}}"
+      class="promo-swiper"
+      autoplay="{{profileBanners.length > 1}}"
+      interval="3000"
+      circular="{{profileBanners.length > 1}}"
+      indicator-dots="{{profileBanners.length > 1}}"
+    >
+      <swiper-item wx:for="{{profileBanners}}" wx:key="id">
+        <image
+          class="promo-banner"
+          src="{{item.imageUrl}}"
+          mode="aspectFill"
+          data-index="{{index}}"
+          bindtap="openMenu"
+          binderror="handleBannerError"
+          aria-label="{{item.altText}}"
+        />
+      </swiper-item>
+    </swiper>
 
     <!-- 我的功能：配置取回后可能为空（如仅剩暂缓上线的入口），空则不渲染整块卡片避免空白壳 -->
     <section-card wx:if="{{profileFunctions.length || roleFunctions.length}}" title="我的功能">

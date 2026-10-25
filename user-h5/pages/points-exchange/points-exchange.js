@@ -2,6 +2,7 @@ const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
 const { getPoints, notifyPointsChanged } = require('../../utils/points');
+const { requestContextualSubscribe } = require('../../utils/subscribe-message');
 
 function roundMoney(value) {
   return Math.round(value * 10) / 10;
@@ -69,7 +70,9 @@ Page(
       this.setData({ quantity: this.data.quantity + 1 }, () => this.refreshInsufficient());
     },
     handleExchange() {
-      loginGuard.requirePhone(() => this.doHandleExchange(), { reason: '兑换需要绑定手机号' });
+      requestContextualSubscribe(['pointsExchange', 'pointsChange']).then(() =>
+        loginGuard.requirePhone(() => this.doHandleExchange(), { reason: '兑换需要绑定手机号' })
+      );
     },
 
     doHandleExchange() {

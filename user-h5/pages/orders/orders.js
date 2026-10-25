@@ -3,6 +3,7 @@ const { orderCategories } = require('../../data/mock');
 const api = require('../../utils/api');
 const auth = require('../../utils/auth');
 const loginGuard = require('../../utils/login-guard');
+const featurePolicy = require('../../utils/feature-policy');
 const {
   cancelOrderById,
   cancelPaidOrderById,
@@ -37,7 +38,8 @@ Page(
     // Tab 页首次展示由 onShow 统一加载，避免初始化时重复请求
     onLoad() {},
     onShow() {
-      if (this.getTabBar) this.getTabBar().setData({ selected: 3 });
+      if (this.getTabBar)
+        this.getTabBar().setData({ selected: featurePolicy.getTabBarSelectedIndex('/pages/orders/orders') });
       // 从下单 / 详情返回时重新从第一页拉取，避免看到过期列表
       this.loadOrders();
       this.startCountdown();

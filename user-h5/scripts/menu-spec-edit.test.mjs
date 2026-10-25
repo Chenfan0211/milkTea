@@ -135,7 +135,9 @@ assert.ok(!navigationBarWxss.includes('.weui-navigation-bar__search'), '共享�
 
 const homeWxml = fs.readFileSync(path.join(root, 'pages/home/home.wxml'), 'utf8');
 assert.ok(
-  homeWxml.includes('home-hero') && homeWxml.includes('/assets/images/3x/home-hero.jpg'),
+  homeWxml.includes('home-hero') &&
+    homeWxml.includes('src="{{homeHeroUrl}}"') &&
+    homeWxml.includes('mode="aspectFill"'),
   '首页主视觉必须引用 3x 高清图'
 );
 assert.ok(
@@ -929,7 +931,7 @@ assert.ok(signInWxml.includes('signin-calendar-cell__date-band'), '月历日期�
 assert.ok(
   signInJs.includes('buildMonthCells') &&
     signInJs.includes('api') &&
-    signInJs.includes('signIn()') &&
+    signInJs.includes('signIn(') &&
     signInJs.includes('openCalendar') &&
     signInJs.includes('closeSuccess') &&
     signInJs.includes('getApp()'),
@@ -1309,7 +1311,8 @@ assert.ok(couponStoresWxss.includes('var(--page-gutter)'), '适用门店页必�
 
 const tabBarWxml = fs.readFileSync(path.join(root, 'custom-tab-bar/index.wxml'), 'utf8');
 const tabBarJs = fs.readFileSync(path.join(root, 'custom-tab-bar/index.js'), 'utf8');
-const tabPaths = [...tabBarJs.matchAll(/pagePath:\s*'([^']+)'/g)].map(match => match[1]);
+const tabBarPolicy = fs.readFileSync(path.join(root, 'config/build-policy.js'), 'utf8');
+const tabPaths = [...tabBarPolicy.matchAll(/pagePath:\s*'([^']+)'/g)].map(match => match[1]);
 assert.equal(tabPaths.length, 5, '底部导航必须保留五个 Tab 页面');
 assert.deepEqual(
   tabPaths,

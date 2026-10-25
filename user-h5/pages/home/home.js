@@ -4,11 +4,27 @@ const { getUserProfile } = require('../../utils/user-profile');
 const { getUsableCouponCount, refreshCouponsFromRemote } = require('../../utils/coupons');
 const loginGuard = require('../../utils/login-guard');
 const authState = require('../../utils/auth-state');
+const featurePolicy = require('../../utils/feature-policy');
+
+const DEFAULT_HOME_HERO = '/assets/images/3x/home-hero.jpg';
+const DEFAULT_HOME_HERO_ALT = '金秋入茶限定上新';
+
+function normalizeHomeHero(config) {
+  const hero = config && config.hero && typeof config.hero === 'object' ? config.hero : {};
+  const rawUrl = typeof hero.imageUrl === 'string' ? hero.imageUrl.trim() : '';
+  const rawAlt = typeof hero.altText === 'string' ? hero.altText.trim() : '';
+  return {
+    url: rawUrl ? api.resolveAssetUrl(rawUrl) : DEFAULT_HOME_HERO,
+    altText: rawAlt || DEFAULT_HOME_HERO_ALT
+  };
+}
 
 Page(
   withShare({
     data: {
       homeShortcuts: [],
+      homeHeroUrl: DEFAULT_HOME_HERO,
+      homeHeroAlt: DEFAULT_HOME_HERO_ALT,
       userProfile: getUserProfile(),
       // 可用优惠券数（首页「优惠券N张」）；null 表示未登录，不展示入口
       couponCount: null,
@@ -16,15 +32,22 @@ Page(
       loginSheetVisible: false
     },
     onShow() {
-      if (this.getTabBar) this.getTabBar().setData({ selected: 0 });
+      if (this.getTabBar)
+        this.getTabBar().setData({ selected: featurePolicy.getTabBarSelectedIndex('/pages/home/home') });
       // 首页配置与用户资料是两个独立数据源，并行请求：
       // 串行会让首屏等待「配置 + 资料 + 券包」三者相加，并行后只需等最慢的一条。
       const configTask = api
         .fetchHomeConfig()
         .then(cfg => {
+          const hero = normalizeHomeHero(cfg);
+          const updates = {
+            homeHeroUrl: hero.url,
+            homeHeroAlt: hero.altText
+          };
           if (cfg && Array.isArray(cfg.shortcuts) && cfg.shortcuts.length) {
-            this.setData({ homeShortcuts: cfg.shortcuts });
+            updates.homeShortcuts = cfg.shortcuts;
           }
+          this.setData(updates);
         })
         .catch(() => null);
       // 未登录：不请求需要登录的 /me（否则 401 会触发全局「重新登录」引导，
@@ -44,6 +67,12 @@ Page(
         .catch(() => this.setData({ couponCount: null }));
       return Promise.all([configTask, profileTask]);
     },
+    handleHeroError() {
+      if (this.data.homeHeroUrl !== DEFAULT_HOME_HERO) {
+        this.setData({ homeHeroUrl: DEFAULT_HOME_HERO, homeHeroAlt: DEFAULT_HOME_HERO_ALT });
+      }
+    },
+
     /** 首页昵称位登录入口：跳转独立登录页（用户主动点击，符合「先浏览后登录」的合规要求） */
     handleLoginTap() {
       loginGuard.openLoginSheet({ reason: '登录后可同步会员权益与订单' });

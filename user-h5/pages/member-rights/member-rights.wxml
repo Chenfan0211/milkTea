@@ -1,5 +1,5 @@
 <view class="member-rights-page">
-  <navigation-bar title="会员权益" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+  <navigation-bar title="{{navigationTitle}}" back="{{showBack}}" background="#FFFFFF" color="#2F302D" />
 
   <scroll-view class="member-rights-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="member-rights-content">
@@ -13,6 +13,7 @@
         growth="{{currentGrowth}}"
         bind:openrules="openLevelRules"
       />
+      <view class="tabbar-safe-space"></view>
     </view>
   </scroll-view>
 </view>

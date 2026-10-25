@@ -1,5 +1,6 @@
 const api = require('../../../utils/api');
 const recommendationCart = require('../../../utils/recommendation-cart-state');
+const featurePolicy = require('../../../utils/feature-policy');
 const { formatDateTime } = require('../../../utils/date-format');
 const {
   buildTabs,
@@ -107,6 +108,7 @@ Page({
   },
 
   onLoad(options) {
+    if (featurePolicy.redirectIfHidden('/packageHealth/pages/report/report')) return;
     this.reportId = String((options && options.id) || '');
     this.pollCount = 0;
     this.pills = {};

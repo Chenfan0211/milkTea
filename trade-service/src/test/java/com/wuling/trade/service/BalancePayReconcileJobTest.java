@@ -97,7 +97,7 @@ class BalancePayReconcileJobTest {
 
         StoredValueBalancePort balancePort = new StoredValueBalancePort() {
             @Override
-            public DeductResult deduct(Long userId, long amount, String bizNo) {
+            public DeductResult deduct(Long userId, long amount, String bizNo, Long storeSubjectId) {
                 return DeductResult.ok();
             }
 
@@ -107,7 +107,7 @@ class BalancePayReconcileJobTest {
             }
 
             @Override
-            public void refund(Long userId, long amount, String bizNo) {
+            public void refund(Long userId, long amount, String bizNo, Long storeSubjectId) {
                 refunds.add(new long[]{userId, amount});
             }
         };

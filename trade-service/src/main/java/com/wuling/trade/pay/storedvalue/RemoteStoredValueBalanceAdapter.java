@@ -40,7 +40,13 @@ public class RemoteStoredValueBalanceAdapter implements StoredValueBalancePort {
     @Override
     @SuppressWarnings("unchecked")
     public DeductResult deduct(Long userId, long amount, String bizNo) {
-        Map<String, Object> body = post("/internal/stored-value-orders/balance/pay", userId, amount, bizNo);
+        return deduct(userId, amount, bizNo, null);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public DeductResult deduct(Long userId, long amount, String bizNo, Long storeSubjectId) {
+        Map<String, Object> body = post("/internal/stored-value-orders/balance/pay", userId, amount, bizNo, storeSubjectId);
         if (body == null) {
             throw new BusinessException(ResultCode.ERROR, "储值余额扣款失败，请稍后重试");
         }
@@ -61,7 +67,13 @@ public class RemoteStoredValueBalanceAdapter implements StoredValueBalancePort {
     @Override
     @SuppressWarnings("unchecked")
     public void refund(Long userId, long amount, String bizNo) {
-        Map<String, Object> body = post("/internal/stored-value-orders/balance/refund", userId, amount, bizNo);
+        refund(userId, amount, bizNo, null);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void refund(Long userId, long amount, String bizNo, Long storeSubjectId) {
+        Map<String, Object> body = post("/internal/stored-value-orders/balance/refund", userId, amount, bizNo, storeSubjectId);
         if (body == null || !Boolean.TRUE.equals(body.get("success"))) {
             String reason = body == null ? "无响应" : asString(body.get("message"));
             log.error("储值余额退回失败 userId={} amount={} bizNo={} reason={}",
@@ -88,10 +100,17 @@ public class RemoteStoredValueBalanceAdapter implements StoredValueBalancePort {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> post(String uri, Long userId, long amount, String bizNo) {
+        return post(uri, userId, amount, bizNo, null);
+    }
+
+    private Map<String, Object> post(String uri, Long userId, long amount, String bizNo, Long storeSubjectId) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("userId", userId);
         payload.put("amount", amount);
         payload.put("bizNo", bizNo);
+        if (storeSubjectId != null) {
+            payload.put("storeSubjectId", storeSubjectId);
+        }
         try {
             return restClient.post()
                     .uri(uri)

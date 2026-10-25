@@ -68,6 +68,44 @@ class AbstractMqConsumerRetryTest {
                 anyString(), anyString(), any(Message.class), anyString(), anyString());
     }
 
+    @Test
+    void shouldMarkIdempotentOnlyAfterSuccessfulHandler() throws Exception {
+        MqIdempotent idempotent = mock(MqIdempotent.class);
+        Channel channel = mock(Channel.class);
+        when(idempotent.isConsumed("msg-3")).thenReturn(false);
+
+        TestConsumer consumer = new TestConsumer(idempotent, 3);
+        Message message = message("msg-3", 0, "O-3", 9L);
+
+        consumer.consumeAfterSuccessForTest(message, channel, ignored -> {
+        });
+
+        verify(channel).basicAck(9L, false);
+        verify(idempotent).markConsumed("msg-3");
+        verify(idempotent, never()).tryAcquire("msg-3");
+    }
+
+    @Test
+    void shouldNotMarkIdempotentWhenHandlerFails() throws Exception {
+        MqIdempotent idempotent = mock(MqIdempotent.class);
+        MqProducer producer = mock(MqProducer.class);
+        Channel channel = mock(Channel.class);
+        when(idempotent.isConsumed("msg-4")).thenReturn(false);
+        doNothing().when(producer).sendRawToExchangeWithId(
+                anyString(), anyString(), any(Message.class), anyString(), anyString());
+
+        TestConsumer consumer = new TestConsumer(idempotent, 3);
+        consumer.setProducer(producer);
+        Message message = message("msg-4", 0, "O-4", 10L);
+
+        consumer.consumeAfterSuccessForTest(message, channel, ignored -> {
+            throw new IllegalStateException("business failure");
+        });
+
+        verify(idempotent, never()).markConsumed("msg-4");
+        verify(idempotent, never()).release("msg-4");
+    }
+
     private Message message(String messageId, int retryCount, String bizKey, long deliveryTag) {
         MessageProperties properties = new MessageProperties();
         properties.setDeliveryTag(deliveryTag);
@@ -91,6 +129,10 @@ class AbstractMqConsumerRetryTest {
 
         void consumeForTest(Message message, Channel channel, MessageHandler handler) {
             consume(message, channel, handler);
+        }
+
+        void consumeAfterSuccessForTest(Message message, Channel channel, MessageHandler handler) {
+            consumeAfterSuccess(message, channel, handler);
         }
     }
 }

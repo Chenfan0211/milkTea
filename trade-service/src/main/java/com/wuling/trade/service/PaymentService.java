@@ -21,6 +21,7 @@ import com.wuling.trade.pay.wxpay.WxPayStatusMapper;
 import com.wuling.trade.pay.storedvalue.StoredValueBalancePort;
 import com.wuling.trade.pay.storedvalue.StoredValueOrderPort;
 import com.wuling.trade.pay.wxpay.WxPayTransaction;
+import com.wuling.trade.subscribe.OrderSubscribeNotifier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +68,9 @@ public class PaymentService {
     /** 礼品卡订单资金端口：建支付单、支付回调、退款编排 */
     private final GiftCardOrderPort giftCardOrderPort;
 
+    /** 支付成功后的“下单成功”订阅消息发送编排器。 */
+    private final OrderSubscribeNotifier orderSubscribeNotifier;
+
     /**
      * 储值余额资金端口：点单订单的余额支付扣款与退款回冲。
      *
@@ -98,7 +102,8 @@ public class PaymentService {
                           StoredValueBalancePort storedValueBalancePort,
                           BalancePayIntentService balancePayIntentService,
                           OutboxService outboxService,
-                          GiftCardOrderPort giftCardOrderPort) {
+                          GiftCardOrderPort giftCardOrderPort,
+                          OrderSubscribeNotifier orderSubscribeNotifier) {
         this.orderService = orderService;
         this.paymentMapper = paymentMapper;
         this.orderItemMapper = orderItemMapper;
@@ -109,6 +114,7 @@ public class PaymentService {
         this.balancePayIntentService = balancePayIntentService;
         this.outboxService = outboxService;
         this.giftCardOrderPort = giftCardOrderPort;
+        this.orderSubscribeNotifier = orderSubscribeNotifier;
     }
 
     /** 发起支付：创建支付单（不改变订单状态） */
@@ -617,7 +623,7 @@ public class PaymentService {
 
         // 稳定资金业务号：扣款 PAY:<orderNo>，保证幂等
         StoredValueBalancePort.DeductResult deduct =
-                storedValueBalancePort.deduct(userId, amountFen, "PAY:" + orderNo);
+                storedValueBalancePort.deduct(userId, amountFen, "PAY:" + orderNo, order.getStoreSubjectId());
         if (!deduct.success()) {
             // 余额不足等业务性失败：抛出让事务回滚，前端展示可读原因。
             // 意图仍为 PENDING，但既然没有扣到款，补偿任务判定为「无悬挂」即可
@@ -653,7 +659,9 @@ public class PaymentService {
 
         log.info("stored value pay ok orderNo={} userId={} amount={}",
                 orderNo, userId, amountFen);
-        return orderService.toDTO(order, loadItems(order.getId()));
+        OrderDTO dto = orderService.toDTO(order, loadItems(order.getId()));
+        orderSubscribeNotifier.enqueueForOrder(order, dto);
+        return dto;
     }
 
     /**
@@ -723,7 +731,9 @@ public class PaymentService {
         }
         publishOrderPaid(order, channelTag);
         log.info("order paid, orderNo={} channel={} pickupCode={}", orderNo, channelTag, order.getPickupCode());
-        return orderService.toDTO(order, loadItems(order.getId()));
+        OrderDTO dto = orderService.toDTO(order, loadItems(order.getId()));
+        orderSubscribeNotifier.enqueueForOrder(order, dto);
+        return dto;
     }
 
     /** Mock 直接支付：创建支付单并立即置为已支付（用于联调与演示） */
@@ -789,6 +799,7 @@ public class PaymentService {
         event.setUserId(order.getUserId());
         event.setPaidAmount(order.getPaidAmount());
         event.setChannel(channel);
+        event.setStoreSubjectId(order.getStoreSubjectId());
         outboxService.enqueue("order", order.getOrderNo(), "ORDER_PAID",
                 MqConstants.PAYMENT_SUCCESS_ROUTING_KEY, order.getOrderNo(), event);
 

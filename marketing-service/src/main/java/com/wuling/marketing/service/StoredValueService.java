@@ -19,6 +19,7 @@ import com.wuling.marketing.mapper.StoredValueOrderMapper;
 import com.wuling.marketing.mapper.StoredValuePackageCouponMapper;
 import com.wuling.marketing.mapper.StoredValuePackageMapper;
 import com.wuling.marketing.mapper.StoredValueTxnMapper;
+import com.wuling.marketing.subscribe.MarketingSubscribeNotifier;
 import com.wuling.user.entity.AppUser;
 import com.wuling.user.mapper.AppUserMapper;
 import org.slf4j.Logger;
@@ -81,6 +82,12 @@ public class StoredValueService {
     private final AppUserMapper appUserMapper;
     private final StoredValueTxnMapper storedValueTxnMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired(required = false)
+    private MarketingSubscribeNotifier subscribeNotifier;
+
+    @Autowired(required = false)
+    private StoredValueGiftCouponService giftCouponService;
 
     /**
      * 读全局储值使用说明（app_config.stored_value_usage）。
@@ -229,8 +236,12 @@ public class StoredValueService {
      * @param packageId 套餐 ID
      * @return 待支付的储值订单
      */
-    @Transactional(rollbackFor = Exception.class)
     public StoredValueOrder createOrder(Long userId, Long packageId) {
+        return createOrder(userId, packageId, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public StoredValueOrder createOrder(Long userId, Long packageId, Long storeSubjectId) {
         StoredValuePackageDTO pkg = requireEnabledPackage(packageId);
         AppUser user = appUserMapper.selectById(userId);
         if (user == null) {
@@ -241,6 +252,7 @@ public class StoredValueService {
         order.setOrderNo(nextNo("CZ"));
         order.setUserId(userId);
         order.setPackageId(packageId);
+        order.setStoreSubjectId(storeSubjectId);
         order.setAmount(pkg.getAmount());
         order.setPayStatus(PAY_UNPAID);
         orderMapper.insert(order);
@@ -349,9 +361,25 @@ public class StoredValueService {
 
         // 原子入账，避免「读-改-写」丢失更新
         appUserMapper.addBalance(order.getUserId(), order.getAmount());
+        StoredValueOrder paid = requireByOrderNo(orderNo);
+        if (subscribeNotifier != null) {
+            subscribeNotifier.notifyStoredValueRecharge(
+                    order.getUserId(),
+                    order.getStoreSubjectId(),
+                    order.getAmount(),
+                    paid.getUpdateTime() == null ? LocalDateTime.now() : paid.getUpdateTime(),
+                    orderNo);
+        }
+        if (giftCouponService != null) {
+            try {
+                giftCouponService.issue(order.getUserId(), order.getPackageId(), orderNo);
+            } catch (Exception e) {
+                log.warn("储值赠券发放失败但不阻断充值 orderNo={} err={}", orderNo, e.getMessage());
+            }
+        }
         log.info("stored value recharge ok orderNo={} userId={} amount={}",
                 orderNo, order.getUserId(), order.getAmount());
-        return requireByOrderNo(orderNo);
+        return paid;
     }
 
     /**
@@ -637,5 +665,3 @@ public class StoredValueService {
                 + String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
     }
 }
-
-

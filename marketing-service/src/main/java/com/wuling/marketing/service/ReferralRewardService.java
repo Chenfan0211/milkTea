@@ -50,6 +50,11 @@ public class ReferralRewardService {
 
     @Transactional(rollbackFor = Exception.class)
     public boolean rewardFirstOrder(Long inviteeUserId, String orderNo) {
+        return rewardFirstOrder(inviteeUserId, orderNo, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean rewardFirstOrder(Long inviteeUserId, String orderNo, Long storeSubjectId) {
         if (inviteeUserId == null || orderNo == null || orderNo.isBlank()) {
             log.warn("邀请首单奖励缺少必要参数 inviteeUserId={} orderNo={}", inviteeUserId, orderNo);
             return false;
@@ -86,9 +91,9 @@ public class ReferralRewardService {
         long couponAmountYuan = nonNegativeLong(config.get("firstOrderCouponAmount"), 3L);
         long couponAmountFen = couponAmountYuan * 100L;
 
-        pointsService.change(inviterUserId, "EARN", points, "referral", orderNo, "邀请好友首单奖励");
+        pointsService.change(inviterUserId, "EARN", points, "referral", orderNo, "邀请好友首单奖励", storeSubjectId);
         couponService.issueReferralCoupon(inviterUserId, couponAmountFen);
-        pointsService.change(inviteeUserId, "EARN", points, "referral", orderNo, "好友首单奖励");
+        pointsService.change(inviteeUserId, "EARN", points, "referral", orderNo, "好友首单奖励", storeSubjectId);
         couponService.issueReferralCoupon(inviteeUserId, couponAmountFen);
 
         record.setStatus(COMPLETED);

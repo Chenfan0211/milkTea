@@ -27,6 +27,7 @@ const store = useAdminStore();
 /** 配置键 -> 中文用途说明，供运营识别「这条配置影响哪里」。 */
 const KEY_HINTS: Record<string, string> = {
   home_shortcuts: '小程序首页金刚区入口',
+  home_hero: '小程序首页主视觉背景图（请到首页装修页维护）',
   menu_activity: '点单页活动弹层文案',
   profile_functions: '我的页功能宫格',
   signin_rules: '签到规则页文案',
@@ -42,6 +43,9 @@ const KEY_HINTS: Record<string, string> = {
 
 /** 敏感配置：接口不会下发给小程序，后台仅可维护不可预览明文。 */
 const SENSITIVE_KEYS = ['tencent_map_key'];
+
+/** 系统依赖配置：允许查看，但禁止在通用 JSON 表单中修改或删除。 */
+const PROTECTED_KEYS = ['service_info', 'home_hero'];
 
 function hintOf(row: any): string {
   return KEY_HINTS[row?.configKey] ?? '';
@@ -102,7 +106,8 @@ const formFields: FormField[] = [
     key: 'value',
     label: '配置内容（JSON 格式）',
     type: 'textarea',
-    placeholder: '例如：{"hotline":"400-000-0000","serviceHours":"每日 9:00 - 21:00"}'
+    placeholder: '例如：{"hotline":"400-000-0000","serviceHours":"每日 9:00 - 21:00"}',
+    disabled: form => PROTECTED_KEYS.includes(String(form.configKey || ''))
   },
   { key: 'sort', label: '排序', type: 'number' },
   { key: 'remark', label: '备注' }
@@ -178,8 +183,8 @@ const rowActions: RowAction[] = [
     type: 'error',
     reasonPrompt: '确认删除该配置？（小程序将取不到该配置，请谨慎操作并填写备注）',
     handler: async (row, reason) => await store.remove('appConfig', row.id, '运营配置', 'configName', reason),
-    // 敏感配置与客服配置是系统依赖项，禁止直接删除
-    visible: row => !isSensitive(row) && row.configKey !== 'service_info'
+    // 敏感配置、客服配置与首页主视觉是系统依赖项，禁止直接删除
+    visible: row => !isSensitive(row) && !PROTECTED_KEYS.includes(String(row.configKey || ''))
   }
 ];
 

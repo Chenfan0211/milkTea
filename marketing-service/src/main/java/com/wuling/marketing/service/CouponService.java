@@ -13,6 +13,7 @@ import com.wuling.marketing.entity.UserCoupon;
 import com.wuling.marketing.mapper.AuditLogMapper;
 import com.wuling.marketing.mapper.CouponMapper;
 import com.wuling.marketing.mapper.UserCouponMapper;
+import com.wuling.marketing.subscribe.MarketingSubscribeNotifier;
 import com.wuling.marketing.util.OrderNoCodec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -45,6 +46,9 @@ public class CouponService {
     private final UserCouponMapper userCouponMapper;
     private final AuditLogMapper auditLogMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MarketingSubscribeNotifier subscribeNotifier;
 
     /** 兼容既有单测与旧调用。 */
     public CouponService(CouponMapper couponMapper, UserCouponMapper userCouponMapper) {
@@ -309,8 +313,28 @@ public class CouponService {
         if (couponMapper.deductStock(coupon.getId()) == 0) {
             throw new IllegalStateException("邀请奖励券库存不足 couponId=" + coupon.getId());
         }
+        if (subscribeNotifier != null) {
+            LocalDateTime now = LocalDateTime.now();
+            CouponValidity validity = resolveValidity(
+                    referralUserCoupon(userId, coupon.getId(), now), coupon, now);
+            subscribeNotifier.notifyCouponArrival(
+                    userId,
+                    coupon.getName(),
+                    1,
+                    validity.expireAt(),
+                    "分享奖励已到账",
+                    "COUPON_ARRIVAL:REFERRAL:" + userId + ":" + coupon.getId());
+        }
     }
 
+    private UserCoupon referralUserCoupon(Long userId, Long couponId, LocalDateTime receiveTime) {
+        UserCoupon uc = new UserCoupon();
+        uc.setUserId(userId);
+        uc.setCouponId(couponId);
+        uc.setReceiveTime(receiveTime);
+        uc.setStatus(UNUSED);
+        return uc;
+    }
     private Coupon findReferralCoupon(Long amountFen) {
         // 只复用「已配置延迟生效」的模板：若历史库里存在同面额但立即生效的
         // 分享有礼券（延迟天数为 NULL/0），此处不应命中，否则会绕过 3 天延迟。
@@ -376,6 +400,7 @@ public class CouponService {
         uc.setCouponId(couponId);
         uc.setStatus(UNUSED);
         uc.setSource("RECEIVE");
+        uc.setGrantNo("SINGLE");
         uc.setReceiveTime(LocalDateTime.now());
         try {
             userCouponMapper.insert(uc);
@@ -386,6 +411,17 @@ public class CouponService {
         // 再扣库存：原子 SQL 保证不超发
         if (couponMapper.deductStock(couponId) == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "优惠券已领完");
+        }
+        if (subscribeNotifier != null) {
+            LocalDateTime now = LocalDateTime.now();
+            CouponValidity validity = resolveValidity(uc, coupon, now);
+            subscribeNotifier.notifyCouponArrival(
+                    userId,
+                    coupon.getName(),
+                    1,
+                    validity.expireAt(),
+                    "已放入券包，请及时使用",
+                    "COUPON_ARRIVAL:" + (uc.getId() == null ? userId + ":" + couponId : uc.getId()));
         }
         return uc;
     }

@@ -46,6 +46,8 @@
     "release": "sa release",
     "sync:admin-images": "node scripts/sync-admin-images.mjs",
     "test:device-import": "tsx scripts/device-import-xlsx.test.ts",
+    "test:home-decor": "node scripts/home-decor-admin.test.mjs",
+    "test:profile-banner": "node scripts/profile-banner-admin.test.mjs",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
     "update-pkg": "sa update-pkg"
   },

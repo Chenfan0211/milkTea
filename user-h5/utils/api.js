@@ -225,9 +225,13 @@ function fetchStoredValuePackages() {
  * 注意：本接口只建单，**不入账**。余额入账由微信支付回调驱动，
  * 前端拿到订单号后需调起收银台，再轮询 {@link fetchStoredValueOrder} 确认结果。
  */
-function createStoredValueOrder(packageId) {
+function createStoredValueOrder(packageId, storeSubjectId) {
+  const params = [`packageId=${encodeURIComponent(packageId)}`];
+  if (storeSubjectId != null && storeSubjectId !== '') {
+    params.push(`storeSubjectId=${encodeURIComponent(storeSubjectId)}`);
+  }
   return request({
-    url: `/api/v1/app/stored-value/orders?packageId=${encodeURIComponent(packageId)}`,
+    url: `/api/v1/app/stored-value/orders?${params.join('&')}`,
     method: 'POST'
   }).then(unwrap);
 }
@@ -370,8 +374,10 @@ function fetchSigninDates() {
   return request({ url: '/api/v1/app/points/signin-dates', method: 'GET' }).then(unwrap);
 }
 
-function signIn() {
-  return request({ url: '/api/v1/app/points/signin', method: 'POST' }).then(unwrap);
+function signIn(storeSubjectId) {
+  const query =
+    storeSubjectId != null && storeSubjectId !== '' ? `?storeSubjectId=${encodeURIComponent(storeSubjectId)}` : '';
+  return request({ url: `/api/v1/app/points/signin${query}`, method: 'POST' }).then(unwrap);
 }
 
 function exchangePointsProduct(productId, quantity = 1) {
@@ -565,6 +571,7 @@ function fetchMemberLevels() {
   return request({ url: '/api/v1/app/member-levels', method: 'GET' }).then(unwrap);
 }
 
+// @mini-release:tongueHealth:start
 // ============================================================
 // 舌象体质检测
 // ============================================================
@@ -660,6 +667,7 @@ function downloadTongueImage(id) {
     });
   });
 }
+// @mini-release:tongueHealth:end
 
 // ============================================================
 // 角色工作台（P1）
@@ -922,13 +930,17 @@ module.exports = {
   verifyStoreOrder,
   verifyStoreExchange,
   fetchMemberLevels,
+  // @mini-release:tongueHealth:start
   detectTongue,
+  // @mini-release:tongueHealth:end
   resolveAssetUrl,
+  // @mini-release:tongueHealth:start
   fetchTongueReports,
   fetchTongueReport,
   refreshTongueReport,
   deleteTongueReport,
   downloadTongueImage,
+  // @mini-release:tongueHealth:end
   fetchWorkbenchOverview,
   fetchWorkbenchFlows,
   fetchWorkbenchSettlements,

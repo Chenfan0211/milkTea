@@ -35,24 +35,21 @@ page {
   --store-action-from: #3b9544;
   --store-action-to: #32843d;
   --store-decor-leaf: #a6c685;
+  /* @mini-release:tongueHealth:start */
   /* 舌诊 · 体质健康管理（按参考图取色固化，登记见 docs/design-system.md） */
   --health-gradient-top: #c4da9c;
   --health-gradient-mid: #e1efc5;
-  --health-page-gradient: linear-gradient(
-    180deg,
-    var(--health-gradient-top) 0%,
-    var(--health-gradient-mid) 30%,
-    var(--page-bg-neutral) 52%,
-    var(--page-bg-neutral) 100%
-  );
   --health-cta-from: #d2e963;
   --health-cta-to: #c4da92;
+  --health-cta-text: #000000;
   --health-tab-track: #d5e3bb;
   --health-tab-active: #aecd7f;
   --health-surface-tint: #f9fcf2;
   --health-feature-pill-bg: rgba(255, 255, 255, 0.7);
-  --health-cta-shell: rgba(255, 255, 255, 0.5);
+  --health-note-text: #666762;
+  --health-cta-shell: rgba(196, 218, 146, 0.35);
   --health-cta-shadow: 0 12rpx 30rpx rgba(83, 136, 44, 0.14);
+  /* @mini-release:tongueHealth:end */
   /* 字号档位 */
   --font-caption: 20rpx;
   --font-sm: 24rpx;
@@ -111,6 +108,21 @@ button::after {
 .tabbar-safe-space {
   height: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
 }
+
+/* @mini-release:tongueHealth:start */
+.health-page__background {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+/* @mini-release:tongueHealth:end */
 
 .card {
   background: var(--card-bg);

@@ -77,6 +77,7 @@ public class AppConfigController {
         Map<String, Object> result = new HashMap<>();
         result.put("shortcuts", readPublicValue("home_shortcuts"));
         result.put("menuActivity", readPublicValue("menu_activity"));
+        result.put("hero", readPublicValue("home_hero"));
         return Result.ok(result);
     }
 
@@ -85,6 +86,9 @@ public class AppConfigController {
     public Result<Map<String, Object>> profile() {
         Map<String, Object> result = new HashMap<>();
         result.put("functions", readPublicValue("profile_functions"));
+        result.put("banners", jdbcTemplate.queryForList(
+                "select id, image_url as imageUrl, alt_text as altText from profile_banner "
+                        + "where status = 'enabled' and deleted = 0 order by sort asc, id asc"));
         return Result.ok(result);
     }
 

@@ -18,6 +18,8 @@ public class StoredValueOrder {
     private String orderNo;
     private Long userId;
     private Long packageId;
+    /** 充值门店 subjectId（biz_subject.id）。 */
+    private Long storeSubjectId;
     private Long amount;
     private String payStatus;
 

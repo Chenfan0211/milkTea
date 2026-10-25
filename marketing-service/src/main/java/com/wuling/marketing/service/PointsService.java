@@ -24,6 +24,7 @@ import com.wuling.marketing.mapper.PointsSigninRuleMapper;
 import com.wuling.marketing.mapper.UserCouponMapper;
 import com.wuling.user.entity.AppUser;
 import com.wuling.user.mapper.AppUserMapper;
+import com.wuling.marketing.subscribe.MarketingSubscribeNotifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,9 @@ public class PointsService {
     private final PointsCategoryMapper pointsCategoryMapper;
     private final CouponMapper couponMapper;
     private final UserCouponMapper userCouponMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MarketingSubscribeNotifier subscribeNotifier;
 
     public PointsService(PointsProductMapper pointsProductMapper,
                          PointsRecordMapper pointsRecordMapper,
@@ -143,11 +147,16 @@ public class PointsService {
      */
     @Transactional(rollbackFor = Exception.class)
     public long change(Long userId, String type, long amount, String source, String orderNo, String remark) {
+        return change(userId, type, amount, source, orderNo, remark, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public long change(Long userId, String type, long amount, String source, String orderNo, String remark,
+                       Long storeSubjectId) {
         AppUser user = appUserMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
-        // 原子增减：条件 points + amount >= 0 保证不会扣成负数
         if (appUserMapper.addPoints(userId, amount) == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "时光币不足");
         }
@@ -162,6 +171,19 @@ public class PointsService {
         record.setOrderNo(orderNo);
         record.setRemark(remark);
         pointsRecordMapper.insert(record);
+        if (subscribeNotifier != null && !"exchange".equals(source)) {
+            String messageKey = record.getId() == null
+                    ? "POINTS_CHANGE:" + source + ":" + orderNo
+                    : "POINTS_CHANGE:" + record.getId();
+            subscribeNotifier.notifyPointsChange(
+                    userId,
+                    storeSubjectId,
+                    amount,
+                    next,
+                    remark,
+                    record.getCreateTime() == null ? java.time.LocalDateTime.now() : record.getCreateTime(),
+                    messageKey);
+        }
         return next;
     }
 
@@ -184,6 +206,12 @@ public class PointsService {
      */
     @Transactional(rollbackFor = Exception.class)
     public long awardForOrderPaid(Long userId, Long paidAmountFen, String orderNo) {
+        return awardForOrderPaid(userId, paidAmountFen, orderNo, null);
+    }
+
+
+    @Transactional(rollbackFor = Exception.class)
+    public long awardForOrderPaid(Long userId, Long paidAmountFen, String orderNo, Long storeSubjectId) {
         if (userId == null || paidAmountFen == null || paidAmountFen <= 0 || orderNo == null || orderNo.isBlank()) {
             return 0;
         }
@@ -201,7 +229,7 @@ public class PointsService {
         if (points <= 0) {
             return 0;
         }
-        long balance = change(userId, "EARN", points, "consume", orderNo, "每消费1元获得1时光币");
+        long balance = change(userId, "EARN", points, "consume", orderNo, "每消费1元获得1时光币", storeSubjectId);
         log.info("消费发放时光币 userId={} orderNo={} 实付分={} 发放={} 余额={}",
                 userId, orderNo, paidAmountFen, points, balance);
         return points;
@@ -221,6 +249,12 @@ public class PointsService {
     /** 每日签到（幂等：同一天重复签到被拒绝） */
     @Transactional(rollbackFor = Exception.class)
     public long signIn(Long userId) {
+        return signIn(userId, null);
+    }
+
+
+    @Transactional(rollbackFor = Exception.class)
+    public long signIn(Long userId, Long storeSubjectId) {
         LocalDate today = LocalDate.now();
         // 并发安全：不再「先查后插」，直接插入并依赖唯一索引
         // uk_points_signin(user_id, sign_date) 拦截并发重复签到，避免重复发放时光币。
@@ -237,7 +271,7 @@ public class PointsService {
                 new LambdaQueryWrapper<PointsSigninRule>().orderByAsc(PointsSigninRule::getId))
                 .stream().findFirst().orElse(null);
         long daily = rule == null || rule.getDaily() == null ? 1L : rule.getDaily();
-        long balance = change(userId, "EARN", daily, "signin", null, "每日签到");
+        long balance = change(userId, "EARN", daily, "signin", null, "每日签到", storeSubjectId);
         // 关键业务日志：签到发放时光币
         log.info("签到成功 userId={} 发放={} 余额={}", userId, daily, balance);
         return balance;
@@ -300,7 +334,7 @@ public class PointsService {
         if (pointsProductMapper.deductStock(productId, quantity) == 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "库存不足");
         }
-        change(userId, "CONSUME", -points, "exchange", null, "兑换 " + product.getName());
+        long balanceAfterExchange = change(userId, "CONSUME", -points, "exchange", null, "兑换 " + product.getName(), null);
 
         String exchangeNo = nextExchangeNo();
         String pickupCode = null;
@@ -314,6 +348,7 @@ public class PointsService {
             userCoupon.setStatus("UNUSED");
             userCoupon.setReceiveTime(LocalDateTime.now());
             userCoupon.setSource(SOURCE_POINTS_EXCHANGE);
+            userCoupon.setGrantNo("SINGLE");
             userCouponMapper.insert(userCoupon);
         } else {
             pickupCode = exchangeNo;
@@ -328,6 +363,16 @@ public class PointsService {
         order.setPickupCode(pickupCode);
         order.setStatus(couponProduct ? COMPLETED : PENDING);
         exchangeOrderMapper.insert(order);
+        if (subscribeNotifier != null) {
+            subscribeNotifier.notifyPointsExchange(
+                    userId,
+                    product.getName(),
+                    quantity,
+                    points,
+                    balanceAfterExchange,
+                    order.getCreateTime() == null ? LocalDateTime.now() : order.getCreateTime(),
+                    "POINTS_EXCHANGE:" + exchangeNo);
+        }
         log.info("兑换成功 userId={} productId={} product={} quantity={} 消耗={} 状态={} 自提码={}",
                 userId, productId, product.getName(), quantity, points, order.getStatus(), pickupCode);
         return order;

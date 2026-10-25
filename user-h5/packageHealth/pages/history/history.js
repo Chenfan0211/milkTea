@@ -1,6 +1,7 @@
 const api = require('../../../utils/api');
 const { formatDateTime } = require('../../../utils/date-format');
 const auth = require('../../../utils/auth');
+const featurePolicy = require('../../../utils/feature-policy');
 
 const REPORT_PAGE = '/packageHealth/pages/report/report';
 
@@ -42,7 +43,12 @@ Page({
     loading: false
   },
 
+  onLoad() {
+    featurePolicy.redirectIfHidden('/packageHealth/pages/history/history');
+  },
+
   onShow() {
+    if (featurePolicy.shouldHideRoute('/packageHealth/pages/history/history')) return;
     this.loadReports();
   },
 

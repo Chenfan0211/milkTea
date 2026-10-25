@@ -93,8 +93,9 @@ public class AppMarketingController {
      * <p>金额以服务端套餐配置为准，不接受前端传入。
      */
     @PostMapping("/stored-value/orders")
-    public Result<StoredValueOrder> createStoredValueOrder(@RequestParam Long packageId) {
-        return Result.ok(storedValueService.createOrder(CurrentUser.require(), packageId));
+    public Result<StoredValueOrder> createStoredValueOrder(@RequestParam Long packageId,
+                                                      @RequestParam(required = false) Long storeSubjectId) {
+        return Result.ok(storedValueService.createOrder(CurrentUser.require(), packageId, storeSubjectId));
     }
 
     /**
@@ -225,8 +226,8 @@ public class AppMarketingController {
     }
 
     @PostMapping("/points/signin")
-    public Result<Map<String, Object>> signIn() {
-        long balance = pointsService.signIn(CurrentUser.require());
+    public Result<Map<String, Object>> signIn(@RequestParam(required = false) Long storeSubjectId) {
+        long balance = pointsService.signIn(CurrentUser.require(), storeSubjectId);
         return Result.ok(Map.of("balance", balance, "message", "签到成功"));
     }
 
@@ -292,7 +293,3 @@ public class AppMarketingController {
         return value.intValue();
     }
 }
-
-
-
-

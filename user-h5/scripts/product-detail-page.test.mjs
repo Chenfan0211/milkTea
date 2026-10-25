@@ -60,7 +60,7 @@ const pageJs = fs.readFileSync(dir + '.js', 'utf8');
 const pageWxml = fs.readFileSync(dir + '.wxml', 'utf8');
 const pageWxss = fs.readFileSync(dir + '.wxss', 'utf8');
 assert.ok(pageJs.includes('withShare('), '主包页面必须使用 withShare 包装');
-assert.ok(pageJs.includes('api.fetchProductDetail'), '详情页必须复用商品详情接口');
+assert.match(pageJs, /api\s*\.fetchProductDetail/, '详情页必须复用商品详情接口');
 assert.ok(pageJs.includes('reportId'), '详情页必须读取报告上下文并用于推荐购物车隔离');
 assert.ok(
   pageJs.includes('missing: true') && pageJs.includes('error:') && pageJs.includes('loading: true'),

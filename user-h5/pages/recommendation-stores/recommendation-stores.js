@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const featurePolicy = require('../../utils/feature-policy');
 const api = require('../../utils/api');
 const location = require('../../utils/location');
 const {
@@ -242,7 +243,7 @@ Page(
         wx.navigateBack({ delta: 1 });
         return;
       }
-      wx.switchTab({ url: '/pages/tongue/tongue' });
+      wx.switchTab({ url: featurePolicy.getThirdTabPath() });
     },
 
     handleStorePhone(event) {

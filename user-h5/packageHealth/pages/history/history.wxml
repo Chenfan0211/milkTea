@@ -1,4 +1,5 @@
 <view class="history-page">
+  <image class="health-page__background" src="/assets/images/3x/health-gradient-bg.png" mode="scaleToFill" aria-hidden="true" />
   <navigation-bar title="体质识别记录" back="{{true}}" background="transparent" color="#2F302D" />
 
   <scroll-view class="history-scroll" scroll-y show-scrollbar="{{false}}">

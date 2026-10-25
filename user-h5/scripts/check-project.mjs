@@ -103,7 +103,8 @@ const expectedRuntimeImages = new Map([
   ['assets/images/3x/tea-chunyun-xiaozhong.jpg', { width: 264, height: 360, maxBytes: 60 * 1024 }],
   ['assets/images/3x/tea-dahongpao.jpg', { width: 264, height: 360, maxBytes: 60 * 1024 }],
   ['assets/images/3x/tea-yunling-yimi.jpg', { width: 264, height: 360, maxBytes: 60 * 1024 }],
-  ['assets/images/3x/tongue-capture-guide.jpg', { width: 636, height: 722, maxBytes: 80 * 1024 }]
+  ['assets/images/3x/tongue-capture-guide.jpg', { width: 636, height: 722, maxBytes: 80 * 1024 }],
+  ['assets/images/3x/health-gradient-bg.png', { width: 6, height: 1024, maxBytes: 16 * 1024 }]
 ]);
 const requiredPackIgnore = ['design/reference', 'assets/temp', 'scripts', 'docs'];
 const errors = [];
@@ -216,6 +217,17 @@ function getJpegSize(file) {
   throw new Error('无法读取 JPEG 尺寸');
 }
 
+function getPngSize(file) {
+  const buffer = fs.readFileSync(file);
+  const signature = buffer.subarray(0, 8).toString('hex');
+  if (signature !== '89504e470d0a1a0a') throw new Error('无效 PNG 文件');
+  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+}
+
+function getImageSize(file) {
+  return path.extname(file).toLowerCase() === '.png' ? getPngSize(file) : getJpegSize(file);
+}
+
 const sourceFiles = walk(root).filter(
   file => !file.includes(`${path.sep}assets${path.sep}`) && !file.includes(`${path.sep}node_modules${path.sep}`)
 );
@@ -252,7 +264,7 @@ for (const [imagePath, expected] of expectedRuntimeImages) {
     continue;
   }
   try {
-    const size = getJpegSize(absolutePath);
+    const size = getImageSize(absolutePath);
     if (size.width !== expected.width || size.height !== expected.height) {
       errors.push(`${imagePath} 尺寸应为 ${expected.width}x${expected.height}，实际为 ${size.width}x${size.height}`);
     }
@@ -421,8 +433,8 @@ if (cartSheetWxml.includes('cart-sheet__summary')) {
   errors.push('购物车弹层不得保留重复的底部结算条');
 }
 const tabBarWxml = fs.readFileSync(path.join(root, 'custom-tab-bar/index.wxml'), 'utf8');
-const tabBarJs = fs.readFileSync(path.join(root, 'custom-tab-bar/index.js'), 'utf8');
-const tabPaths = [...tabBarJs.matchAll(/pagePath:\s*'([^']+)'/g)].map(match => match[1]);
+const tabBarPolicy = fs.readFileSync(path.join(root, 'config/build-policy.js'), 'utf8');
+const tabPaths = [...tabBarPolicy.matchAll(/pagePath:\s*'([^']+)'/g)].map(match => match[1]);
 if (
   tabPaths.length !== 5 ||
   ![

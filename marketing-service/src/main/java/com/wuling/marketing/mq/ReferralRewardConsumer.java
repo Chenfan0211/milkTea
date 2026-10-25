@@ -59,11 +59,11 @@ public class ReferralRewardConsumer extends AbstractMqConsumer {
                 log.info("成长值已累加过，跳过 orderNo={}", event.getOrderNo());
             }
             // 2) 触发邀请好友首单奖励
-            referralRewardService.rewardFirstOrder(event.getUserId(), event.getOrderNo());
+            referralRewardService.rewardFirstOrder(event.getUserId(), event.getOrderNo(), event.getStoreSubjectId());
             // 3) 消费发放时光币（每消费 1 元 +1 币；余额支付/微信支付均计入）
             try {
                 pointsService.awardForOrderPaid(event.getUserId(),
-                        event.getPaidAmount(), event.getOrderNo());
+                        event.getPaidAmount(), event.getOrderNo(), event.getStoreSubjectId());
             } catch (DuplicateKeyException e) {
                 // 该订单已发放过：幂等跳过
                 log.info("时光币已发放过，跳过 orderNo={}", event.getOrderNo());

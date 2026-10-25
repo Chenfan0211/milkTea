@@ -27,6 +27,10 @@ spring:
     password: ${RABBITMQ_PASSWORD:}
 
 app:
+  # 本地禁止真实发送下单订阅消息（避免 mock 支付误发真实通知）；真机联调时可临时改为 true
+  wx:
+    order-subscribe:
+      enabled: false
   jwt:
     secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}
   # 本地直连（不经服务发现）：local dev 的 base 是字面 IP，

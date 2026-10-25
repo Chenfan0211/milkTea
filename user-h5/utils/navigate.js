@@ -1,22 +1,14 @@
 /**
  * 统一页面跳转工具。
  *
- * 背景（踩坑记录）：微信小程序里 tabBar 页面**必须用 wx.switchTab**，
- * 用 wx.reLaunch / wx.navigateTo / wx.redirectTo 跳 tabBar 页会**静默失败**
- * —— 既不报错也不跳转，fail / complete 回调照常触发，导致
- * 「登录成功提示已显示、但页面停在原地」这类难排查的问题。
- *
- * 因此全项目跳转一律走本模块，由它按目标页是否属于 tabBar 自动选 API。
+ * tabBar 页面必须用 wx.switchTab；普通页面用 navigateTo 保留返回栈，
+ * 启动页等需要清栈的场景继续使用 go() 的 reLaunch 语义。
  */
+const featurePolicy = require('./feature-policy');
 
-// 必须与 app.json 的 tabBar.list 逐项一致；不一致会导致跳转静默失败。
-const TAB_BAR_PAGES = [
-  '/pages/home/home',
-  '/pages/menu/menu',
-  '/pages/tongue/tongue',
-  '/pages/orders/orders',
-  '/pages/profile/profile'
-];
+function getTabBarPages() {
+  return featurePolicy.getTabBarPages();
+}
 
 /** 规范化路径：补齐前导 /，去掉 query 后再比对。 */
 function normalizePath(url) {
@@ -26,9 +18,9 @@ function normalizePath(url) {
   return withoutQuery.charAt(0) === '/' ? withoutQuery : '/' + withoutQuery;
 }
 
-/** 目标是否为 tabBar 页面。 */
+/** 目标是否为当前构建策略下的 tabBar 页面。 */
 function isTabBarPage(url) {
-  return TAB_BAR_PAGES.indexOf(normalizePath(url)) !== -1;
+  return getTabBarPages().indexOf(normalizePath(url)) !== -1;
 }
 
 /**
@@ -55,6 +47,29 @@ function go(url, options) {
 }
 
 /**
+ * 打开普通页面或切换 tab。普通页面保留返回栈，tab 页面走 switchTab。
+ * @param {string} url 页面路径
+ * @param {Object} [options] { fail: Function, complete: Function }
+ */
+function open(url, options) {
+  const opts = options || {};
+  if (typeof wx === 'undefined') return;
+  if (isTabBarPage(url)) {
+    wx.switchTab({
+      url: normalizePath(url),
+      fail: opts.fail,
+      complete: opts.complete
+    });
+    return;
+  }
+  wx.navigateTo({
+    url,
+    fail: opts.fail,
+    complete: opts.complete
+  });
+}
+
+/**
  * 返回上一页；页面栈底（无上一页）时回落到首页。
  * @param {Object} [options] { fallback: string }
  */
@@ -69,10 +84,19 @@ function back(options) {
   go(fallback);
 }
 
-module.exports = {
-  TAB_BAR_PAGES,
+const navigate = {
+  getTabBarPages,
   isTabBarPage,
   normalizePath,
   go,
+  open,
   back
 };
+
+// 兼容旧调用：每次读取时按当前运行时策略重新计算 Tab 清单。
+Object.defineProperty(navigate, 'TAB_BAR_PAGES', {
+  enumerable: true,
+  get: getTabBarPages
+});
+
+module.exports = navigate;

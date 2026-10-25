@@ -338,6 +338,18 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'marketing_profile-banner',
+        path: '/marketing/profile-banner',
+        component: 'view.marketing_profile-banner',
+        meta: {
+          title: '我的页轮播',
+          order: 11,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
         name: 'marketing_referral',
         path: '/marketing/referral',
         component: 'view.marketing_referral',
@@ -615,6 +627,18 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: '功能开关',
           order: 2,
           roles: ['R_SUPER', 'R_AUDIT'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
+        name: 'system_home-decor',
+        path: '/system/home-decor',
+        component: 'view.system_home-decor',
+        meta: {
+          title: '首页装修',
+          order: 6,
+          roles: ['R_SUPER', 'R_OPERATION'],
           keepAlive: true,
           i18nKey: null
         }

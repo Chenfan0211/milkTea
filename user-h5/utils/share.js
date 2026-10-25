@@ -17,7 +17,9 @@ const PAGE_SHARE_TITLES = {
   'pages/menu/menu': '五零时光点单',
   'pages/product-detail/product-detail': '五零时光商品详情',
   'pages/recommendation-stores/recommendation-stores': '五零时光选择门店',
+  // @mini-release:tongueHealth:start
   'pages/tongue/tongue': '五零时光舌象体质检测',
+  // @mini-release:tongueHealth:end
   'pages/member-level-rules/member-level-rules': '五零时光会员等级说明',
   'pages/orders/orders': '五零时光订单',
   'pages/profile/profile': '五零时光会员中心',

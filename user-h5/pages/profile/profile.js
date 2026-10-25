@@ -1,4 +1,7 @@
 const { withShare } = require('../../utils/share');
+const navigate = require('../../utils/navigate');
+const featurePolicy = require('../../utils/feature-policy');
+const profileBanner = require('../../utils/profile-banner');
 const {
   DEFAULT_AVATAR,
   getUserProfile,
@@ -63,6 +66,7 @@ Page(
   withShare({
     data: {
       profileFunctions: [],
+      profileBanners: profileBanner.DEFAULT_PROFILE_BANNERS.map(item => Object.assign({}, item)),
       roleFunctions: [],
       userProfile: initialProfile,
       businessRole: null,
@@ -203,7 +207,8 @@ Page(
         });
       this.syncLevel();
       refreshMemberLevelsFromRemote().then(() => this.syncLevel());
-      if (this.getTabBar) this.getTabBar().setData({ selected: 4 });
+      if (this.getTabBar)
+        this.getTabBar().setData({ selected: featurePolicy.getTabBarSelectedIndex('/pages/profile/profile') });
 
       // 登录态与远端资料（三态：未登录 / 已登录未绑手机号 / 可交易）
       const state = authState.getAuthState();
@@ -284,11 +289,14 @@ Page(
       api
         .fetchProfileConfig()
         .then(cfg => {
+          const updates = {};
           if (cfg && Array.isArray(cfg.functions) && cfg.functions.length) {
-            this.setData({
-              profileFunctions: cfg.functions.filter(item => !HIDDEN_PROFILE_FUNCTIONS.includes(item.id))
-            });
+            updates.profileFunctions = cfg.functions.filter(item => !HIDDEN_PROFILE_FUNCTIONS.includes(item.id));
           }
+          if (cfg && Array.isArray(cfg.banners)) {
+            updates.profileBanners = profileBanner.normalizeBanners(cfg.banners, api.resolveAssetUrl);
+          }
+          if (Object.keys(updates).length) this.setData(updates);
         })
         .catch(() => null);
     },
@@ -424,7 +432,12 @@ Page(
       wx.navigateTo({ url: '/pages/order-detail/order-detail?id=' + id });
     },
     openMemberRights() {
-      wx.navigateTo({ url: '/pages/member-rights/member-rights' });
+      navigate.open('/pages/member-rights/member-rights');
+    },
+    handleBannerError(event) {
+      const index = Number(((event && event.currentTarget && event.currentTarget.dataset) || {}).index);
+      if (Number.isNaN(index)) return;
+      this.setData({ profileBanners: profileBanner.removeFailedBanner(this.data.profileBanners, index) });
     },
     openMenu() {
       wx.switchTab({ url: '/pages/menu/menu' });
@@ -510,12 +523,13 @@ Page(
         this.openGiftCardOrders();
         return;
       }
+
       if (id === 'points') {
         wx.navigateTo({ url: '/pages/points-mall/points-mall' });
         return;
       }
       if (id === 'benefits') {
-        wx.navigateTo({ url: '/pages/member-rights/member-rights' });
+        navigate.open('/pages/member-rights/member-rights');
         return;
       }
       if (id === 'share') {

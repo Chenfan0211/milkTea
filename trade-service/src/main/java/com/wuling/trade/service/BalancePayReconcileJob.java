@@ -107,7 +107,11 @@ public class BalancePayReconcileJob {
                     continue;
                 }
                 try {
-                    storedValueBalancePort.refund(intent.getUserId(), intent.getAmount(), "COMP:" + intent.getOrderNo());
+                    Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                            .eq(Order::getOrderNo, intent.getOrderNo())
+                            .last("limit 1"));
+                    storedValueBalancePort.refund(intent.getUserId(), intent.getAmount(),
+                            "COMP:" + intent.getOrderNo(), order == null ? null : order.getStoreSubjectId());
                     intentMapper.update(updateStatus(intent.getId(), BalancePayIntent.STATUS_COMPENSATED),
                             new LambdaQueryWrapper<BalancePayIntent>()
                                     .eq(BalancePayIntent::getId, intent.getId())

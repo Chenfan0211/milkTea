@@ -39,6 +39,28 @@ assert.deepEqual(captureMedia.effectiveSourceType('ios', []), {
 // ---- 3) 失败文案按来源区分 ----
 assert.equal(captureMedia.pickFailureMessage(['camera']), '拍照失败，请检查相机权限');
 assert.equal(captureMedia.pickFailureMessage(['album']), '选择图片失败，请重试');
+assert.equal(
+  captureMedia.isPrivacyDeclarationError({
+    errMsg: 'chooseMedia:fail api scope is not declared in the privacy agreement'
+  }),
+  true
+);
+assert.equal(captureMedia.isPrivacyDenied({ errMsg: 'requirePrivacyAuthorize:fail user deny' }), true);
+assert.equal(captureMedia.isCameraPermissionError({ errMsg: 'authorize:fail auth deny' }), true);
+assert.equal(
+  captureMedia.pickFailureMessage(['album'], {
+    errMsg: 'chooseMedia:fail api scope is not declared in the privacy agreement'
+  }),
+  '隐私声明未配置，请联系管理员'
+);
+assert.equal(
+  captureMedia.pickFailureMessage(['album'], { errMsg: 'requirePrivacyAuthorize:fail user deny' }),
+  '需同意隐私授权后才能使用拍照/相册'
+);
+assert.equal(
+  captureMedia.pickFailureMessage(['camera'], { errMsg: 'authorize:fail auth deny' }),
+  '相机权限未开启，请前往设置开启'
+);
 assert.equal(captureMedia.errorMessage({ errMsg: 'chooseMedia:fail cancel' }), 'chooseMedia:fail cancel');
 assert.equal(
   captureMedia.describeFailure(['album'], { errMsg: 'chooseImage:fail mock failure' }),
@@ -58,6 +80,13 @@ assert.ok(captureJs.includes('wx.showActionSheet'), '必须保留系统拍照/�
 assert.ok(captureJs.includes('wx.chooseMedia'), '必须保留 chooseMedia 路径');
 assert.ok(captureJs.includes('wx.chooseImage'), '必须保留 chooseImage 路径');
 assert.ok(captureJs.includes('usesLegacyPickerFirst'), '开发者工具必须优先走遗留 chooseImage');
+assert.ok(captureJs.includes('wx.requirePrivacyAuthorize'), '选图前必须触发微信隐私授权');
+assert.ok(captureJs.includes('wx.getPrivacySetting'), '选图前必须记录隐私声明状态');
+assert.ok(captureJs.includes('privacyContractName'), '隐私诊断必须打印协议名称');
+assert.ok(captureJs.includes('服务内容声明'), '隐私声明缺失时必须提示后台配置入口');
+assert.ok(captureJs.includes("scope: 'scope.camera'"), '拍照前必须申请相机权限');
+assert.ok(captureJs.includes('wx.openSetting'), '相机权限拒绝后必须提供去设置入口');
+assert.ok(captureJs.includes('wx.showModal'), '相机权限拒绝后必须提示用户前往设置');
 assert.ok(captureJs.includes('runChooseImage') && captureJs.includes('runChooseMedia'), '两种选图 API 必须可互相兜底');
 assert.ok(captureJs.includes("sizeType: ['original']"), '选图必须只取原图，压缩交给 wx.compressImage');
 assert.ok(!captureJs.includes("['compressed']"), '选图不得再请求 compressed，避免开发者工具失败');
@@ -82,11 +111,13 @@ assert.ok(captureWxss.includes('.capture-devtools-hint'), '拍摄页必须提供
 
 const capturePageRule = (captureWxss.match(/\.capture-page\s*\{([^}]*)\}/) || [])[1] || '';
 assert.match(capturePageRule, /background-color:\s*var\(--health-gradient-top\)/, '拍摄页必须有舌诊绿色背景兜底');
-assert.match(
-  capturePageRule,
-  /background-image:\s*var\(--health-page-gradient\)/,
-  '拍摄页必须引用完整的舌诊渐变 token'
-);
+assert.match(capturePageRule, /position:\s*relative/, '拍摄页必须建立背景层级上下文');
+assert.match(capturePageRule, /z-index:\s*0/, '拍摄页根节点必须建立背景层级');
+assert.ok(!capturePageRule.includes('linear-gradient'), '拍摄页不得继续依赖 Skyline 不支持的 CSS 渐变');
+assert.ok(captureWxml.includes('class="health-page__background"'), '拍摄页必须渲染渐变图片层');
+assert.ok(captureWxml.includes('src="/assets/images/3x/health-gradient-bg.png"'), '拍摄页必须引用舌诊渐变运行图');
+assert.ok(captureWxml.includes('mode="scaleToFill"'), '拍摄页背景图必须铺满页面');
+assert.ok(captureWxml.includes('aria-hidden="true"'), '拍摄页背景图必须对辅助技术隐藏');
 
 assert.ok(captureWxml.includes('/assets/images/3x/tongue-capture-guide.jpg'), '空态必须引用 3x 舌象引导图');
 assert.ok(!captureWxml.includes('/assets/icons/lucide/camera.svg'), '空态不得继续使用相机图标');

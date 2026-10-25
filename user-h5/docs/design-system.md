@@ -101,22 +101,26 @@
 按参考图 1–10 固化了以下 token；它们只服务于舌诊页面，不改动上面的全站品牌色。
 取色口径：直接对参考图逐点采样（脚本见 `docs/tongue-redesign-spec.md`），禁止凭肉眼近似。
 
-| Token                      | 值                                                                            | 用途                                                                          |
-| -------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `--health-gradient-top`    | `#C4DA9C`                                                                     | 舌诊页顶部渐变起点（图1 x=8 / y=20 采样）                                     |
-| `--health-gradient-mid`    | `#E1EFC5`                                                                     | 舌诊页渐变中段（图1 y=200 采样）                                              |
-| `--health-page-gradient`   | `linear-gradient(180deg, #C4DA9C 0%, #E1EFC5 30%, #F7F7F7 52%, #F7F7F7 100%)` | 舌诊页完整背景渐变，页面根节点通过 `background-color + background-image` 引用 |
-| `--health-cta-from`        | `#D2E963`                                                                     | 「开始测试」按钮渐变上端（图1 y=460 采样）                                    |
-| `--health-cta-to`          | `#C4DA92`                                                                     | 「开始测试」按钮渐变下端（图1 y=600 采样）                                    |
-| `--health-tab-track`       | `#D5E3BB`                                                                     | 详情页五个 Tab 的轨道底色（图5 y=225 采样）                                   |
-| `--health-tab-active`      | `#AECD7F`                                                                     | 详情页 Tab 选中态底色（图5 y=205 采样）                                       |
-| `--health-surface-tint`    | `#F9FCF2`                                                                     | 浅色内容块底色（检查记录卡、描述块、商品卡）                                  |
-| `--health-feature-pill-bg` | `rgba(255, 255, 255, 0.7)`                                                    | 功能卡标题胶囊与中央导向箭头底色                                              |
-| `--health-cta-shell`       | `rgba(255, 255, 255, 0.5)`                                                    | 开始测试按钮外圈光晕底色                                                      |
-| `--health-cta-shadow`      | `0 12rpx 30rpx rgba(83, 136, 44, 0.14)`                                       | 开始测试按钮浅绿色柔和阴影                                                    |
+| Token                      | 值                                      | 用途                                         |
+| -------------------------- | --------------------------------------- | -------------------------------------------- |
+| `--health-gradient-top`    | `#C4DA9C`                               | 舌诊页顶部渐变起点（图1 x=8 / y=20 采样）    |
+| `--health-gradient-mid`    | `#E1EFC5`                               | 舌诊页渐变中段（图1 y=200 采样）             |
+| `--health-cta-from`        | `#D2E963`                               | 「开始测试」按钮渐变上端（图1 y=460 采样）   |
+| `--health-cta-to`          | `#C4DA92`                               | 「开始测试」按钮渐变下端（图1 y=600 采样）   |
+| `--health-cta-text`        | `#000000`                               | 「开始测试」文字色（图1 采样）               |
+| `--health-tab-track`       | `#D5E3BB`                               | 详情页五个 Tab 的轨道底色（图5 y=225 采样）  |
+| `--health-tab-active`      | `#AECD7F`                               | 详情页 Tab 选中态底色（图5 y=205 采样）      |
+| `--health-surface-tint`    | `#F9FCF2`                               | 浅色内容块底色（检查记录卡、描述块、商品卡） |
+| `--health-feature-pill-bg` | `rgba(255, 255, 255, 0.7)`              | 功能卡标题胶囊与中央导向箭头底色             |
+| `--health-note-text`       | `#666762`                               | 舌诊页两条提示的文字色（图1 采样）           |
+| `--health-cta-shell`       | `rgba(196, 218, 146, 0.35)`             | 开始测试按钮外圈光晕底色（图1 采样）         |
+| `--health-cta-shadow`      | `0 12rpx 30rpx rgba(83, 136, 44, 0.14)` | 开始测试按钮浅绿色柔和阴影                   |
 
-页面背景固定引用 `--health-page-gradient`，即「顶部渐变约到屏高一半处收平」，与参考图纵向采样一致；
-Skyline 下必须分别写 `background-color` 与 `background-image`，不得使用会被忽略的 `background: linear-gradient(...)` 简写。
+舌诊链路四个页面根节点保留 `background-color: var(--health-gradient-top)` 作为加载兜底，并统一渲染
+`assets/images/3x/health-gradient-bg.png` 作为背景层。该 PNG 由 `scripts/build-health-gradient.mjs`
+读取上述色值生成，色标为 `--health-gradient-top 0%`、`--health-gradient-mid 30%`、
+`--page-bg 52%`、`--page-bg 100%`，即「顶部渐变约到屏高一半处收平」。
+Skyline 当前不采用 CSS `linear-gradient()`，舌诊链路禁止再用 CSS 渐变实现页面背景。
 
 ### 2.2 字号与字重
 
@@ -268,11 +272,11 @@ Skyline 下必须分别写 `background-color` 与 `background-image`，不得使
 
 ### Tab 页统一约定
 
-Tab 页（首页 / 点单 / 舌诊 / 订单 / 我的）必须在 `onShow` 同步选中态：
+Tab 页（首页 / 点单 / 一人一饮 / 订单 / 我的）必须在 `onShow` 同步选中态：
 
 ```js
 onShow() {
-  if (this.getTabBar) this.getTabBar().setData({ selected: 0 }) // 首页0 点单1 舌诊2 订单3 我的4
+  if (this.getTabBar) this.getTabBar().setData({ selected: 0 }) // 首页0 点单1 一人一饮2 订单3 我的4
 }
 ```
 
@@ -329,6 +333,8 @@ onShow() {
 - 复用 `components/navigation-bar`，标题通过 `title` 传入。
 - 单页差异（如标题两侧留白）通过 `ext-class` 覆盖，禁止复制一份组件。
 - 项目统一使用 `navigationStyle: custom`，不要依赖系统导航栏。
+- 右上角 `slot="right"` 内容默认按原生胶囊按钮位置自动内缩；需要整行下移到胶囊按钮下方时给 `navigation-bar` 加 `below-capsule="{{true}}"`。
+- 页面只负责自身内容间距，禁止手写避开胶囊的偏移魔法值。
 
 ### 悬浮元素
 

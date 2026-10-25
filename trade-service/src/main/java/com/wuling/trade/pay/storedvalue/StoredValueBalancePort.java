@@ -45,7 +45,11 @@ public interface StoredValueBalancePort {
      * @param bizNo  业务单号（点单订单号），用于对账追溯
      * @return 扣款结果；<b>服务异常时抛异常</b>
      */
-    DeductResult deduct(Long userId, long amount, String bizNo);
+    default DeductResult deduct(Long userId, long amount, String bizNo) {
+        return deduct(userId, amount, bizNo, null);
+    }
+
+    DeductResult deduct(Long userId, long amount, String bizNo, Long storeSubjectId);
 
     /**
      * 查询业务号是否存在成功的扣款资金记录（悬挂单补偿前确认确实扣过款）。
@@ -65,5 +69,9 @@ public interface StoredValueBalancePort {
      * @param amount 金额（分），必须 &gt; 0
      * @param bizNo  业务单号（点单订单号），用于对账追溯
      */
-    void refund(Long userId, long amount, String bizNo);
+    default void refund(Long userId, long amount, String bizNo) {
+        refund(userId, amount, bizNo, null);
+    }
+
+    void refund(Long userId, long amount, String bizNo, Long storeSubjectId);
 }

@@ -348,12 +348,15 @@ export interface GiftCardFacePayload {
   denominations: { id?: number; amount: number; salePrice: number }[];
 }
 
-export interface GiftImageUploadResult {
+export interface AdminImageUploadResult {
   url: string;
   storedName: string;
   mimeType: string;
   size: number;
 }
+
+/** 兼容礼品卡既有调用，上传响应对所有管理员图片场景一致。 */
+export type GiftImageUploadResult = AdminImageUploadResult;
 
 /** 礼品卡「卡面」聚合列表（面额为分） */
 export async function fetchGiftCardFaces(params?: Record<string, any>): Promise<CrudPage<GiftCardFace>> {
@@ -433,16 +436,21 @@ export async function updateGiftCardFaceStatus(faceId: number, enabled: boolean)
   return unwrap<void>(res);
 }
 
-/** 上传礼品卡图片，业务字段只保存服务端返回的真实 URL */
-export async function uploadGiftCardImage(file: File): Promise<GiftImageUploadResult> {
+/** 上传管理员图片，业务字段只保存服务端返回的真实 URL。 */
+export async function uploadAdminImage(file: File): Promise<AdminImageUploadResult> {
   const data = new FormData();
   data.append('file', file);
-  const res = await request<GiftImageUploadResult>({
+  const res = await request<AdminImageUploadResult>({
     url: '/api/v1/files/images',
     method: 'post',
     data
   });
-  return unwrap<GiftImageUploadResult>(res);
+  return unwrap<AdminImageUploadResult>(res);
+}
+
+/** 上传礼品卡图片。 */
+export async function uploadGiftCardImage(file: File): Promise<GiftImageUploadResult> {
+  return uploadAdminImage(file);
 }
 
 /** 礼品卡订单列表（联表补齐卡种/面额/购买人，金额单位为分） */

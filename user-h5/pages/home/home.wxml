@@ -1,7 +1,7 @@
 <scroll-view class="home-scroll" scroll-y enhanced="{{false}}">
   <view class="home-page">
     <view class="hero-wrap">
-      <image class="home-hero" src="/assets/images/3x/home-hero.jpg" mode="widthFix" aria-label="金秋入茶限定上新" />
+      <image class="home-hero" src="{{homeHeroUrl}}" mode="aspectFill" aria-label="{{homeHeroAlt}}" binderror="handleHeroError" />
   </view>
 
   <view class="home-card">

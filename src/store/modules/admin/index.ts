@@ -80,6 +80,7 @@ const REMOTE_RESOURCES: Record<string, string> = {
   giftCards: 'giftCards',
   giftCardOrders: 'giftCardOrders',
   memberLevels: 'memberLevels',
+  profileBanners: 'profileBanners',
   // 授权管理
   roles: 'roles',
   grants: 'grants',
@@ -234,6 +235,7 @@ function seed(): AdminData {
     referralConfig: {} as any,
     exchangeRecords: [],
     memberLevels: [],
+    profileBanners: [],
     auditLogs: []
   };
 }
@@ -796,6 +798,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     pointsEarningRules: '积分规则',
     storedValuePackages: '储值套餐',
     giftCards: '礼品卡',
+    profileBanners: '我的页轮播',
     appConfig: '运营配置'
   };
 

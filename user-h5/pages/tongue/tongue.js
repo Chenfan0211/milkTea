@@ -2,6 +2,7 @@ const { withShare } = require('../../utils/share');
 const loginGuard = require('../../utils/login-guard');
 const userProfile = require('../../utils/user-profile');
 const tongueProfile = require('../../utils/tongue-profile');
+const featurePolicy = require('../../utils/feature-policy');
 
 const CAPTURE_PAGE = '/packageHealth/pages/capture/capture';
 const HISTORY_PAGE = '/packageHealth/pages/history/history';
@@ -16,6 +17,10 @@ const HISTORY_REASON = '登录后可查看体质辨识记录';
  */
 Page(
   withShare({
+    onLoad() {
+      featurePolicy.redirectIfHidden('/pages/tongue/tongue');
+    },
+
     data: {
       avatar: userProfile.DEFAULT_AVATAR,
       submitting: false,
@@ -25,7 +30,8 @@ Page(
     },
 
     onShow() {
-      if (this.getTabBar) this.getTabBar().setData({ selected: 2 });
+      if (this.getTabBar)
+        this.getTabBar().setData({ selected: featurePolicy.getTabBarSelectedIndex('/pages/tongue/tongue') });
       this.syncUser();
     },
 

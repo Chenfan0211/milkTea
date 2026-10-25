@@ -1,9 +1,9 @@
 <view class="weui-navigation-bar {{extClass}} nav--{{variant}}">
   <view
     class="weui-navigation-bar__inner"
-    style="height: {{statusBarHeight + navBarHeight}}px; padding-top: {{statusBarHeight}}px; color: {{color}}; background-color: {{variant === 'transparent' ? 'transparent' : background}};"
+    style="height: {{contentTop + navBarHeight}}px; padding-top: {{statusBarHeight}}px; color: {{color}}; background-color: {{variant === 'transparent' ? 'transparent' : background}};"
   >
-    <view class="weui-navigation-bar__left" style="top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
+    <view class="weui-navigation-bar__left" style="top: {{contentTop}}px; height: {{navBarHeight}}px;">
       <block wx:if="{{back}}">
       <view
         bindtap="back"
@@ -18,7 +18,7 @@
       <slot wx:else name="left"></slot>
     </view>
 
-    <view class="weui-navigation-bar__center" style="top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
+    <view class="weui-navigation-bar__center" style="top: {{contentTop}}px; height: {{navBarHeight}}px;">
       <view wx:if="{{loading}}" class="weui-navigation-bar__loading" aria-role="alert">
         <view class="weui-loading" aria-role="img" aria-label="加载中"></view>
       </view>
@@ -26,7 +26,7 @@
       <slot wx:else name="center"></slot>
     </view>
 
-    <view class="weui-navigation-bar__right" style="top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
+    <view class="weui-navigation-bar__right" style="top: {{contentTop}}px; height: {{navBarHeight}}px; padding-right: {{rightInset}}px;">
       <slot name="right"></slot>
     </view>
   </view>

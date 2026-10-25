@@ -2,11 +2,13 @@ package com.wuling.marketing.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.wuling.marketing.entity.UserCoupon;
+import com.wuling.marketing.dto.CouponExpiryCandidate;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface UserCouponMapper extends BaseMapper<UserCoupon> {
@@ -19,10 +21,24 @@ public interface UserCouponMapper extends BaseMapper<UserCoupon> {
      * 返回 0 表示用户已持有该奖励券，调用方应视为发放成功。
      */
     @Insert("insert ignore into user_coupon "
-            + "(user_id, coupon_id, status, source, receive_time) "
-            + "values (#{userId}, #{couponId}, 'UNUSED', 'RECEIVE', now())")
+            + "(user_id, coupon_id, status, source, grant_no, receive_time) "
+            + "values (#{userId}, #{couponId}, 'UNUSED', 'RECEIVE', 'SINGLE', now())")
     int insertIgnoreActive(@Param("userId") Long userId, @Param("couponId") Long couponId);
 
+    /** 查询指定日期到期、尚未使用的券（含 DAYS 类型动态计算到期日）。 */
+    @Select("select uc.id as id, uc.user_id as user_id, uc.coupon_id as coupon_id, c.name as coupon_name, "
+            + "c.amount as amount, "
+            + "case when c.validity_type = 'DAYS' then "
+            + "date_add(date_add(uc.receive_time, interval ifnull(c.effective_delay_days, 0) day), "
+            + "interval c.validity_days day) else c.validity_end end as expire_at "
+            + "from user_coupon uc join coupon c on c.id = uc.coupon_id "
+            + "where uc.status = 'UNUSED' and uc.deleted = 0 and c.status = 'enabled' and c.deleted = 0 "
+            + "and date(case when c.validity_type = 'DAYS' then "
+            + "date_add(date_add(uc.receive_time, interval ifnull(c.effective_delay_days, 0) day), "
+            + "interval c.validity_days day) else c.validity_end end) = #{targetDate} "
+            + "order by uc.id limit #{limit}")
+    List<CouponExpiryCandidate> selectExpiringUnusedOn(@Param("targetDate") LocalDate targetDate,
+                                                       @Param("limit") int limit);
     /** 行锁读取，锁券前置校验与状态转换必须串行。 */
     @Select("select * from user_coupon where id = #{id} and deleted = 0 for update")
     UserCoupon selectByIdForUpdate(@Param("id") Long id);

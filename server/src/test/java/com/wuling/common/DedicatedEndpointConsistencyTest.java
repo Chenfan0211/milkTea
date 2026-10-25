@@ -107,7 +107,9 @@ class DedicatedEndpointConsistencyTest {
             // 茶机设备（慧养智萃茶机队列对接）：设备列表 / 绑定 / 解绑走专用接口，
             // 列表列字段口径以 AdminDeviceDTO 为准（DTO 字段由本测试的规则 2b 提取）。
             "server/src/main/java/com/wuling/device/controller/AdminDeviceController.java",
-            "server/src/main/java/com/wuling/device/dto/AdminDeviceDTO.java"
+            "server/src/main/java/com/wuling/device/dto/AdminDeviceDTO.java",
+            // 运营后台图片上传：首页装修 / 我的页轮播复用文件服务上传接口。
+            "file-service/src/main/java/com/wuling/file/controller/FileController.java"
     );
 
     /** 已接入专用接口校验的页面（相对仓库根）。未登记的页面会让测试失败，提醒补登记。 */
@@ -127,7 +129,11 @@ class DedicatedEndpointConsistencyTest {
             // 礼品卡新增/编辑与分组管理弹窗：分别调用礼品卡面保存、图片上传和分组 CRUD。
             "src/views/marketing/gift/GiftCardEditor.vue",
             "src/views/marketing/gift/GiftGroupManager.vue",
+            // 我的页轮播编辑弹窗：复用文件服务图片上传接口。
+            "src/views/marketing/profile-banner/ProfileBannerEditor.vue",
             "src/views/marketing/stored/index.vue",
+            // 首页装修页：复用文件服务图片上传接口。
+            "src/views/system/home-decor/index.vue",
             // 以下 3 个为详情页：用描述列表（descriptions）而非 DataTable columns 展示，
             // 故不参与「直读列」校验，仅登记以满足覆盖范围可见性要求
             "src/views/finance/snapshot-detail/index.vue",
@@ -436,5 +442,3 @@ class DedicatedEndpointConsistencyTest {
                         + "说明解析逻辑失效（如 columns 定义写法变更），测试将无法发现真实问题。");
     }
 }
-
-

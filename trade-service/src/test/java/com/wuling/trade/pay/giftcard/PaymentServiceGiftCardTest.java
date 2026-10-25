@@ -66,7 +66,7 @@ class PaymentServiceGiftCardTest {
         service = new PaymentService(
                 orderService, paymentMapper, orderItemMapper, gatewayResolver, alertChannel,
                 storedValueOrderPort, storedValueBalancePort, balancePayIntentService,
-                outboxService, giftCardOrderPort);
+                outboxService, giftCardOrderPort, mock(com.wuling.trade.subscribe.OrderSubscribeNotifier.class));
     }
 
     @Test

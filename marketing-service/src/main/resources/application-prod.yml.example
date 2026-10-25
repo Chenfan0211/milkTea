@@ -67,6 +67,39 @@ management:
       show-components: never
 
 app:
+  # ---------- 微信小程序营销订阅消息 ----------
+  wx:
+    app-id: ${WX_APP_ID:wx7d78d69cd175812e}
+    app-secret: ${WX_APP_SECRET:}
+    access-token-url: ${WX_ACCESS_TOKEN_URL:https://api.weixin.qq.com/cgi-bin/token}
+    subscribe-send-url: ${WX_SUBSCRIBE_SEND_URL:https://api.weixin.qq.com/cgi-bin/message/subscribe/send}
+    http-timeout-ms: ${WX_MINIAPP_HTTP_TIMEOUT_MS:3000}
+    subscribe:
+      enabled: ${WX_MARKETING_SUBSCRIBE_ENABLED:true}
+      points-change:
+        template-id: ${WX_POINTS_CHANGE_TEMPLATE_ID:W69-LPXpDxs7pPiN_0I_75I0XqXJWPkL4XYCS26CopM}
+        page: ${WX_POINTS_CHANGE_PAGE:pages/points-detail/points-detail}
+      points-exchange:
+        template-id: ${WX_POINTS_EXCHANGE_TEMPLATE_ID:6DKXp9_Bx4gYaj0CaUeTp6rXyKIF3AZrrmSR5CwHjfE}
+        page: ${WX_POINTS_EXCHANGE_PAGE:pages/exchange-records/exchange-records}
+      stored-value-recharge:
+        template-id: ${WX_STORED_VALUE_RECHARGE_TEMPLATE_ID:uvD7jHuIZ1bpXIA-HfqHXfScW0j2zIYBCYWHR7emFJI}
+        page: ${WX_STORED_VALUE_RECHARGE_PAGE:pages/stored-value-records/stored-value-records}
+      balance-change:
+        template-id: ${WX_BALANCE_CHANGE_TEMPLATE_ID:uvD7jHuIZ1bpXIA-HfqHXQGw6MCweamgsPFK-MIVne0}
+        page: ${WX_BALANCE_CHANGE_PAGE:pages/stored-value-records/stored-value-records}
+      coupon-arrival:
+        template-id: ${WX_COUPON_ARRIVAL_TEMPLATE_ID:en0sN5PvHmq9DyiZIjaH_x5-bGpisdD3boCqMa_wx5g}
+        page: ${WX_COUPON_ARRIVAL_PAGE:pages/coupon-list/coupon-list}
+      coupon-expiry:
+        template-id: ${WX_COUPON_EXPIRY_TEMPLATE_ID:oaeDu3ZTFfzrrPQvFliAMRHdMNg19KW2V8xhvCU5MSo}
+        page: ${WX_COUPON_EXPIRY_PAGE:pages/coupon-list/coupon-list}
+    coupon-expiry:
+      enabled: ${WX_COUPON_EXPIRY_ENABLED:true}
+      cron: '${WX_COUPON_EXPIRY_CRON:0 0 10 * * ?}'
+      days-before: ${WX_COUPON_EXPIRY_DAYS_BEFORE:3}
+      batch-size: ${WX_COUPON_EXPIRY_BATCH_SIZE:500}
+
   jwt:
     secret: ${JWT_SECRET}
     access-token-ttl: 3600000

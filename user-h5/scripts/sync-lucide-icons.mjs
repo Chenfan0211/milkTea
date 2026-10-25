@@ -12,10 +12,11 @@ const jobs = [
   { source: 'cup-soda', output: 'menu', color: '#9B9B96' },
   { source: 'cup-soda', output: 'menu-active', color: '#53882C' },
   { source: 'crown', output: 'member', color: '#666762' },
+  { source: 'crown', output: 'member-active', color: '#53882C' },
   { source: 'crown', output: 'member-gold', color: '#D4A017', fill: true },
-  // 舌诊 Tab：Lucide 无舌形图标，用听诊器表达「诊断」语义
-  { source: 'stethoscope', output: 'tongue', color: '#9B9B96' },
-  { source: 'stethoscope', output: 'tongue-active', color: '#53882C' },
+  // 一人一饮 Tab：用牛奶瓶表达个性化饮品语义
+  { source: 'milk', output: 'personalized-drink', color: '#9B9B96' },
+  { source: 'milk', output: 'personalized-drink-active', color: '#53882C' },
   { source: 'clipboard-list', output: 'orders', color: '#9B9B96' },
   { source: 'clipboard-list', output: 'orders-active', color: '#53882C' },
   { source: 'circle-user-round', output: 'profile', color: '#9B9B96' },
@@ -83,6 +84,8 @@ const jobs = [
   { source: 'rotate-ccw', output: 'rotate-ccw', color: '#53882C' },
   { source: 'rotate-ccw', output: 'rotate-ccw-white', color: '#FFFFFF' },
   { source: 'message-square-heart', output: 'message-square-heart', color: '#53882C' },
+  { source: 'bell', output: 'bell', color: '#666762' },
+  { source: 'bell', output: 'bell-brand', color: '#53882C' },
   { source: 'chef-hat', output: 'chef-hat', color: '#747570' },
   { source: 'circle-check-big', output: 'circle-check-big', color: '#53882C' },
   { source: 'award', output: 'award', color: '#D4A017', fill: true },
@@ -136,7 +139,8 @@ const jobs = [
   { source: 'leaf', output: 'leaf-brand', color: '#53882C' },
   { source: 'spray-can', output: 'spray-can', color: '#666762' },
   { source: 'coffee', output: 'coffee-brand', color: '#53882C' },
-  { source: 'glass-water', output: 'glass-water', color: '#666762' },
+  { source: 'coffee', output: 'brew-record-brand', color: '#53882C' },
+  { source: 'glass-water', output: 'glass-water-brand', color: '#53882C' },
   { source: 'list', output: 'list-muted', color: '#9B9B96' },
   { source: 'play', output: 'play-white', color: '#FFFFFF', fill: true }
 ];

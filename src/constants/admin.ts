@@ -90,10 +90,12 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   },
   marketing_exchange: { title: '兑换记录', order: 9, roles: op, featureFlag: 'ENABLE_STORED_VALUE', keepAlive: true },
   marketing_referral: { title: '分享有礼', order: 10, roles: op, keepAlive: true },
+  'marketing_profile-banner': { title: '我的页轮播', order: 11, roles: op, keepAlive: true },
 
   system: { title: '系统审计', icon: 'mdi:shield', order: 60, roles: audit },
   system_audit: { title: '审计日志', order: 1, roles: audit, keepAlive: true },
   system_feature: { title: '功能开关', order: 2, roles: audit, keepAlive: true },
   system_dict: { title: '数据字典', order: 3, roles: op, keepAlive: true },
-  system_city: { title: '城市管理', order: 4, roles: op, keepAlive: true }
+  system_city: { title: '城市管理', order: 4, roles: op, keepAlive: true },
+  'system_home-decor': { title: '首页装修', order: 6, roles: op, keepAlive: true }
 };

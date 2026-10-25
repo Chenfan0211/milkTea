@@ -58,7 +58,9 @@ public class DlqMonitor {
             // 茶机设备消息（慧养智萃对接）：解析/落库重试超限后进该队列。
             // 设备数据不进资金链路，但「一直接收不到设备数据」很难被业务侧察觉，
             // 必须靠 DLQ 告警主动暴露，否则只能等运营发现后台没有新记录。
-            MqConstants.DEVICE_MESSAGE_DLQ
+            MqConstants.DEVICE_MESSAGE_DLQ,
+            MqConstants.SUBSCRIBE_ORDER_DLQ,
+            MqConstants.SUBSCRIBE_MARKETING_DLQ
     );
 
     private final AmqpAdmin amqpAdmin;

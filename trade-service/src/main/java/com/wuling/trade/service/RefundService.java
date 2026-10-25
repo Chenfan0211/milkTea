@@ -164,7 +164,7 @@ public class RefundService {
             }
             // 稳定业务号按订单维度生成：即使退款单重试/响应丢失，营销侧也只回冲一次。
             storedValueBalancePort.refund(order.getUserId(), refund.getAmount(),
-                    "REFUND:" + refund.getOrderNo());
+                    "REFUND:" + refund.getOrderNo(), order.getStoreSubjectId());
             markSuccess(refund);
             return;
         }

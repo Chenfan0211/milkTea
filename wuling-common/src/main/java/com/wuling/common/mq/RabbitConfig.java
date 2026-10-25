@@ -371,4 +371,56 @@ public class RabbitConfig {
         return BindingBuilder.bind(deviceMessageDlq()).to(dlxExchange())
                 .with(MqConstants.DEVICE_MESSAGE_DLQ);
     }
+
+    // ==================== 订阅消息（持久化消费） ====================
+
+    @Bean
+    public Queue subscribeOrderQueue() {
+        return QueueBuilder.durable(MqConstants.SUBSCRIBE_ORDER_QUEUE)
+                .deadLetterExchange(MqConstants.DLX_EXCHANGE)
+                .deadLetterRoutingKey(MqConstants.SUBSCRIBE_ORDER_DLQ)
+                .build();
+    }
+
+    @Bean
+    public Binding subscribeOrderBinding() {
+        return BindingBuilder.bind(subscribeOrderQueue()).to(businessExchange())
+                .with(MqConstants.SUBSCRIBE_ORDER_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue subscribeOrderDlq() {
+        return QueueBuilder.durable(MqConstants.SUBSCRIBE_ORDER_DLQ).build();
+    }
+
+    @Bean
+    public Binding subscribeOrderDlqBinding() {
+        return BindingBuilder.bind(subscribeOrderDlq()).to(dlxExchange())
+                .with(MqConstants.SUBSCRIBE_ORDER_DLQ);
+    }
+
+    @Bean
+    public Queue subscribeMarketingQueue() {
+        return QueueBuilder.durable(MqConstants.SUBSCRIBE_MARKETING_QUEUE)
+                .deadLetterExchange(MqConstants.DLX_EXCHANGE)
+                .deadLetterRoutingKey(MqConstants.SUBSCRIBE_MARKETING_DLQ)
+                .build();
+    }
+
+    @Bean
+    public Binding subscribeMarketingBinding() {
+        return BindingBuilder.bind(subscribeMarketingQueue()).to(businessExchange())
+                .with(MqConstants.SUBSCRIBE_MARKETING_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue subscribeMarketingDlq() {
+        return QueueBuilder.durable(MqConstants.SUBSCRIBE_MARKETING_DLQ).build();
+    }
+
+    @Bean
+    public Binding subscribeMarketingDlqBinding() {
+        return BindingBuilder.bind(subscribeMarketingDlq()).to(dlxExchange())
+                .with(MqConstants.SUBSCRIBE_MARKETING_DLQ);
+    }
 }

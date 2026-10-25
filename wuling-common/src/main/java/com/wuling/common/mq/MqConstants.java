@@ -111,6 +111,14 @@ public final class MqConstants {
     public static final String DEVICE_MESSAGE_QUEUE = "wuling.device.message.queue";
     public static final String DEVICE_MESSAGE_ROUTING_KEY = "wuling.device.message";
 
+    /** 下单成功订阅消息：trade 消费。 */
+    public static final String SUBSCRIBE_ORDER_QUEUE = "wuling.subscribe.order.queue";
+    public static final String SUBSCRIBE_ORDER_ROUTING_KEY = "wuling.subscribe.order";
+
+    /** 营销订阅消息：marketing 消费。 */
+    public static final String SUBSCRIBE_MARKETING_QUEUE = "wuling.subscribe.marketing.queue";
+    public static final String SUBSCRIBE_MARKETING_ROUTING_KEY = "wuling.subscribe.marketing";
+
     // ---------- 死信队列（每个业务队列一个 DLQ） ----------
 
     public static final String ORDER_TIMEOUT_DLQ = ORDER_TIMEOUT_QUEUE + ".dlq";
@@ -121,6 +129,8 @@ public final class MqConstants {
     public static final String FINANCE_REVERSE_DLQ = FINANCE_REVERSE_QUEUE + ".dlq";
     public static final String COUPON_EVENT_DLQ = COUPON_EVENT_QUEUE + ".dlq";
     public static final String DEVICE_MESSAGE_DLQ = DEVICE_MESSAGE_QUEUE + ".dlq";
+    public static final String SUBSCRIBE_ORDER_DLQ = SUBSCRIBE_ORDER_QUEUE + ".dlq";
+    public static final String SUBSCRIBE_MARKETING_DLQ = SUBSCRIBE_MARKETING_QUEUE + ".dlq";
 
     /** 消息重试头（记录已重试次数，由消费者更新） */
     public static final String HEADER_RETRY_COUNT = "x-retry-count";

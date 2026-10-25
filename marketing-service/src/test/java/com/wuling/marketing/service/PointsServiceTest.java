@@ -25,6 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.wuling.marketing.subscribe.MarketingSubscribeNotifier;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -185,6 +187,8 @@ class PointsServiceTest {
         when(pointsProductMapper.deductStock(21L, 1)).thenReturn(1);
         stubPointChange(1000L, -300L, 1);
         when(couponMapper.deductStock(9L)).thenReturn(1);
+        MarketingSubscribeNotifier notifier = mock(MarketingSubscribeNotifier.class);
+        ReflectionTestUtils.setField(service, "subscribeNotifier", notifier);
 
         ExchangeOrder order = service.exchange(7L, 21L, 5);
 
@@ -195,9 +199,11 @@ class PointsServiceTest {
         ArgumentCaptor<UserCoupon> userCoupon = ArgumentCaptor.forClass(UserCoupon.class);
         verify(userCouponMapper).insert(userCoupon.capture());
         assertEquals(PointsService.SOURCE_POINTS_EXCHANGE, userCoupon.getValue().getSource());
+        assertEquals("SINGLE", userCoupon.getValue().getGrantNo());
         assertEquals("UNUSED", userCoupon.getValue().getStatus());
         assertEquals(9L, userCoupon.getValue().getCouponId());
         verify(couponMapper).deductStock(9L);
+        verify(notifier).notifyPointsExchange(eq(7L), eq("商品21"), eq(1), eq(300L), eq(700L), any(LocalDateTime.class), org.mockito.ArgumentMatchers.startsWith("POINTS_EXCHANGE:"));
     }
 
     @Test

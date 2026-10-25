@@ -318,10 +318,13 @@ assert.ok(fs.existsSync(imagePath), '缺少 3x 储值卡横幅图');
     'utf8'
   );
 
-  assert.match(
-    apiJs,
-    /url:\s*`\/api\/v1\/app\/stored-value\/orders\?packageId=\$\{encodeURIComponent\(packageId\)\}`/,
+  assert.ok(
+    apiJs.includes('packageId=${encodeURIComponent(packageId)}'),
     '储值建单必须把 packageId 放在 query 参数，后端的 @RequestParam 才能收到'
+  );
+  assert.ok(
+    apiJs.includes('storeSubjectId=${encodeURIComponent(storeSubjectId)}'),
+    '储值建单必须可携带系统门店 subjectId'
   );
   assert.ok(
     !/url:\s*'\/api\/v1\/app\/stored-value\/orders',[\s\S]{0,80}data:\s*\{\s*packageId/.test(apiJs),

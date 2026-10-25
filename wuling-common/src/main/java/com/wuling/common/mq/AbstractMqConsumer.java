@@ -14,9 +14,8 @@ import java.util.HashMap;
 /**
  * 消息消费基类。
  *
- * <p>统一处理幂等、延迟重试、死信和 ACK。业务方只需关注
- * {@link #handle}。失败消息不原样 requeue，而是发布到重试交换机，
- * 在重试队列等待 TTL 后回到原业务队列；超过最大次数后 nack 到 DLQ。</p>
+ * <p>统一处理幂等、延迟重试、死信和 ACK。默认使用投递前占位；对不能静默丢失的
+ * 订阅消息链路使用 {@link #consumeAfterSuccess}，仅当业务成功后才写入幂等标记。</p>
  */
 public abstract class AbstractMqConsumer {
 
@@ -31,11 +30,8 @@ public abstract class AbstractMqConsumer {
     @Value("${app.mq.retry-max-delay-ms:600000}")
     protected long maxRetryDelayMs = 600_000L;
 
-    /**
-      消息体反序列化用。子类消费 JSON 消息时直接用这个，
-      避免每个消费者各建一个 ObjectMapper。
-    */
-    protected final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    protected final com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
 
     private final MqIdempotent idempotent;
     private MqProducer mqProducer;
@@ -49,44 +45,78 @@ public abstract class AbstractMqConsumer {
         this.mqProducer = mqProducer;
     }
 
-    /**
-     * 消费入口：负责幂等 / 重试 / 死信 / ACK，业务异常不外抛。
-     */
+    /** 默认消费入口：投递前占位，失败释放占位。 */
     protected void consume(Message message, Channel channel, MessageHandler handler) {
         MessageProperties props = message.getMessageProperties();
         long deliveryTag = props.getDeliveryTag();
-        String messageId = (String) props.getHeaders().get(MqConstants.HEADER_MESSAGE_ID);
-        if (messageId == null) {
-            messageId = props.getMessageId();
-        }
-        String bizKey = (String) props.getHeaders().get(MqConstants.HEADER_BIZ_KEY);
+        String messageId = messageId(props);
+        String bizKey = bizKey(props);
 
         try {
-            // 1) 幂等：已处理过则直接 ACK
             if (!idempotent.tryAcquire(messageId)) {
                 log.info("MQ 重复消息已跳过 messageId={} bizKey={}", messageId, bizKey);
                 channel.basicAck(deliveryTag, false);
                 return;
             }
-
-            // 2) 业务处理
             handler.handle(message);
             channel.basicAck(deliveryTag, false);
             log.info("MQ 消费成功 messageId={} bizKey={}", messageId, bizKey);
-
         } catch (Exception e) {
-            // 业务失败：释放幂等占位，允许重试消息再次处理。
             idempotent.release(messageId);
-
-            int retry = getRetryCount(props);
-            if (retry < maxRetry) {
-                publishRetry(message, channel, deliveryTag, messageId, bizKey, retry, e);
-            } else {
-                log.error("MQ 重试超限，转入死信队列 messageId={} bizKey={} retry={}/{}",
-                        messageId, bizKey, retry, maxRetry, e);
-                nack(channel, deliveryTag, false, messageId);
-            }
+            handleFailure(message, channel, deliveryTag, messageId, bizKey, e);
         }
+    }
+
+    /**
+     * 成功后再幂等模式：先执行业务，成功后标记并 ACK。
+     *
+     * <p>进程在业务执行前崩溃不会留下“已消费”标记；业务异常会进入既有延迟重试，
+     * 适合订阅消息等不能因 Redis 预占位而丢失的场景。</p>
+     */
+    protected void consumeAfterSuccess(Message message, Channel channel, MessageHandler handler) {
+        MessageProperties props = message.getMessageProperties();
+        long deliveryTag = props.getDeliveryTag();
+        String messageId = messageId(props);
+        String bizKey = bizKey(props);
+
+        try {
+            if (idempotent.isConsumed(messageId)) {
+                log.info("MQ 重复消息已跳过 messageId={} bizKey={}", messageId, bizKey);
+                channel.basicAck(deliveryTag, false);
+                return;
+            }
+            handler.handle(message);
+            idempotent.markConsumed(messageId);
+            channel.basicAck(deliveryTag, false);
+            log.info("MQ 消费成功 messageId={} bizKey={}", messageId, bizKey);
+        } catch (Exception e) {
+            handleFailure(message, channel, deliveryTag, messageId, bizKey, e);
+        }
+    }
+
+    private void handleFailure(Message message,
+                               Channel channel,
+                               long deliveryTag,
+                               String messageId,
+                               String bizKey,
+                               Exception error) {
+        int retry = getRetryCount(message.getMessageProperties());
+        if (retry < maxRetry) {
+            publishRetry(message, channel, deliveryTag, messageId, bizKey, retry, error);
+        } else {
+            log.error("MQ 重试超限，转入死信队列 messageId={} bizKey={} retry={}/{}",
+                    messageId, bizKey, retry, maxRetry, error);
+            nack(channel, deliveryTag, false, messageId);
+        }
+    }
+
+    private String messageId(MessageProperties props) {
+        String messageId = (String) props.getHeaders().get(MqConstants.HEADER_MESSAGE_ID);
+        return messageId == null ? props.getMessageId() : messageId;
+    }
+
+    private String bizKey(MessageProperties props) {
+        return (String) props.getHeaders().get(MqConstants.HEADER_BIZ_KEY);
     }
 
     private void publishRetry(Message message,
@@ -154,7 +184,6 @@ public abstract class AbstractMqConsumer {
         }
     }
 
-    /** 业务处理接口 */
     @FunctionalInterface
     public interface MessageHandler {
         void handle(Message message) throws Exception;

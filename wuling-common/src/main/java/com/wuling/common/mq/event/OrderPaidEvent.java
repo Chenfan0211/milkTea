@@ -33,6 +33,8 @@ public class OrderPaidEvent implements Serializable {
     private Long paidAmount;
     /** 支付渠道标识（STORED_VALUE / WXPAY / MOCK 等，仅用于日志追溯） */
     private String channel;
+    /** 订单门店 subjectId（biz_subject.id），用于订阅消息解析系统门店名称。 */
+    private Long storeSubjectId;
 
     public Long getOrderId() {
         return orderId;
@@ -72,5 +74,13 @@ public class OrderPaidEvent implements Serializable {
 
     public void setChannel(String channel) {
         this.channel = channel;
+    }
+
+    public Long getStoreSubjectId() {
+        return storeSubjectId;
+    }
+
+    public void setStoreSubjectId(Long storeSubjectId) {
+        this.storeSubjectId = storeSubjectId;
     }
 }

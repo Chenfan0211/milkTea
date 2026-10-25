@@ -46,6 +46,22 @@ app:
     # trade-service 与 marketing-service 必须使用完全相同的值，否则礼品卡内部接口会拒绝调用。
     service-token: ${INTERNAL_SERVICE_TOKEN}
 
+  # ---------- 微信小程序（下单成功订阅消息）----------
+  # 复用 user-service 的 WX_APP_ID / WX_APP_SECRET（同一小程序）；
+  # 若公众平台为 access_token 配置了 IP 白名单，需加入生产服务器出口 IP。
+  wx:
+    app-id: ${WX_APP_ID:wx7d78d69cd175812e}
+    app-secret: ${WX_APP_SECRET:}
+    access-token-url: ${WX_ACCESS_TOKEN_URL:https://api.weixin.qq.com/cgi-bin/token}
+    subscribe-send-url: ${WX_SUBSCRIBE_SEND_URL:https://api.weixin.qq.com/cgi-bin/message/subscribe/send}
+    http-timeout-ms: ${WX_MINIAPP_HTTP_TIMEOUT_MS:3000}
+    order-subscribe:
+      # 总开关；本地 application-dev.yml 显式关闭，避免 mock 支付误发真实通知
+      enabled: ${WX_ORDER_SUBSCRIBE_ENABLED:true}
+      template-id: ${WX_ORDER_SUBSCRIBE_TEMPLATE_ID:W-_sFdE4DpQbfs5aeXASyEvVIVkFBYz65Qjl8lQQJWM}
+      page: ${WX_ORDER_SUBSCRIBE_PAGE:pages/order-detail/order-detail}
+      miniprogram-state: ${WX_ORDER_SUBSCRIBE_MINIPROGRAM_STATE:formal}
+
   # ---------- 支付（第 14 期）----------
   #
   # 礼品卡真实购买与退款要求 PAY_CHANNEL=wxpay；mock 仅用于开发/自动化验收，禁止用于正式收款。

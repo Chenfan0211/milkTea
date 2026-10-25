@@ -10,6 +10,7 @@ import com.wuling.trade.pay.giftcard.GiftCardOrderPort;
 import com.wuling.trade.pay.storedvalue.StoredValueBalancePort;
 import com.wuling.trade.pay.storedvalue.StoredValueOrderPort;
 import com.wuling.trade.pay.wxpay.WxPayTransaction;
+import com.wuling.trade.subscribe.OrderSubscribeNotifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -33,6 +34,7 @@ class PaymentServiceOrderStatusTest {
     private PaymentMapper paymentMapper;
     private OrderItemMapper orderItemMapper;
     private AlertChannel alertChannel;
+    private OrderSubscribeNotifier orderSubscribeNotifier;
     private PaymentService service;
 
     @BeforeEach
@@ -41,6 +43,7 @@ class PaymentServiceOrderStatusTest {
         paymentMapper = mock(PaymentMapper.class);
         orderItemMapper = mock(OrderItemMapper.class);
         alertChannel = mock(AlertChannel.class);
+        orderSubscribeNotifier = mock(OrderSubscribeNotifier.class);
         service = new PaymentService(
                 orderService,
                 paymentMapper,
@@ -51,7 +54,8 @@ class PaymentServiceOrderStatusTest {
                 mock(StoredValueBalancePort.class),
                 mock(BalancePayIntentService.class),
                 mock(com.wuling.common.outbox.OutboxService.class),
-                mock(GiftCardOrderPort.class));
+                mock(GiftCardOrderPort.class),
+                orderSubscribeNotifier);
         when(orderItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
     }
 
@@ -81,6 +85,19 @@ class PaymentServiceOrderStatusTest {
         verify(orderService, never()).markPaid(any(Order.class), any());
         verify(paymentMapper, never()).updateById(any(com.wuling.trade.entity.Payment.class));
         verify(alertChannel, never()).send(any(), any(), any(), any());
+        verify(orderSubscribeNotifier, never()).enqueueForOrder(any(), any());
+    }
+
+    @Test
+    void paidOrderRegistersOrderSubscribeMessage() {
+        Order order = order(OrderService.STATUS_CREATED, null);
+        OrderDTO dto = new OrderDTO();
+        when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
+        when(orderService.toDTO(eq(order), anyList())).thenReturn(dto);
+
+        assertSame(dto, service.handleCallback(ORDER_NO, "TXN-1"));
+
+        verify(orderSubscribeNotifier).enqueueForOrder(order, dto);
     }
 
     private Order order(String status, String refundStatus) {

@@ -8,6 +8,7 @@ const { calcMemberPrice } = require('../../utils/member-level');
 const { refreshCouponsFromRemote } = require('../../utils/coupons');
 const { requestOrderPayment } = require('../../utils/order-payment');
 const recommendationCart = require('../../utils/recommendation-cart-state');
+const { requestOrderSubscribe } = require('../../utils/subscribe-message');
 
 function roundMoney(value) {
   return Math.round(value * 10) / 10;
@@ -191,6 +192,7 @@ Page(
     data: {
       store: {},
       items: [],
+      submitting: false,
       orderMode: 'pickup',
       modeOptions: [],
       paymentMethod: 'wechat',
@@ -374,21 +376,35 @@ Page(
     },
 
     /**
-     * 提交订单。手机号强制：未绑定手机号不能下单，授权完成后自动续跑本次提交。
+     * 提交订单。
+     *
+     * 订阅授权必须在用户点击回调内同步发起，且无论用户同意、拒绝或不支持，
+     * 都不能阻断后续的手机号校验与支付流程。手机号未绑定时会在授权完成后
+     * 自动续跑本次提交。
      */
     handleSubmit() {
-      loginGuard.requirePhone(() => this.doSubmit(), {
-        reason: '下单需要绑定手机号，用于订单通知与售后'
-      });
+      if (this.data.submitting) return;
+      if (!(this.data.items || []).length) {
+        wx.showToast({ title: '购物车为空', icon: 'none' });
+        return;
+      }
+      this.setData({ submitting: true });
+      const release = () => this.setData({ submitting: false });
+      requestOrderSubscribe()
+        .then(() =>
+          loginGuard.requirePhone(() => this.doSubmit(), {
+            reason: '下单需要绑定手机号，用于订单通知与售后'
+          })
+        )
+        .then(release, release);
     },
 
     /** 实际提交（登录且已绑手机号后执行） */
     doSubmit() {
       if (this.data.paymentMethod === 'stored-value') {
-        this.submitWithStoredValue();
-        return;
+        return this.submitWithStoredValue();
       }
-      this.createOrderAndPay();
+      return this.createOrderAndPay();
     },
 
     buildOrderItems() {
@@ -444,7 +460,7 @@ Page(
         return;
       }
       wx.showLoading({ title: '提交中', mask: true });
-      api
+      return api
         .createOrder(payload)
         .then(order => {
           const app = getApp();
@@ -495,7 +511,7 @@ Page(
         return;
       }
       wx.showLoading({ title: '支付中', mask: true });
-      api
+      return api
         .createOrder(payload)
         .then(order => {
           const app = getApp();

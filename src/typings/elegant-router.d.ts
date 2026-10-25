@@ -44,6 +44,7 @@ declare module "@elegant-router/types" {
     "marketing_points": "/marketing/points";
     "marketing_points-category": "/marketing/points-category";
     "marketing_points-rule": "/marketing/points-rule";
+    "marketing_profile-banner": "/marketing/profile-banner";
     "marketing_referral": "/marketing/referral";
     "marketing_stored": "/marketing/stored";
     "product": "/product";
@@ -67,6 +68,7 @@ declare module "@elegant-router/types" {
     "system_config": "/system/config";
     "system_dict": "/system/dict";
     "system_feature": "/system/feature";
+    "system_home-decor": "/system/home-decor";
     "trade": "/trade";
     "trade_order": "/trade/order";
     "trade_order-detail": "/trade/order-detail";
@@ -163,6 +165,7 @@ declare module "@elegant-router/types" {
     | "marketing_points-category"
     | "marketing_points-rule"
     | "marketing_points"
+    | "marketing_profile-banner"
     | "marketing_referral"
     | "marketing_stored"
     | "product_category"
@@ -182,6 +185,7 @@ declare module "@elegant-router/types" {
     | "system_config"
     | "system_dict"
     | "system_feature"
+    | "system_home-decor"
     | "trade_order-detail"
     | "trade_order"
     | "trade_payment"

@@ -4,13 +4,9 @@
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background: linear-gradient(
-    180deg,
-    var(--health-gradient-top) 0%,
-    var(--health-gradient-mid) 30%,
-    var(--page-bg-neutral) 52%,
-    var(--page-bg-neutral) 100%
-  );
+  position: relative;
+  z-index: 0;
+  background-color: var(--health-gradient-top);
 }
 
 .report-scroll {

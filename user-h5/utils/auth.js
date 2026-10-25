@@ -37,7 +37,9 @@ const USER_SCOPED_KEYS = [
   'milkTea:coupons',
   'milkTea:coupons:usable-count',
   'milkTea:user-profile',
+  // @mini-release:tongueHealth:start
   'milkTea:tongue-profile',
+  // @mini-release:tongueHealth:end
   'milkTea:recommendation-carts',
   'milkTea:auth:user-cache',
   'milkTea:business-role',

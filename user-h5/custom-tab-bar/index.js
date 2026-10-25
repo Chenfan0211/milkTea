@@ -1,38 +1,20 @@
+const featurePolicy = require('../utils/feature-policy');
+
 Component({
   data: {
     selected: 0,
     hidden: false,
-    list: [
-      {
-        pagePath: '/pages/home/home',
-        text: '首页',
-        icon: '/assets/icons/lucide/home.svg',
-        activeIcon: '/assets/icons/lucide/home-active.svg'
-      },
-      {
-        pagePath: '/pages/menu/menu',
-        text: '点单',
-        icon: '/assets/icons/lucide/menu.svg',
-        activeIcon: '/assets/icons/lucide/menu-active.svg'
-      },
-      {
-        pagePath: '/pages/tongue/tongue',
-        text: '舌诊',
-        icon: '/assets/icons/lucide/tongue.svg',
-        activeIcon: '/assets/icons/lucide/tongue-active.svg'
-      },
-      {
-        pagePath: '/pages/orders/orders',
-        text: '订单',
-        icon: '/assets/icons/lucide/orders.svg',
-        activeIcon: '/assets/icons/lucide/orders-active.svg'
-      },
-      {
-        pagePath: '/pages/profile/profile',
-        text: '我的',
-        icon: '/assets/icons/lucide/profile.svg',
-        activeIcon: '/assets/icons/lucide/profile-active.svg'
-      }
-    ]
+    list: featurePolicy.getTabBarItems()
+  },
+  pageLifetimes: {
+    show() {
+      this.syncFeaturePolicy();
+    }
+  },
+  methods: {
+    syncFeaturePolicy() {
+      const list = featurePolicy.getTabBarItems();
+      if (JSON.stringify(list) !== JSON.stringify(this.data.list)) this.setData({ list });
+    }
   }
 });

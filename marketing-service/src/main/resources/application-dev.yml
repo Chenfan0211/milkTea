@@ -29,6 +29,12 @@ spring:
     password: ${RABBITMQ_PASSWORD:}
 
 app:
+  wx:
+    subscribe:
+      enabled: false
+    coupon-expiry:
+      enabled: false
+
   jwt:
     secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA==}
   redis:

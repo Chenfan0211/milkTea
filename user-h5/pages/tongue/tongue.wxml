@@ -1,5 +1,6 @@
 <view class="health-page">
-  <navigation-bar title="体质健康管理" background="transparent" color="#2F302D">
+  <image class="health-page__background" src="/assets/images/3x/health-gradient-bg.png" mode="scaleToFill" aria-hidden="true" />
+  <navigation-bar title="体质健康管理" background="transparent" color="#2F302D" below-capsule="{{true}}">
     <view slot="right" class="health-avatar" bindtap="openProfileSheet" aria-role="button" aria-label="编辑个人信息">
       <image class="health-avatar__image" src="{{avatar}}" mode="aspectFill" />
     </view>
@@ -53,11 +54,11 @@
 
       <view class="health-notes">
         <view class="health-note">
-          <image class="health-note__icon" src="/assets/icons/lucide/brew-record.svg" mode="aspectFit" />
+          <image class="health-note__icon" src="/assets/icons/lucide/brew-record-brand.svg" mode="aspectFit" />
           <text class="health-note__text">饭后半小时再测试</text>
         </view>
         <view class="health-note">
-          <image class="health-note__icon" src="/assets/icons/lucide/glass-water.svg" mode="aspectFit" />
+          <image class="health-note__icon" src="/assets/icons/lucide/glass-water-brand.svg" mode="aspectFit" />
           <text class="health-note__text">勿食有色食品</text>
         </view>
       </view>

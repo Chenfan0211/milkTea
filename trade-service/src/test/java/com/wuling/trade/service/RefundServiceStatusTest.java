@@ -273,7 +273,7 @@ class RefundServiceStatusTest {
 
         service.refund(ORDER_NO, "stored value cancel");
 
-        verify(storedValueBalancePort).refund(9L, AMOUNT, "REFUND:" + ORDER_NO);
+        verify(storedValueBalancePort).refund(9L, AMOUNT, "REFUND:" + ORDER_NO, 9L);
         verifyNoInteractions(gatewayResolver, paymentGateway, outboxService);
     }
     @Test

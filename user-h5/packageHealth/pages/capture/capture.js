@@ -1,10 +1,125 @@
 const api = require('../../../utils/api');
 const tongueProfile = require('../../../utils/tongue-profile');
 const captureMedia = require('../../../utils/tongue-capture');
+const featurePolicy = require('../../../utils/feature-policy');
 
 const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024;
 const REPORT_PAGE = '/packageHealth/pages/report/report';
 const SOURCE_LABELS = ['拍照', '从手机相册选择'];
+
+/** 触发微信官方隐私授权弹窗；旧基础库不拦截隐私接口时直接放行。 */
+function ensurePrivacyAuthorize() {
+  return new Promise((resolve, reject) => {
+    if (typeof wx === 'undefined' || typeof wx.requirePrivacyAuthorize !== 'function') {
+      resolve();
+      return;
+    }
+    wx.requirePrivacyAuthorize({ success: resolve, fail: reject });
+  });
+}
+
+/** 记录隐私声明状态，便于区分后台未声明和用户拒绝授权。 */
+function logPrivacySetting() {
+  if (typeof wx === 'undefined' || typeof wx.getPrivacySetting !== 'function') return;
+  wx.getPrivacySetting({
+    success(res) {
+      console.log('[capture] 隐私设置', {
+        needAuthorization: Boolean(res && res.needAuthorization),
+        privacyContractName: (res && res.privacyContractName) || ''
+      });
+    },
+    fail(error) {
+      console.warn('[capture] 获取隐私设置失败', captureMedia.errorMessage(error));
+    }
+  });
+}
+
+/** 打开系统设置并重新读取相机 scope。 */
+function openCameraSetting() {
+  return new Promise(resolve => {
+    if (typeof wx === 'undefined' || typeof wx.openSetting !== 'function') {
+      resolve(false);
+      return;
+    }
+    wx.openSetting({
+      success(res) {
+        resolve(Boolean(res && res.authSetting && res.authSetting['scope.camera']));
+      },
+      fail() {
+        resolve(false);
+      }
+    });
+  });
+}
+
+/** 用户曾拒绝相机权限时，引导其主动去设置页开启。 */
+function promptCameraSetting() {
+  return new Promise(resolve => {
+    if (typeof wx === 'undefined' || typeof wx.showModal !== 'function') {
+      resolve(false);
+      return;
+    }
+    wx.showModal({
+      title: '需要相机权限',
+      content: '请在设置中允许使用相机，才能拍摄舌象照片。',
+      confirmText: '去设置',
+      cancelText: '暂不开启',
+      success(res) {
+        if (!res || !res.confirm) {
+          resolve(false);
+          return;
+        }
+        openCameraSetting().then(resolve);
+      },
+      fail() {
+        resolve(false);
+      }
+    });
+  });
+}
+
+/** 拍照前确保 scope.camera 已授权；相册路径不会调用此流程。 */
+function ensureCameraScope() {
+  return new Promise((resolve, reject) => {
+    if (typeof wx === 'undefined' || typeof wx.getSetting !== 'function') {
+      resolve();
+      return;
+    }
+    wx.getSetting({
+      success(setting) {
+        const authSetting = (setting && setting.authSetting) || {};
+        const current = authSetting['scope.camera'];
+        if (current === true) {
+          resolve();
+          return;
+        }
+        const rejectHandled = () => {
+          reject({ errMsg: 'scope.camera denied', handled: true });
+        };
+        if (current === false) {
+          promptCameraSetting().then(granted => (granted ? resolve() : rejectHandled()));
+          return;
+        }
+        if (typeof wx.authorize !== 'function') {
+          resolve();
+          return;
+        }
+        wx.authorize({
+          scope: 'scope.camera',
+          success: resolve,
+          fail(error) {
+            if (captureMedia.isPrivacyDeclarationError(error) || captureMedia.isPrivacyDenied(error)) {
+              reject(error);
+              return;
+            }
+            promptCameraSetting().then(granted => (granted ? resolve() : rejectHandled()));
+          }
+        });
+      },
+      fail: reject
+    });
+  });
+}
 
 function getFileSize(filePath) {
   return new Promise((resolve, reject) => {
@@ -58,6 +173,7 @@ Page({
   },
 
   onLoad() {
+    if (featurePolicy.redirectIfHidden('/packageHealth/pages/capture/capture')) return;
     const platform = wx.getSystemInfoSync ? wx.getSystemInfoSync().platform || '' : '';
     if (String(platform).toLowerCase() === 'devtools') {
       this.setData({ devtoolsHint: '开发者工具不支持直接拍照，请从相册选择' });
@@ -101,15 +217,26 @@ Page({
     };
     const showFailure = error => {
       finish();
+      if (error && error.handled) return;
       if (captureMedia.isUserCancel(error)) return;
       const raw = captureMedia.errorMessage(error);
       console.warn('[capture] 选择图片失败', raw, {
         sourceType: effective.sourceType,
         platform
       });
+      if (legacyFirst && captureMedia.isPrivacyDeclarationError(error)) {
+        wx.showModal({
+          title: '隐私声明未配置',
+          content:
+            '请在微信公众平台“设置 → 服务内容声明 → 用户隐私保护指引”中声明“收集你选中的照片或视频信息”和“访问你的摄像头”。',
+          showCancel: false,
+          confirmText: '知道了'
+        });
+        return;
+      }
       const title = legacyFirst
         ? captureMedia.describeFailure(effective.sourceType, error)
-        : captureMedia.pickFailureMessage(effective.sourceType);
+        : captureMedia.pickFailureMessage(effective.sourceType, error);
       wx.showToast({ title, icon: 'none' });
     };
     const runChooseImage = onFail => {
@@ -144,6 +271,10 @@ Page({
         finish();
         return;
       }
+      if (captureMedia.isPrivacyDeclarationError(error) || captureMedia.isPrivacyDenied(error)) {
+        showFailure(error);
+        return;
+      }
       console.warn(
         legacyFirst ? '[capture] chooseImage 失败' : '[capture] chooseMedia 失败',
         captureMedia.errorMessage(error),
@@ -151,11 +282,21 @@ Page({
       );
       next(finalError => showFailure(finalError || error));
     };
-    if (legacyFirst) {
-      runChooseImage(error => firstFail(error, next => runChooseMedia(next)));
-      return;
-    }
-    runChooseMedia(error => firstFail(error, next => runChooseImage(next)));
+    const runPicker = () => {
+      if (legacyFirst) {
+        runChooseImage(error => firstFail(error, next => runChooseMedia(next)));
+        return;
+      }
+      runChooseMedia(error => firstFail(error, next => runChooseImage(next)));
+    };
+    logPrivacySetting();
+    ensurePrivacyAuthorize()
+      .then(() => {
+        if (effective.sourceType.indexOf('camera') >= 0) return ensureCameraScope();
+        return null;
+      })
+      .then(runPicker)
+      .catch(showFailure);
   },
 
   /** 压缩到 2.5MB 以内，成功后立即上传检测。 */

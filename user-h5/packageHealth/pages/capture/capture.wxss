@@ -4,8 +4,9 @@
   width: 100%;
   height: 100vh;
   overflow: hidden;
+  position: relative;
+  z-index: 0;
   background-color: var(--health-gradient-top);
-  background-image: var(--health-page-gradient);
 }
 
 .capture-scroll {

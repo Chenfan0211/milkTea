@@ -10,6 +10,7 @@ const {
   pickDefaultPackageIndex
 } = require('../../utils/stored-value');
 const { resolveStoreCatalog } = require('../../utils/store');
+const { requestContextualSubscribe } = require('../../utils/subscribe-message');
 
 /** 支付结果轮询：微信回调是异步的，需主动查单确认 */
 const PAY_POLL_INTERVAL_MS = 1200;
@@ -118,12 +119,22 @@ Page(
       wx.navigateTo({ url: '/pages/stored-value-records/stored-value-records' });
     },
     handleRecharge() {
-      if (this.data.recharging) return;
+      if (this.data.recharging || this.authorizingSubscribe) return;
       if (this.data.selectedIndex < 0) {
         wx.showToast({ title: '请先选择储值卡', icon: 'none' });
         return;
       }
-      loginGuard.requirePhone(() => this.doHandleRecharge(), { reason: '充值需要绑定手机号' });
+      this.authorizingSubscribe = true;
+      requestContextualSubscribe(['storedValueRecharge', 'balanceChange', 'couponArrival'])
+        .then(() => loginGuard.requirePhone(() => this.doHandleRecharge(), { reason: '充值需要绑定手机号' }))
+        .then(
+          () => {
+            this.authorizingSubscribe = false;
+          },
+          () => {
+            this.authorizingSubscribe = false;
+          }
+        );
     },
 
     /** 充值主流程：建单 -> 发起支付 -> 以服务端状态为准确认结果 */
@@ -141,7 +152,10 @@ Page(
       const orderNos = [];
       const createNext = index => {
         if (index >= quantity) return Promise.resolve(orderNos);
-        return api.createStoredValueOrder(selectedPackage.id).then(order => {
+        const catalog = resolveStoreCatalog();
+        const currentStore = catalog.currentStore || {};
+        const storeSubjectId = currentStore.subjectId != null ? currentStore.subjectId : null;
+        return api.createStoredValueOrder(selectedPackage.id, storeSubjectId).then(order => {
           orderNos.push(order.orderNo);
           return createNext(index + 1);
         });

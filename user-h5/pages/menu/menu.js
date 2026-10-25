@@ -1,4 +1,5 @@
 const { withShare } = require('../../utils/share');
+const featurePolicy = require('../../utils/feature-policy');
 const api = require('../../utils/api');
 const {
   getListedMenuTabs,
@@ -301,7 +302,8 @@ Page(
      * 这样「没有门店」也不会出现「不请求接口」的空档。
      */
     onShow() {
-      if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
+      if (this.getTabBar)
+        this.getTabBar().setData({ selected: featurePolicy.getTabBarSelectedIndex('/pages/menu/menu') });
       this.setTabBarHidden(false);
       // 清掉一次性来源标记：门店层开合已由 catalog 状态决定，不再依赖它分支
       this.returningFrom = '';
@@ -415,7 +417,8 @@ Page(
         return;
       }
       this.setData({ storePickerVisible: false });
-      if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
+      if (this.getTabBar)
+        this.getTabBar().setData({ selected: featurePolicy.getTabBarSelectedIndex('/pages/menu/menu') });
       this.setTabBarHidden(false);
     },
     handlePickerSearch(event) {
@@ -495,7 +498,8 @@ Page(
       this.syncGlobals(catalog);
       // 先关层并切到新门店名，避免用户等待接口时看着旧门店名
       this.setData(updates);
-      if (this.getTabBar) this.getTabBar().setData({ selected: 1 });
+      if (this.getTabBar)
+        this.getTabBar().setData({ selected: featurePolicy.getTabBarSelectedIndex('/pages/menu/menu') });
       this.setTabBarHidden(false);
       // 再拉新门店的菜单；失败时 refreshMenuFromRemote 会保留旧镜像，不会白屏
       this.refreshThenSync();

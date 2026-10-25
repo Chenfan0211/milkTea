@@ -33,15 +33,37 @@ function usesLegacyPickerFirst(platform) {
   return String(platform || '').toLowerCase() === 'devtools';
 }
 
+/** 微信隐私指引未声明当前接口权限。 */
+function isPrivacyDeclarationError(error) {
+  return /api scope is not declared in the privacy agreement|scope is not declared in the privacy agreement/i.test(
+    errorMessage(error)
+  );
+}
+
+/** 用户拒绝或未完成微信隐私授权。 */
+function isPrivacyDenied(error) {
+  const message = errorMessage(error);
+  return /privacy/i.test(message) && /(deny|denied|disagree|reject|refuse|拒绝|未同意)/i.test(message);
+}
+
+/** 相机 scope 被拒绝或授权失败。 */
+function isCameraPermissionError(error) {
+  const message = errorMessage(error);
+  if (isPrivacyDeclarationError(error) || isPrivacyDenied(error)) return false;
+  return /scope\.camera|authorize:fail|auth deny|permission denied|camera permission|相机权限/i.test(message);
+}
 /** 拍摄/相册失败时的用户可读文案。 */
-function pickFailureMessage(sourceType) {
+function pickFailureMessage(sourceType, error) {
+  if (isPrivacyDeclarationError(error)) return '隐私声明未配置，请联系管理员';
+  if (isPrivacyDenied(error)) return '需同意隐私授权后才能使用拍照/相册';
+  if (isCameraPermissionError(error)) return '相机权限未开启，请前往设置开启';
   const list = Array.isArray(sourceType) ? sourceType : [];
   return list.indexOf('camera') >= 0 ? '拍照失败，请检查相机权限' : '选择图片失败，请重试';
 }
 
 /** 在友好文案后带上真实 errMsg，供开发者工具定位问题。 */
 function describeFailure(sourceType, error) {
-  const friendly = pickFailureMessage(sourceType);
+  const friendly = pickFailureMessage(sourceType, error);
   const raw = errorMessage(error);
   return raw ? friendly + '（' + raw + '）' : friendly;
 }
@@ -49,6 +71,9 @@ function describeFailure(sourceType, error) {
 module.exports = {
   errorMessage,
   isUserCancel,
+  isPrivacyDeclarationError,
+  isPrivacyDenied,
+  isCameraPermissionError,
   effectiveSourceType,
   pickFailureMessage,
   usesLegacyPickerFirst,

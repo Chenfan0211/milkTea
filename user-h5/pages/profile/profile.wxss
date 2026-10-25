@@ -227,11 +227,18 @@
   font-size: 24rpx;
 }
 
+.promo-swiper {
+  width: 710rpx;
+  height: 160rpx;
+  margin: 20rpx;
+  overflow: hidden;
+  border-radius: 16rpx;
+}
+
 .promo-banner {
   display: block;
-  width: 710rpx;
-  margin: 20rpx;
-  border-radius: 16rpx;
+  width: 100%;
+  height: 160rpx;
 }
 
 .function-grid {

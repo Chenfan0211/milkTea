@@ -1,4 +1,5 @@
 <view class="capture-page">
+  <image class="health-page__background" src="/assets/images/3x/health-gradient-bg.png" mode="scaleToFill" aria-hidden="true" />
   <navigation-bar title="体质健康管理" back="{{true}}" background="transparent" color="#2F302D" />
 
   <scroll-view class="capture-scroll" scroll-y show-scrollbar="{{false}}">

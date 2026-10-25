@@ -8,6 +8,7 @@ const {
   tickOrderCountdowns
 } = require('../../utils/orders');
 const { requestOrderPayment } = require('../../utils/order-payment');
+const { requestOrderSubscribe } = require('../../utils/subscribe-message');
 
 Page(
   withShare({
@@ -125,24 +126,27 @@ Page(
         wx.showToast({ title: '订单号缺失，无法支付', icon: 'none' });
         return;
       }
-      wx.showLoading({ title: '支付中', mask: true });
-      requestOrderPayment(orderNo, paidAmount)
-        .then(result => {
-          wx.hideLoading();
-          if (result.paid) {
-            wx.showToast({ title: '支付成功', icon: 'success' });
-            this.refreshOrder();
-          } else if (result.canceled) {
-            wx.showToast({ title: '支付已取消', icon: 'none' });
-          } else {
-            wx.showToast({ title: '支付未完成，请重试', icon: 'none' });
-            this.refreshOrder();
-          }
-        })
-        .catch(error => {
-          wx.hideLoading();
-          wx.showToast({ title: (error && error.message) || '支付失败', icon: 'none' });
-        });
+      // 先申请订单订阅授权；拒绝或不支持都不影响本次继续支付。
+      requestOrderSubscribe().then(() => {
+        wx.showLoading({ title: '支付中', mask: true });
+        return requestOrderPayment(orderNo, paidAmount)
+          .then(result => {
+            wx.hideLoading();
+            if (result.paid) {
+              wx.showToast({ title: '支付成功', icon: 'success' });
+              this.refreshOrder();
+            } else if (result.canceled) {
+              wx.showToast({ title: '支付已取消', icon: 'none' });
+            } else {
+              wx.showToast({ title: '支付未完成，请重试', icon: 'none' });
+              this.refreshOrder();
+            }
+          })
+          .catch(error => {
+            wx.hideLoading();
+            wx.showToast({ title: (error && error.message) || '支付失败', icon: 'none' });
+          });
+      });
     },
     handleReorder() {
       wx.showToast({ title: '再次购买暂未接入', icon: 'none' });

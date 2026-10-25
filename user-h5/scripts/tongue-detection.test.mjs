@@ -32,7 +32,7 @@ assert.ok(
   '舌诊页不得注册购物车组件'
 );
 assert.ok(!tongueJs.includes('recommendation-cart-state'), '舌诊页不得接管推荐购物车状态');
-assert.ok(tongueJs.includes('selected: 2'), '舌诊 Tab 必须同步 Tab 选中态');
+assert.ok(tongueJs.includes("getTabBarSelectedIndex('/pages/tongue/tongue')"), '舌诊 Tab 必须同步 Tab 选中态');
 assert.ok(tongueJs.includes("require('../../utils/tongue-profile')"), '舌诊入口必须复用本地舌诊资料');
 assert.ok(tongueJs.includes('loginGuard.requireLogin'), '未登录时必须先登录再进入拍摄页与记录页');
 assert.ok(tongueJson.usingComponents && tongueJson.usingComponents['navigation-bar'], '必须注册自定义导航栏组件');
@@ -66,6 +66,8 @@ assert.ok(tongueWxml.includes('/assets/icons/lucide/coffee-brand.svg'), '调理�
 assert.ok(tongueWxml.includes('/assets/icons/lucide/chevron-right-brand.svg'), '两张功能卡之间必须有导向箭头');
 assert.ok(tongueWxml.includes('aria-hidden="true"'), '装饰性导向箭头必须对辅助技术隐藏');
 assert.ok(tongueWxml.includes('/assets/icons/lucide/list-muted.svg'), '记录入口必须使用弱化色 Lucide 列表图标');
+assert.ok(tongueWxml.includes('/assets/icons/lucide/brew-record-brand.svg'), '饭后提示必须使用绿色版 Lucide 图标');
+assert.ok(tongueWxml.includes('/assets/icons/lucide/glass-water-brand.svg'), '饮食提示必须使用绿色版 Lucide 图标');
 assert.ok(!tongueWxml.includes('health-feature__badge'), '按参考图移除 AI 角标');
 assert.ok(!/<navigation-bar[^>]*back=/.test(tongueWxml), '舌诊 Tab 不添加返回按钮');
 assert.ok(!/agreed/.test(tongueWxml), '按参考图移除授权勾选');
@@ -74,11 +76,63 @@ assert.ok(!tongueWxml.includes('/assets/images/3x/health-feature'), '功能卡�
 
 const tongueWxss = read('pages/tongue/tongue.wxss');
 assert.ok(!cssRule(tongueWxss, '.health-features').includes('padding: 0 40rpx'), '功能卡区域不得再有 40rpx 横向内边距');
-assert.match(cssRule(tongueWxss, '.health-avatar'), /margin-right:\s*16rpx/, '头像必须贴近参考图右侧位置');
+assert.match(
+  cssRule(tongueWxss, '.health-avatar'),
+  /margin-right:\s*16rpx/,
+  '头像必须保留 16rpx 右边距，作为与原生胶囊按钮之间的视觉间距'
+);
 assert.match(cssRule(tongueWxss, '.health-avatar__image'), /width:\s*72rpx/, '头像尺寸必须与参考图一致');
-assert.match(cssRule(tongueWxss, '.health-feature__tile'), /width:\s*160rpx/, '功能卡图标底尺寸必须为 160rpx');
-assert.match(cssRule(tongueWxss, '.health-feature__tile'), /height:\s*160rpx/, '功能卡图标底高度必须为 160rpx');
-assert.match(cssRule(tongueWxss, '.health-feature__image'), /width:\s*112rpx/, '功能卡图标尺寸必须为 112rpx');
+const navigationBarWxml = read('components/navigation-bar/navigation-bar.wxml');
+const navigationBarJs = read('components/navigation-bar/navigation-bar.js');
+assert.ok(
+  /class="weui-navigation-bar__right"[\s\S]{0,200}padding-right:\s*\{\{rightInset\}\}px/.test(navigationBarWxml),
+  '共享导航栏右侧插槽必须为原生胶囊按钮让位，避免右上角插槽内容被遮挡'
+);
+assert.ok(
+  navigationBarJs.includes('resolveRightInset') && navigationBarJs.includes('getMenuButtonBoundingClientRect'),
+  '共享导航栏必须按原生胶囊按钮位置计算右侧插槽内缩量'
+);
+assert.ok(
+  navigationBarJs.includes('belowCapsule') && navigationBarJs.includes('contentTop'),
+  '共享导航栏必须支持把内容行整体下移到胶囊按钮下方'
+);
+assert.ok(
+  /top:\s*\{\{contentTop\}\}px/.test(navigationBarWxml) &&
+    navigationBarWxml.includes('height: {{contentTop + navBarHeight}}px'),
+  '共享导航栏的内容行必须按 contentTop 定位'
+);
+assert.ok(
+  tongueWxml.includes('below-capsule="{{true}}"'),
+  '舌诊 Tab 必须把标题与头像下移到胶囊按钮下方，避免右上角遮挡'
+);
+assert.match(cssRule(tongueWxss, '.health-feature__tile'), /width:\s*132rpx/, '功能卡图标底尺寸必须为 132rpx');
+assert.match(cssRule(tongueWxss, '.health-feature__tile'), /height:\s*132rpx/, '功能卡图标底高度必须为 132rpx');
+assert.match(cssRule(tongueWxss, '.health-feature__image'), /width:\s*92rpx/, '功能卡图标尺寸必须为 92rpx');
+assert.match(
+  cssRule(tongueWxss, '.health-feature__title'),
+  /min-height:\s*52rpx/,
+  '功能卡标题胶囊高度必须为 52rpx（参考图实测）'
+);
+assert.match(
+  cssRule(tongueWxss, '.health-feature__title'),
+  /margin-top:\s*16rpx/,
+  '功能卡图标底与标题胶囊之间必须留 16rpx 间距'
+);
+assert.match(
+  cssRule(tongueWxss, '.health-cta__text'),
+  /font-size:\s*var\(--font-display\)/,
+  '开始测试文字必须使用 48rpx 字号档位'
+);
+assert.match(
+  cssRule(tongueWxss, '.health-cta__text'),
+  /color:\s*var\(--health-cta-text\)/,
+  '开始测试文字必须使用舌诊按钮文字 token'
+);
+assert.match(
+  cssRule(tongueWxss, '.health-note__text'),
+  /color:\s*var\(--health-note-text\)/,
+  '提示文字必须使用舌诊提示文字 token'
+);
 assert.match(cssRule(tongueWxss, '.health-feature__line'), /min-height:\s*40rpx/, '功能说明行高必须为 40rpx');
 assert.match(cssRule(tongueWxss, '.health-cta-wrap'), /margin-top:\s*152rpx/, '主按钮上方留白必须为 152rpx');
 assert.match(cssRule(tongueWxss, '.health-history-entry'), /margin-top:\s*120rpx/, '记录入口上方留白必须为 120rpx');
@@ -88,14 +142,16 @@ for (const token of ['--health-feature-pill-bg', '--health-cta-shell', '--health
   assert.ok(appWxss.includes(token), `app.wxss 必须提供舌诊样式 token ${token}`);
 }
 
-// ---- 底部导航：文案「舌诊」+ 图标 tongue/tongue-active ----
+// ---- 底部导航：文案「一人一饮」+ 图标 personalized-drink/personalized-drink-active ----
 const tabBarJs = read('custom-tab-bar/index.js');
-assert.ok(tabBarJs.includes("pagePath: '/pages/tongue/tongue'"), '底部导航第三项必须指向舌诊页');
-assert.ok(tabBarJs.includes("text: '舌诊'"), '底部导航第三项文案必须是舌诊');
+const tabBarPolicy = read('config/build-policy.js');
+assert.ok(tabBarJs.includes('featurePolicy.getTabBarItems()'), '底部导航必须按版本策略生成');
+assert.ok(tabBarPolicy.includes("pagePath: '/pages/tongue/tongue'"), '底部导航第三项必须指向舌诊页');
+assert.ok(tabBarPolicy.includes("text: '一人一饮'"), '底部导航第三项文案必须是一人一饮');
 assert.ok(
-  tabBarJs.includes("icon: '/assets/icons/lucide/tongue.svg'") &&
-    tabBarJs.includes("activeIcon: '/assets/icons/lucide/tongue-active.svg'"),
-  '舌诊 Tab 必须使用 tongue / tongue-active 图标'
+  tabBarPolicy.includes("icon: '/assets/icons/lucide/personalized-drink.svg'") &&
+    tabBarPolicy.includes("activeIcon: '/assets/icons/lucide/personalized-drink-active.svg'"),
+  '一人一饮 Tab 必须使用 personalized-drink / personalized-drink-active 图标'
 );
 
 // ---- 拍摄页（参考图 2/3） ----
@@ -123,8 +179,9 @@ assert.ok(captureJs.includes('wx.compressImage'), '拍摄页必须压缩舌照')
 assert.ok(captureJs.includes('2.5 * 1024 * 1024'), '拍摄页必须限制压缩后图片为 2.5MB');
 assert.ok(captureJs.includes('api.detectTongue'), '拍摄页必须调用统一上传接口');
 assert.ok(captureJs.includes('wx.redirectTo'), '检测成功后必须用 redirectTo 进详情，避免返回重复提交');
-assert.ok(
-  captureJs.includes('tongueProfile.resolveTongueProfile()'),
+assert.match(
+  captureJs,
+  /tongueProfile\s*\.resolveTongueProfile\(\)/,
   '拍摄页必须使用弹层保存的本地舌诊资料，无缓存时才回退账号资料'
 );
 
@@ -319,15 +376,34 @@ for (const rel of [
   assert.ok(!/#[0-9a-f]{3,8}/i.test(css), `${rel} 不允许写死色值`);
   assert.ok(!/\b\d+px\b/.test(css), `${rel} 不允许使用 px 单位`);
 }
-for (const rel of [
-  'pages/tongue/tongue.wxss',
-  'packageHealth/pages/capture/capture.wxss',
-  'packageHealth/pages/report/report.wxss',
-  'packageHealth/pages/history/history.wxss'
-]) {
-  const css = read(rel);
-  assert.ok(css.includes('var(--health-gradient-top)'), `${rel} 必须使用舌诊渐变背景 token`);
+const backgroundImagePath = '/assets/images/3x/health-gradient-bg.png';
+const healthPageBackgrounds = [
+  ['pages/tongue/tongue.wxss', 'pages/tongue/tongue.wxml', '.health-page'],
+  ['packageHealth/pages/capture/capture.wxss', 'packageHealth/pages/capture/capture.wxml', '.capture-page'],
+  ['packageHealth/pages/report/report.wxss', 'packageHealth/pages/report/report.wxml', '.report-page'],
+  ['packageHealth/pages/history/history.wxss', 'packageHealth/pages/history/history.wxml', '.history-page']
+];
+for (const [cssRel, wxmlRel, selector] of healthPageBackgrounds) {
+  const css = read(cssRel);
+  const wxml = read(wxmlRel);
+  const rule = cssRule(css, selector);
+  assert.match(rule, /background-color:\s*var\(--health-gradient-top\)/, `${cssRel} 必须保留绿色背景兜底`);
+  assert.match(rule, /position:\s*relative/, `${cssRel} 必须建立背景层级上下文`);
+  assert.match(rule, /z-index:\s*0/, `${cssRel} 根节点必须建立背景层级`);
+  assert.ok(!rule.includes('linear-gradient'), `${cssRel} 不得继续依赖 Skyline 不支持的 CSS 渐变`);
+  assert.ok(wxml.includes('class="health-page__background"'), `${wxmlRel} 必须渲染渐变图片层`);
+  assert.ok(wxml.includes(`src="${backgroundImagePath}"`), `${wxmlRel} 必须引用渐变运行图`);
+  assert.ok(wxml.includes('mode="scaleToFill"'), `${wxmlRel} 背景图必须铺满页面`);
+  assert.ok(wxml.includes('aria-hidden="true"'), `${wxmlRel} 背景图必须对辅助技术隐藏`);
 }
+const healthBackgroundRule = cssRule(appWxss, '.health-page__background');
+assert.match(healthBackgroundRule, /position:\s*absolute/, '公共背景图必须绝对定位');
+assert.match(healthBackgroundRule, /z-index:\s*-1/, '公共背景图必须位于页面内容下层');
+assert.match(healthBackgroundRule, /width:\s*100%/, '公共背景图宽度必须铺满');
+assert.match(healthBackgroundRule, /height:\s*100%/, '公共背景图高度必须铺满');
+assert.match(healthBackgroundRule, /pointer-events:\s*none/, '公共背景图不得拦截页面点击');
+assert.ok(exists('assets/images/3x/health-gradient-bg.png'), '缺少舌诊渐变运行图');
+assert.ok(!appWxss.includes('--health-page-gradient'), 'app.wxss 不得保留已失效的组合渐变变量');
 
 // ---- 图标与素材 ----
 for (const icon of [
@@ -335,11 +411,12 @@ for (const icon of [
   'image.svg',
   'scan-face-brand.svg',
   'coffee-brand.svg',
-  'glass-water.svg',
+  'brew-record-brand.svg',
+  'glass-water-brand.svg',
   'list-muted.svg',
   'play-white.svg',
-  'tongue.svg',
-  'tongue-active.svg'
+  'personalized-drink.svg',
+  'personalized-drink-active.svg'
 ]) {
   assert.ok(exists(`assets/icons/lucide/${icon}`), `缺少 Lucide 图标 ${icon}`);
 }
