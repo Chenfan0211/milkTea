@@ -30,6 +30,7 @@ function formatOrderAmount(amount) {
 const orderCategories = [
   { id: 'all', label: '全部订单' },
   { id: 'store', label: '门店订单' },
+  { id: 'mall', label: '商城订单' },
   { id: 'stored-value', label: '储值订单' },
   { id: 'gift-card', label: '礼品卡订单' }
 ];

@@ -45,7 +45,8 @@ public class AppRoleController {
     private static final Map<String, String> SUBJECT_TYPE_TO_ROLE = Map.of(
             "STORE", "store",
             "INVESTOR", "investor",
-            "CHANNEL", "resource"
+            "CHANNEL", "resource",
+            "LEADER", "leader"
     );
 
     /** 低频使用，静态实例足够（仅用于表单明细序列化）。 */
@@ -153,6 +154,10 @@ public class AppRoleController {
         String roleType = roleTypeValue == null ? "" : String.valueOf(roleTypeValue).trim().toLowerCase();
         if (roleIdOf2(roleType) == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "不支持的角色类型: " + roleType);
+        }
+        // 团长仅支持后台配置，小程序不提供自助申请
+        if ("leader".equals(roleType)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "团长角色仅支持后台配置，不支持自助申请");
         }
 
         // 目标主体（投资申请=目标门店）；普通角色开通申请可不传

@@ -21,6 +21,21 @@ public interface SettlementRecordMapper extends BaseMapper<SettlementRecord> {
             + "order by subject_id, id for update")
     List<SettlementRecord> selectByOrderIdForUpdate(@Param("orderId") Long orderId);
 
+    /**
+     * 累计部分冲正：同时扣减 amount、累加 refunded_amount，并保持原结算状态。
+     *
+     * <p>条件中校验 {@code refunded_amount = expectedRefunded}，确保并发/重投递下
+     * 同一笔冲正只生效一次。历史行为 NULL 的退款累计按 0 处理。
+     */
+    @Update("update settlement_record set amount = amount - #{deduct}, "
+            + "refunded_amount = coalesce(refunded_amount, 0) + #{deduct}, update_time = now() "
+            + "where id = #{id} and status = #{expectedStatus} and deleted = 0 "
+            + "and amount >= #{deduct} and coalesce(refunded_amount, 0) = #{expectedRefunded}")
+    int deductAmountIfCurrent(@Param("id") Long id,
+                              @Param("expectedStatus") String expectedStatus,
+                              @Param("deduct") Long deduct,
+                              @Param("expectedRefunded") Long expectedRefunded);
+
     /** 仅当状态仍为 expectedStatus 时流转，防止并发重复冲正。 */
     @Update("update settlement_record set status = #{targetStatus}, update_time = now() "
             + "where id = #{id} and status = #{expectedStatus} and deleted = 0")

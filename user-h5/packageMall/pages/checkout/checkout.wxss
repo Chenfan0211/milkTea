@@ -1,0 +1,252 @@
+@import '../../styles/mall.wxss';
+
+.checkout-content {
+  padding: 20rpx;
+  padding-bottom: 40rpx;
+}
+
+.checkout-login {
+  padding: 40rpx 0;
+}
+
+.checkout-login__button {
+  width: 240rpx;
+  margin: 0 auto;
+}
+
+.checkout-address {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.checkout-address__icon {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.checkout-address__main {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+
+.checkout-address__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.checkout-address__name {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.checkout-address__phone {
+  margin-left: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.checkout-address__head .mall-tag {
+  margin-left: 12rpx;
+}
+
+.checkout-address__text {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
+.checkout-address__empty-title {
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.checkout-address__arrow {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 12rpx;
+}
+
+.checkout-goods {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.checkout-goods__item {
+  display: flex;
+  padding: 20rpx 0;
+}
+
+.checkout-goods__item + .checkout-goods__item {
+  border-top: 1rpx solid var(--line-color);
+}
+
+.checkout-goods__image {
+  flex: none;
+  width: 136rpx;
+  height: 136rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-md);
+}
+
+.checkout-goods__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+
+.checkout-goods__name {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkout-goods__spec {
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.checkout-goods__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.checkout-goods__price {
+  color: var(--brand-green);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.checkout-goods__quantity {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.checkout-goods__summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 20rpx;
+}
+
+.checkout-goods__summary-label {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.checkout-goods__summary-price {
+  margin-left: 12rpx;
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.checkout-payment {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.payment-option {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  margin-top: 16rpx;
+  background: var(--page-bg-neutral);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-md);
+}
+
+.payment-option.is-active {
+  background: var(--brand-soft);
+  border-color: var(--brand-green);
+}
+
+.payment-option__icon {
+  flex: none;
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.payment-option__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin-left: 16rpx;
+}
+
+.payment-option__title {
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.payment-option__hint {
+  margin-top: 4rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.checkout-note {
+  padding: 20rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.checkout-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.checkout-bar__summary {
+  flex: 1;
+}
+
+.checkout-bar__count {
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.checkout-bar__amount-row {
+  display: flex;
+  align-items: baseline;
+  margin-top: 4rpx;
+}
+
+.checkout-bar__label {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.checkout-bar__amount {
+  margin-left: 8rpx;
+  color: var(--brand-green);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.checkout-bar__submit {
+  flex: none;
+  min-width: 200rpx;
+  margin-left: 20rpx;
+}

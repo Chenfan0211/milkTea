@@ -221,6 +221,66 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'mall',
+    path: '/mall',
+    component: 'layout.base',
+    meta: {
+      title: '商城管理',
+      icon: 'mdi:shopping-outline',
+      i18nKey: 'route.mall'
+    },
+    children: [
+      {
+        name: 'mall_after-sale',
+        path: '/mall/after-sale',
+        component: 'view.mall_after-sale',
+        meta: {
+          title: '售后审核',
+          order: 4,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: 'route.mall_after-sale'
+        }
+      },
+      {
+        name: 'mall_category',
+        path: '/mall/category',
+        component: 'view.mall_category',
+        meta: {
+          title: '商城分类',
+          order: 1,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: 'route.mall_category'
+        }
+      },
+      {
+        name: 'mall_order',
+        path: '/mall/order',
+        component: 'view.mall_order',
+        meta: {
+          title: '商城订单',
+          order: 3,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: 'route.mall_order'
+        }
+      },
+      {
+        name: 'mall_product',
+        path: '/mall/product',
+        component: 'view.mall_product',
+        meta: {
+          title: '商城商品',
+          order: 2,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: 'route.mall_product'
+        }
+      }
+    ]
+  },
+  {
     name: 'marketing',
     path: '/marketing',
     component: 'layout.base',

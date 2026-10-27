@@ -1,0 +1,106 @@
+<view class="mall-page">
+  <navigation-bar title="商品详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="detail-content">
+      <view wx:if="{{loading}}" class="mall-state">
+        <text class="mall-state__text">商品详情加载中</text>
+      </view>
+
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载商品详情">重新加载</view>
+      </view>
+
+      <block wx:else>
+        <view class="detail-gallery">
+          <scroll-view class="detail-gallery__scroll" scroll-x show-scrollbar="{{false}}">
+            <view class="detail-gallery__list">
+              <image
+                wx:for="{{galleryImages}}"
+                wx:key="*this"
+                class="detail-gallery__image"
+                src="{{item}}"
+                mode="aspectFill"
+                aria-label="{{product.name}}商品图"
+              />
+            </view>
+          </scroll-view>
+          <view wx:if="{{product.soldOut}}" class="detail-sold-out">已售罄</view>
+        </view>
+
+        <view class="mall-card detail-summary">
+          <view class="detail-summary__price-row">
+            <text class="detail-summary__price">{{priceText}}</text>
+            <text wx:if="{{selectedSku.originalPriceText}}" class="detail-summary__original">{{selectedSku.originalPriceText}}</text>
+          </view>
+          <text class="detail-summary__name">{{product.name}}</text>
+          <text wx:if="{{product.subtitle}}" class="detail-summary__subtitle">{{product.subtitle}}</text>
+          <view class="detail-summary__meta">
+            <text class="mall-tag">{{product.categoryName || '商城好物'}}</text>
+            <text class="detail-summary__sales">已售 {{product.salesCount || 0}}</text>
+          </view>
+        </view>
+
+        <view class="mall-card detail-sku">
+          <text class="mall-section-title">{{product.specName}}</text>
+          <view class="detail-sku__list">
+            <view
+              wx:for="{{product.skus}}"
+              wx:key="id"
+              class="detail-sku__item {{selectedSkuId === item.id ? 'is-selected' : ''}} {{item.soldOut ? 'is-sold-out' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="selectSku"
+              aria-role="button"
+              aria-label="选择{{item.specValue}}{{item.soldOut ? '，已售罄' : ''}}"
+            >
+              <text class="detail-sku__value">{{item.specValue}}</text>
+              <text class="detail-sku__stock">{{item.soldOut ? '已售罄' : '库存 ' + item.availableStock}}</text>
+            </view>
+          </view>
+
+          <view class="detail-quantity">
+            <text class="detail-quantity__label">购买数量</text>
+            <view class="detail-quantity__control">
+              <view class="detail-quantity__step" bindtap="decreaseQuantity" aria-role="button" aria-label="减少购买数量">
+                <image class="detail-quantity__icon" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
+              </view>
+              <text class="detail-quantity__value">{{quantity}}</text>
+              <view class="detail-quantity__step" bindtap="increaseQuantity" aria-role="button" aria-label="增加购买数量">
+                <image class="detail-quantity__icon" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{product.description}}" class="mall-card detail-description">
+          <text class="mall-section-title">商品详情</text>
+          <text class="detail-description__text">{{product.description}}</text>
+        </view>
+
+        <view class="detail-note">商城商品不参与会员折扣、储值立减、优惠券或积分抵扣</view>
+      </block>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{!loading && !error}}" class="mall-action-bar">
+    <view class="detail-cart-entry" bindtap="openCart" aria-role="button" aria-label="打开购物车">
+      <image class="detail-cart-entry__icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" />
+      <text class="detail-cart-entry__label">购物车</text>
+    </view>
+    <view class="detail-actions">
+      <view
+        class="mall-button detail-actions__button {{canBuy ? '' : 'mall-button--disabled'}}"
+        bindtap="addToCart"
+        aria-role="button"
+        aria-label="加入购物车"
+      >加入购物车</view>
+      <view
+        class="mall-button mall-button--primary detail-actions__button {{canBuy ? '' : 'mall-button--disabled'}}"
+        bindtap="buyNow"
+        aria-role="button"
+        aria-label="立即购买"
+      >立即购买</view>
+    </view>
+  </view>
+</view>

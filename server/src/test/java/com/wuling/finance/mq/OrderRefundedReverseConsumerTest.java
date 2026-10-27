@@ -36,19 +36,19 @@ class OrderRefundedReverseConsumerTest {
 
     @Test
     void derivesStableOrderMessageIdAndSkipsDuplicateDelivery() throws Exception {
-        when(idempotent.tryAcquire("ORDER-1:REVERSE")).thenReturn(true, false);
+        when(idempotent.tryAcquire("ORDER-1:REFUND-1:REVERSE")).thenReturn(true, false);
 
         Message first = message("{\"orderNo\":\"ORDER-1\",\"refundNo\":\"REFUND-1\"}");
         Message duplicate = message("{\"orderNo\":\"ORDER-1\",\"refundNo\":\"REFUND-1\"}");
         consumer.onOrderRefunded(first, channel);
         consumer.onOrderRefunded(duplicate, channel);
 
-        assertEquals("ORDER-1:REVERSE", first.getMessageProperties().getMessageId());
-        assertEquals("ORDER-1:REVERSE", first.getMessageProperties().getHeaders()
+        assertEquals("ORDER-1:REFUND-1:REVERSE", first.getMessageProperties().getMessageId());
+        assertEquals("ORDER-1:REFUND-1:REVERSE", first.getMessageProperties().getHeaders()
                 .get(MqConstants.HEADER_MESSAGE_ID));
-        assertEquals("ORDER-1:REVERSE", duplicate.getMessageProperties().getMessageId());
-        verify(ledgerService, times(1)).reverseForOrder("ORDER-1", "REFUND-1");
-        verify(idempotent, times(2)).tryAcquire("ORDER-1:REVERSE");
+        assertEquals("ORDER-1:REFUND-1:REVERSE", duplicate.getMessageProperties().getMessageId());
+        verify(ledgerService, times(1)).reverseForOrder("ORDER-1", "REFUND-1", 10000);
+        verify(idempotent, times(2)).tryAcquire("ORDER-1:REFUND-1:REVERSE");
         verify(channel, times(2)).basicAck(anyLong(), eq(false));
     }
 
@@ -62,7 +62,7 @@ class OrderRefundedReverseConsumerTest {
         consumer.onOrderRefunded(message, channel);
 
         assertEquals("evt-100", message.getMessageProperties().getMessageId());
-        verify(ledgerService).reverseForOrder("ORDER-2", "REFUND-2");
+        verify(ledgerService).reverseForOrder("ORDER-2", "REFUND-2", 10000);
         verify(channel).basicAck(anyLong(), eq(false));
     }
 

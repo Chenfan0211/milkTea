@@ -78,6 +78,11 @@ spring:
           uri: lb://wuling-user-service
           predicates:
             - Path=/api/v1/app/auth/**
+        # 商城收货地址（需登录，不能落入 legacy-server）
+        - id: user-address
+          uri: lb://wuling-user-service
+          predicates:
+            - Path=/api/v1/app/addresses/**
         # 舌象检测（用户服务，需登录）
         - id: tongue-app
           uri: lb://wuling-user-service
@@ -102,7 +107,7 @@ spring:
         - id: trade-app
           uri: lb://wuling-trade-service
           predicates:
-            - Path=/api/v1/app/orders/**,/api/v1/app/orders,/api/v1/app/payments/**
+            - Path=/api/v1/app/orders/**,/api/v1/app/orders,/api/v1/app/mall/orders/**,/api/v1/app/mall/orders,/api/v1/app/payments/**
         - id: trade-admin
           uri: lb://wuling-trade-service
           predicates:
@@ -122,11 +127,11 @@ spring:
         - id: product-admin
           uri: lb://wuling-product-service
           predicates:
-            - Path=/api/v1/admin/product/**
+            - Path=/api/v1/admin/product/**,/api/v1/admin/mall/products,/api/v1/admin/mall/products/**,/api/v1/admin/mall/categories,/api/v1/admin/mall/categories/**
         - id: product-app
           uri: lb://wuling-product-service
           predicates:
-            - Path=/api/v1/app/menu,/api/v1/app/products/**
+            - Path=/api/v1/app/menu,/api/v1/app/products/**,/api/v1/app/mall/categories,/api/v1/app/mall/products/**,/api/v1/app/mall/skus/validate
         # 商品服务 · 门店选品（小程序，需登录）
         # 为什么单独一条：选品控制器路径为 /api/v1/app/workbench/store/{id}/products，
         # 与 trade-service 的核销路径（.../store/{id}/verify*）同处 workbench 前缀下，

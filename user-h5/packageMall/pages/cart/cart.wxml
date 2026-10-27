@@ -1,0 +1,118 @@
+<view class="mall-page">
+  <navigation-bar title="购物车" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="cart-content">
+      <view wx:if="{{needLogin}}" class="cart-login">
+        <empty-state
+          icon="/assets/icons/lucide/shopping-bag.svg"
+          title="登录后使用购物车"
+          description="购物车会按账号隔离保存"
+        />
+        <view class="mall-button mall-button--primary cart-login__button" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+
+      <view wx:elif="{{checking && !items.length}}" class="mall-state">
+        <text class="mall-state__text">正在校验商品库存</text>
+      </view>
+
+      <block wx:elif="{{items.length}}">
+        <view wx:if="{{error}}" class="cart-error">{{error}}</view>
+        <view
+          wx:for="{{items}}"
+          wx:key="skuId"
+          class="cart-item {{item.unavailable ? 'is-unavailable' : ''}}"
+        >
+          <view
+            class="mall-check cart-item__check {{item.selected ? 'mall-check--active' : ''}}"
+            data-id="{{item.skuId}}"
+            bindtap="toggleSelected"
+            aria-role="button"
+            aria-label="{{item.selected ? '取消选择' : '选择'}}{{item.name}}"
+          >
+            <image wx:if="{{item.selected}}" class="mall-check__icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+          </view>
+
+          <image
+            class="cart-item__image"
+            src="{{item.image}}"
+            mode="aspectFill"
+            data-product-id="{{item.productId}}"
+            bindtap="openProduct"
+            aria-role="button"
+            aria-label="查看{{item.name}}"
+          />
+
+          <view class="cart-item__main">
+            <view class="cart-item__head">
+              <text class="cart-item__name">{{item.name}}</text>
+              <text wx:if="{{!item.listed}}" class="cart-item__invalid-mark">已失效</text>
+              <view class="cart-item__delete" data-id="{{item.skuId}}" bindtap="removeItem" aria-role="button" aria-label="删除{{item.name}}">
+                <image class="cart-item__delete-icon" src="/assets/icons/lucide/trash-2.svg" mode="aspectFit" />
+              </view>
+            </view>
+            <text class="cart-item__spec">{{item.specValue}}</text>
+            <view class="cart-item__status-row">
+              <text wx:if="{{item.statusText}}" class="cart-item__status">{{item.statusText}}</text>
+              <text class="cart-item__stock">可用 {{item.availableStock}}</text>
+            </view>
+            <view class="cart-item__bottom">
+              <text class="cart-item__price">{{item.unitPriceText}}</text>
+              <view class="cart-stepper">
+                <view class="cart-stepper__button" data-id="{{item.skuId}}" bindtap="decreaseQuantity" aria-role="button" aria-label="减少{{item.name}}数量">
+                  <image class="cart-stepper__icon" src="/assets/icons/lucide/minus.svg" mode="aspectFit" />
+                </view>
+                <text class="cart-stepper__value">{{item.quantity}}</text>
+                <view class="cart-stepper__button" data-id="{{item.skuId}}" bindtap="increaseQuantity" aria-role="button" aria-label="增加{{item.name}}数量">
+                  <image class="cart-stepper__icon" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="cart-order-entry" bindtap="openOrders" aria-role="button" aria-label="查看商城订单">
+          <image class="cart-order-entry__icon" src="/assets/icons/lucide/receipt.svg" mode="aspectFit" />
+          <text class="cart-order-entry__label">查看商城订单</text>
+          <image class="cart-order-entry__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </block>
+
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载购物车">重新加载</view>
+      </view>
+
+      <empty-state
+        wx:else
+        icon="/assets/icons/lucide/shopping-bag.svg"
+        title="购物车还是空的"
+        description="去商城挑选喜欢的商品吧"
+      />
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{items.length}}" class="mall-action-bar">
+    <view class="cart-bar">
+      <view class="cart-bar__all" bindtap="toggleAll" aria-role="button" aria-label="全选购物车商品">
+        <view class="mall-check {{allSelected ? 'mall-check--active' : ''}}">
+          <image wx:if="{{allSelected}}" class="mall-check__icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+        </view>
+        <text class="cart-bar__all-label">全选</text>
+      </view>
+      <view class="cart-bar__summary">
+        <text class="cart-bar__count">已选 {{count}} 件</text>
+        <view class="cart-bar__amount-row">
+          <text class="cart-bar__label">合计</text>
+          <text class="cart-bar__amount">¥{{amountText}}</text>
+        </view>
+      </view>
+      <view
+        class="mall-button mall-button--primary cart-bar__submit {{count ? '' : 'mall-button--disabled'}}"
+        bindtap="checkout"
+        aria-role="button"
+        aria-label="去结算"
+      >去结算</view>
+    </view>
+  </view>
+</view>

@@ -364,7 +364,9 @@ const initialCartItems = require('../data/mock.js').initialCartItems;
 
 const ordersJs = fs.readFileSync(path.join(root, 'pages/orders/orders.js'), 'utf8');
 assert.ok(
-  ordersJs.includes('wx.navigateTo') && ordersJs.includes('/pages/order-detail/order-detail?id='),
+  ordersJs.includes('wx.navigateTo') &&
+    ordersJs.includes('/pages/order-detail/order-detail') &&
+    ordersJs.includes('/packageMall/pages/order-detail/order-detail'),
   '订单列表必须跳转到订单详情页'
 );
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));

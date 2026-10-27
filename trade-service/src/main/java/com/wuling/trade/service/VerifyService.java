@@ -78,11 +78,13 @@ public class VerifyService {
     private VerifyResult verifyOrder(VerifyRequest request) {
         String code = request.getCode().trim();
         Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderType, "STORE")
                 .eq(Order::getPickupCode, code)
                 .orderByDesc(Order::getId)
                 .last("limit 1 for update"));
         if (order == null) {
             order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                    .eq(Order::getOrderType, "STORE")
                     .eq(Order::getOrderNo, code)
                     .last("limit 1 for update"));
         }

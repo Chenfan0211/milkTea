@@ -29,7 +29,8 @@ public interface OrderMapper extends BaseMapper<Order> {
      */
     @Select("select coalesce(sum(i.quantity), 0) from order_item i "
             + "join orders o on o.id = i.order_id and o.deleted = 0 "
-            + "where i.deleted = 0 and o.store_subject_id = #{storeSubjectId} "
+            + "where i.deleted = 0 and o.order_type = 'STORE' "
+            + "and o.store_subject_id = #{storeSubjectId} "
             + "and o.status = 'PAID' "
             + "and o.pay_time >= #{windowStart} "
             + "and (o.refund_status is null or o.refund_status <> 'PENDING')")
@@ -49,7 +50,8 @@ public interface OrderMapper extends BaseMapper<Order> {
             + "select o.store_subject_id as storeSubjectId, coalesce(sum(i.quantity), 0) as qty "
             + "from order_item i "
             + "join orders o on o.id = i.order_id and o.deleted = 0 "
-            + "where i.deleted = 0 and o.status = 'PAID' "
+            + "where i.deleted = 0 and o.order_type = 'STORE' "
+            + "and o.status = 'PAID' "
             + "and o.pay_time &gt;= #{windowStart} "
             + "and (o.refund_status is null or o.refund_status &lt;&gt; 'PENDING') "
             + "and o.store_subject_id in "

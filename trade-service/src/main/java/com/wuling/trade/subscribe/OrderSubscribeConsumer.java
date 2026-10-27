@@ -49,8 +49,13 @@ public class OrderSubscribeConsumer extends AbstractMqConsumer {
             return;
         }
 
-        OrderSubscribeMessageClient.SendResult result = client.sendEvent(
-                event.values(), event.page(), openid);
+        OrderSubscribeMessageClient.SendResult result = "mallShipped".equals(event.templateKey())
+                ? client.sendMallShippedEvent(event.values(), event.page(), openid)
+                : client.sendEvent(event.values(), event.page(), openid);
+        if (result.errcode() == -2) {
+            ledger.markSkipped(event.messageKey(), result.errcode(), result.errmsg());
+            return;
+        }
         if (result.errcode() == 0) {
             ledger.markSent(event.messageKey(), result.errcode(), result.errmsg());
             return;

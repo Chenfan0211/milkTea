@@ -61,6 +61,16 @@ app:
       template-id: ${WX_ORDER_SUBSCRIBE_TEMPLATE_ID:W-_sFdE4DpQbfs5aeXASyEvVIVkFBYz65Qjl8lQQJWM}
       page: ${WX_ORDER_SUBSCRIBE_PAGE:pages/order-detail/order-detail}
       miniprogram-state: ${WX_ORDER_SUBSCRIBE_MINIPROGRAM_STATE:formal}
+    mall-shipped-subscribe:
+      enabled: ${WX_MALL_SHIPPED_SUBSCRIBE_ENABLED:true}
+      template-id: ${WX_MALL_SHIPPED_TEMPLATE_ID:bxgB0GhwNBcC37qRILiRKOx5rxJWn7Phuw5ZaNB8lEI}
+      page: ${WX_MALL_SHIPPED_PAGE:packageMall/pages/order-detail/order-detail}
+      miniprogram-state: ${WX_MALL_SHIPPED_MINIPROGRAM_STATE:formal}
+  mall:
+    auto-complete:
+      enabled: ${MALL_AUTO_COMPLETE_ENABLED:true}
+      batch-size: ${MALL_AUTO_COMPLETE_BATCH_SIZE:200}
+      cron: ${MALL_AUTO_COMPLETE_CRON:0 * * * * ?}
 
   # ---------- 支付（第 14 期）----------
   #

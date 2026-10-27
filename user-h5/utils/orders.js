@@ -23,6 +23,7 @@ const STATUS_TEXT_MAP = {
   CREATED: '待支付',
   UNPAID: '未支付',
   PAID: '待核销',
+  SHIPPED: '待收货',
   COMPLETED: '已完成',
   CANCELED: '已取消'
 };
@@ -44,6 +45,13 @@ const ORDER_STATUS_TEXT = {
   'stored-value': {
     unpaid: '未支付',
     paid: '已支付'
+  },
+  mall: {
+    pending_payment: '待支付',
+    pending_delivery: '待发货',
+    pending_receipt: '待收货',
+    completed: '已完成',
+    canceled: '已取消'
   }
 };
 
@@ -57,6 +65,8 @@ const ORDER_STATUS_TEXT = {
 const STATUS_META = {
   pending_payment: { title: '等待支付', note: '请在 15 分钟内完成支付，超时订单将自动关闭' },
   pending_verify: { title: '待核销', note: '请到店出示核销码完成取餐' },
+  pending_delivery: { title: '待发货', note: '支付成功，商家正在准备您的商品' },
+  pending_receipt: { title: '待收货', note: '商品已发出，请注意查收' },
   completed: { title: '已完成', note: '感谢惠顾，期待再次光临' },
   canceled: { title: '已取消', note: '订单已取消' },
   unpaid: { title: '未支付', note: '请完成充值支付，支付成功后余额将自动到账' },
@@ -122,7 +132,8 @@ const MEAL_TYPE_TEXT = {
   pickup: '自取',
   PICKUP: '自取',
   takeout: '自取',
-  TAKEOUT: '自取'
+  TAKEOUT: '自取',
+  MALL: '商城'
 };
 
 /**
@@ -149,6 +160,9 @@ function resolveMealTypeText(order) {
  */
 function buildMealInfo(order) {
   if (!order) return [];
+  if (order.category === 'mall') {
+    return [{ label: '配送方式', value: '快递配送' }];
+  }
   const mealText = resolveMealTypeText(order);
   const info = [];
   if (mealText) info.push({ label: '用餐方式', value: mealText });
@@ -160,11 +174,16 @@ function buildMealInfo(order) {
 const INTERNAL_ORDER_STATUS = {
   store: ['pending_payment', 'pending_verify', 'completed', 'canceled'],
   'gift-card': ['pending_payment', 'pending_verify', 'completed', 'canceled'],
-  'stored-value': ['unpaid', 'paid', 'canceled']
+  'stored-value': ['unpaid', 'paid', 'canceled'],
+  mall: ['pending_payment', 'pending_delivery', 'pending_receipt', 'completed', 'canceled']
 };
 
+function orderCategoryKey(category) {
+  return ['stored-value', 'gift-card', 'mall'].includes(category) ? category : 'store';
+}
+
 function resolveInternalOrderStatus(category, value) {
-  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
+  const categoryKey = orderCategoryKey(category);
   const normalized = String(value || '');
   return INTERNAL_ORDER_STATUS[categoryKey].includes(normalized) ? normalized : '';
 }
@@ -194,9 +213,17 @@ function resolvePaidOrderStatus(payStatus) {
  * VERIFIED / REFUNDED 仅可作为业务辅助状态，不能覆盖订单主状态。
  */
 function resolveOrderStatus(raw, category, payStatus) {
-  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
+  const categoryKey = orderCategoryKey(category);
   const value = normalizeOrderStatusValue(raw);
 
+  if (categoryKey === 'mall') {
+    if (value === 'CANCELED') return 'canceled';
+    if (value === 'COMPLETED') return 'completed';
+    if (value === 'SHIPPED' || value === '待收货') return 'pending_receipt';
+    if (value === 'PAID' || value === '待发货') return 'pending_delivery';
+    if (value === 'CREATED' || value === 'UNPAID') return 'pending_payment';
+    return '';
+  }
   if (categoryKey === 'stored-value') {
     // 先识别取消态，再按支付状态二分（历史 bug：CANCELED 被 isPaidStatus=false 误判为 unpaid）
     // CANCELED 可能在 rawStatus(value) 或 payStatus 里，两者都要识别
@@ -219,7 +246,7 @@ function resolveOrderStatus(raw, category, payStatus) {
 }
 
 function resolveOrderStatusText(orderStatus, category, rawStatus, payStatus) {
-  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
+  const categoryKey = orderCategoryKey(category);
   const categoryText = ORDER_STATUS_TEXT[categoryKey] || ORDER_STATUS_TEXT.store;
   if (categoryText[orderStatus]) return categoryText[orderStatus];
 
@@ -274,7 +301,7 @@ function normalizeOrderShape(order) {
  */
 function normalizeAuxOrder(order, category) {
   if (!order || typeof order !== 'object') return order;
-  const categoryKey = category === 'stored-value' || category === 'gift-card' ? category : 'store';
+  const categoryKey = orderCategoryKey(category);
   const rawPayStatus = order.payStatus || (order.orderInfo && order.orderInfo.payStatus) || '';
   const payStatus = normalizeOrderStatusValue(rawPayStatus);
   const rawStatus = order.status || order.orderStatus;
@@ -341,6 +368,10 @@ function refreshOrdersFromRemote(options = {}) {
     requestPromise = api.fetchStoredValueOrders(page, size);
   } else if (category === 'gift-card') {
     requestPromise = api.fetchGiftCardOrders(page, size);
+  } else if (category === 'mall') {
+    requestPromise = api.fetchOrders(page, size, { category: 'mall' });
+  } else if (category === 'store') {
+    requestPromise = api.fetchOrders(page, size, { category: 'store' });
   } else {
     requestPromise = api.fetchOrders(page, size);
   }
@@ -350,7 +381,7 @@ function refreshOrdersFromRemote(options = {}) {
       const mapped = pickRecords(records).map(order => {
         if (category === 'stored-value') return normalizeAuxOrder(order, 'stored-value');
         if (category === 'gift-card') return normalizeAuxOrder(order, 'gift-card');
-        return Object.assign({}, order, { category: order.category || 'store' });
+        return Object.assign({}, order, { category: order.category || (category === 'mall' ? 'mall' : 'store') });
       });
       const batch = mapped.map(cloneOrder).map(order => {
         const created = (order.orderInfo && order.orderInfo.createdAt) || order.createTime || '';
@@ -581,8 +612,11 @@ function decorateOrder(order, now) {
     couponAmountText: formatOrderAmount(orderAmountYuan(order, 'couponDiscount')),
     firstItem,
     previewItems,
-    // 待核销订单不允许用户自行取消（取消入口仅在运营后台/门店），此处恒为 false 以隐藏取消按钮。
-    isPaidCancellable: false,
+    // 商城待发货可取消退款；门店待核销仍只允许运营后台处理。
+    isPaidCancellable:
+      order.category === 'mall' &&
+      order.orderStatus === 'pending_delivery' &&
+      String(order.refundStatus || '').toUpperCase() !== 'PENDING',
     type: resolveMealTypeText(order),
     // 详情页「用餐信息」分组：用餐方式 + 取餐门店
     mealInfo: buildMealInfo(order),
@@ -754,7 +788,9 @@ function cancelOrderById(id) {
   if (!orderNo) return Promise.resolve(getOrderById(id));
   return api
     .cancelOrder(orderNo)
-    .then(() => refreshOrdersFromRemote({ page: 1, size: ORDER_PAGE_SIZE }))
+    .then(() =>
+      refreshOrdersFromRemote({ page: 1, size: ORDER_PAGE_SIZE, category: order.category === 'mall' ? 'mall' : 'all' })
+    )
     .then(() => getOrderById(id));
 }
 
@@ -771,7 +807,10 @@ function cancelPaidOrderById(id) {
   if (!order) {
     return Promise.reject(new Error('订单不存在，无法取消'));
   }
-  if (order.orderStatus !== 'pending_verify' || order.category !== 'store') {
+  const cancellable =
+    (order.category === 'store' && order.orderStatus === 'pending_verify') ||
+    (order.category === 'mall' && order.orderStatus === 'pending_delivery');
+  if (!cancellable) {
     return Promise.reject(new Error('该订单当前状态不可取消'));
   }
   const orderNo = resolveOrderNo(order, id);
@@ -780,7 +819,9 @@ function cancelPaidOrderById(id) {
   }
   return api
     .cancelOrder(orderNo)
-    .then(() => refreshOrdersFromRemote({ page: 1, size: ORDER_PAGE_SIZE }))
+    .then(() =>
+      refreshOrdersFromRemote({ page: 1, size: ORDER_PAGE_SIZE, category: order.category === 'mall' ? 'mall' : 'all' })
+    )
     .then(() => getOrderById(id));
 }
 

@@ -64,6 +64,33 @@ public class OrderSubscribeMessageClient {
         return result.errcode() == 0;
     }
 
+    /** 发送商城发货通知；模板未配置时返回 skipped，不阻断订单发货。 */
+    public SendResult sendMallShippedEvent(Map<String, Object> values, String page, String openid) {
+        if (!StringUtils.hasText(openid)) {
+            return new SendResult(-1, "openid 为空");
+        }
+        if (!properties.getMallShippedSubscribe().isEnabled()
+                || !StringUtils.hasText(properties.getMallShippedSubscribe().getTemplateId())) {
+            return new SendResult(-2, "商城发货订阅模板未配置");
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("touser", openid);
+        payload.put("template_id", properties.getMallShippedSubscribe().getTemplateId());
+        if (StringUtils.hasText(page)) {
+            payload.put("page", page.trim().replaceFirst("^/+", ""));
+        }
+        String state = properties.getMallShippedSubscribe().getMiniprogramState();
+        payload.put("miniprogram_state", StringUtils.hasText(state) ? state : "formal");
+        payload.put("lang", "zh_CN");
+        payload.put("data", buildMallShippedData(values));
+        SendResponse response = post(payload);
+        if (response.errcode() == 40001) {
+            tokenProvider.invalidate();
+            response = post(payload);
+        }
+        return new SendResult(response.errcode(), response.errmsg());
+    }
+
     /** 从不可变事件值发送；返回微信原始结果供消费者判定重试/终态。 */
     public SendResult sendEvent(Map<String, Object> values, String page, String openid) {
         if (!StringUtils.hasText(openid)) {
@@ -109,6 +136,16 @@ public class OrderSubscribeMessageClient {
 
     Map<String, Map<String, String>> buildData(Order order, OrderDTO dto) {
         return buildData(buildEventValues(order, dto));
+    }
+
+    Map<String, Map<String, String>> buildMallShippedData(Map<String, Object> values) {
+        Map<String, Object> safe = values == null ? Map.of() : values;
+        Map<String, Map<String, String>> data = new LinkedHashMap<>();
+        data.put("character_string1", valueMap(characterString(string(safe.get("character_string1")))));
+        data.put("thing9", valueMap(thingValue(string(safe.get("thing9")), "快递公司")));
+        data.put("character_string4", valueMap(characterString(string(safe.get("character_string4")))));
+        data.put("thing6", valueMap(thingValue(string(safe.get("thing6")), "商城商品")));
+        return data;
     }
 
     Map<String, Map<String, String>> buildData(Map<String, Object> values) {

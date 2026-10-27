@@ -98,6 +98,8 @@ const jobs = [
   { source: 'clock', output: 'clock-muted', color: '#9B9B96' },
   { source: 'shield-check', output: 'shield-check-muted', color: '#9B9B96' },
   { source: 'receipt-text', output: 'receipt-muted', color: '#9B9B96' },
+  { source: 'package-check', output: 'after-sale', color: '#666762' },
+  { source: 'package-check', output: 'after-sale-brand', color: '#53882C' },
   { source: 'hourglass', output: 'hourglass-brand', color: '#53882C' },
   { source: 'circle-check-big', output: 'circle-check-big-muted', color: '#9B9B96' },
   { source: 'circle', output: 'circle-dot-brand', color: '#53882C', dotFill: true },

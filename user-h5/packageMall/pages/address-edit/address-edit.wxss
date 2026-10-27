@@ -1,0 +1,130 @@
+@import '../../styles/mall.wxss';
+
+.address-edit-content {
+  padding: 20rpx;
+  padding-bottom: 40rpx;
+}
+
+.address-form {
+  overflow: hidden;
+  margin-bottom: 20rpx;
+}
+
+.address-form__row {
+  display: flex;
+  align-items: center;
+  min-height: 96rpx;
+  padding: 0 24rpx;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.address-form__row:last-child {
+  border-bottom: 0;
+}
+
+.address-form__label {
+  flex: none;
+  width: 160rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.address-form__input,
+.address-form__textarea {
+  flex: 1;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  text-align: right;
+}
+
+.address-form__placeholder {
+  color: var(--text-muted);
+}
+
+.address-form__value {
+  flex: 1;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.address-form__value.is-placeholder {
+  color: var(--text-muted);
+}
+
+.address-form__arrow {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 8rpx;
+}
+
+.address-form__row--textarea {
+  align-items: flex-start;
+  padding-top: 24rpx;
+  padding-bottom: 24rpx;
+}
+
+.address-form__textarea {
+  min-height: 120rpx;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.address-default {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  margin-bottom: 32rpx;
+}
+
+.address-default__copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.address-default__title {
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.address-default__hint {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.address-switch {
+  position: relative;
+  flex: none;
+  width: 88rpx;
+  height: 48rpx;
+  background: var(--line-color);
+  border-radius: var(--radius-pill);
+}
+
+.address-switch.is-active {
+  background: var(--brand-green);
+}
+
+.address-switch__thumb {
+  position: absolute;
+  top: 4rpx;
+  left: 4rpx;
+  width: 40rpx;
+  height: 40rpx;
+  background: var(--card-bg);
+  border-radius: 50%;
+}
+
+.address-switch.is-active .address-switch__thumb {
+  transform: translateX(40rpx);
+}
+
+.address-save {
+  width: 100%;
+}

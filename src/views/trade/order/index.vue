@@ -135,6 +135,7 @@ const splitDetail = computed(() => {
       storeShare: Number(split.storeShare) || 0,
       channelShare: Number(split.channelShare) || 0,
       investorShare: Number(split.investorShare) || 0,
+      leaderShare: Number(split.leaderShare) || 0,
       commission,
       platformBonus,
       platformTotal,
@@ -172,6 +173,7 @@ const splitDetail = computed(() => {
     storeShare,
     channelShare,
     investorShare,
+    leaderShare: 0,
     commission,
     platformBonus: Math.max(0, platformShare - commission),
     platformTotal: platformShare,
@@ -412,6 +414,7 @@ const config: AdminListConfig = {
       size: pageSize,
       search: search?.orderNo,
       status: search?.status,
+      orderType: 'STORE',
       storeSubjectId: search?.storeSubjectId,
       startTime,
       endTime
@@ -470,6 +473,10 @@ const config: AdminListConfig = {
         <div class="split-line">
           <span>投资人（{{ splitDetail.base > 0 ? '基础×比例%' : '基础为负' }}）</span>
           <span>¥{{ yuan(splitDetail.investorShare) }}</span>
+        </div>
+        <div v-if="splitDetail.leaderShare > 0" class="split-line">
+          <span>团长分销佣金</span>
+          <span>¥{{ yuan(splitDetail.leaderShare) }}</span>
         </div>
         <div class="split-line">
           <span>平台剩余</span>

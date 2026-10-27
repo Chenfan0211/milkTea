@@ -1,0 +1,113 @@
+<view class="mall-page">
+  <navigation-bar title="{{editing ? '编辑地址' : '新增地址'}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="address-edit-content">
+      <view wx:if="{{needLogin}}" class="mall-state">
+        <text class="mall-state__text">登录后维护收货地址</text>
+        <view class="mall-retry" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+
+      <view wx:elif="{{loading}}" class="mall-state">
+        <text class="mall-state__text">地址加载中</text>
+      </view>
+
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载地址">重新加载</view>
+      </view>
+
+      <block wx:else>
+        <view class="mall-card address-form">
+          <view class="address-form__row">
+            <text class="address-form__label">收件人</text>
+            <input
+              class="address-form__input"
+              value="{{form.recipientName}}"
+              maxlength="32"
+              placeholder="请输入收件人姓名"
+              placeholder-class="address-form__placeholder"
+              data-field="recipientName"
+              bindinput="handleInput"
+              aria-label="收件人姓名"
+            />
+          </view>
+          <view class="address-form__row">
+            <text class="address-form__label">手机号</text>
+            <input
+              class="address-form__input"
+              type="number"
+              value="{{form.phone}}"
+              maxlength="11"
+              placeholder="请输入手机号"
+              placeholder-class="address-form__placeholder"
+              data-field="phone"
+              bindinput="handleInput"
+              aria-label="收件人手机号"
+            />
+          </view>
+          <picker
+            class="address-form__picker"
+            mode="region"
+            value="{{region}}"
+            bindchange="onRegionChange"
+          >
+            <view class="address-form__row" aria-role="button" aria-label="选择省市县">
+              <text class="address-form__label">所在地区</text>
+              <text class="address-form__value {{region.length ? '' : 'is-placeholder'}}">
+                {{region.length ? regionText : '请选择省市县'}}
+              </text>
+              <image class="address-form__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+            </view>
+          </picker>
+          <view class="address-form__row address-form__row--textarea">
+            <text class="address-form__label">详细地址</text>
+            <textarea
+              class="address-form__textarea"
+              value="{{form.detailAddress}}"
+              maxlength="255"
+              auto-height="{{true}}"
+              placeholder="街道、门牌号等"
+              placeholder-class="address-form__placeholder"
+              data-field="detailAddress"
+              bindinput="handleInput"
+              aria-label="详细地址"
+            />
+          </view>
+          <view class="address-form__row">
+            <text class="address-form__label">地址标签</text>
+            <input
+              class="address-form__input"
+              value="{{form.tag}}"
+              maxlength="16"
+              placeholder="家、公司等（选填）"
+              placeholder-class="address-form__placeholder"
+              data-field="tag"
+              bindinput="handleInput"
+              aria-label="地址标签"
+            />
+          </view>
+        </view>
+
+        <view class="mall-card address-default">
+          <view class="address-default__copy">
+            <text class="address-default__title">设为默认地址</text>
+            <text class="address-default__hint">下单时优先使用该地址</text>
+          </view>
+          <view
+            class="address-switch {{form.isDefault ? 'is-active' : ''}}"
+            bindtap="toggleDefault"
+            aria-role="button"
+            aria-label="{{form.isDefault ? '取消默认地址' : '设为默认地址'}}"
+          >
+            <view class="address-switch__thumb"></view>
+          </view>
+        </view>
+
+        <view class="mall-button mall-button--primary address-save" bindtap="saveAddress" aria-role="button" aria-label="保存地址">
+          {{saving ? '保存中' : '保存地址'}}
+        </view>
+      </block>
+    </view>
+  </scroll-view>
+</view>

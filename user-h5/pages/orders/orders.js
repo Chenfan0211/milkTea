@@ -4,6 +4,7 @@ const api = require('../../utils/api');
 const auth = require('../../utils/auth');
 const loginGuard = require('../../utils/login-guard');
 const featurePolicy = require('../../utils/feature-policy');
+const { requestOrderPayment } = require('../../utils/order-payment');
 const {
   cancelOrderById,
   cancelPaidOrderById,
@@ -124,6 +125,18 @@ Page(
     },
     openOrderDetail(event) {
       const { id } = event.currentTarget.dataset;
+      const order = getOrders().find(item => String(item.id) === String(id));
+      if (order && order.category === 'mall') {
+        const orderNo = resolveOrderNo(order, id);
+        if (!orderNo) {
+          wx.showToast({ title: '订单号缺失', icon: 'none' });
+          return;
+        }
+        wx.navigateTo({
+          url: `/packageMall/pages/order-detail/order-detail?orderNo=${encodeURIComponent(orderNo)}`
+        });
+        return;
+      }
       wx.navigateTo({ url: `/pages/order-detail/order-detail?id=${id}` });
     },
     cancelOrder(event) {
@@ -184,6 +197,29 @@ Page(
       const order = getOrders().find(item => String(item.id) === String(id));
       if (!order) {
         wx.showToast({ title: '订单不存在', icon: 'none' });
+        return;
+      }
+      if (order.category === 'mall') {
+        const mallOrderNo = resolveOrderNo(order, id);
+        if (!mallOrderNo) {
+          wx.showToast({ title: '订单号缺失', icon: 'none' });
+          return;
+        }
+        wx.showLoading({ title: '正在支付', mask: true });
+        const payment =
+          String(order.payChannel || '').toUpperCase() === 'STORED_VALUE'
+            ? api.payOrderByBalance(mallOrderNo).then(paid => ({ paid: Boolean(paid && paid.payStatus === 'PAID') }))
+            : requestOrderPayment(mallOrderNo, order.paidAmount);
+        payment
+          .then(result => {
+            wx.hideLoading();
+            if (result && result.paid) this.loadOrders();
+            else wx.showToast({ title: '支付未完成，可稍后继续', icon: 'none' });
+          })
+          .catch(error => {
+            wx.hideLoading();
+            wx.showToast({ title: (error && error.message) || '支付失败，请重试', icon: 'none' });
+          });
         return;
       }
       if (order.category !== 'stored-value') {

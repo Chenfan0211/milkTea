@@ -60,8 +60,12 @@ final class FinanceMqEventReader {
                     JsonNode event = payload != null && payload.isObject() ? payload : root.get("event");
                     JsonNode source = event != null && event.isObject() ? event : root;
                     String orderNo = text(source, "orderNo");
+                    String refundNo = text(source, "refundNo");
                     if (StringUtils.hasText(orderNo)) {
-                        messageId = orderNo + ":" + suffix;
+                        // 退款冲正必须按退款单区分，否则同一订单的多次部分退款会被误判为重复消息。
+                        messageId = "REVERSE".equals(suffix) && StringUtils.hasText(refundNo)
+                                ? orderNo + ":" + refundNo + ":" + suffix
+                                : orderNo + ":" + suffix;
                     }
                 }
             }

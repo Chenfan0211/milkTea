@@ -131,8 +131,8 @@ for (const page of [...expectedPages, ...expectedSubPages]) {
 if (JSON.stringify(appJson.pages) !== JSON.stringify(expectedPages)) {
   errors.push(`app.json pages 必须为: ${expectedPages.join(', ')}`);
 }
-if (!Array.isArray(appJson.subpackages) || appJson.subpackages.length !== 2) {
-  errors.push('app.json 必须包含角色中心与舌象检测 2 个 subpackages 分包');
+if (!Array.isArray(appJson.subpackages)) {
+  errors.push('app.json 必须声明 subpackages（角色中心、舌象检测、商城）');
 } else {
   const roleSub = appJson.subpackages.find(item => item.root === SUBPACKAGE_ROOT);
   const healthSub = appJson.subpackages.find(item => item.root === HEALTH_SUBPACKAGE_ROOT);

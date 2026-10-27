@@ -45,7 +45,7 @@
         aria-role="button"
         aria-label="{{item.title}}订单"
       >
-        <view wx:if="{{item.category === 'store' || item.category === 'purchase'}}" class="order-card__store-head">
+        <view wx:if="{{item.category === 'store' || item.category === 'purchase' || item.category === 'mall'}}" class="order-card__store-head">
           <text wx:if="{{item.type}}" class="order-card__type">{{item.type}}</text>
           <text class="order-card__store ellipsis">{{item.storeName}}</text>
           <view class="order-card__status-wrap {{item.isCanceled ? 'is-canceled' : ''}}">
@@ -62,7 +62,7 @@
           </view>
         </view>
 
-        <view wx:if="{{item.category === 'store' || item.category === 'purchase'}}" class="store-order">
+        <view wx:if="{{item.category === 'store' || item.category === 'purchase' || item.category === 'mall'}}" class="store-order">
           <view wx:if="{{item.previewItems.length === 1}}" class="store-order__single">
             <image class="store-order__single-image" src="{{item.firstItem.image}}" mode="aspectFit" />
             <view class="store-order__single-copy">

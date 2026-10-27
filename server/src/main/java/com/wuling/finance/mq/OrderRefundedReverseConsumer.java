@@ -34,7 +34,8 @@ public class OrderRefundedReverseConsumer extends AbstractMqConsumer {
             if (event.getOrderNo() == null) {
                 throw new IllegalArgumentException("退款冲正事件缺少 orderNo");
             }
-            ledgerService.reverseForOrder(event.getOrderNo(), event.getRefundNo());
+            ledgerService.reverseForOrder(event.getOrderNo(), event.getRefundNo(),
+                    event.getRefundRatio() == null ? 10000 : event.getRefundRatio());
             log.info("退款冲正完成 orderNo={} refundNo={}", event.getOrderNo(), event.getRefundNo());
         });
     }

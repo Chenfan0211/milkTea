@@ -81,11 +81,11 @@ const {
 } = require(path.join(root, 'utils/roles.js'));
 
 // 角色定义
-assert.equal(getRoleDefinitions().length, 3, 'must define exactly three business roles');
+assert.equal(getRoleDefinitions().length, 4, 'must define exactly four business roles');
 assert.deepEqual(
   getRoleDefinitions().map(item => item.id),
-  ['store', 'investor', 'resource'],
-  'role ids must be store/investor/resource'
+  ['store', 'investor', 'resource', 'leader'],
+  'role ids must be store/investor/resource/leader'
 );
 assert.equal(getRoleStatus(), ROLE_STATUS_NONE, 'default state must be none (consumer only)');
 assert.equal(getCurrentBusinessRole(), null, 'no business role by default');

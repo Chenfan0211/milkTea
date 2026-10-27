@@ -85,14 +85,15 @@
 
 ### 订单状态枚举映射（统一规范）
 
-| 后台 `status` | 小程序 `orderStatus` | 小程序中文文案 | 语义                        |
-| ------------- | -------------------- | -------------- | --------------------------- |
-| `CREATED`     | `pending_payment`    | 待支付         | 已创建未支付                |
-| `PAID`        | `paid`               | 已支付         | 已支付待核销                |
-| `VERIFIED`    | `verified`           | 已核销         | 门店已核销                  |
-| `COMPLETED`   | `completed`          | 已完成         | 订单完成                    |
-| `REFUNDED`    | `refunded`           | 已退款         | 已退款                      |
-| —             | `canceled`           | 已取消         | 取消/超时关闭（后台可扩展） |
+| 后台 `status` | 小程序 `orderStatus`        | 小程序中文文案  | 语义                        |
+| ------------- | --------------------------- | --------------- | --------------------------- |
+| `CREATED`     | `pending_payment`           | 待支付          | 已创建未支付                |
+| `PAID`        | `paid` / `pending_delivery` | 已支付 / 待发货 | 门店待核销；商城待发货      |
+| `SHIPPED`     | `pending_receipt`           | 待收货          | 商城快递已发出              |
+| `VERIFIED`    | `verified`                  | 已核销          | 历史门店已核销              |
+| `COMPLETED`   | `completed`                 | 已完成          | 门店核销或商城确认/自动完成 |
+| `REFUNDED`    | `refunded`                  | 已退款          | 已退款                      |
+| —             | `canceled`                  | 已取消          | 取消/超时关闭（后台可扩展） |
 
 ### 订单映射要点（已实际对齐）
 
@@ -175,3 +176,14 @@
 - `user-h5/utils/request.js`：`wx.request` 封装，`USE_MOCK` 时走本地 mock 响应。
 - `user-h5/utils/store-types.js`：`getStoreTypes()` 优先读本地缓存（有效期内），否则请求接口，失败回退 `data/mock.js` 默认字典。
 - 接入真实后端：将 `config.js` 的 `USE_MOCK` 置 false 并填写 `BASE_URL`，后端按上述接口契约返回即可，小程序端无需再改代码。
+
+## 三之三、小程序商城（2026-10-25）
+
+- 商城商品独立使用 `mall_product` / `mall_sku`，不混入门店饮品 `product`。
+- 商城订单复用 `orders` / `order_item`，以 `order_type=MALL` 区分；门店订单保持 `STORE`。
+- 商城状态机：`CREATED → PAID → SHIPPED → COMPLETED`，取消为 `CANCELED`；整单退完为 `REFUNDED`，部分退款保持 `SHIPPED/COMPLETED` 并置 `refund_status=REFUNDED`。
+- 售后单存于 `mall_after_sale`，状态为 `PENDING → APPROVED / REJECTED`，审核通过后 `REFUNDING → SUCCESS / FAILED`；`refund.after_sale_id` 关联退款单，`refund.original_amount` 保存订单实付快照。
+- 退款冲正按结算记录累计：`settlement_record.original_amount` 为原分账金额，`refunded_amount` 为累计已冲正；同一订单多次部分退不得重复或超扣。
+- `order_shipping` 保存收货与物流快照；`app_user_address` 保存用户地址簿。
+- SKU 可用库存 = `stock - locked_stock`；下单预占、支付扣减、取消释放、退款回补，全部写 `mall_stock_log`。`biz_type/biz_no` 区分 `ORDER/orderNo` 与 `AFTER_SALE/afterSaleNo`，保证多次售后部分回补幂等。
+- 完成时发布五方分账与积分/成长值/邀请奖励事件；支付时不为商城提前发放会员累计权益。

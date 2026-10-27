@@ -26,6 +26,8 @@ public class WxMiniappSubscribeProperties {
 
     private OrderSubscribe orderSubscribe = new OrderSubscribe();
 
+    private MallShippedSubscribe mallShippedSubscribe = new MallShippedSubscribe();
+
     @PostConstruct
     public void validate() {
         if (orderSubscribe.isEnabled()
@@ -39,8 +41,16 @@ public class WxMiniappSubscribeProperties {
     @Data
     public static class OrderSubscribe {
         private boolean enabled = true;
-        private String templateId = "";
+        private String templateId = "bxgB0GhwNBcC37qRILiRKOx5rxJWn7Phuw5ZaNB8lEI";
         private String page = "pages/order-detail/order-detail";
+        private String miniprogramState = "formal";
+    }
+
+    @Data
+    public static class MallShippedSubscribe {
+        private boolean enabled = true;
+        private String templateId = "";
+        private String page = "packageMall/pages/order-detail/order-detail";
         private String miniprogramState = "formal";
     }
 }

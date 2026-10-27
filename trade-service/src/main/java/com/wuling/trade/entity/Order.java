@@ -15,8 +15,14 @@ public class Order {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String orderNo;
+    private String clientRequestId;
+    /** STORE=store order, MALL=online mall order. */
+    private String orderType;
     private Long userId;
     private Long storeSubjectId;
+    /** Split rule snapshot captured at order creation. */
+    private Long splitRuleId;
+    private String splitRuleSnapshot;
     private Long channelSubjectId;
     private String mealType;
     private LocalDateTime pickupTime;
@@ -40,6 +46,8 @@ public class Order {
     private LocalDateTime createTime;
     private LocalDateTime payTime;
     private LocalDateTime verifyTime;
+    private LocalDateTime shippedTime;
+    private LocalDateTime autoCompleteTime;
     private LocalDateTime completeTime;
     private LocalDateTime updateTime;
 

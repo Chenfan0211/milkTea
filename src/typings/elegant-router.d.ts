@@ -35,6 +35,11 @@ declare module "@elegant-router/types" {
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
+    "mall": "/mall";
+    "mall_after-sale": "/mall/after-sale";
+    "mall_category": "/mall/category";
+    "mall_order": "/mall/order";
+    "mall_product": "/mall/product";
     "marketing": "/marketing";
     "marketing_coupon": "/marketing/coupon";
     "marketing_exchange": "/marketing/exchange";
@@ -118,6 +123,7 @@ declare module "@elegant-router/types" {
     | "home"
     | "iframe-page"
     | "login"
+    | "mall"
     | "marketing"
     | "product"
     | "review"
@@ -157,6 +163,10 @@ declare module "@elegant-router/types" {
     | "finance_snapshot"
     | "finance_withdraw"
     | "home"
+    | "mall_after-sale"
+    | "mall_category"
+    | "mall_order"
+    | "mall_product"
     | "marketing_coupon"
     | "marketing_exchange"
     | "marketing_gift-order"

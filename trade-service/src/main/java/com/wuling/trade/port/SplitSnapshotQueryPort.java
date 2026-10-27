@@ -40,6 +40,8 @@ public interface SplitSnapshotQueryPort {
         private Long platformBonus;
         /** 投资人计费基础额（<= 0 时投资人为 0） */
         private Long base;
+        /** 团长分销佣金所得（商城订单；无团长为 0） */
+        private Long leaderShare;
 
         public String getSnapshotNo() {
             return snapshotNo;
@@ -119,6 +121,14 @@ public interface SplitSnapshotQueryPort {
 
         public void setBase(Long base) {
             this.base = base;
+        }
+
+        public Long getLeaderShare() {
+            return leaderShare;
+        }
+
+        public void setLeaderShare(Long leaderShare) {
+            this.leaderShare = leaderShare;
         }
     }
 

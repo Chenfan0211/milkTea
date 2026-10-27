@@ -69,7 +69,7 @@ class OrderStatusLifecycleTest {
     }
 
     @Test
-    void refundSuccessWritesCanceledAndRefundedStatus() {
+    void refundSuccessWritesRefundedAndRefundedStatus() {
         Order order = order(OrderService.STATUS_PAID);
         order.setRefundStatus("PENDING");
 
@@ -77,9 +77,9 @@ class OrderStatusLifecycleTest {
 
         ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
         verify(orderMapper).updateById(captor.capture());
-        assertEquals(OrderService.STATUS_CANCELED, captor.getValue().getStatus());
+        assertEquals(OrderService.STATUS_REFUNDED, captor.getValue().getStatus());
         assertEquals("REFUNDED", captor.getValue().getRefundStatus());
-        assertEquals(OrderService.STATUS_CANCELED, order.getStatus());
+        assertEquals(OrderService.STATUS_REFUNDED, order.getStatus());
         assertEquals("REFUNDED", order.getRefundStatus());
     }
 

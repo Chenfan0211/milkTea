@@ -93,6 +93,9 @@ class DedicatedEndpointConsistencyTest {
             "trade-service/src/main/java/com/wuling/trade/controller/AdminTradeQueryController.java",
             // 后台订单列表 / 详情（含商品明细 items 与分账快照 split）
             "trade-service/src/main/java/com/wuling/trade/controller/AdminOrderController.java",
+            // 后台商城售后列表 / 详情 / 审核（AdminAfterSaleController + MallAfterSaleVO）
+            "trade-service/src/main/java/com/wuling/trade/controller/AdminAfterSaleController.java",
+            "trade-service/src/main/java/com/wuling/trade/dto/MallAfterSaleVO.java",
             // 礼品卡订单 / 兑换记录：联表补齐卡种/面额/购买人/商品等展示字段
             "marketing-service/src/main/java/com/wuling/marketing/controller/AdminMarketingController.java",
             "marketing-service/src/main/java/com/wuling/marketing/service/GiftCardAdminService.java",
@@ -109,7 +112,15 @@ class DedicatedEndpointConsistencyTest {
             "server/src/main/java/com/wuling/device/controller/AdminDeviceController.java",
             "server/src/main/java/com/wuling/device/dto/AdminDeviceDTO.java",
             // 运营后台图片上传：首页装修 / 我的页轮播复用文件服务上传接口。
-            "file-service/src/main/java/com/wuling/file/controller/FileController.java"
+            "file-service/src/main/java/com/wuling/file/controller/FileController.java",
+            // 商城分类 / 商品与 SKU 维护
+            "product-service/src/main/java/com/wuling/product/controller/AdminMallCategoryController.java",
+            "product-service/src/main/java/com/wuling/product/controller/AdminMallProductController.java",
+            "product-service/src/main/java/com/wuling/product/dto/MallCategoryDTO.java",
+            "product-service/src/main/java/com/wuling/product/dto/MallProductAdminDTO.java",
+            "product-service/src/main/java/com/wuling/product/dto/MallSkuAdminDTO.java",
+            // 团长管理（LEADER 主体 + user_leader 归属）
+            "server/src/main/java/com/wuling/subject/controller/AdminLeaderController.java"
     );
 
     /** 已接入专用接口校验的页面（相对仓库根）。未登记的页面会让测试失败，提醒补登记。 */
@@ -134,6 +145,11 @@ class DedicatedEndpointConsistencyTest {
             "src/views/marketing/stored/index.vue",
             // 首页装修页：复用文件服务图片上传接口。
             "src/views/system/home-decor/index.vue",
+            // 商城管理：分类、商品、订单均走专用接口（订单复用 AdminOrderController/OrderDTO）
+            "src/views/mall/category/index.vue",
+            "src/views/mall/after-sale/index.vue",
+            "src/views/mall/product/index.vue",
+            "src/views/mall/order/index.vue",
             // 以下 3 个为详情页：用描述列表（descriptions）而非 DataTable columns 展示，
             // 故不参与「直读列」校验，仅登记以满足覆盖范围可见性要求
             "src/views/finance/snapshot-detail/index.vue",
@@ -175,7 +191,9 @@ class DedicatedEndpointConsistencyTest {
             // （门店名实时 join、未绑定 IS NULL 筛选、绑定历史同事务写入）。
             // 注：冲泡记录页（src/views/subject/device-brew）走通用 CRUD 只读资源
             // deviceBrewRecords，不调用 service/api，故不在本测试覆盖范围。
-            "src/views/subject/device/index.vue"
+            "src/views/subject/device/index.vue",
+            // 用户列表：绑定团长 / 归属团长走 AdminLeaderController 专用接口
+            "src/views/user/list/index.vue"
     );
 
     /** 后端行字段名 -> 是否可用（含 SQL select 出来的列，做 camel/snake 双向匹配）。 */

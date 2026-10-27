@@ -1,0 +1,50 @@
+<view class="mall-page">
+  <navigation-bar title="售后记录" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="after-sales-content">
+      <view wx:if="{{needLogin}}" class="mall-state">
+        <text class="mall-state__text">登录后可查看售后记录</text>
+        <view class="mall-retry" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+      <view wx:elif="{{loading}}" class="mall-state">
+        <text class="mall-state__text">售后记录加载中</text>
+      </view>
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载售后记录">重新加载</view>
+      </view>
+      <block wx:elif="{{records.length}}">
+        <view
+          wx:for="{{records}}"
+          wx:key="afterSaleNo"
+          class="mall-card after-sales-card"
+          data-no="{{item.afterSaleNo}}"
+          bindtap="openDetail"
+          aria-role="button"
+          aria-label="查看售后单 {{item.afterSaleNo}}"
+        >
+          <view class="after-sales-card__head">
+            <text class="after-sales-card__no">售后单 {{item.afterSaleNo}}</text>
+            <text class="after-sales-card__status">{{item.statusText}}</text>
+          </view>
+          <text class="after-sales-card__order">订单 {{item.orderNo}}</text>
+          <view wx:for="{{item.items}}" wx:for-item="product" wx:key="orderItemId" class="after-sales-product">
+            <image class="after-sales-product__image" src="{{product.image}}" mode="aspectFill" aria-label="{{product.name}}商品图" />
+            <view class="after-sales-product__main">
+              <text class="after-sales-product__name">{{product.name}}</text>
+              <text class="after-sales-product__meta">{{product.spec}} x{{product.quantity}}</text>
+            </view>
+          </view>
+          <view class="after-sales-card__footer">
+            <text class="mall-muted">申请时间 {{item.applyTimeText}}</text>
+            <text class="after-sales-card__amount">¥{{item.refundAmountText}}</text>
+          </view>
+        </view>
+      </block>
+      <view wx:else class="mall-state">
+        <text class="mall-state__text">暂无售后记录</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

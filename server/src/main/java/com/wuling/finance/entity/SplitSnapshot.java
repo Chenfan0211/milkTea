@@ -23,6 +23,7 @@ public class SplitSnapshot {
     private Long channelAmount;
     private Long investorAmount;
     private Long supplierAmount;
+    private Long leaderAmount;
     private Long platformCommission;
     private Long platformBonus;
     private String totalCheck;

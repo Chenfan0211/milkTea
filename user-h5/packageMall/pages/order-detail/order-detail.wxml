@@ -1,0 +1,176 @@
+<view class="mall-page">
+  <navigation-bar title="订单详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="order-detail-content">
+      <view wx:if="{{needLogin}}" class="order-detail-state">
+        <text class="mall-state__text">登录后可查看订单详情</text>
+        <view class="mall-retry" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+
+      <view wx:elif="{{loading}}" class="mall-state">
+        <text class="mall-state__text">订单详情加载中</text>
+      </view>
+
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载订单详情">重新加载</view>
+      </view>
+
+      <block wx:elif="{{order}}">
+        <view class="order-status order-status--{{order.statusClass}}">
+          <view class="order-status__main">
+            <text class="order-status__title">{{order.statusText}}</text>
+            <text class="order-status__note">{{order.statusNote}}</text>
+            <text wx:if="{{order.status === 'SHIPPED'}}" class="order-status__countdown">
+              自动完成倒计时：剩余 {{order.autoCompleteCountdown}}
+            </text>
+            <text wx:if="{{order.refundText}}" class="order-status__refund">{{order.refundText}}</text>
+          </view>
+          <image class="order-status__icon" src="/assets/icons/lucide/receipt-brand.svg" mode="aspectFit" />
+        </view>
+
+        <view class="mall-card order-address">
+          <view class="order-card-title">
+            <image class="order-card-title__icon" src="/assets/icons/lucide/map-pin.svg" mode="aspectFit" />
+            <text class="mall-section-title">收货信息</text>
+          </view>
+          <view class="order-address__head">
+            <text class="order-address__name">{{order.shipping.recipientName}}</text>
+            <text class="order-address__phone">{{order.shipping.phone}}</text>
+          </view>
+          <text class="order-address__text">{{order.shipping.provinceName}} {{order.shipping.cityName}} {{order.shipping.districtName}}</text>
+          <text class="order-address__detail">{{order.shipping.detailAddress}}</text>
+        </view>
+
+        <view class="mall-card order-logistics">
+          <view class="order-card-title">
+            <image class="order-card-title__icon" src="/assets/icons/lucide/send.svg" mode="aspectFit" />
+            <text class="mall-section-title">物流信息</text>
+          </view>
+          <view wx:if="{{order.shipping.courierCompany || order.shipping.trackingNo}}" class="logistics-info">
+            <view class="info-row">
+              <text class="info-row__label">快递公司</text>
+              <text class="info-row__value">{{order.shipping.courierCompany || '待更新'}}</text>
+            </view>
+            <view class="info-row">
+              <text class="info-row__label">快递单号</text>
+              <view class="info-row__copy" bindtap="copyTrackingNo" aria-role="button" aria-label="复制快递单号">
+                <text class="info-row__value">{{order.shipping.trackingNo || '待更新'}}</text>
+                <image class="info-row__copy-icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+              </view>
+            </view>
+            <view class="info-row">
+              <text class="info-row__label">发货时间</text>
+              <text class="info-row__value">{{order.shippedTimeText || '待发货'}}</text>
+            </view>
+          </view>
+          <text wx:else class="order-logistics__empty">商家尚未发货，发货后可在这里查看物流。</text>
+        </view>
+
+        <view class="mall-card order-goods">
+          <view class="order-card-title">
+            <image class="order-card-title__icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" />
+            <text class="mall-section-title">商品清单</text>
+          </view>
+          <view wx:for="{{order.items}}" wx:key="key" class="detail-product">
+            <image class="detail-product__image" src="{{item.image}}" mode="aspectFill" aria-label="{{item.name}}商品图" />
+            <view class="detail-product__main">
+              <text class="detail-product__name">{{item.name}}</text>
+              <text class="detail-product__spec">{{item.spec}}</text>
+              <view class="detail-product__meta">
+                <text class="detail-product__price">{{item.unitPriceText}}</text>
+                <text class="detail-product__quantity">x{{item.quantity}}</text>
+              </view>
+            </view>
+          </view>
+          <view class="mall-divider"></view>
+          <view class="order-goods__amount">
+            <text class="order-goods__label">实付金额</text>
+            <text class="order-goods__value">¥{{order.amountText}}</text>
+          </view>
+        </view>
+
+        <view class="mall-card order-timeline">
+          <text class="mall-section-title">订单信息</text>
+          <view class="timeline-row">
+            <text class="timeline-row__label">订单编号</text>
+            <text class="timeline-row__value">{{order.orderNo}}</text>
+          </view>
+          <view class="timeline-row">
+            <text class="timeline-row__label">支付方式</text>
+            <text class="timeline-row__value">{{order.payMethodText}}</text>
+          </view>
+          <view class="timeline-row">
+            <text class="timeline-row__label">下单时间</text>
+            <text class="timeline-row__value">{{order.createTimeText}}</text>
+          </view>
+          <view wx:if="{{order.payTimeText}}" class="timeline-row">
+            <text class="timeline-row__label">支付时间</text>
+            <text class="timeline-row__value">{{order.payTimeText}}</text>
+          </view>
+          <view wx:if="{{order.shippedTimeText}}" class="timeline-row">
+            <text class="timeline-row__label">发货时间</text>
+            <text class="timeline-row__value">{{order.shippedTimeText}}</text>
+          </view>
+          <view wx:if="{{order.completeTimeText}}" class="timeline-row">
+            <text class="timeline-row__label">完成时间</text>
+            <text class="timeline-row__value">{{order.completeTimeText}}</text>
+          </view>
+        </view>
+
+        <view class="order-detail__more" bindtap="openAfterSales" aria-role="button" aria-label="查看售后记录">
+          <text>查看售后记录</text>
+          <image class="order-detail__more-icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+
+        <view class="order-detail__more" bindtap="openOrders" aria-role="button" aria-label="查看更多商城订单">
+          <text>查看全部商城订单</text>
+          <image class="order-detail__more-icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </block>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{order && (order.canCancel || order.canPay || order.canConfirm || order.canAfterSale)}}" class="mall-action-bar">
+    <view class="order-detail-actions">
+      <view
+        wx:if="{{order.canCancel}}"
+        class="mall-button order-detail-actions__button"
+        bindtap="cancelOrder"
+        aria-role="button"
+        aria-label="取消订单"
+      >{{order.status === 'PAID' ? '申请退款' : '取消订单'}}</view>
+      <view
+        wx:if="{{order.canPay}}"
+        class="mall-button mall-button--primary order-detail-actions__button"
+        bindtap="continuePayment"
+        aria-role="button"
+        aria-label="继续支付"
+      >继续支付</view>
+      <view
+        wx:if="{{order.canConfirm}}"
+        class="mall-button mall-button--primary order-detail-actions__button"
+        bindtap="confirmReceipt"
+        aria-role="button"
+        aria-label="确认收货"
+      >确认收货</view>
+      <view
+        wx:if="{{order.canAfterSale}}"
+        class="mall-button order-detail-actions__button"
+        bindtap="openAfterSale"
+        aria-role="button"
+        aria-label="申请售后"
+      >申请售后</view>
+      <view
+        wx:elif="{{order.activeAfterSale}}"
+        class="mall-button order-detail-actions__button"
+        bindtap="openAfterSales"
+        aria-role="button"
+        aria-label="查看处理中售后"
+      >售后处理中</view>
+    </view>
+  </view>
+</view>
+
+

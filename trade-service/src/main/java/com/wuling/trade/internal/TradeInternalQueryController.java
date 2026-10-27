@@ -51,6 +51,7 @@ public class TradeInternalQueryController {
     public Map<String, Object> storeTodayOrders(@RequestParam Long storeSubjectId) {
         LocalDateTime dayStart = LocalDate.now().atStartOfDay();
         Long count = orderMapper.selectCount(new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderType, "STORE")
                 .eq(Order::getStoreSubjectId, storeSubjectId)
                 .ge(Order::getCreateTime, dayStart));
         return Map.of("count", count == null ? 0L : count);
@@ -124,6 +125,7 @@ public class TradeInternalQueryController {
     @GetMapping("/store-orders")
     public List<Map<String, Object>> storeOrders(@RequestParam Long storeSubjectId) {
         return toSummaries(orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderType, "STORE")
                 .eq(Order::getStoreSubjectId, storeSubjectId)
                 .orderByDesc(Order::getId)));
     }
@@ -150,6 +152,7 @@ public class TradeInternalQueryController {
             return List.of();
         }
         return toSummaries(orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderType, "STORE")
                 .in(Order::getStoreSubjectId, ids)
                 .orderByDesc(Order::getId)));
     }

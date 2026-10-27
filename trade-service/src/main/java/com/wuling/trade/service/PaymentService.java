@@ -25,6 +25,7 @@ import com.wuling.trade.subscribe.OrderSubscribeNotifier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +60,7 @@ public class PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
     private final OrderService orderService;
+    private final MallStockService mallStockService;
     private final PaymentMapper paymentMapper;
     private final OrderItemMapper orderItemMapper;
     private final PaymentGatewayResolver gatewayResolver;
@@ -104,7 +106,26 @@ public class PaymentService {
                           OutboxService outboxService,
                           GiftCardOrderPort giftCardOrderPort,
                           OrderSubscribeNotifier orderSubscribeNotifier) {
+        this(orderService, paymentMapper, orderItemMapper, gatewayResolver, alertChannel,
+                storedValueOrderPort, storedValueBalancePort, balancePayIntentService,
+                outboxService, giftCardOrderPort, orderSubscribeNotifier, null);
+    }
+
+    @Autowired
+    public PaymentService(OrderService orderService,
+                          PaymentMapper paymentMapper,
+                          OrderItemMapper orderItemMapper,
+                          PaymentGatewayResolver gatewayResolver,
+                          AlertChannel alertChannel,
+                          StoredValueOrderPort storedValueOrderPort,
+                          StoredValueBalancePort storedValueBalancePort,
+                          BalancePayIntentService balancePayIntentService,
+                          OutboxService outboxService,
+                          GiftCardOrderPort giftCardOrderPort,
+                          OrderSubscribeNotifier orderSubscribeNotifier,
+                          MallStockService mallStockService) {
         this.orderService = orderService;
+        this.mallStockService = mallStockService;
         this.paymentMapper = paymentMapper;
         this.orderItemMapper = orderItemMapper;
         this.gatewayResolver = gatewayResolver;
@@ -124,6 +145,7 @@ public class PaymentService {
         if (OrderService.STATUS_CREATED.equals(order.getStatus())) {
             // 待支付，正常发起
         } else if (OrderService.STATUS_PAID.equals(order.getStatus())
+                || OrderService.STATUS_SHIPPED.equals(order.getStatus())
                 || OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单已支付，请勿重复支付");
         } else {
@@ -175,6 +197,7 @@ public class PaymentService {
                                               String payerOpenid, String description) {
         Order order = orderService.lockForUpdate(orderNo);
         if (OrderService.STATUS_PAID.equals(order.getStatus())
+                || OrderService.STATUS_SHIPPED.equals(order.getStatus())
                 || OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单已支付，请勿重复支付");
         }
@@ -601,6 +624,7 @@ public class PaymentService {
     public OrderDTO payWithStoredValue(String orderNo, Long userId) {
         Order order = orderService.lockForUpdate(orderNo);
         if (OrderService.STATUS_PAID.equals(order.getStatus())
+                || OrderService.STATUS_SHIPPED.equals(order.getStatus())
                 || OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单已支付，请勿重复支付");
         }
@@ -635,6 +659,9 @@ public class PaymentService {
 
         LocalDateTime now = LocalDateTime.now();
         orderService.markPaid(order, now);
+        if (mallStockService != null) {
+            mallStockService.deductForPaid(order);
+        }
 
         Payment payment = new Payment();
         payment.setPaymentNo(nextPaymentNo(orderNo));
@@ -660,7 +687,9 @@ public class PaymentService {
         log.info("stored value pay ok orderNo={} userId={} amount={}",
                 orderNo, userId, amountFen);
         OrderDTO dto = orderService.toDTO(order, loadItems(order.getId()));
-        orderSubscribeNotifier.enqueueForOrder(order, dto);
+        if (!"MALL".equalsIgnoreCase(order.getOrderType())) {
+            orderSubscribeNotifier.enqueueForOrder(order, dto);
+        }
         return dto;
     }
 
@@ -676,6 +705,7 @@ public class PaymentService {
 
     private boolean isDuplicatePaymentCallback(Order order) {
         if (OrderService.STATUS_PAID.equals(order.getStatus())
+                || OrderService.STATUS_SHIPPED.equals(order.getStatus())
                 || OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
             return true;
         }
@@ -715,6 +745,9 @@ public class PaymentService {
 
         LocalDateTime now = LocalDateTime.now();
         orderService.markPaid(order, now);
+        if (mallStockService != null) {
+            mallStockService.deductForPaid(order);
+        }
 
         Payment payment = paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
                 .eq(Payment::getOrderNo, orderNo).orderByDesc(Payment::getId).last("limit 1"));
@@ -732,7 +765,9 @@ public class PaymentService {
         publishOrderPaid(order, channelTag);
         log.info("order paid, orderNo={} channel={} pickupCode={}", orderNo, channelTag, order.getPickupCode());
         OrderDTO dto = orderService.toDTO(order, loadItems(order.getId()));
-        orderSubscribeNotifier.enqueueForOrder(order, dto);
+        if (!"MALL".equalsIgnoreCase(order.getOrderType())) {
+            orderSubscribeNotifier.enqueueForOrder(order, dto);
+        }
         return dto;
     }
 
@@ -791,6 +826,10 @@ public class PaymentService {
      */
     private void publishOrderPaid(Order order, String channel) {
         if (order == null || order.getOrderNo() == null || order.getUserId() == null) {
+            return;
+        }
+        // Mall benefits accrue only after receipt; payment itself must not publish this event.
+        if ("MALL".equalsIgnoreCase(order.getOrderType())) {
             return;
         }
         OrderPaidEvent event = new OrderPaidEvent();

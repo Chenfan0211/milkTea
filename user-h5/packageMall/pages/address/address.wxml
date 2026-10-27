@@ -1,0 +1,88 @@
+<view class="mall-page">
+  <navigation-bar title="收货地址" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="address-content">
+      <view wx:if="{{needLogin}}" class="address-login">
+        <empty-state icon="/assets/icons/lucide/map-pin.svg" title="请先登录" description="登录后可管理收货地址" />
+        <view class="mall-button mall-button--primary address-login__button" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+
+      <view wx:elif="{{loading}}" class="mall-state">
+        <text class="mall-state__text">地址加载中</text>
+      </view>
+
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载地址">重新加载</view>
+      </view>
+
+      <block wx:elif="{{addresses.length}}">
+        <view
+          wx:for="{{addresses}}"
+          wx:key="id"
+          class="address-card {{mode === 'select' && selectedId === item.id ? 'is-selected' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="selectAddress"
+          aria-role="button"
+          aria-label="{{mode === 'select' ? '选择收货地址' : '编辑收货地址'}}：{{item.recipientName}}，{{item.fullAddress}}"
+        >
+          <view class="address-card__main">
+            <view class="address-card__head">
+              <text class="address-card__name">{{item.recipientName}}</text>
+              <text class="address-card__phone">{{item.phone}}</text>
+              <text wx:if="{{item.isDefault}}" class="mall-tag address-card__default">默认</text>
+              <text wx:if="{{item.tag}}" class="mall-tag mall-tag--muted">{{item.tag}}</text>
+            </view>
+            <text class="address-card__region">{{item.regionText}}</text>
+            <text class="address-card__detail">{{item.detailAddress}}</text>
+          </view>
+          <view wx:if="{{mode === 'select'}}" class="address-card__select">
+            <image
+              wx:if="{{selectedId === item.id}}"
+              class="address-card__selected-icon"
+              src="/assets/icons/lucide/check.svg"
+              mode="aspectFit"
+            />
+          </view>
+        </view>
+
+        <view wx:if="{{mode === 'manage'}}" class="address-actions">
+          <view
+            wx:for="{{addresses}}"
+            wx:key="id"
+            class="address-action-row"
+          >
+            <view class="address-action-row__title">地址 {{index + 1}}</view>
+            <view class="address-action-row__buttons">
+              <view
+                wx:if="{{!item.isDefault}}"
+                class="mall-button mall-button--small"
+                data-id="{{item.id}}"
+                bindtap="setDefault"
+                aria-role="button"
+                aria-label="将{{item.recipientName}}的地址设为默认"
+              >设为默认</view>
+              <view class="mall-button mall-button--small" data-id="{{item.id}}" bindtap="editAddress" aria-role="button" aria-label="编辑{{item.recipientName}}的地址">编辑</view>
+              <view class="mall-button mall-button--small address-action-row__delete" data-id="{{item.id}}" bindtap="removeAddress" aria-role="button" aria-label="删除{{item.recipientName}}的地址">删除</view>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <empty-state
+        wx:else
+        icon="/assets/icons/lucide/map-pin.svg"
+        title="还没有收货地址"
+        description="新增地址后，下单时可以直接选择"
+      />
+    </view>
+  </scroll-view>
+
+  <view class="mall-action-bar">
+    <view class="mall-button mall-button--primary address-add" bindtap="addAddress" aria-role="button" aria-label="新增收货地址">
+      <image class="address-add__icon" src="/assets/icons/lucide/plus.svg" mode="aspectFit" />
+      <text>新增收货地址</text>
+    </view>
+  </view>
+</view>

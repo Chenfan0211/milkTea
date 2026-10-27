@@ -1,5 +1,6 @@
 package com.wuling.trade.config;
 
+import com.wuling.security.AdminAuthInterceptor;
 import com.wuling.security.MiniAppAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -19,9 +20,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class TradeSecurityConfig implements WebMvcConfigurer {
 
     private final MiniAppAuthInterceptor miniAppAuthInterceptor;
+    private final AdminAuthInterceptor adminAuthInterceptor;
 
-    public TradeSecurityConfig(MiniAppAuthInterceptor miniAppAuthInterceptor) {
+    public TradeSecurityConfig(MiniAppAuthInterceptor miniAppAuthInterceptor,
+                               AdminAuthInterceptor adminAuthInterceptor) {
         this.miniAppAuthInterceptor = miniAppAuthInterceptor;
+        this.adminAuthInterceptor = adminAuthInterceptor;
     }
 
     @Override
@@ -30,6 +34,11 @@ public class TradeSecurityConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         "/api/v1/app/orders",
                         "/api/v1/app/orders/**",
+                        "/api/v1/app/mall/orders",
+                        "/api/v1/app/mall/checkout/quote",
+                        "/api/v1/app/mall/orders/**",
+                        "/api/v1/app/mall/after-sales",
+                        "/api/v1/app/mall/after-sales/**",
                         // 礼品卡支付与退款：必须登录，服务端按 JWT 校验订单归属
                         "/api/v1/app/payments/gift-card/prepay",
                         "/api/v1/app/payments/gift-card/refund",
@@ -39,6 +48,8 @@ public class TradeSecurityConfig implements WebMvcConfigurer {
                         "/api/v1/app/workbench/store/*/verify",
                         "/api/v1/app/workbench/store-operator/check"
                 );
+        registry.addInterceptor(adminAuthInterceptor)
+                .addPathPatterns("/api/v1/admin/trade/**");
         // 说明：/api/v1/app/payments/callback 不在此列 ——
                 // 它是第三方支付回调，由 HMAC 签名校验保护，不走用户 JWT。
     }

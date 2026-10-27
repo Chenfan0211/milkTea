@@ -31,6 +31,9 @@ public class GatewayAuthPolicy {
             "/api/v1/app/stores",
             "/api/v1/app/menu",
             "/api/v1/app/products",
+            "/api/v1/app/mall/categories",
+            "/api/v1/app/mall/products",
+            "/api/v1/app/mall/skus/validate",
             "/api/v1/app/coupons",
             // 第 5 期：营销服务的公开接口（储值套餐、礼品卡面额、会员等级；
             // 其余营销接口如订单/积分记录/提现仍需登录，见 PROTECTED）
@@ -70,6 +73,11 @@ public class GatewayAuthPolicy {
 
     private static final List<String> PROTECTED_PREFIXES = List.of(
             "/api/v1/app/orders",
+            "/api/v1/app/addresses",
+            "/api/v1/app/mall/orders",
+            "/api/v1/app/mall/checkout/quote",
+            "/api/v1/app/mall/after-sales",
+            "/api/v1/app/mall/after-sales/**",
             "/api/v1/app/users",
             "/api/v1/app/stored-value/orders",
             "/api/v1/app/stored-value/orders/**",

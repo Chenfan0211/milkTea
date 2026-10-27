@@ -1,0 +1,84 @@
+<view class="mall-page">
+  <navigation-bar title="申请售后" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="after-sale-content">
+      <view wx:if="{{needLogin}}" class="mall-state">
+        <text class="mall-state__text">登录后可申请售后</text>
+        <view class="mall-retry" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+
+      <view wx:elif="{{loading}}" class="mall-state">
+        <text class="mall-state__text">售后信息加载中</text>
+      </view>
+
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载售后申请">重新加载</view>
+      </view>
+
+      <block wx:elif="{{order}}">
+        <view class="mall-card after-sale-card">
+          <view class="after-sale-heading">
+            <image class="after-sale-heading__icon" src="/assets/icons/lucide/after-sale-brand.svg" mode="aspectFit" />
+            <text class="mall-section-title">申请售后</text>
+          </view>
+          <text class="after-sale-order">订单 {{order.orderNo}}</text>
+          <text class="mall-muted">请选择需要退货的商品和数量，退款金额以服务端审核结果为准。</text>
+        </view>
+
+        <view class="mall-card after-sale-card">
+          <text class="mall-section-title">退货商品</text>
+          <view wx:for="{{items}}" wx:key="id" class="after-sale-item">
+            <view class="after-sale-item__select" data-id="{{item.id}}" bindtap="toggleItem" aria-role="button" aria-label="选择{{item.name}}">
+              <view class="mall-check {{item.selected ? 'mall-check--active' : ''}}">
+                <image wx:if="{{item.selected}}" class="mall-check__icon" src="/assets/icons/lucide/check.svg" mode="aspectFit" />
+              </view>
+            </view>
+            <image class="after-sale-item__image" src="{{item.image}}" mode="aspectFill" aria-label="{{item.name}}商品图" />
+            <view class="after-sale-item__main">
+              <text class="after-sale-item__name">{{item.name}}</text>
+              <text class="after-sale-item__spec">{{item.spec}}</text>
+              <text class="after-sale-item__price">{{item.unitPriceText}}</text>
+              <view wx:if="{{item.selected}}" class="after-sale-item__quantity">
+                <view class="after-sale-quantity__button" data-id="{{item.id}}" data-delta="-1" bindtap="changeQuantity" aria-role="button" aria-label="减少退货数量">-</view>
+                <text class="after-sale-quantity__value">{{item.selectedQuantity}}</text>
+                <view class="after-sale-quantity__button" data-id="{{item.id}}" data-delta="1" bindtap="changeQuantity" aria-role="button" aria-label="增加退货数量">+</view>
+                <text class="after-sale-item__max">最多 {{item.maxQuantity}} 件</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="mall-card after-sale-card">
+          <text class="mall-section-title">售后原因</text>
+          <textarea
+            class="after-sale-reason"
+            value="{{reason}}"
+            maxlength="255"
+            placeholder="请说明退货原因"
+            bindinput="onReasonInput"
+            aria-label="售后原因"
+          ></textarea>
+        </view>
+
+        <view class="mall-card after-sale-card after-sale-summary">
+          <text class="mall-muted">预计退款金额</text>
+          <text class="after-sale-summary__amount">¥{{refundAmountText}}</text>
+          <text class="mall-muted">最终退款金额由服务端按订单明细计算。</text>
+        </view>
+
+        <view class="after-sale-history" bindtap="openAfterSales" aria-role="button" aria-label="查看售后记录">
+          <text>查看售后记录</text>
+          <image class="after-sale-history__icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </block>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{order}}" class="mall-action-bar">
+    <view class="after-sale-submit" bindtap="submitAfterSale" aria-role="button" aria-label="提交售后申请">
+      <text>{{submitting ? '提交中' : '提交申请'}}</text>
+    </view>
+  </view>
+</view>

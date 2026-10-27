@@ -1,0 +1,127 @@
+@import '../../styles/mall.wxss';
+
+.address-content {
+  padding: 20rpx;
+  padding-bottom: 40rpx;
+}
+
+.address-login {
+  padding: 40rpx 0;
+}
+
+.address-login__button {
+  width: 240rpx;
+  margin: 0 auto;
+}
+
+.address-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  background: var(--card-bg);
+  border: 2rpx solid transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.address-card.is-selected {
+  border-color: var(--brand-green);
+  background: var(--brand-soft);
+}
+
+.address-card__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.address-card__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.address-card__name {
+  color: var(--text-main);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.address-card__phone {
+  margin-left: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+}
+
+.address-card__default,
+.address-card__head .mall-tag {
+  margin-left: 12rpx;
+}
+
+.address-card__region,
+.address-card__detail {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
+.address-card__detail {
+  color: var(--text-main);
+}
+
+.address-card__select {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 16rpx;
+}
+
+.address-card__selected-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.address-actions {
+  padding: 4rpx 0;
+}
+
+.address-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.address-action-row__title {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.address-action-row__buttons {
+  display: flex;
+  align-items: center;
+}
+
+.address-action-row__buttons .mall-button {
+  margin-left: 12rpx;
+}
+
+.address-action-row__delete {
+  color: var(--accent-orange);
+}
+
+.address-add {
+  width: 100%;
+}
+
+.address-add__icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 8rpx;
+}

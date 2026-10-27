@@ -35,6 +35,14 @@ public class OrderVerifiedEvent implements Serializable {
     private Long channelSubjectId;
     /** 首个商品 ID（用于解析分账规则；可空） */
     private Long firstProductId;
+    /** 下单时的分账规则 id（兼容旧消费端）。 */
+    private Long splitRuleId;
+    /** 商城订单标记：true=商城订单（门店无提成），false/null=门店订单 */
+    private Boolean mallOrder;
+    /** 订单用户归属团长主体 ID（商城订单；无团长时为空） */
+    private Long leaderSubjectId;
+    /** 下单时不可变分账规则参数；商城订单优先使用。 */
+    private SplitRuleSnapshot splitRuleSnapshot;
     /** 平台佣金（分） */
     private Long platformCommission;
     /** 明细：供应商主体 + 金额（用于供应商份额按明细分摊） */
@@ -52,6 +60,8 @@ public class OrderVerifiedEvent implements Serializable {
         private Long platformCommission;
         /** 成本单价（分/件）；供应商分账按「成本单价 × 件数」直给 */
         private Long costPrice;
+        /** 分销佣金单价（分/件）；分账时按「单价 × 件数」汇总归团长 */
+        private Long distributionCommission;
         /**
          * 该明细的商品件数（quantity）。
          *
@@ -73,10 +83,16 @@ public class OrderVerifiedEvent implements Serializable {
         }
 
         public Line(Long supplierSubjectId, Long amount, Long platformCommission, Long costPrice, Integer quantity) {
+            this(supplierSubjectId, amount, platformCommission, costPrice, quantity, null);
+        }
+
+        public Line(Long supplierSubjectId, Long amount, Long platformCommission, Long costPrice,
+                Integer quantity, Long distributionCommission) {
             this.supplierSubjectId = supplierSubjectId;
             this.amount = amount;
             this.platformCommission = platformCommission;
             this.costPrice = costPrice;
+            this.distributionCommission = distributionCommission;
             this.quantity = quantity == null ? 1 : quantity;
         }
 
@@ -118,6 +134,14 @@ public class OrderVerifiedEvent implements Serializable {
 
         public void setQuantity(Integer quantity) {
             this.quantity = quantity;
+        }
+
+        public Long getDistributionCommission() {
+            return distributionCommission;
+        }
+
+        public void setDistributionCommission(Long distributionCommission) {
+            this.distributionCommission = distributionCommission;
         }
     }
 
@@ -169,6 +193,22 @@ public class OrderVerifiedEvent implements Serializable {
         this.channelSubjectId = channelSubjectId;
     }
 
+    public SplitRuleSnapshot getSplitRuleSnapshot() {
+        return splitRuleSnapshot;
+    }
+
+    public void setSplitRuleSnapshot(SplitRuleSnapshot splitRuleSnapshot) {
+        this.splitRuleSnapshot = splitRuleSnapshot;
+    }
+
+    public Long getSplitRuleId() {
+        return splitRuleId;
+    }
+
+    public void setSplitRuleId(Long splitRuleId) {
+        this.splitRuleId = splitRuleId;
+    }
+
     public Long getFirstProductId() {
         return firstProductId;
     }
@@ -183,6 +223,22 @@ public class OrderVerifiedEvent implements Serializable {
 
     public void setPlatformCommission(Long platformCommission) {
         this.platformCommission = platformCommission;
+    }
+
+    public Boolean getMallOrder() {
+        return mallOrder;
+    }
+
+    public void setMallOrder(Boolean mallOrder) {
+        this.mallOrder = mallOrder;
+    }
+
+    public Long getLeaderSubjectId() {
+        return leaderSubjectId;
+    }
+
+    public void setLeaderSubjectId(Long leaderSubjectId) {
+        this.leaderSubjectId = leaderSubjectId;
     }
 
     public List<Line> getLines() {

@@ -23,6 +23,8 @@ public class OrderRefundedEvent implements Serializable {
     private Long refundAmount;
     /** 退款单号 */
     private String refundNo;
+    /** 退款比例（本次退款/订单实付，万分比；缺省 10000=全退，兼容旧事件） */
+    private Integer refundRatio;
 
     public String getOrderNo() {
         return orderNo;
@@ -54,5 +56,13 @@ public class OrderRefundedEvent implements Serializable {
 
     public void setRefundNo(String refundNo) {
         this.refundNo = refundNo;
+    }
+
+    public Integer getRefundRatio() {
+        return refundRatio;
+    }
+
+    public void setRefundRatio(Integer refundRatio) {
+        this.refundRatio = refundRatio;
     }
 }

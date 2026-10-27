@@ -15,6 +15,7 @@ import {
   bindChannelStore as bindChannelStoreApi,
   unbindChannelStore as unbindChannelStoreApi,
   bindUserRole as bindUserRoleApi,
+  createLeader as createLeaderApi,
   reviewRoleApplication as reviewApplicationApi,
   unbindUserRole as unbindUserRoleApi,
   reviewWithdraw as reviewWithdrawApi,
@@ -121,7 +122,7 @@ const remoteLoaded = ref<Record<string, boolean>>({});
  */
 const remoteTotals = ref<Record<string, number>>({});
 
-export type RoleType = 'store' | 'investor' | 'resource';
+export type RoleType = 'store' | 'investor' | 'resource' | 'leader';
 
 export interface UserRow {
   id: number;
@@ -622,7 +623,8 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     STORE: 'store',
     INVESTOR: 'investor',
     CHANNEL: 'resource',
-    RESOURCE: 'resource'
+    RESOURCE: 'resource',
+    LEADER: 'leader'
   };
 
   /**
@@ -1390,6 +1392,19 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     const subjects = ensure('subjects');
     const user = users.find((u: any) => Number(u.id) === Number(userId));
     if (!user) return;
+
+    // 团长：不绑定已有主体，直接为该用户创建 LEADER 主体（可与其他经营角色共存）。
+    // 团长既是一个用户也是一个可收佣主体，且不覆盖 app_user.bound_subject_id。
+    if (roleType === 'leader') {
+      await createLeaderApi(userId, _subjectName || user.nickName);
+      await loadRemote('users');
+      await loadRemote('subjects');
+      audit('用户管理', '绑定', user.nickName || String(userId), null, {
+        businessRole: 'LEADER',
+        boundSubjectName: '团长'
+      });
+      return;
+    }
 
     // 一个用户只能绑定一个主体（boundSubjectId 为数字 id，判空即可）
     if (user.boundSubjectId != null && user.boundSubjectId !== '') {

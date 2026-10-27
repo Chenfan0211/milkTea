@@ -1,0 +1,74 @@
+<view class="mall-page">
+  <navigation-bar title="售后详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+    <view class="after-sale-detail-content">
+      <view wx:if="{{needLogin}}" class="mall-state">
+        <text class="mall-state__text">登录后可查看售后详情</text>
+        <view class="mall-retry" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+      <view wx:elif="{{loading}}" class="mall-state">
+        <text class="mall-state__text">售后详情加载中</text>
+      </view>
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载售后详情">重新加载</view>
+      </view>
+
+      <block wx:elif="{{record}}">
+        <view class="mall-card after-sale-status">
+          <view class="after-sale-status__main">
+            <text class="after-sale-status__title">{{record.statusText}}</text>
+            <text class="mall-muted">退款金额 ¥{{record.refundAmountText}}</text>
+            <text wx:if="{{record.refundFailReason}}" class="after-sale-status__error">{{record.refundFailReason}}</text>
+          </view>
+          <image class="after-sale-status__icon" src="/assets/icons/lucide/after-sale-brand.svg" mode="aspectFit" />
+        </view>
+
+        <view class="mall-card after-sale-detail-card">
+          <text class="mall-section-title">售后单信息</text>
+          <view class="after-sale-info-row">
+            <text class="after-sale-info-row__label">售后单号</text>
+            <view class="after-sale-info-row__copy" bindtap="copyAfterSaleNo" aria-role="button" aria-label="复制售后单号">
+              <text class="after-sale-info-row__value">{{record.afterSaleNo}}</text>
+              <image class="after-sale-info-row__icon" src="/assets/icons/lucide/copy.svg" mode="aspectFit" />
+            </view>
+          </view>
+          <view class="after-sale-info-row" bindtap="openOrder" aria-role="button" aria-label="查看原订单">
+            <text class="after-sale-info-row__label">原订单</text>
+            <text class="after-sale-info-row__value">{{record.orderNo}}</text>
+          </view>
+          <view class="after-sale-info-row">
+            <text class="after-sale-info-row__label">申请时间</text>
+            <text class="after-sale-info-row__value">{{record.applyTimeText}}</text>
+          </view>
+          <view wx:if="{{record.reviewTimeText !== '—'}}" class="after-sale-info-row">
+            <text class="after-sale-info-row__label">审核时间</text>
+            <text class="after-sale-info-row__value">{{record.reviewTimeText}}</text>
+          </view>
+          <view wx:if="{{record.completeTimeText !== '—'}}" class="after-sale-info-row">
+            <text class="after-sale-info-row__label">完成时间</text>
+            <text class="after-sale-info-row__value">{{record.completeTimeText}}</text>
+          </view>
+        </view>
+
+        <view class="mall-card after-sale-detail-card">
+          <text class="mall-section-title">退货商品</text>
+          <view wx:for="{{record.items}}" wx:key="orderItemId" class="after-sale-detail-item">
+            <image class="after-sale-detail-item__image" src="{{item.image}}" mode="aspectFill" aria-label="{{item.name}}商品图" />
+            <view class="after-sale-detail-item__main">
+              <text class="after-sale-detail-item__name">{{item.name}}</text>
+              <text class="after-sale-detail-item__spec">{{item.spec}}</text>
+              <text class="after-sale-detail-item__meta">{{item.unitPriceText}} x{{item.quantity}} = ¥{{item.lineAmountText}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="mall-card after-sale-detail-card">
+          <text class="mall-section-title">售后原因</text>
+          <text class="after-sale-reason-text">{{record.reason}}</text>
+        </view>
+      </block>
+    </view>
+  </scroll-view>
+</view>

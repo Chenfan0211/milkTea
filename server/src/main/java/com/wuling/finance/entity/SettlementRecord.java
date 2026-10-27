@@ -20,6 +20,10 @@ public class SettlementRecord {
     private Long snapshotId;
     private Long orderId;
     private Long amount;
+    /** 分账原金额（分），用于多次部分退款累计冲正。 */
+    private Long originalAmount;
+    /** 已冲正金额（分）。 */
+    private Long refundedAmount;
     private String status;
     private LocalDate settleDate;
     private LocalDateTime createTime;

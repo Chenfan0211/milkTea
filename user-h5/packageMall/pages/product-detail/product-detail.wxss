@@ -1,0 +1,229 @@
+@import '../../styles/mall.wxss';
+
+.detail-content {
+  padding: 20rpx;
+  padding-bottom: 40rpx;
+}
+
+.detail-gallery {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.detail-gallery__scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.detail-gallery__list {
+  display: inline-flex;
+}
+
+.detail-gallery__image {
+  width: 710rpx;
+  height: 560rpx;
+  margin-right: 8rpx;
+}
+
+.detail-sold-out {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  padding: 8rpx 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-xs);
+}
+
+.detail-summary {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.detail-summary__price-row {
+  display: flex;
+  align-items: baseline;
+}
+
+.detail-summary__price {
+  color: var(--brand-green);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.detail-summary__original {
+  margin-left: 12rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-decoration: line-through;
+}
+
+.detail-summary__name {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-main);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.detail-summary__subtitle {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.detail-summary__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}
+
+.detail-summary__sales {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.detail-sku {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.detail-sku__list {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 20rpx;
+}
+
+.detail-sku__item {
+  display: flex;
+  flex-direction: column;
+  min-width: 160rpx;
+  padding: 12rpx 16rpx;
+  margin: 0 12rpx 12rpx 0;
+  background: var(--page-bg-neutral);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-md);
+}
+
+.detail-sku__item.is-selected {
+  background: var(--brand-soft);
+  border-color: var(--brand-green);
+}
+
+.detail-sku__item.is-sold-out {
+  opacity: 0.56;
+}
+
+.detail-sku__value {
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.detail-sku__stock {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.detail-quantity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20rpx;
+  margin-top: 8rpx;
+  border-top: 1rpx solid var(--line-color);
+}
+
+.detail-quantity__label {
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.detail-quantity__control {
+  display: flex;
+  align-items: center;
+}
+
+.detail-quantity__step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
+.detail-quantity__icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.detail-quantity__value {
+  min-width: 64rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  text-align: center;
+}
+
+.detail-description {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.detail-description__text {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.detail-note {
+  padding: 20rpx;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.detail-cart-entry {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  margin-right: 16rpx;
+}
+
+.detail-cart-entry__icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.detail-cart-entry__label {
+  margin-top: 4rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-caption);
+}
+
+.detail-actions {
+  display: flex;
+  flex: 1;
+}
+
+.detail-actions__button {
+  flex: 1;
+}
+
+.detail-actions__button + .detail-actions__button {
+  margin-left: 12rpx;
+}

@@ -46,6 +46,113 @@ function fetchProductDetail(productId) {
 }
 
 // ============================================================
+// 商城 / 地址
+// ============================================================
+function fetchMallCategories() {
+  return request({ url: '/api/v1/app/mall/categories', method: 'GET' }).then(unwrap);
+}
+
+function fetchMallProducts(options = {}) {
+  const data = { page: options.page || 1, size: options.size || 20 };
+  if (options.categoryId) data.categoryId = options.categoryId;
+  return request({ url: '/api/v1/app/mall/products', method: 'GET', data }).then(unwrap);
+}
+
+function fetchMallProductDetail(id) {
+  return request({ url: `/api/v1/app/mall/products/${id}`, method: 'GET' }).then(unwrap);
+}
+
+function validateMallSkus(items) {
+  const source = Array.isArray(items) ? items : [];
+  const payload = source
+    .map(item => {
+      if (typeof item === 'number' || typeof item === 'string') {
+        return { skuId: Number(item), quantity: 1 };
+      }
+      return {
+        skuId: Number(item && (item.skuId || item.id)),
+        quantity: Math.max(1, Number(item && item.quantity) || 1)
+      };
+    })
+    .filter(item => Number.isFinite(item.skuId));
+  return request({
+    url: '/api/v1/app/mall/skus/validate',
+    method: 'POST',
+    data: { items: payload }
+  }).then(unwrap);
+}
+
+function fetchAddresses() {
+  return request({ url: '/api/v1/app/addresses', method: 'GET' }).then(unwrap);
+}
+
+function createAddress(data) {
+  return request({ url: '/api/v1/app/addresses', method: 'POST', data }).then(unwrap);
+}
+
+function updateAddress(id, data) {
+  return request({ url: `/api/v1/app/addresses/${id}`, method: 'PUT', data }).then(unwrap);
+}
+
+function deleteAddress(id) {
+  return request({ url: `/api/v1/app/addresses/${id}`, method: 'DELETE' }).then(unwrap);
+}
+
+function setDefaultAddress(id) {
+  return request({ url: `/api/v1/app/addresses/${id}/default`, method: 'PUT' }).then(unwrap);
+}
+
+/**
+ * 商城结算确认（需登录）：返回当前用户最终成交单价、库存与应付合计。
+ * 页面展示与下单前校验统一使用该接口，避免客户端自行叠加佣金。
+ */
+function quoteMallCheckout(items) {
+  return request({
+    url: '/api/v1/app/mall/checkout/quote',
+    method: 'POST',
+    data: { items }
+  }).then(unwrap);
+}
+
+function createMallOrder(data) {
+  return request({ url: '/api/v1/app/mall/orders', method: 'POST', data }).then(unwrap);
+}
+
+function createAfterSale(orderNo, data) {
+  return request({
+    url: `/api/v1/app/mall/orders/${orderNo}/after-sales`,
+    method: 'POST',
+    data
+  }).then(unwrap);
+}
+
+function fetchOrderAfterSales(orderNo) {
+  return request({
+    url: `/api/v1/app/mall/orders/${orderNo}/after-sales`,
+    method: 'GET'
+  }).then(unwrap);
+}
+
+function fetchAfterSales(page = 1, size = 20) {
+  return request({
+    url: '/api/v1/app/mall/after-sales',
+    method: 'GET',
+    data: { page, size }
+  }).then(unwrap);
+}
+
+function fetchAfterSaleDetail(afterSaleNo) {
+  return request({
+    url: `/api/v1/app/mall/after-sales/${afterSaleNo}`,
+    method: 'GET'
+  }).then(unwrap);
+}
+
+function confirmMallReceipt(orderNo) {
+  return request({ url: `/api/v1/app/orders/${orderNo}/confirm-receipt`, method: 'POST' }).then(unwrap);
+}
+
+// ============================================================
 // 地理位置（服务端代理腾讯位置服务）
 // ============================================================
 //
@@ -110,6 +217,8 @@ function fetchOrders(page = 1, size = 20, options = {}) {
   const data = { page, size };
   if (options.startTime) data.startTime = options.startTime;
   if (options.endTime) data.endTime = options.endTime;
+  if (options.category) data.category = options.category;
+  if (options.status) data.status = options.status;
   return request({ url: '/api/v1/app/orders', method: 'GET', data }).then(unwrap);
 }
 
@@ -879,6 +988,22 @@ module.exports = {
   fetchStores,
   fetchMenu,
   fetchProductDetail,
+  fetchMallCategories,
+  fetchMallProducts,
+  fetchMallProductDetail,
+  validateMallSkus,
+  fetchAddresses,
+  createAddress,
+  updateAddress,
+  deleteAddress,
+  setDefaultAddress,
+  createMallOrder,
+  quoteMallCheckout,
+  createAfterSale,
+  fetchOrderAfterSales,
+  fetchAfterSales,
+  fetchAfterSaleDetail,
+  confirmMallReceipt,
   createOrder,
   fetchOrders,
   fetchOrderDetail,

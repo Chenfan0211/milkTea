@@ -69,6 +69,22 @@
     {
       "root": "packageHealth",
       "pages": ["pages/capture/capture", "pages/report/report", "pages/history/history"]
+    },
+    {
+      "root": "packageMall",
+      "pages": [
+        "pages/home/home",
+        "pages/product-detail/product-detail",
+        "pages/cart/cart",
+        "pages/checkout/checkout",
+        "pages/address/address",
+        "pages/address-edit/address-edit",
+        "pages/orders/orders",
+        "pages/order-detail/order-detail",
+        "pages/after-sale/after-sale",
+        "pages/after-sales/after-sales",
+        "pages/after-sale-detail/after-sale-detail"
+      ]
     }
   ],
   "entryPagePath": "pages/launch/launch",

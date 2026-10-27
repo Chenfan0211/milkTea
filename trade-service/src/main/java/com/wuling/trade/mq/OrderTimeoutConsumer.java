@@ -9,14 +9,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-/**
- * 订单超时关闭消费者。
- *
- * 流程：下单 → 发送延迟消息(15min) → TTL 到期转入本队列 → 检查订单状态
- *       → 仍为 CREATED(未支付) 则关闭；已支付则忽略（幂等且业务安全）。
- *
- * 这是 MQ 基础设施的示例实现，演示：延迟消息 + 幂等 + 重试 + 死信。
- */
+/** 订单超时关闭消费者；商城库存释放由 OrderService 在同一关单事务内完成。 */
 @Component
 public class OrderTimeoutConsumer extends AbstractMqConsumer {
 
@@ -39,7 +32,6 @@ public class OrderTimeoutConsumer extends AbstractMqConsumer {
             log.warn("订单超时消息体为空，跳过");
             return;
         }
-        // 已支付则不做处理（重复投递或支付竞态都安全）
         boolean closed = orderService.closeIfUnpaid(orderNo);
         if (closed) {
             log.info("订单已超时关闭 orderNo={}", orderNo);

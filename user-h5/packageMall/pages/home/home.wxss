@@ -1,0 +1,221 @@
+@import '../../styles/mall.wxss';
+
+.home-content {
+  padding: 20rpx;
+  padding-bottom: 40rpx;
+}
+
+.home-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-lg);
+}
+
+.home-hero__copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.home-hero__eyebrow {
+  color: var(--brand-green);
+  font-size: var(--font-caption);
+  letter-spacing: 1rpx;
+}
+
+.home-hero__title {
+  margin-top: 8rpx;
+  color: var(--text-main);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.home-hero__description {
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.home-hero__tools {
+  display: flex;
+  flex: none;
+  margin-left: 16rpx;
+}
+
+.home-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 96rpx;
+  padding: 12rpx 8rpx;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+}
+
+.home-tool + .home-tool {
+  margin-left: 8rpx;
+}
+
+.home-tool__icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.home-tool__label {
+  margin-top: 8rpx;
+  color: var(--text-main);
+  font-size: var(--font-caption);
+}
+
+.category-heading {
+  display: block;
+  margin-bottom: 12rpx;
+  color: var(--text-main);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.category-scroll {
+  width: 100%;
+  margin-bottom: 20rpx;
+  white-space: nowrap;
+}
+
+.category-list {
+  display: inline-flex;
+  align-items: center;
+}
+
+.category-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 48rpx;
+  padding: 0 20rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  background: var(--card-bg);
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-pill);
+}
+
+.category-tab + .category-tab {
+  margin-left: 12rpx;
+}
+
+.category-tab.is-active {
+  color: #ffffff;
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+}
+
+.product-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.product-card {
+  width: calc(50% - 8rpx);
+  margin-bottom: 20rpx;
+  overflow: hidden;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.product-card__image-wrap {
+  position: relative;
+  width: 100%;
+  height: 300rpx;
+  background: var(--page-bg-neutral);
+}
+
+.product-card__image {
+  width: 100%;
+  height: 100%;
+}
+
+.product-card__sold-out {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  padding: 4rpx 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-caption);
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: var(--radius-xs);
+}
+
+.product-card__body {
+  padding: 16rpx;
+}
+
+.product-card__name,
+.product-card__subtitle,
+.product-card__stock {
+  display: block;
+}
+
+.product-card__name {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-card__subtitle {
+  margin-top: 8rpx;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-card__price-row {
+  display: flex;
+  align-items: baseline;
+  margin-top: 12rpx;
+}
+
+.product-card__price {
+  color: var(--brand-green);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.product-card__original {
+  margin-left: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+  text-decoration: line-through;
+}
+
+.product-card__stock {
+  margin-top: 8rpx;
+  color: var(--text-muted);
+  font-size: var(--font-caption);
+}
+
+.product-card.is-sold-out .product-card__image {
+  opacity: 0.56;
+}
+
+.product-card.is-sold-out .product-card__price {
+  color: var(--text-muted);
+}
+
+.home-list-end {
+  padding: 20rpx 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}

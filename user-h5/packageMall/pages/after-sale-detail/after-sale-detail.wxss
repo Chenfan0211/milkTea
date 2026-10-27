@@ -1,0 +1,123 @@
+@import '../../styles/mall.wxss';
+
+.after-sale-detail-content {
+  padding: 20rpx;
+  padding-bottom: 40rpx;
+}
+
+.after-sale-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+}
+
+.after-sale-status__main {
+  display: flex;
+  flex-direction: column;
+}
+
+.after-sale-status__title {
+  margin-bottom: 8rpx;
+  color: var(--brand-green);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+.after-sale-status__error {
+  margin-top: 8rpx;
+  color: var(--accent-orange);
+  font-size: var(--font-sm);
+}
+
+.after-sale-status__icon {
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.after-sale-detail-card {
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+}
+
+.after-sale-info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-top: 16rpx;
+}
+
+.after-sale-info-row__label {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.after-sale-info-row__value {
+  margin-left: 20rpx;
+  color: var(--text-main);
+  font-size: var(--font-sm);
+  text-align: right;
+}
+
+.after-sale-info-row__copy {
+  display: flex;
+  align-items: center;
+}
+
+.after-sale-info-row__icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-left: 8rpx;
+}
+
+.after-sale-detail-item {
+  display: flex;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--line-color);
+}
+
+.after-sale-detail-item:last-child {
+  border-bottom: none;
+}
+
+.after-sale-detail-item__image {
+  flex: none;
+  width: 112rpx;
+  height: 112rpx;
+  background: var(--page-bg-neutral);
+  border-radius: var(--radius-md);
+}
+
+.after-sale-detail-item__main {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+
+.after-sale-detail-item__name {
+  display: block;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.after-sale-detail-item__spec,
+.after-sale-detail-item__meta {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.after-sale-reason-text {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  line-height: 1.6;
+}

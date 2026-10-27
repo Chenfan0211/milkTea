@@ -130,6 +130,58 @@ public class InternalQueryController {
     }
 
     /**
+     * 查询用户团长身份与归属（trade 商城下单定价用）。
+     *
+     * <p>返回：
+     * <ul>
+     *   <li>{@code leader}：用户是否团长身份（user_role_grant role_code=LEADER active）；</li>
+     *   <li>{@code leaderUserId} / {@code leaderSubjectId}：该用户归属团长（user_leader 表）；无归属为 null。</li>
+     * </ul>
+     *
+     * <p>团长本身也是用户：下单用户是团长时，其价格口径为「售价」；非团长才叠加分销佣金，
+     * 佣金归属其 {@code leaderSubjectId}，无归属时并入平台尾差。
+     */
+    @GetMapping("/user-leader")
+    public Map<String, Object> userLeader(@RequestParam Long userId) {
+        Long leaderSubjectId = null;
+        Boolean leader = false;
+        List<Map<String, Object>> grants = jdbcTemplate.queryForList(
+                "select role_code, subject_id from user_role_grant "
+                        + "where user_id = ? and UPPER(role_code) = 'LEADER' and UPPER(status) = 'ACTIVE' and deleted = 0 "
+                        + "order by id limit 1",
+                userId);
+        if (!grants.isEmpty()) {
+            leader = true;
+            Object subjectId = grants.get(0).get("subject_id");
+            if (subjectId != null) {
+                leaderSubjectId = ((Number) subjectId).longValue();
+            }
+        }
+        Long leaderUserId = null;
+        if (!leader) {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "select leader_user_id, leader_subject_id from user_leader "
+                            + "where user_id = ? and deleted = 0 order by id limit 1",
+                    userId);
+            if (!rows.isEmpty()) {
+                Map<String, Object> row = rows.get(0);
+                Object lu = row.get("leader_user_id");
+                leaderUserId = lu == null ? null : ((Number) lu).longValue();
+                Object ls = row.get("leader_subject_id");
+                leaderSubjectId = ls == null ? null : ((Number) ls).longValue();
+            }
+        } else {
+            // 团长本身没有再上级团长：归属团长主体即自身主体，供快照审计参考。
+            leaderUserId = userId;
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("leader", leader);
+        result.put("leaderUserId", leaderUserId);
+        result.put("leaderSubjectId", leader ? leaderSubjectId : leaderSubjectId);
+        return result;
+    }
+
+    /**
      * 查询订单分账快照（供 trade 后台订单接口回填「分账明细」）。
      *
      * <p><b>为什么需要</b>：运营后台的订单列表/详情要展示分账明细，而
@@ -152,6 +204,7 @@ public class InternalQueryController {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "select s.snapshot_no, s.item_count, s.supplier_amount, s.store_amount, "
                         + "s.channel_amount, s.investor_amount, s.platform_amount, s.platform_commission, s.platform_bonus, "
+                        + "s.leader_amount, "
                         + "o.paid_amount "
                         + "from split_snapshot s left join orders o on o.order_no = s.order_no "
                         + "where s.order_no = ? and s.deleted = 0 order by s.id desc limit 1",
@@ -166,6 +219,7 @@ public class InternalQueryController {
         result.put("platformCommission", null);
         result.put("platformShare", null);
         result.put("platformBonus", null);
+        result.put("leaderShare", null);
         result.put("base", null);
         if (rows.isEmpty()) {
             return result;
@@ -187,6 +241,7 @@ public class InternalQueryController {
         result.put("platformCommission", commission);
         result.put("platformShare", nz(row.get("platform_amount")));
         result.put("platformBonus", bonus);
+        result.put("leaderShare", nz(row.get("leader_amount")));
         // 快照未存投资人基础额，按同一口径现算，供前端判断「基础为负」提示
         result.put("base", paid - store - channel - supplier - commission);
         return result;

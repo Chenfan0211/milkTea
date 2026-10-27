@@ -1,0 +1,117 @@
+<view class="mall-page">
+  <navigation-bar title="商城订单" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="orders-tabs" scroll-x show-scrollbar="{{false}}">
+    <view class="orders-tabs__list">
+      <view
+        wx:for="{{statusTabs}}"
+        wx:key="value"
+        class="orders-tab {{activeStatus === item.value ? 'is-active' : ''}}"
+        data-status="{{item.value}}"
+        bindtap="selectStatus"
+        aria-role="button"
+        aria-label="筛选{{item.label}}订单"
+      >{{item.label}}</view>
+    </view>
+  </scroll-view>
+
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}" lower-threshold="120" bindscrolltolower="loadMore">
+    <view class="orders-content">
+      <view wx:if="{{needLogin}}" class="orders-empty">
+        <empty-state icon="/assets/icons/lucide/receipt.svg" title="请先登录" description="登录后可查看商城订单" />
+        <view class="mall-button mall-button--primary orders-empty__button" bindtap="goLogin" aria-role="button" aria-label="去登录">去登录</view>
+      </view>
+
+      <view wx:elif="{{loading}}" class="mall-state">
+        <text class="mall-state__text">商城订单加载中</text>
+      </view>
+
+      <view wx:elif="{{error}}" class="mall-state">
+        <text class="mall-state__text">{{error}}</text>
+        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载商城订单">重新加载</view>
+      </view>
+
+      <block wx:elif="{{orders.length}}">
+        <view
+          wx:for="{{orders}}"
+          wx:key="orderNo"
+          class="order-card"
+          data-order-no="{{item.orderNo}}"
+          bindtap="openDetail"
+          aria-role="button"
+          aria-label="查看订单 {{item.orderNo}}"
+        >
+          <view class="order-card__head">
+            <text class="order-card__number">订单 {{item.orderNo}}</text>
+            <view class="order-card__status-wrap">
+              <text class="order-card__status order-card__status--{{item.statusClass}}">{{item.statusText}}</text>
+              <text wx:if="{{item.status === 'SHIPPED'}}" class="order-card__countdown">剩余 {{item.autoCompleteCountdown}} 自动完成</text>
+              <text wx:if="{{item.refundText}}" class="order-card__refund">{{item.refundText}}</text>
+            </view>
+          </view>
+
+          <view wx:for="{{item.items}}" wx:for-item="product" wx:key="key" class="order-product">
+            <image class="order-product__image" src="{{product.image}}" mode="aspectFill" aria-label="{{product.name}}商品图" />
+            <view class="order-product__main">
+              <text class="order-product__name">{{product.name}}</text>
+              <text class="order-product__spec">{{product.spec}}</text>
+              <view class="order-product__meta">
+                <text class="order-product__price">{{product.unitPriceText}}</text>
+                <text class="order-product__quantity">x{{product.quantity}}</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="order-card__summary">
+            <text class="order-card__summary-count">共 {{item.itemCount}} 件</text>
+            <text class="order-card__summary-amount">实付 ¥{{item.amountText}}</text>
+          </view>
+
+          <view class="order-card__actions">
+            <view
+              wx:if="{{item.canCancel}}"
+              class="mall-button mall-button--small order-card__action"
+              data-order-no="{{item.orderNo}}"
+              catchtap="cancelOrder"
+              aria-role="button"
+              aria-label="取消订单"
+            >{{item.status === 'PAID' ? '申请退款' : '取消订单'}}</view>
+            <view
+              wx:if="{{item.canPay}}"
+              class="mall-button mall-button--small mall-button--primary order-card__action"
+              data-order-no="{{item.orderNo}}"
+              catchtap="continuePayment"
+              aria-role="button"
+              aria-label="继续支付"
+            >继续支付</view>
+            <view
+              wx:if="{{item.canConfirm}}"
+              class="mall-button mall-button--small mall-button--primary order-card__action"
+              data-order-no="{{item.orderNo}}"
+              catchtap="confirmReceipt"
+              aria-role="button"
+              aria-label="确认收货"
+            >确认收货</view>
+            <view
+              wx:if="{{item.activeAfterSale || item.afterSaleStatus}}"
+              class="mall-button mall-button--small order-card__action"
+              data-order-no="{{item.orderNo}}"
+              catchtap="openAfterSales"
+              aria-role="button"
+              aria-label="查看订单售后"
+            >{{item.activeAfterSale ? '售后处理中' : '售后记录'}}</view>
+          </view>
+        </view>
+
+        <view class="orders-end">{{loadingMore ? '正在加载更多' : (hasMore ? '上拉加载更多' : '已经到底了')}}</view>
+      </block>
+
+      <empty-state
+        wx:else
+        icon="/assets/icons/lucide/receipt.svg"
+        title="暂无商城订单"
+        description="选购商品后，订单会显示在这里"
+      />
+    </view>
+  </scroll-view>
+</view>

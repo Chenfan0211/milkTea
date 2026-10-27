@@ -9,6 +9,8 @@ public class OrderDTO {
 
     private Long id;
     private String orderNo;
+    /** STORE / MALL. */
+    private String orderType;
     private Long userId;
     private String user;
     private Long storeSubjectId;
@@ -33,13 +35,23 @@ public class OrderDTO {
     /** 储值余额支付立减金额（分）。 */
     private Long storedValueDiscount;
     private String refundStatus;
+    /** 是否存在处理中的商城售后（PENDING/APPROVED/REFUNDING）。 */
+    private Boolean activeAfterSale;
+    /** 最近一笔商城售后状态（含 SUCCESS/FAILED/REJECTED），无售后为 null。 */
+    private String afterSaleStatus;
+    /** 最近一笔商城售后单号，便于前端直接跳转。 */
+    private String afterSaleNo;
     private String createTime;
     private String payTime;
     private String verifyTime;
+    private String shippedTime;
+    private String autoCompleteTime;
     private String completeTime;
     private List<Item> items;
     /** 分账快照摘要（仅后台订单接口下发；未核销订单为 null） */
     private Split split;
+    /** Mall receiver and logistics snapshot. */
+    private Shipping shipping;
 
     /**
      * 会员价校验结果（仅下单响应带回，查询订单时为 null）。
@@ -99,7 +111,21 @@ public class OrderDTO {
         /** 平台提成（分），对应 split_snapshot.platform_bonus */
         private Long platformBonus;
         /** 投资人计费基础额（分），<= 0 时投资人为 0 */
+        /** 团长分销佣金所得（分）；商城订单无团长时为 0 */
+        private Long leaderShare;
         private Long base;
+    }
+
+    @Data
+    public static class Shipping {
+        private String recipientName;
+        private String phone;
+        private String provinceName;
+        private String cityName;
+        private String districtName;
+        private String detailAddress;
+        private String courierCompany;
+        private String trackingNo;
     }
 
     @Data
@@ -114,6 +140,8 @@ public class OrderDTO {
         private Long unitPrice;
         private Long originalPrice;
         private Integer quantity;
+        /** 已占用的退货数量（审核中/退款中/已成功），供售后申请页计算剩余可退。 */
+        private Integer refundedQuantity;
         private Long subTotal;
         /**
          * 成本单价（分/件）。
@@ -124,5 +152,7 @@ public class OrderDTO {
         private Long costPrice;
         /** 平台提成单价（分/件），口径同 costPrice */
         private Long platformCommission;
+        /** 分销佣金单价（分/件），口径同 costPrice */
+        private Long distributionCommission;
     }
 }

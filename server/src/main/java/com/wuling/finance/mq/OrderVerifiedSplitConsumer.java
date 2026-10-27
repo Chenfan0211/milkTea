@@ -7,6 +7,7 @@ import com.wuling.common.mq.MqIdempotent;
 import com.wuling.common.mq.event.OrderVerifiedEvent;
 import com.wuling.finance.service.LedgerService;
 import com.wuling.finance.service.SplitCalculator;
+import com.wuling.finance.entity.SplitRule;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -51,9 +52,22 @@ public class OrderVerifiedSplitConsumer extends AbstractMqConsumer {
             List<SplitCalculator.LineItem> lines = event.getLines() == null ? List.of()
                     : event.getLines().stream()
                             .map(l -> new SplitCalculator.LineItem(l.getSupplierSubjectId(), l.getAmount(),
-                                    l.getPlatformCommission(), l.getCostPrice(), l.getQuantity()))
+                                    l.getPlatformCommission(), l.getCostPrice(), l.getQuantity(),
+                                    l.getDistributionCommission() == null ? 0L : l.getDistributionCommission()))
                             .toList();
 
+            SplitRule ruleSnapshot = null;
+            if (event.getSplitRuleSnapshot() != null) {
+                var snapshot = event.getSplitRuleSnapshot();
+                ruleSnapshot = new SplitRule();
+                ruleSnapshot.setId(snapshot.getRuleId());
+                ruleSnapshot.setStatus("enabled");
+                ruleSnapshot.setStoreRatio(snapshot.getStoreRatio());
+                ruleSnapshot.setChannelRatio(snapshot.getChannelRatio());
+                ruleSnapshot.setInvestorRatio(snapshot.getInvestorRatio());
+                ruleSnapshot.setInvestorThresholdAmount(snapshot.getInvestorThresholdAmount());
+                ruleSnapshot.setInvestorRatioAfter(snapshot.getInvestorRatioAfter());
+            }
             ledgerService.executeSplit(
                     event.getOrderId(),
                     event.getOrderNo(),
@@ -62,8 +76,12 @@ public class OrderVerifiedSplitConsumer extends AbstractMqConsumer {
                     event.getStoreSubjectId(),
                     event.getChannelSubjectId(),
                     event.getFirstProductId(),
+                    event.getSplitRuleId(),
+                    ruleSnapshot,
                     event.getPlatformCommission() == null ? 0L : event.getPlatformCommission(),
-                    lines);
+                    lines,
+                    Boolean.TRUE.equals(event.getMallOrder()),
+                    event.getLeaderSubjectId());
             log.info("核销分账完成 orderNo={}", event.getOrderNo());
         });
     }

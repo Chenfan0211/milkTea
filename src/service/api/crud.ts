@@ -129,6 +129,49 @@ export async function unbindUserRole(userId: number, roleCode: string, subjectId
   return unwrap<void>(res);
 }
 
+export async function createLeader(userId: number, name?: string): Promise<Record<string, any>> {
+  const res = await request<Record<string, any>>({
+    url: '/api/v1/admin/subject/leaders',
+    method: 'post',
+    data: { userId, name }
+  });
+  return unwrap<Record<string, any>>(res);
+}
+
+export async function removeLeader(subjectId: number): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/subject/leaders/${subjectId}`,
+    method: 'delete'
+  });
+  return unwrap<void>(res);
+}
+
+export async function fetchLeaders(params?: any): Promise<Api.Common.PaginatingQueryRecord<any>> {
+  const res = await request<any>({ url: '/api/v1/admin/subject/leaders', method: 'get', params });
+  return unwrap<Api.Common.PaginatingQueryRecord<any>>(res);
+}
+
+export async function assignUserLeader(userId: number, leaderUserId: number): Promise<Record<string, any>> {
+  const res = await request<Record<string, any>>({
+    url: '/api/v1/admin/user-leader',
+    method: 'post',
+    data: { userId, leaderUserId }
+  });
+  return unwrap<Record<string, any>>(res);
+}
+
+export async function removeUserLeader(userId: number): Promise<void> {
+  const res = await request<void>({
+    url: `/api/v1/admin/user-leader/${userId}`,
+    method: 'delete'
+  });
+  return unwrap<void>(res);
+}
+
+export async function fetchUserLeaders(params?: any): Promise<Api.Common.PaginatingQueryRecord<any>> {
+  const res = await request<any>({ url: '/api/v1/admin/user-leader', method: 'get', params });
+  return unwrap<Api.Common.PaginatingQueryRecord<any>>(res);
+}
 export async function reviewRoleApplication(
   id: number,
   approve: boolean,

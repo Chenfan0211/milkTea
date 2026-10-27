@@ -50,6 +50,15 @@ const roleDefinitions = [
     brandIcon: '/assets/icons/lucide/store-brand.svg',
     whiteIcon: '/assets/icons/lucide/store-white.svg',
     badgeText: '经营角色'
+  },
+  {
+    id: 'leader',
+    label: '团长',
+    description: '商城分销，按归属用户订单获得分销佣金',
+    icon: '/assets/icons/lucide/users.svg',
+    brandIcon: '/assets/icons/lucide/users-brand.svg',
+    whiteIcon: '/assets/icons/lucide/users-white.svg',
+    badgeText: '经营角色'
   }
 ];
 
@@ -170,7 +179,7 @@ function resolveRoleActionRoute(actionId) {
 }
 
 /** 前端角色 id -> 后端提现接口要求的 roleType 枚举。 */
-const ROLE_TYPE_ENUM = { store: 'STORE', investor: 'INVESTOR', resource: 'CHANNEL' };
+const ROLE_TYPE_ENUM = { store: 'STORE', investor: 'INVESTOR', resource: 'CHANNEL', leader: 'LEADER' };
 
 /** 前端角色 id -> 后端 roleType 枚举；未知返回 null。 */
 function roleTypeOf(roleId) {

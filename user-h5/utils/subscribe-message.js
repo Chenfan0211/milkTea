@@ -11,7 +11,10 @@ const TEMPLATE_IDS = {
   STORED_VALUE_RECHARGE: 'uvD7jHuIZ1bpXIA-HfqHXfScW0j2zIYBCYWHR7emFJI',
   BALANCE_CHANGE: 'uvD7jHuIZ1bpXIA-HfqHXQGw6MCweamgsPFK-MIVne0',
   COUPON_ARRIVAL: 'en0sN5PvHmq9DyiZIjaH_x5-bGpisdD3boCqMa_wx5g',
-  COUPON_EXPIRY: 'oaeDu3ZTFfzrrPQvFliAMRHdMNg19KW2V8xhvCU5MSo'
+  COUPON_EXPIRY: 'oaeDu3ZTFfzrrPQvFliAMRHdMNg19KW2V8xhvCU5MSo',
+  // 商城发货通知模板需在微信公众平台申请后填入，并与 trade-service 的
+  // WX_MALL_SHIPPED_TEMPLATE_ID 保持一致；为空时静默跳过授权。
+  MALL_SHIPPED: 'bxgB0GhwNBcC37qRILiRKOx5rxJWn7Phuw5ZaNB8lEI'
 };
 
 const ITEM_TEMPLATE_IDS = {
@@ -21,7 +24,8 @@ const ITEM_TEMPLATE_IDS = {
   storedValueRecharge: TEMPLATE_IDS.STORED_VALUE_RECHARGE,
   balanceChange: TEMPLATE_IDS.BALANCE_CHANGE,
   couponArrival: TEMPLATE_IDS.COUPON_ARRIVAL,
-  couponExpiry: TEMPLATE_IDS.COUPON_EXPIRY
+  couponExpiry: TEMPLATE_IDS.COUPON_EXPIRY,
+  mallShipped: TEMPLATE_IDS.MALL_SHIPPED
 };
 
 const ORDER_TEMPLATE_ID = TEMPLATE_IDS.ORDER;
@@ -90,6 +94,24 @@ function requestOrderSubscribe() {
   return requestSubscribe([ORDER_TEMPLATE_ID]).then(results => results[0] || {});
 }
 
+function requestMallShippingSubscribe() {
+  // 模板 ID 由运营配置下发，避免每次申请模板都发小程序版本。
+  let api;
+  try {
+    api = require('./api');
+  } catch (error) {
+    api = null;
+  }
+  if (!api || typeof api.fetchConfig !== 'function') {
+    return requestContextualSubscribe(['mallShipped']).then(results => results[0] || {});
+  }
+  return api
+    .fetchConfig('mall_shipped_template_id')
+    .then(templateId => requestSubscribe([templateId || TEMPLATE_IDS.MALL_SHIPPED]))
+    .then(results => results[0] || {})
+    .catch(() => ({}));
+}
+
 function requestContextualSubscribe(keys) {
   const ids = (Array.isArray(keys) ? keys : [keys])
     .map(resolveTemplateId)
@@ -104,5 +126,6 @@ module.exports = {
   MAX_TEMPLATES_PER_REQUEST,
   requestSubscribe,
   requestOrderSubscribe,
+  requestMallShippingSubscribe,
   requestContextualSubscribe
 };

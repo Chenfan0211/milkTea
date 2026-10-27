@@ -17,7 +17,11 @@ public class Refund {
     private String refundNo;
     private Long orderId;
     private String orderNo;
+    /** 关联售后单 ID（商城退货退款；普通退款为 null） */
+    private Long afterSaleId;
     private Long amount;
+    /** 订单实付快照（分），比例冲正用 */
+    private Long originalAmount;
     private String status;
     private String reason;
     /** 微信退款单号（受理成功后回填，用于对账/查询） */

@@ -41,7 +41,8 @@ public class ProductSecurityConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(adminAuthInterceptor)
                 .addPathPatterns(
-                        "/api/v1/admin/product/**"
+                        "/api/v1/admin/product/**",
+                        "/api/v1/admin/mall/**"
                 );
         // 门店选品：读写都必须登录，且服务端按 JWT 校验门店归属（越权防护）
         registry.addInterceptor(miniAppAuthInterceptor)

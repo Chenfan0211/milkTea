@@ -98,7 +98,7 @@ const { refreshOrdersFromRemote } = orderStore;
 
 assert.deepEqual(
   orderCategories.map(item => item.id),
-  ['all', 'store', 'stored-value', 'gift-card'],
+  ['all', 'store', 'mall', 'stored-value', 'gift-card'],
   '订单分类必须包含礼品卡订单'
 );
 assert.equal(typeof refreshOrdersFromRemote, 'function', '订单必须支持从后端刷新');

@@ -1,6 +1,8 @@
 package com.wuling.trade.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wuling.common.api.PageResult;
 import com.wuling.common.mq.MqConstants;
@@ -24,8 +26,12 @@ import com.wuling.trade.entity.Order;
 import com.wuling.trade.entity.OrderItem;
 import com.wuling.trade.mapper.OrderItemMapper;
 import com.wuling.trade.mapper.OrderMapper;
+import com.wuling.trade.mapper.OrderShippingMapper;
+import com.wuling.trade.mapper.MallAfterSaleMapper;
+import com.wuling.trade.entity.OrderShipping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -49,16 +55,20 @@ public class OrderService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter NO_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     public static final String STATUS_CREATED = "CREATED";
     public static final String STATUS_PAID = "PAID";
+    public static final String STATUS_SHIPPED = "SHIPPED";
     public static final String STATUS_COMPLETED = "COMPLETED";
     public static final String STATUS_CANCELED = "CANCELED";
+    public static final String STATUS_REFUNDED = "REFUNDED";
     public static final String PAY_CHANNEL_WXPAY = "WXPAY";
     public static final String PAY_CHANNEL_STORED_VALUE = "STORED_VALUE";
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
+    private final OrderShippingMapper orderShippingMapper;
     /** 第 6 期：product/subject 的只读查询改走端口，解除跨域编译依赖 */
     private final ProductQueryPort productQueryPort;
 
@@ -83,6 +93,8 @@ public class OrderService {
      * 混在下单主流程（含 MQ、分账、事务）里很难单独验证。
      */
     private final MemberPricingService memberPricingService;
+    private final MallStockService mallStockService;
+    private final MallAfterSaleMapper mallAfterSaleMapper;
 
     public OrderService(OrderMapper orderMapper,
                         OrderItemMapper orderItemMapper,
@@ -91,13 +103,56 @@ public class OrderService {
                         CouponPort couponPort,
                         OutboxService outboxService,
                         MemberPricingService memberPricingService) {
+        this(orderMapper, orderItemMapper, null, productQueryPort, splitSnapshotQueryPort,
+                couponPort, outboxService, memberPricingService, null, null);
+    }
+
+    public OrderService(OrderMapper orderMapper,
+                        OrderItemMapper orderItemMapper,
+                        OrderShippingMapper orderShippingMapper,
+                        ProductQueryPort productQueryPort,
+                        SplitSnapshotQueryPort splitSnapshotQueryPort,
+                        CouponPort couponPort,
+                        OutboxService outboxService,
+                        MemberPricingService memberPricingService) {
+        this(orderMapper, orderItemMapper, orderShippingMapper, productQueryPort, splitSnapshotQueryPort,
+                couponPort, outboxService, memberPricingService, null, null);
+    }
+
+    public OrderService(OrderMapper orderMapper,
+                        OrderItemMapper orderItemMapper,
+                        OrderShippingMapper orderShippingMapper,
+                        ProductQueryPort productQueryPort,
+                        SplitSnapshotQueryPort splitSnapshotQueryPort,
+                        CouponPort couponPort,
+                        OutboxService outboxService,
+                        MemberPricingService memberPricingService,
+                        MallStockService mallStockService) {
+        this(orderMapper, orderItemMapper, orderShippingMapper, productQueryPort, splitSnapshotQueryPort,
+                couponPort, outboxService, memberPricingService, mallStockService, null);
+    }
+
+    @Autowired
+    public OrderService(OrderMapper orderMapper,
+                        OrderItemMapper orderItemMapper,
+                        OrderShippingMapper orderShippingMapper,
+                        ProductQueryPort productQueryPort,
+                        SplitSnapshotQueryPort splitSnapshotQueryPort,
+                        CouponPort couponPort,
+                        OutboxService outboxService,
+                        MemberPricingService memberPricingService,
+                        MallStockService mallStockService,
+                        MallAfterSaleMapper mallAfterSaleMapper) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
+        this.orderShippingMapper = orderShippingMapper;
         this.productQueryPort = productQueryPort;
         this.splitSnapshotQueryPort = splitSnapshotQueryPort;
         this.couponPort = couponPort;
         this.outboxService = outboxService;
         this.memberPricingService = memberPricingService;
+        this.mallStockService = mallStockService;
+        this.mallAfterSaleMapper = mallAfterSaleMapper;
     }
 
     // ---------- 下单 ----------
@@ -180,6 +235,7 @@ public class OrderService {
 
         Order order = new Order();
         order.setOrderNo(nextOrderNo());
+        order.setOrderType("STORE");
         order.setUserId(request.getUserId());
         order.setStoreSubjectId(request.getStoreSubjectId());
         order.setChannelSubjectId(resolveChannel(request.getStoreSubjectId(), request.getChannelSubjectId()));
@@ -303,11 +359,22 @@ public class OrderService {
      */
     public PageResult<OrderDTO> pageOrdersByUser(Long userId, long current, long size,
                                                  String startTime, String endTime) {
+        return pageOrdersByUser(userId, current, size, startTime, endTime, null, null);
+    }
+
+    /** 我的订单，支持按来源与状态过滤；商城订单与门店订单共用分页模型。 */
+    public PageResult<OrderDTO> pageOrdersByUser(Long userId, long current, long size,
+                                                 String startTime, String endTime,
+                                                 String category, String status) {
         LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
                 .orderByDesc(Order::getId);
-        // 下单时间范围过滤（前端传 yyyy-MM-dd HH:mm:ss；endTime 用 < 保证左闭右开）。
-        // 小程序「今日订单 / 历史订单」页签据此按自然日口径分页，避免跨午夜误判。
+        if (StringUtils.hasText(category)) {
+            query.eq(Order::getOrderType, category.trim().toUpperCase());
+        }
+        if (StringUtils.hasText(status)) {
+            query.eq(Order::getStatus, status.trim().toUpperCase());
+        }
         if (StringUtils.hasText(startTime)) {
             query.ge(Order::getCreateTime, startTime);
         }
@@ -323,7 +390,15 @@ public class OrderService {
 
     public PageResult<OrderDTO> pageOrders(long current, long size, String status, String search, Long storeSubjectId,
                                           String startTime, String endTime) {
+        return pageOrders(current, size, status, search, storeSubjectId, startTime, endTime, null);
+    }
+
+    public PageResult<OrderDTO> pageOrders(long current, long size, String status, String search, Long storeSubjectId,
+                                          String startTime, String endTime, String orderType) {
         LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>().orderByDesc(Order::getId);
+        if (StringUtils.hasText(orderType)) {
+            query.eq(Order::getOrderType, orderType.trim().toUpperCase());
+        }
         if (StringUtils.hasText(status)) {
             query.eq(Order::getStatus, status);
         }
@@ -352,6 +427,7 @@ public class OrderService {
     /** 核销池：已支付待核销的订单 */
     public List<OrderDTO> pendingVerifyOrders(Long storeSubjectId) {
         LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderType, "STORE")
                 .eq(Order::getStatus, STATUS_PAID)
                 .and(w -> w.isNull(Order::getRefundStatus)
                         .or().ne(Order::getRefundStatus, "PENDING"))
@@ -389,7 +465,9 @@ public class OrderService {
         patch.setStatus(STATUS_PAID);
         patch.setPayStatus("PAID");
         patch.setPayTime(payTime);
-        patch.setPickupCode(nextPickupCode(order.getStoreSubjectId()));
+        if (!"MALL".equalsIgnoreCase(order.getOrderType())) {
+            patch.setPickupCode(nextPickupCode(order.getStoreSubjectId()));
+        }
         orderMapper.updateById(patch);
         order.setStatus(STATUS_PAID);
         order.setPayStatus("PAID");
@@ -407,14 +485,60 @@ public class OrderService {
         order.setVerifyTime(verifyTime);
     }
 
+    public void markShipped(Order order, LocalDateTime shippedTime, LocalDateTime autoCompleteTime) {
+        Order patch = new Order();
+        patch.setId(order.getId());
+        patch.setStatus(STATUS_SHIPPED);
+        patch.setShippedTime(shippedTime);
+        patch.setAutoCompleteTime(autoCompleteTime);
+        orderMapper.updateById(patch);
+        order.setStatus(STATUS_SHIPPED);
+        order.setShippedTime(shippedTime);
+        order.setAutoCompleteTime(autoCompleteTime);
+    }
+
+    public void markMallCompleted(Order order, LocalDateTime completeTime) {
+        Order patch = new Order();
+        patch.setId(order.getId());
+        patch.setStatus(STATUS_COMPLETED);
+        patch.setCompleteTime(completeTime);
+        orderMapper.updateById(patch);
+        order.setStatus(STATUS_COMPLETED);
+        order.setCompleteTime(completeTime);
+    }
+
     public void markRefunded(Order order) {
         Order patch = new Order();
         patch.setId(order.getId());
-        patch.setStatus(STATUS_CANCELED);
+        patch.setStatus(STATUS_REFUNDED);
         patch.setRefundStatus("REFUNDED");
         orderMapper.updateById(patch);
-        order.setStatus(STATUS_CANCELED);
+        order.setStatus(STATUS_REFUNDED);
         order.setRefundStatus("REFUNDED");
+    }
+
+    public boolean markAfterSaleRefunded(Order order, int refundedQuantity, int totalQuantity) {
+        boolean full = totalQuantity > 0 && refundedQuantity >= totalQuantity;
+        Order patch = new Order();
+        patch.setId(order.getId());
+        patch.setRefundStatus("REFUNDED");
+        if (full) {
+            patch.setStatus(STATUS_REFUNDED);
+        }
+        orderMapper.updateById(patch);
+        order.setRefundStatus("REFUNDED");
+        if (full) {
+            order.setStatus(STATUS_REFUNDED);
+        }
+        return full;
+    }
+
+    public void markAfterSaleRefundFailed(Order order) {
+        Order patch = new Order();
+        patch.setId(order.getId());
+        patch.setRefundStatus("FAILED");
+        orderMapper.updateById(patch);
+        order.setRefundStatus("FAILED");
     }
 
     public void markRefundPending(Order order) {
@@ -525,6 +649,10 @@ public class OrderService {
         patch.setStatus(STATUS_CANCELED);
         patch.setRemark("超时未支付，系统自动关闭");
         boolean updated = orderMapper.updateById(patch) > 0;
+        if (updated && "MALL".equalsIgnoreCase(order.getOrderType()) && mallStockService != null) {
+            // 与本地关单同一事务：库存服务失败时回滚关单，MQ/定时任务可重试。
+            mallStockService.releaseForCancelled(order);
+        }
         if (updated && order.getCouponId() != null) {
             enqueueCouponRelease(order, "超时未支付关闭");
         }
@@ -571,6 +699,9 @@ public class OrderService {
         patch.setRemark("用户主动取消");
         orderMapper.updateById(patch);
         order.setStatus(STATUS_CANCELED);
+        if ("MALL".equalsIgnoreCase(order.getOrderType()) && mallStockService != null) {
+            mallStockService.releaseForCancelled(order);
+        }
         if (order.getCouponId() != null) {
             enqueueCouponRelease(order, "用户主动取消");
         }
@@ -592,6 +723,7 @@ public class OrderService {
         OrderDTO dto = new OrderDTO();
         dto.setId(order.getId());
         dto.setOrderNo(order.getOrderNo());
+        dto.setOrderType(normalizeOrderType(order.getOrderType()));
         dto.setUserId(order.getUserId());
         dto.setUser("U" + order.getUserId());
         dto.setStoreSubjectId(order.getStoreSubjectId());
@@ -603,11 +735,11 @@ public class OrderService {
         dto.setPayChannel(order.getPayChannel());
         // 核销码口径：已支付（待核销）与已完成（已核销）的订单都下发取餐码，
         // 便于后台回查历史取餐码；待支付尚未生成、已取消/已退款不再对外暴露。
-        boolean showPickupCode = STATUS_PAID.equals(order.getStatus())
-                || STATUS_COMPLETED.equals(order.getStatus());
+        boolean mall = "MALL".equals(dto.getOrderType());
+        boolean showPickupCode = !mall && (STATUS_PAID.equals(order.getStatus())
+                || STATUS_COMPLETED.equals(order.getStatus()));
         dto.setPickupCode(showPickupCode ? order.getPickupCode() : null);
-        // 门店订单固定来源分类，供小程序订单页页签过滤
-        dto.setCategory("store");
+        dto.setCategory(mall ? "mall" : "store");
         dto.setTotalAmount(order.getTotalAmount());
         dto.setOriginalAmount(order.getOriginalAmount());
         dto.setDiscountAmount(order.getDiscountAmount());
@@ -619,7 +751,21 @@ public class OrderService {
         dto.setCreateTime(fmt(order.getCreateTime()));
         dto.setPayTime(fmt(order.getPayTime()));
         dto.setVerifyTime(fmt(order.getVerifyTime()));
+        dto.setShippedTime(fmt(order.getShippedTime()));
+        dto.setAutoCompleteTime(fmt(order.getAutoCompleteTime()));
         dto.setCompleteTime(fmt(order.getCompleteTime()));
+        if (mall) {
+            dto.setShipping(loadShipping(order.getId()));
+            if (mallAfterSaleMapper != null) {
+                var latestAfterSale = mallAfterSaleMapper.selectLatestByOrderId(order.getId());
+                boolean active = latestAfterSale != null
+                        && java.util.Set.of("PENDING", "APPROVED", "REFUNDING")
+                        .contains(latestAfterSale.getStatus());
+                dto.setActiveAfterSale(active);
+                dto.setAfterSaleStatus(latestAfterSale == null ? null : latestAfterSale.getStatus());
+                dto.setAfterSaleNo(latestAfterSale == null ? null : latestAfterSale.getAfterSaleNo());
+            }
+        }
         Map<String, Integer> merged = new LinkedHashMap<>();
         Map<String, OrderDTO.Item> itemMap = new LinkedHashMap<>();
         for (OrderItem item : items) {
@@ -627,18 +773,28 @@ public class OrderService {
             dtoItem.setId(item.getId());
             dtoItem.setProductId(item.getProductId());
             dtoItem.setName(item.getProductName());
-            dtoItem.setSpec(item.getSpecSnapshot());
+            dtoItem.setSpec(mall ? mallSpecText(item.getSpecSnapshot()) : item.getSpecSnapshot());
             dtoItem.setImage(item.getImage());
             dtoItem.setUnitPrice(item.getUnitPrice());
             dtoItem.setOriginalPrice(item.getOriginalPrice());
             dtoItem.setQuantity(item.getQuantity());
+            if (mall && mallAfterSaleMapper != null) {
+                dtoItem.setRefundedQuantity(mallAfterSaleMapper.selectSumRefundedQuantity(
+                        order.getId(), item.getId()));
+            }
             dtoItem.setSubTotal(item.getSubTotal());
             if (byAdmin) {
-                // 成本价 / 平台提成都是「单价（分/件）」，后台据此按件数复算成本合计
-                ProductQueryPort.ProductView product = productQueryPort.findProduct(item.getProductId());
-                if (product != null) {
-                    dtoItem.setCostPrice(product.getCostPrice());
-                    dtoItem.setPlatformCommission(product.getPlatformCommission());
+                if (mall) {
+                    dtoItem.setCostPrice(item.getCostPrice());
+                    dtoItem.setDistributionCommission(item.getDistributionCommission());
+                    dtoItem.setPlatformCommission(item.getPlatformCommission());
+                } else {
+                    // 成本价 / 平台提成都是「单价（分/件）」，后台据此按件数复算成本合计
+                    ProductQueryPort.ProductView product = productQueryPort.findProduct(item.getProductId());
+                    if (product != null) {
+                        dtoItem.setCostPrice(product.getCostPrice());
+                        dtoItem.setPlatformCommission(product.getPlatformCommission());
+                    }
                 }
             }
             itemMap.put(item.getProductId() + "#" + item.getId(), dtoItem);
@@ -675,12 +831,44 @@ public class OrderService {
         split.setPlatformCommission(view.getPlatformCommission());
         split.setPlatformShare(view.getPlatformShare());
         split.setPlatformBonus(view.getPlatformBonus());
+        split.setLeaderShare(view.getLeaderShare());
         split.setBase(view.getBase());
         return split;
+    }
+
+    private OrderDTO.Shipping loadShipping(Long orderId) {
+        OrderShipping shipping = orderShippingMapper.selectOne(
+                new LambdaQueryWrapper<OrderShipping>().eq(OrderShipping::getOrderId, orderId).last("limit 1"));
+        if (shipping == null) {
+            return null;
+        }
+        OrderDTO.Shipping view = new OrderDTO.Shipping();
+        view.setRecipientName(shipping.getRecipientName());
+        view.setPhone(shipping.getPhone());
+        view.setProvinceName(shipping.getProvinceName());
+        view.setCityName(shipping.getCityName());
+        view.setDistrictName(shipping.getDistrictName());
+        view.setDetailAddress(shipping.getDetailAddress());
+        view.setCourierCompany(shipping.getCourierCompany());
+        view.setTrackingNo(shipping.getTrackingNo());
+        return view;
+    }
+
+    private static String normalizeOrderType(String value) {
+        return value == null || value.isBlank() ? "STORE" : value.trim().toUpperCase();
+    }
+
+    private String mallSpecText(String snapshot) {
+        if (!StringUtils.hasText(snapshot)) return null;
+        try {
+            JsonNode node = JSON.readTree(snapshot);
+            return node.path("value").asText(snapshot);
+        } catch (Exception e) {
+            return snapshot;
+        }
     }
 
     private String fmt(LocalDateTime time) {
         return time == null ? null : time.format(FMT);
     }
 }
-

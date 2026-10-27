@@ -4,6 +4,9 @@ import com.wuling.security.CurrentUser;
 import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
 import com.wuling.trade.dto.CreateOrderRequest;
+import com.wuling.trade.dto.CreateMallOrderRequest;
+import com.wuling.trade.dto.MallCheckoutQuoteDTO;
+import com.wuling.trade.dto.MallCheckoutQuoteRequest;
 import com.wuling.trade.dto.OrderDTO;
 import com.wuling.trade.dto.PayRequest;
 import com.wuling.trade.pay.wxpay.WxPayPrepayResult;
@@ -11,6 +14,9 @@ import com.wuling.trade.port.UserQueryPort;
 import com.wuling.trade.service.OrderService;
 import com.wuling.trade.service.PaymentGatewayResolver;
 import com.wuling.trade.service.PaymentService;
+import com.wuling.trade.service.MallOrderService;
+import com.wuling.trade.service.MallStockService;
+import com.wuling.trade.service.RefundService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,19 +35,38 @@ public class AppOrderController {
     private final UserQueryPort userQueryPort;
     private final com.wuling.common.security.PaymentCallbackSigner signer;
     private final com.wuling.common.audit.AuditLogService auditLog;
+    private final MallOrderService mallOrderService;
+    private final MallStockService mallStockService;
+    private final RefundService refundService;
 
     public AppOrderController(OrderService orderService,
                               PaymentService paymentService,
                               PaymentGatewayResolver gatewayResolver,
                               UserQueryPort userQueryPort,
                               com.wuling.common.security.PaymentCallbackSigner signer,
-                              com.wuling.common.audit.AuditLogService auditLog) {
+                              com.wuling.common.audit.AuditLogService auditLog,
+                              MallOrderService mallOrderService,
+                              MallStockService mallStockService,
+                              RefundService refundService) {
         this.orderService = orderService;
         this.paymentService = paymentService;
         this.gatewayResolver = gatewayResolver;
         this.userQueryPort = userQueryPort;
         this.signer = signer;
         this.auditLog = auditLog;
+        this.mallOrderService = mallOrderService;
+        this.mallStockService = mallStockService;
+        this.refundService = refundService;
+    }
+
+    /** 商城结算确认：金额由服务端按当前用户身份计算。 */
+    @PostMapping("/mall/checkout/quote")
+    public Result<MallCheckoutQuoteDTO> quoteMallCheckout(@Valid @RequestBody MallCheckoutQuoteRequest request) {
+        return Result.ok(mallOrderService.quote(CurrentUser.require(), request));
+    }
+    @PostMapping("/mall/orders")
+    public Result<OrderDTO> createMall(@Valid @RequestBody CreateMallOrderRequest request) {
+        return Result.ok(mallOrderService.create(CurrentUser.require(), request));
     }
 
     @PostMapping("/orders")
@@ -57,8 +82,11 @@ public class AppOrderController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "20") long size,
             @RequestParam(required = false) String startTime,
-            @RequestParam(required = false) String endTime) {
-        return Result.ok(orderService.pageOrdersByUser(CurrentUser.require(), page, size, startTime, endTime));
+            @RequestParam(required = false) String endTime,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String status) {
+        return Result.ok(orderService.pageOrdersByUser(CurrentUser.require(), page, size,
+                startTime, endTime, category, status));
     }
 
     /** 订单详情：校验归属，禁止查看他人订单 */
@@ -162,12 +190,27 @@ public class AppOrderController {
             throw new com.wuling.common.exception.BusinessException(
                     com.wuling.common.api.ResultCode.FORBIDDEN, "无权取消该订单");
         }
+        if ("MALL".equalsIgnoreCase(order.getOrderType())) {
+            if (OrderService.STATUS_CREATED.equals(order.getStatus())) {
+                return Result.ok(mallOrderService.cancelUnpaid(userId, orderNo, mallStockService));
+            }
+            if (OrderService.STATUS_PAID.equals(order.getStatus())) {
+                return Result.ok(refundService.refund(orderNo, "用户取消商城订单"));
+            }
+            throw new com.wuling.common.exception.BusinessException(
+                    com.wuling.common.api.ResultCode.BAD_REQUEST, "商城订单当前状态不可取消");
+        }
         if (OrderService.STATUS_CREATED.equals(order.getStatus())) {
             return Result.ok(orderService.cancelUnpaid(orderNo, userId));
         }
         // 待核销（PAID）及之后状态一律不允许用户自行取消，需联系门店或运营后台处理。
         throw new com.wuling.common.exception.BusinessException(
                 com.wuling.common.api.ResultCode.BAD_REQUEST, "订单已支付，无法自行取消，请联系门店或客服处理");
+    }
+
+    @PostMapping("/orders/{orderNo}/confirm-receipt")
+    public Result<OrderDTO> confirmReceipt(@PathVariable String orderNo) {
+        return Result.ok(mallOrderService.confirmReceipt(CurrentUser.require(), orderNo));
     }
 
     /**
@@ -200,5 +243,3 @@ public class AppOrderController {
         return Result.ok(dto);
     }
 }
-
-

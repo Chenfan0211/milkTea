@@ -96,6 +96,38 @@ class OrderSubscribeMessageClientTest {
     }
 
     @Test
+    void buildsMallShippedTemplateFields() {
+        OrderSubscribeMessageClient client = new OrderSubscribeMessageClient(
+                properties(), mock(MiniAppAccessTokenProvider.class), mock(RestTemplate.class));
+        Map<String, Map<String, String>> data = client.buildMallShippedData(Map.of(
+                "character_string1", "MO202610250001",
+                "thing9", "顺丰速运",
+                "character_string4", "SF123456789",
+                "thing6", "青瓷茶杯"));
+        assertEquals("MO202610250001", data.get("character_string1").get("value"));
+        assertEquals("顺丰速运", data.get("thing9").get("value"));
+        assertEquals("SF123456789", data.get("character_string4").get("value"));
+        assertEquals("青瓷茶杯", data.get("thing6").get("value"));
+    }
+
+    @Test
+    void mallShippedThingFieldsTruncateAndFallback() {
+        OrderSubscribeMessageClient client = new OrderSubscribeMessageClient(
+                properties(), mock(MiniAppAccessTokenProvider.class), mock(RestTemplate.class));
+        Map<String, Map<String, String>> data = client.buildMallShippedData(Map.of(
+                "character_string1", "MO202610250001",
+                "thing9", "这是一个超过二十个字符长度的超长快递公司名称用于验证截断行为",
+                "character_string4", "SF123456789",
+                "thing6", "   "));
+        assertEquals("MO202610250001", data.get("character_string1").get("value"));
+        assertEquals("商城商品", data.get("thing6").get("value"));
+        assertEquals("SF123456789", data.get("character_string4").get("value"));
+        String company = data.get("thing9").get("value");
+        assertEquals(20, company.codePointCount(0, company.length()));
+        assertTrue(company.endsWith("…"));
+    }
+
+    @Test
     void truncatesAndFallsBackForThingFields() {
         OrderSubscribeMessageClient client = new OrderSubscribeMessageClient(
                 properties(), mock(MiniAppAccessTokenProvider.class), mock(RestTemplate.class));

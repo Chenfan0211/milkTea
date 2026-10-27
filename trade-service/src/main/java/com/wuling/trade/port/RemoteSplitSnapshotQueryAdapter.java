@@ -53,6 +53,7 @@ public class RemoteSplitSnapshotQueryAdapter implements SplitSnapshotQueryPort {
             view.setPlatformCommission(asLong(body.get("platformCommission")));
             view.setPlatformShare(asLong(body.get("platformShare")));
             view.setPlatformBonus(asLong(body.get("platformBonus")));
+            view.setLeaderShare(asLong(body.get("leaderShare")));
             view.setBase(asLong(body.get("base")));
             return view;
         } catch (Exception e) {

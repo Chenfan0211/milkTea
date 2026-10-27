@@ -49,9 +49,13 @@ public class OrderTimeoutSweepJob {
         this.batchSize = batchSize;
     }
 
+
     /** 测试用构造：默认开启，批大小 200。 */
     public OrderTimeoutSweepJob(OrderMapper orderMapper, OrderService orderService, boolean enabled) {
-        this(orderMapper, orderService, enabled, 200);
+        this.orderMapper = orderMapper;
+        this.orderService = orderService;
+        this.enabled = enabled;
+        this.batchSize = 200;
     }
 
     @Scheduled(cron = "${app.order-timeout-scan.cron:0 * * * * ?}")

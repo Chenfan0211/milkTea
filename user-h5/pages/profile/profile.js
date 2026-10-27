@@ -47,7 +47,7 @@ function formatBalance(value) {
  * 后端 profile_functions 配置仍保留这两项，便于后台继续维护图标与文案。
  * 后续功能开发完成后，把对应 id 从本数组移除即可恢复展示。
  */
-const HIDDEN_PROFILE_FUNCTIONS = ['address', 'activity'];
+const HIDDEN_PROFILE_FUNCTIONS = ['activity'];
 
 function buildRoleFunctions(roleId) {
   if (!roleId) return [];
@@ -511,6 +511,10 @@ Page(
     },
     handleProfileAction(event) {
       const { id, label } = event.currentTarget.dataset;
+      if (id === 'mall') {
+        wx.navigateTo({ url: '/packageMall/pages/home/home' });
+        return;
+      }
       if (id === 'balance') {
         wx.navigateTo({ url: '/pages/stored-value/stored-value' });
         return;
@@ -544,9 +548,8 @@ Page(
         wx.navigateTo({ url: '/pages/service/service' });
         return;
       }
-      // 收货地址：小程序未单独建页，收货信息在下单流程内填写，这里引导去点单
       if (id === 'address') {
-        wx.showToast({ title: '收货信息可在下单时填写', icon: 'none' });
+        wx.navigateTo({ url: '/packageMall/pages/address/address' });
         return;
       }
       // 活动报名 / 活动规则：跳活动规则页
