@@ -82,7 +82,7 @@ spring:
         - id: user-address
           uri: lb://wuling-user-service
           predicates:
-            - Path=/api/v1/app/addresses/**
+            - Path=/api/v1/app/addresses,/api/v1/app/addresses/**
         # 舌象检测（用户服务，需登录）
         - id: tongue-app
           uri: lb://wuling-user-service
@@ -108,6 +108,12 @@ spring:
           uri: lb://wuling-trade-service
           predicates:
             - Path=/api/v1/app/orders/**,/api/v1/app/orders,/api/v1/app/mall/orders/**,/api/v1/app/mall/orders,/api/v1/app/payments/**
+        # 商城售后（需登录）：售后列表/详情/申请/审核都归 trade-service，
+        # 必须排在 legacy-server 的 /api/v1/** 兜底之前，否则会 404。
+        - id: trade-app-after-sale
+          uri: lb://wuling-trade-service
+          predicates:
+            - Path=/api/v1/app/mall/after-sales,/api/v1/app/mall/after-sales/**
         - id: trade-admin
           uri: lb://wuling-trade-service
           predicates:
