@@ -257,6 +257,10 @@ public class MallProductAdminService {
         skuMapper.updateStockState(skuId, request.getStock(), locked);
         MallStockLog log = new MallStockLog();
         log.setSkuId(skuId);
+        // 库存调整没有业务单号，但唯一索引 (biz_type,biz_no,change_type,sku_id) 依赖该列；
+        // 留空会让索引对 NULL 失效（MySQL 唯一索引不去重 NULL），因此在写入侧生成审计号。
+        log.setBizType("ADJUST");
+        log.setBizNo("ADJ-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 24));
         log.setChangeType("ADJUST");
         log.setStockDelta(delta);
         log.setLockedDelta(0);

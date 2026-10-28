@@ -20,6 +20,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -121,6 +122,11 @@ class MallProductAdminServiceTest {
 
         verify(skuMapper).updateStockState(1L, 8, 2);
         verify(stockLogMapper).insert(any(MallStockLog.class));
+        MallStockLog auditLog = captureSingleAuditLog();
+        assertEquals("ADJUST", auditLog.getChangeType());
+        assertEquals("ADJUST", auditLog.getBizType());
+        assertTrue(auditLog.getBizNo() != null && !auditLog.getBizNo().isBlank(),
+                "库存调整也必须写入业务幂等号，否则唯一索引对其不生效");
     }
 
     @Test
@@ -242,5 +248,13 @@ class MallProductAdminServiceTest {
         view.setName("主体" + id);
         return view;
     }
+
+    private MallStockLog captureSingleAuditLog() {
+        org.mockito.ArgumentCaptor<MallStockLog> captor =
+                org.mockito.ArgumentCaptor.forClass(MallStockLog.class);
+        verify(stockLogMapper).insert(captor.capture());
+        return captor.getValue();
+    }
+
 }
 

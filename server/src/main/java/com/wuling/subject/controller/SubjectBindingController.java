@@ -214,8 +214,29 @@ public class SubjectBindingController {
         jdbcTemplate.update("update user_role_grant set deleted = 1 "
                         + "where user_id = ? and role_code = ? and subject_id = ? and deleted = 0",
                 userId, roleCode, subjectId);
-        jdbcTemplate.update("update app_user set business_role = null where id = ? and deleted = 0", userId);
+        // 只在「当前 business_role 与本次解绑角色一致」时清空。
+        // business_role 是 StoreOperatorService 的门店经营判定依据；
+        // 无条件清空会让多角色用户（库里存在一用户 3 角色）在解绑其它角色时
+        // 静默丢失门店核销等权限。
+        jdbcTemplate.update("update app_user set business_role = null "
+                        + "where id = ? and deleted = 0 and UPPER(business_role) = UPPER(?)",
+                userId, roleCode);
+        // 先解除主体↔用户绑定，再回填剩余角色，
+        // 否则 unbindPair 会把刚回填的 bound_subject_id 又清掉。
         unbindPair(subjectId);
+
+        // 解绑后若仍有其它经营角色，回填 business_role 指向剩余角色；
+        // 否则用户明明还有角色，门店判定却因 business_role 为空而失配。
+        List<Map<String, Object>> rest = jdbcTemplate.queryForList(
+                "select role_code, subject_id from user_role_grant "
+                        + "where user_id = ? and UPPER(status) = 'ACTIVE' and deleted = 0 "
+                        + "order by id limit 1", userId);
+        if (!rest.isEmpty()) {
+            Map<String, Object> row = rest.get(0);
+            jdbcTemplate.update("update app_user set business_role = ?, bound_subject_id = ? "
+                            + "where id = ? and deleted = 0",
+                    row.get("role_code"), row.get("subject_id"), userId);
+        }
         return Result.ok();
     }
 
@@ -271,7 +292,11 @@ public class SubjectBindingController {
     private void unbindPair(Long subjectId) {
         requireSubject(subjectId, null);
         jdbcTemplate.update("update biz_subject set bound_user_id = null where id = ? and deleted = 0", subjectId);
-        jdbcTemplate.update("update app_user set bound_subject_id = null, business_role = null "
+        // 只解除「指向该主体的绑定」，不动 business_role：
+        // 多角色用户的 business_role 可能来自另一个仍未解绑的主体，
+        // 在此清空会让其余角色权限被静默剥夺。business_role 的清理
+        // 统一由 unbindUserRole 按「角色码一致」处理。
+        jdbcTemplate.update("update app_user set bound_subject_id = null "
                 + "where bound_subject_id = ? and deleted = 0", subjectId);
     }
 
