@@ -54,13 +54,13 @@ public class AdminLeaderController {
         long safeSize = Math.min(Math.max(1, size), 100);
         StringBuilder sql = new StringBuilder(
                 "select s.id, s.code, s.name, s.subject_type as subjectType, s.status, "
-                        + "s.bound_user_id as boundUserId, "
-                        + "(select u.nick_name from app_user u where u.id = s.bound_user_id and u.deleted = 0) as boundUserNick, "
-                        + "(select u.phone from app_user u where u.id = s.bound_user_id and u.deleted = 0) as boundUserPhone "
+                        + "(select g.user_id from user_role_grant g where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 limit 1) as boundUserId, "
+                        + "(select u.nick_name from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserNick, "
+                        + "(select u.phone from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserPhone "
                         + "from biz_subject s where s.subject_type = 'LEADER' and s.deleted = 0 ");
         List<Object> args = new ArrayList<>();
         if (StringUtils.hasText(search)) {
-            sql.append("and (s.name like ? or s.code like ? or s.bound_user_id = ?) ");
+            sql.append("and (s.name like ? or s.code like ? or exists (select 1 from user_role_grant g where g.subject_id = s.id and g.user_id = ? and UPPER(g.role_code) = 'LEADER' and g.deleted = 0)) ");
             String like = "%" + search.trim() + "%";
             args.add(like);
             args.add(like);
@@ -111,8 +111,8 @@ public class AdminLeaderController {
                 : String.valueOf(payload.get("name")).trim();
         String code = "LD-" + userId;
         jdbcTemplate.update(
-                "insert into biz_subject (code, name, subject_type, status, bound_user_id) values (?, ?, 'LEADER', 'active', ?)",
-                code, name, userId);
+                "insert into biz_subject (code, name, subject_type, status) values (?, ?, 'LEADER', 'active')",
+                code, name);
         Long subjectId = jdbcTemplate.queryForObject(
                 "select id from biz_subject where code = ? and deleted = 0", Long.class, code);
         if (subjectId == null) {
@@ -130,7 +130,7 @@ public class AdminLeaderController {
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> removeLeader(@PathVariable Long subjectId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select id, bound_user_id from biz_subject where id = ? and subject_type = 'LEADER' and deleted = 0",
+                "select s.id, (select g.user_id from user_role_grant g where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 limit 1) as bound_user_id from biz_subject s where s.id = ? and s.subject_type = 'LEADER' and s.deleted = 0",
                 subjectId);
         if (rows.isEmpty()) {
             throw new BusinessException(ResultCode.NOT_FOUND, "团长主体不存在");
@@ -140,9 +140,6 @@ public class AdminLeaderController {
         if (boundUserId != null) {
             jdbcTemplate.update(
                     "update user_role_grant set deleted = 1 where user_id = ? and UPPER(role_code) = 'LEADER' and subject_id = ?",
-                    boundUserId, subjectId);
-            jdbcTemplate.update("update app_user set bound_subject_id = null, business_role = null "
-                            + "where id = ? and bound_subject_id = ? and deleted = 0",
                     boundUserId, subjectId);
             jdbcTemplate.update("update user_leader set deleted = 1 where leader_user_id = ?", boundUserId);
         }
@@ -231,9 +228,10 @@ public class AdminLeaderController {
 
     private Map<String, Object> leaderRow(Long subjectId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select s.id, s.code, s.name, s.subject_type as subjectType, s.status, s.bound_user_id as boundUserId, "
-                        + "(select u.nick_name from app_user u where u.id = s.bound_user_id and u.deleted = 0) as boundUserNick, "
-                        + "(select u.phone from app_user u where u.id = s.bound_user_id and u.deleted = 0) as boundUserPhone "
+                "select s.id, s.code, s.name, s.subject_type as subjectType, s.status, "
+                        + "(select g.user_id from user_role_grant g where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 limit 1) as boundUserId, "
+                        + "(select u.nick_name from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserNick, "
+                        + "(select u.phone from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserPhone "
                         + "from biz_subject s where s.id = ? and s.deleted = 0", subjectId);
         return rows.isEmpty() ? Map.of() : rows.get(0);
     }

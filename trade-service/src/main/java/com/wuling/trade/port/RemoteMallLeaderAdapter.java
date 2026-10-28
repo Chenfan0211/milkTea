@@ -30,7 +30,8 @@ public class RemoteMallLeaderAdapter implements MallLeaderPort {
         }
         try {
             Map<String, Object> body = serverRestClient.get()
-                    .uri("/internal/user-leader/{userId}", userId)
+                    .uri(uriBuilder -> uriBuilder.path("/internal/user-leader")
+                            .queryParam("userId", userId).build())
                     .retrieve().body(Map.class);
             if (body == null) {
                 return LeaderInfo.none();
