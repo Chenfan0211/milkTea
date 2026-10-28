@@ -7,21 +7,42 @@
         <view class="home-hero__copy">
           <text class="home-hero__eyebrow">五零时光精选</text>
           <text class="home-hero__title">把好物带回家</text>
-          <text class="home-hero__description">全场包邮，库存实时更新</text>
+          <text class="home-hero__description">全场包邮 · 库存实时更新</text>
         </view>
-        <view class="home-hero__tools">
-          <view class="home-tool" bindtap="openCart" aria-role="button" aria-label="打开购物车">
-            <image class="home-tool__icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" />
-            <text class="home-tool__label">购物车</text>
-          </view>
-          <view class="home-tool" bindtap="openOrders" aria-role="button" aria-label="查看商城订单">
-            <image class="home-tool__icon" src="/assets/icons/lucide/receipt.svg" mode="aspectFit" />
-            <text class="home-tool__label">我的订单</text>
-          </view>
+        <view class="home-hero__badge">
+          <image class="home-hero__badge-icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" aria-label="商城图标" />
         </view>
       </view>
 
-      <text class="category-heading">商品分类</text>
+      <view class="home-quick-grid">
+        <view class="home-quick-card" bindtap="openCart" aria-role="button" aria-label="打开购物车">
+          <view class="home-quick-card__icon-wrap">
+            <image class="home-quick-card__icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" />
+          </view>
+          <view class="home-quick-card__main">
+            <text class="home-quick-card__title">购物车</text>
+            <text class="home-quick-card__description">查看已选好物</text>
+          </view>
+          <image class="home-quick-card__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+
+        <view class="home-quick-card" bindtap="openOrders" aria-role="button" aria-label="查看商城订单">
+          <view class="home-quick-card__icon-wrap">
+            <image class="home-quick-card__icon" src="/assets/icons/lucide/receipt.svg" mode="aspectFit" />
+          </view>
+          <view class="home-quick-card__main">
+            <text class="home-quick-card__title">我的订单</text>
+            <text class="home-quick-card__description">发货与售后进度</text>
+          </view>
+          <image class="home-quick-card__arrow" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+
+      <view class="home-section-head">
+        <text class="home-section-title">商品分类</text>
+        <text class="home-section-subtitle">轻养好物都在这里</text>
+      </view>
+
       <scroll-view class="category-scroll" scroll-x show-scrollbar="{{false}}">
         <view class="category-list">
           <view
@@ -44,13 +65,15 @@
         </view>
       </scroll-view>
 
-      <view wx:if="{{loading}}" class="mall-state">
-        <text class="mall-state__text">商品加载中</text>
+      <view wx:if="{{loading}}" class="mall-state home-empty-card">
+        <text class="home-empty-title">商品加载中</text>
+        <text class="home-empty-description">正在为你准备轻养好物</text>
       </view>
 
-      <view wx:elif="{{error}}" class="mall-state">
-        <text class="mall-state__text">{{error}}</text>
-        <view class="mall-retry" bindtap="retry" aria-role="button" aria-label="重新加载商品">重新加载</view>
+      <view wx:elif="{{error}}" class="mall-state home-empty-card">
+        <text class="home-empty-title">商品加载失败</text>
+        <text class="home-empty-description">{{error}}</text>
+        <view class="home-empty-action" bindtap="retry" aria-role="button" aria-label="重新加载商品">刷新看看</view>
       </view>
 
       <view wx:elif="{{products.length}}" class="product-grid">
@@ -74,17 +97,25 @@
               <text class="product-card__price">{{item.priceText}}</text>
               <text wx:if="{{item.originalPriceText}}" class="product-card__original">{{item.originalPriceText}}</text>
             </view>
-            <text class="product-card__stock">{{item.soldOut ? '暂时无货' : '可用库存 ' + item.availableStock}}</text>
+            <view class="product-card__stock-row">
+              <text class="product-card__stock">{{item.soldOut ? '暂时无货' : '可用库存 ' + item.availableStock}}</text>
+              <image
+                class="product-card__arrow"
+                src="/assets/icons/lucide/chevron-right.svg"
+                mode="aspectFit"
+                aria-label="查看{{item.name}}详情"
+              />
+            </view>
           </view>
         </view>
       </view>
 
-      <empty-state
-        wx:else
-        icon="/assets/icons/lucide/shopping-bag.svg"
-        title="暂无商城商品"
-        description="运营上架商品后会显示在这里"
-      />
+      <view wx:else class="mall-state home-empty-card">
+        <image class="home-empty-icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" aria-label="暂无商品图标" />
+        <text class="home-empty-title">该分类暂无商品</text>
+        <text class="home-empty-description">换个分类看看，或刷新最新上架</text>
+        <view class="home-empty-action" bindtap="retry" aria-role="button" aria-label="重新加载商品">刷新看看</view>
+      </view>
 
       <view wx:if="{{products.length}}" class="home-list-end">
         {{loadingMore ? '正在加载更多' : (hasMore ? '上拉加载更多' : '已经到底了')}}
@@ -92,4 +123,3 @@
     </view>
   </scroll-view>
 </view>
-

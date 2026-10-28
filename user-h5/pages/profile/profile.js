@@ -49,6 +49,22 @@ function formatBalance(value) {
  */
 const HIDDEN_PROFILE_FUNCTIONS = ['activity'];
 
+/**
+ * 线上商城是核心交易入口，不能依赖运营配置是否下发。
+ * 后端配置缺失时由前端补齐；已有同名入口时保持单一，避免重复宫格。
+ */
+const MALL_PROFILE_FUNCTION = {
+  id: 'mall',
+  label: '线上商城',
+  icon: '/assets/icons/lucide/shopping-bag.svg'
+};
+
+function mergeProfileFunctions(functions) {
+  const list = Array.isArray(functions) ? functions : [];
+  if (list.some(item => item && item.id === MALL_PROFILE_FUNCTION.id)) return list;
+  return [MALL_PROFILE_FUNCTION].concat(list);
+}
+
 function buildRoleFunctions(roleId) {
   if (!roleId) return [];
   const dashboard = getDashboard(roleId);
@@ -65,7 +81,7 @@ function buildRoleFunctions(roleId) {
 Page(
   withShare({
     data: {
-      profileFunctions: [],
+      profileFunctions: mergeProfileFunctions([]),
       profileBanners: profileBanner.DEFAULT_PROFILE_BANNERS.map(item => Object.assign({}, item)),
       roleFunctions: [],
       userProfile: initialProfile,
@@ -291,7 +307,9 @@ Page(
         .then(cfg => {
           const updates = {};
           if (cfg && Array.isArray(cfg.functions) && cfg.functions.length) {
-            updates.profileFunctions = cfg.functions.filter(item => !HIDDEN_PROFILE_FUNCTIONS.includes(item.id));
+            updates.profileFunctions = mergeProfileFunctions(
+              cfg.functions.filter(item => !HIDDEN_PROFILE_FUNCTIONS.includes(item.id))
+            );
           }
           if (cfg && Array.isArray(cfg.banners)) {
             updates.profileBanners = profileBanner.normalizeBanners(cfg.banners, api.resolveAssetUrl);
