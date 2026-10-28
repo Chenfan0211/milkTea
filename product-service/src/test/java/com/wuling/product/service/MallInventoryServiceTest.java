@@ -153,6 +153,8 @@ class MallInventoryServiceTest {
         assertEquals(0, log.getStockDelta());
         assertEquals(2, log.getLockedDelta());
         assertEquals(2, log.getLockedAfter());
+        assertEquals("ORDER", log.getBizType());
+        assertEquals("ORDER-8", log.getBizNo());
     }
 
     @Test

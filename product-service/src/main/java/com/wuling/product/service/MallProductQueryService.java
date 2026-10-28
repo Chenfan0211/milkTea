@@ -228,6 +228,7 @@ public class MallProductQueryService {
         view.setOriginalPrice(sku.getOriginalPrice());
         view.setCostPrice(sku.getCostPrice());
         view.setPlatformCommission(sku.getPlatformCommission());
+        view.setDistributionCommission(sku.getDistributionCommission());
         view.setSupplierSubjectId(sku.getSupplierSubjectId());
         view.setStock(sku.getStock());
         view.setLockedStock(sku.getLockedStock());

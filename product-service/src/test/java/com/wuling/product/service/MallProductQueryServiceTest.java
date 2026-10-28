@@ -88,6 +88,7 @@ class MallProductQueryServiceTest {
         sku.setOriginalPrice(1200L);
         sku.setCostPrice(500L);
         sku.setPlatformCommission(100L);
+        sku.setDistributionCommission(120L);
         sku.setSupplierSubjectId(401L);
         sku.setStock(8);
         sku.setLockedStock(3);
@@ -114,6 +115,7 @@ class MallProductQueryServiceTest {
         assertEquals(1000L, view.getSalePrice());
         assertEquals(500L, view.getCostPrice());
         assertEquals(100L, view.getPlatformCommission());
+        assertEquals(120L, view.getDistributionCommission());
         assertEquals(401L, view.getSupplierSubjectId());
         assertEquals(5, view.getAvailableStock());
         assertTrue(view.getOnSale());

@@ -36,6 +36,9 @@ class MallRouteContractTest {
         String text = config();
         assertTrue(text.contains("/api/v1/app/mall/orders"), "缺少商城下单/订单路由");
         assertTrue(text.contains("/api/v1/app/mall/after-sales"), "缺少商城售后路由");
+        assertTrue(text.contains("/api/v1/app/mall/checkout/quote"), "缺少商城结算报价路由");
         assertTrue(text.contains("/api/v1/app/addresses"), "缺少收货地址路由");
+        assertTrue(text.contains("/api/v1/admin/mall/products"), "缺少后台商城商品路由");
+        assertTrue(text.contains("/api/v1/admin/mall/categories"), "缺少后台商城分类路由");
     }
 }

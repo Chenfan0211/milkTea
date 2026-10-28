@@ -263,6 +263,8 @@ class LedgerServiceTest {
             assertNotNull(record.getRecordNo());
             assertTrue(record.getAmount() > 0L);
             assertEquals(LocalDate.now(), record.getSettleDate());
+            assertEquals(record.getAmount(), record.getOriginalAmount(), "结算记录必须写入分账原金额，供累计冲正使用");
+            assertEquals(0L, record.getRefundedAmount());
         }
         SettlementRecord platformRec = records.stream().filter(r -> r.getSubjectId() == 1L).findFirst().orElseThrow();
         SettlementRecord storeRec = records.stream().filter(r -> r.getSubjectId() == 2L).findFirst().orElseThrow();

@@ -292,6 +292,7 @@ public class MallInventoryService {
         log.setSkuId(skuId);
         log.setOrderNo(orderNo);
         log.setBizNo(bizNo);
+        log.setBizType(bizType);
         log.setChangeType(changeType);
         log.setStockDelta(stockDelta);
         log.setLockedDelta(lockedDelta);

@@ -325,6 +325,8 @@ public class LedgerService {
         record.setSnapshotId(snapshot.getId());
         record.setOrderId(snapshot.getOrderId());
         record.setAmount(amount);
+        record.setOriginalAmount(amount);
+        record.setRefundedAmount(0L);
         record.setStatus(SETTLE_SETTLED);
         record.setSettleDate(LocalDate.now());
         settlementRecordMapper.insert(record);
@@ -391,6 +393,8 @@ public class LedgerService {
         record.setSnapshotId(snapshot.getId());
         record.setOrderId(snapshot.getOrderId());
         record.setAmount(amount);
+        record.setOriginalAmount(amount);
+        record.setRefundedAmount(0L);
         record.setStatus(SETTLE_SETTLED);
         record.setSettleDate(LocalDate.now());
         settlementRecordMapper.insert(record);
