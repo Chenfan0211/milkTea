@@ -295,3 +295,30 @@ for (const name of pageNames) {
 }
 
 console.log(`商城分包子页面结构测试通过（${pageNames.length} 个页面）`);
+
+// ---- 4.1) 商城分类图片：真实 URL 解析 + 本地占位图 + 图文胶囊 ----
+const categoryPlaceholder = '/assets/images/3x/mall-category-placeholder.jpg';
+assert.equal(
+  mall.normalizeCategory({
+    id: 7,
+    name: '茶器好物',
+    iconImage: '/api/v1/files/public/0123456789abcdef0123456789abcdef.png'
+  }).iconImage,
+  'https://api.wulingshiguang.top/api/v1/files/public/0123456789abcdef0123456789abcdef.png',
+  '分类图相对文件地址必须补全当前 API 域名'
+);
+assert.equal(
+  mall.normalizeCategory({ id: 8, name: '无图分类' }).iconImage,
+  categoryPlaceholder,
+  '无图分类必须降级到本地占位图'
+);
+assert.equal(
+  homeWxml.includes('category-tab__image') &&
+    homeWxml.includes("item.iconImage || '/assets/images/3x/mall-category-placeholder.jpg'"),
+  true,
+  '商城首页分类胶囊必须渲染圆形分类图并在缺失时使用占位图'
+);
+const categoryWxss = readPage('home', 'wxss');
+assert.match(categoryWxss, /height:\s*64rpx/, '分类图文胶囊高度必须为 64rpx');
+assert.match(categoryWxss, /width:\s*48rpx[\s\S]*height:\s*48rpx/, '分类图必须为 48rpx 圆形图标');
+assert.match(categoryWxss, /border-radius:\s*50%/, '分类图必须圆形展示');

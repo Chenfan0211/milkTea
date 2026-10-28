@@ -317,6 +317,13 @@ onShow() {
 - 描边标签：`1 ~ 2rpx` `var(--brand-green)` 描边 + 同色文字 + `var(--radius-xs)`，字号 `var(--font-sm)`。
 - 角标：`var(--price-red)` 或 `var(--brand-green)` 底 + 白字 + `var(--radius-pill)`。
 
+### 商城分类胶囊
+
+- 商城首页分类筛选使用横向滚动图文胶囊，单项高度 `64rpx`，间距 `12rpx`。
+- 分类图固定 `48rpx × 48rpx`、`border-radius: 50%`、`mode="aspectFill"`；文字与图间距 `8rpx`。
+- 默认态使用白底、`var(--line-color)` 描边和 `var(--text-secondary)` 文字；选中态使用 `var(--brand-green)` 底与白色文字。
+- 无分类图时统一使用 `/assets/images/3x/mall-category-placeholder.jpg`，不得使用 emoji、单字或临时图片代替。
+
 ### 列表
 
 - 行高由内容决定，不写死高度；行与行之间用 `var(--line-color)` 分隔线或 `20rpx` 间距。

@@ -31,6 +31,14 @@ const jobs = [
     maxBytes: 80 * 1024,
     normalizeContent: { threshold: 220, widthRatio: 0.88, heightRatio: 0.9 }
   },
+  {
+    source: 'mall-category-placeholder.jpg',
+    output: 'mall-category-placeholder.jpg',
+    width: 144,
+    height: 144,
+    maxBytes: 20 * 1024,
+    cover: true
+  },
   { source: 'profile-avatar.jpg', output: 'profile-avatar.jpg', width: 336, height: 336 },
   { source: 'profile-banner.jpg', output: 'profile-banner.jpg', width: 2130, height: 480, maxBytes: 60 * 1024 },
   { source: 'profile-hero.jpg', output: 'profile-hero.jpg', width: 2250, height: 1311, maxBytes: 200 * 1024 },
@@ -87,6 +95,42 @@ const jobs = [
   }
 ];
 
+function createCategoryPlaceholder(output, width, height) {
+  const outputLiteral = output.replace(/'/g, "''");
+  const script = `
+Add-Type -AssemblyName System.Drawing
+$canvas = New-Object System.Drawing.Bitmap(${width}, ${height})
+try {
+  $graphics = [System.Drawing.Graphics]::FromImage($canvas)
+  try {
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $graphics.Clear([System.Drawing.Color]::FromArgb(233, 241, 217))
+    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(83, 136, 44))
+    $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(83, 136, 44), 8)
+    try {
+      $graphics.FillEllipse($brush, [int](${width} * 0.31), [int](${height} * 0.20), [int](${width} * 0.38), [int](${height} * 0.44))
+      $graphics.DrawLine($pen, [int](${width} * 0.50), [int](${height} * 0.55), [int](${width} * 0.50), [int](${height} * 0.80))
+      $graphics.DrawLine($pen, [int](${width} * 0.50), [int](${height} * 0.70), [int](${width} * 0.34), [int](${height} * 0.58))
+      $graphics.DrawLine($pen, [int](${width} * 0.50), [int](${height} * 0.65), [int](${width} * 0.66), [int](${height} * 0.53))
+    } finally {
+      $pen.Dispose()
+      $brush.Dispose()
+    }
+  } finally {
+    $graphics.Dispose()
+  }
+  $params = New-Object System.Drawing.Imaging.EncoderParameters(1)
+  $params.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [long]90)
+  $encoder = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
+  $canvas.Save('${outputLiteral}', $encoder, $params)
+} finally {
+  $canvas.Dispose()
+}
+`;
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', script], { encoding: 'utf8' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`分类占位图生成失败\n${result.stderr.trim()}`);
+}
 function findUpscayl() {
   const explicit = process.env.UPSCAYL_BIN;
   if (explicit && fs.existsSync(explicit)) return explicit;
@@ -383,6 +427,15 @@ for (const job of jobsToRun) {
   const source = resolveSource(job);
   const output = path.join(outputDir, job.output);
 
+  if (!fs.existsSync(source) && job.output === 'mall-category-placeholder.jpg') {
+    if (!matchesTarget(output, job) || process.env.FORCE_IMAGE_REBUILD === '1') {
+      createCategoryPlaceholder(output, job.width, job.height);
+      enforceMaxBytes(output, job.maxBytes);
+    } else {
+      console.log(`复用已有 3x 素材: ${path.relative(root, output)}`);
+    }
+    continue;
+  }
   if (!fs.existsSync(source)) {
     if (matchesTarget(output, job)) {
       console.log(`复用已有 3x 素材: ${path.relative(root, output)}`);

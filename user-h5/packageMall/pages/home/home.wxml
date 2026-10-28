@@ -32,7 +32,15 @@
             bindtap="selectCategory"
             aria-role="button"
             aria-label="筛选{{item.name}}"
-          >{{item.name}}</view>
+          >
+            <image
+              class="category-tab__image"
+              src="{{item.iconImage || '/assets/images/3x/mall-category-placeholder.jpg'}}"
+              mode="aspectFill"
+              aria-label="{{item.name}}分类图"
+            />
+            <text class="category-tab__label">{{item.name}}</text>
+          </view>
         </view>
       </scroll-view>
 

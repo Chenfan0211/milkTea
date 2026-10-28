@@ -4,6 +4,7 @@ const { parseDate, formatDateTime } = require('../../utils/date-format');
 const { requestOrderPayment } = require('../../utils/order-payment');
 
 const FALLBACK_IMAGE = '/assets/images/3x/menu-product.jpg';
+const CATEGORY_PLACEHOLDER_IMAGE = '/assets/images/3x/mall-category-placeholder.jpg';
 const AUTO_COMPLETE_DAYS = 15;
 
 const STATUS_META = {
@@ -62,8 +63,13 @@ function plainText(value) {
 function normalizeCategory(category) {
   return Object.assign({}, category, {
     id: Number(category && category.id),
-    name: String((category && category.name) || '未分类')
+    name: String((category && category.name) || '未分类'),
+    iconImage: categoryIconUrl(category && category.iconImage)
   });
+}
+
+function categoryIconUrl(value) {
+  return resolveAssetUrl(value) || CATEGORY_PLACEHOLDER_IMAGE;
 }
 
 function normalizeProduct(product) {
@@ -294,7 +300,9 @@ function payExistingOrder(order) {
 
 module.exports = {
   AUTO_COMPLETE_DAYS,
+  CATEGORY_PLACEHOLDER_IMAGE,
   FALLBACK_IMAGE,
+  categoryIconUrl,
   decorateOrder,
   imageUrl,
   moneyText,

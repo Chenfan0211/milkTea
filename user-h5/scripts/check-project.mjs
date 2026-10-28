@@ -85,6 +85,7 @@ const expectedRuntimeImages = new Map([
   ['assets/images/3x/share-home.jpg', { width: 1280, height: 1024, maxBytes: 300 * 1024 }],
   ['assets/images/3x/join-banner.jpg', { width: 2130, height: 600, maxBytes: 320 * 1024 }],
   ['assets/images/3x/menu-banner.jpg', { width: 1605, height: 420, maxBytes: 160 * 1024 }],
+  ['assets/images/3x/mall-category-placeholder.jpg', { width: 144, height: 144, maxBytes: 20 * 1024 }],
   ['assets/images/3x/menu-product.jpg', { width: 510, height: 630, maxBytes: 80 * 1024 }],
   ['assets/images/3x/profile-avatar.jpg', { width: 336, height: 336, maxBytes: 80 * 1024 }],
   ['assets/images/3x/profile-banner.jpg', { width: 2130, height: 480, maxBytes: 120 * 1024 }],

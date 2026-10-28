@@ -16,6 +16,7 @@ public class MallCategory {
     private Long id;
     private String code;
     private String name;
+    private String iconImage;
     private Integer sort;
     private String status;
     private LocalDateTime createTime;

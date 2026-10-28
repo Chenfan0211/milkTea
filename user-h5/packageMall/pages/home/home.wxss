@@ -95,8 +95,8 @@
 .category-tab {
   display: inline-flex;
   align-items: center;
-  height: 48rpx;
-  padding: 0 20rpx;
+  height: 64rpx;
+  padding: 0 16rpx 0 8rpx;
   color: var(--text-secondary);
   font-size: var(--font-sm);
   background: var(--card-bg);
@@ -106,6 +106,19 @@
 
 .category-tab + .category-tab {
   margin-left: 12rpx;
+}
+
+.category-tab__image {
+  flex: none;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: var(--brand-soft);
+}
+
+.category-tab__label {
+  margin-left: 8rpx;
+  white-space: nowrap;
 }
 
 .category-tab.is-active {

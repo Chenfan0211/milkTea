@@ -22,6 +22,7 @@ export interface MallCategory {
   id: number;
   code: string;
   name: string;
+  iconImage?: string;
   sort: number;
   status: MallCategoryStatus;
   createTime?: string;
@@ -31,6 +32,7 @@ export interface MallCategory {
 export interface MallCategoryPayload {
   code: string;
   name: string;
+  iconImage?: string;
   sort: number;
   status: MallCategoryStatus;
 }

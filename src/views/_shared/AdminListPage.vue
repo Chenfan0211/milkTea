@@ -21,6 +21,7 @@ import {
 import type { PaginationProps, UploadFileInfo } from 'naive-ui';
 import { toSelectOptions } from './types';
 import { useAdminStore } from '@/store/modules/admin';
+import { uploadAdminImage } from '@/service/api/crud';
 import { downloadXlsxTemplate, readXlsxRows } from './xlsx';
 import { geocodeAddress } from '@/utils/tencent-map';
 import type { AdminListConfig, FormField, RowAction } from './types';
@@ -577,6 +578,97 @@ function renderField(field: FormField) {
       placeholder: field.placeholder,
       'onUpdate:value': (v: any) => (formModel[field.key] = v)
     });
+  }
+  if (field.type === 'uploadImage') {
+    const current = formModel[field.key];
+    return h('div', { class: 'image-field' }, [
+      h(
+        NUpload,
+        {
+          accept: '.jpg,.jpeg,.png,image/jpeg,image/png',
+          multiple: false,
+          max: 1,
+          showFileList: false,
+          defaultUpload: false,
+          disabled,
+          'onUpdate:fileList': async (files: UploadFileInfo[]) => {
+            const file = files[0]?.file;
+            if (!(file instanceof File)) return;
+            const validTypes = ['image/jpeg', 'image/png'];
+            const maxBytes = field.maxBytes ?? 5 * 1024 * 1024;
+            if (!validTypes.includes(file.type)) {
+              window.$message?.warning('仅支持 JPG/PNG 图片');
+              return;
+            }
+            if (file.size > maxBytes) {
+              window.$message?.warning(`图片不能超过 ${Math.floor(maxBytes / 1024 / 1024)}MB`);
+              return;
+            }
+            if (field.square) {
+              const square = await new Promise<boolean>(resolve => {
+                const url = URL.createObjectURL(file);
+                const image = new Image();
+                image.addEventListener(
+                  'load',
+                  () => {
+                    URL.revokeObjectURL(url);
+                    resolve(image.naturalWidth === image.naturalHeight);
+                  },
+                  { once: true }
+                );
+                image.addEventListener(
+                  'error',
+                  () => {
+                    URL.revokeObjectURL(url);
+                    resolve(false);
+                  },
+                  { once: true }
+                );
+                image.src = url;
+              });
+              if (!square) {
+                window.$message?.warning('请上传 1:1 正方形图片');
+                return;
+              }
+            }
+            try {
+              const result = await uploadAdminImage(file);
+              formModel[field.key] = result.url;
+              window.$message?.success('图片上传成功，请保存后生效');
+            } catch (error: any) {
+              window.$message?.error(error?.message || '图片上传失败');
+            }
+          }
+        },
+        {
+          default: () =>
+            current
+              ? h(NImage, {
+                  src: current,
+                  width: 120,
+                  height: 120,
+                  objectFit: 'cover',
+                  style: field.square ? 'border-radius:50%' : 'border-radius:6px'
+                })
+              : h('div', { class: 'image-upload-trigger' }, field.placeholder ?? '点击上传图片')
+        }
+      ),
+      current
+        ? h(
+            NButton,
+            {
+              size: 'tiny',
+              quaternary: true,
+              disabled,
+              style: 'margin-top:8px',
+              onClick: () => {
+                formModel[field.key] = '';
+              }
+            },
+            { default: () => '移除图片' }
+          )
+        : null
+    ]);
   }
   if (field.type === 'image') {
     const current = formModel[field.key];

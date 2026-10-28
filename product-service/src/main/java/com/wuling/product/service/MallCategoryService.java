@@ -15,11 +15,14 @@ import org.springframework.util.StringUtils;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Service
 public class MallCategoryService {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final Pattern CATEGORY_ICON_PATTERN =
+            Pattern.compile("^/api/v1/files/public/[0-9a-f]{32}\\.(jpg|png)$");
 
     private final MallCategoryMapper categoryMapper;
     private final MallProductMapper productMapper;
@@ -89,12 +92,24 @@ public class MallCategoryService {
 
     private void apply(MallCategory category, MallCategorySaveRequest request) {
         category.setName(requireText(request.getName(), "分类名称不能为空"));
+        category.setIconImage(normalizeIconImage(request.getIconImage()));
         category.setSort(request.getSort() == null ? 0 : request.getSort());
         String status = StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : "ENABLED";
         if (!"ENABLED".equals(status) && !"DISABLED".equals(status)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "分类状态仅支持 ENABLED/DISABLED");
         }
         category.setStatus(status);
+    }
+
+    private String normalizeIconImage(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String iconImage = value.trim();
+        if (!CATEGORY_ICON_PATTERN.matcher(iconImage).matches()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "分类图必须是文件服务公开图片地址");
+        }
+        return iconImage;
     }
 
     private MallCategory requireCategory(Long id) {
@@ -110,6 +125,7 @@ public class MallCategoryService {
         dto.setId(category.getId());
         dto.setCode(category.getCode());
         dto.setName(category.getName());
+        dto.setIconImage(StringUtils.hasText(category.getIconImage()) ? category.getIconImage().trim() : null);
         dto.setSort(category.getSort());
         dto.setStatus(category.getStatus());
         dto.setCreateTime(category.getCreateTime() == null ? null : category.getCreateTime().format(TIME_FORMAT));

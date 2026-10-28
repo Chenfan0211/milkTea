@@ -15,6 +15,9 @@ public class MallCategorySaveRequest {
     @Size(max = 64, message = "分类名称不能超过64个字符")
     private String name;
 
+    @Size(max = 255, message = "分类图地址不能超过255个字符")
+    private String iconImage;
+
     private Integer sort;
 
     private String status;

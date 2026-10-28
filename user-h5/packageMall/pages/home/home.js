@@ -5,7 +5,7 @@ const PAGE_SIZE = 10;
 
 Page({
   data: {
-    categories: [{ id: 0, name: '全部' }],
+    categories: [{ id: 0, name: '全部', iconImage: mall.categoryIconUrl('') }],
     activeCategoryId: 0,
     products: [],
     page: 1,
@@ -26,7 +26,7 @@ Page({
       .fetchMallCategories()
       .then(categories => {
         const list = (Array.isArray(categories) ? categories : []).map(mall.normalizeCategory);
-        this.setData({ categories: [{ id: 0, name: '全部' }].concat(list) });
+        this.setData({ categories: [{ id: 0, name: '全部', iconImage: mall.categoryIconUrl('') }].concat(list) });
       })
       .catch(() => {
         // 分类失败不阻断商品浏览，保留「全部」。

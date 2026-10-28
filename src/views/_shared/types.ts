@@ -22,7 +22,17 @@ export interface FormField {
   key: string;
   label: string;
   rules?: any[];
-  type?: 'input' | 'select' | 'number' | 'multiple' | 'image' | 'date' | 'textarea' | 'geocode' | 'password';
+  type?:
+    | 'input'
+    | 'select'
+    | 'number'
+    | 'multiple'
+    | 'image'
+    | 'uploadImage'
+    | 'date'
+    | 'textarea'
+    | 'geocode'
+    | 'password';
   options?: SelectOption[] | ((form: Record<string, any>) => SelectOption[]);
   placeholder?: string;
   multiple?: boolean;
@@ -32,6 +42,10 @@ export interface FormField {
   visible?: (form: Record<string, any>) => boolean;
   /** 按当前表单动态决定字段是否禁用 */
   disabled?: (form: Record<string, any>) => boolean;
+  /** uploadImage 类型：必须为 1:1 图片 */
+  square?: boolean;
+  /** uploadImage 类型：允许的最大文件字节数 */
+  maxBytes?: number;
   /** geocode 类型：从 sourceKey 地址解析，回填到 latKey / lngKey */
   geocodeSourceKey?: string;
   geocodeLatKey?: string;
