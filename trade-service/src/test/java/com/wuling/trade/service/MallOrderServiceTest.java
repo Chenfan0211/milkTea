@@ -212,9 +212,12 @@ class MallOrderServiceTest {
         MallCheckoutQuoteDTO quote = service.quote(88L, request);
 
         assertThat(quote.getPayableAmount()).isEqualTo(20000L);
+        // 非团长：售价 9900 + 佣金 100 = 10000/件；佣金合计 100 x 2 = 200
+        assertThat(quote.getCommissionAmount()).isEqualTo(200L);
         assertThat(quote.getLeaderBuyer()).isFalse();
         assertThat(quote.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getUnitPrice()).isEqualTo(10000L);
+            assertThat(item.getDistributionCommission()).isEqualTo(100L);
             assertThat(item.getLineAmount()).isEqualTo(20000L);
             assertThat(item.getValid()).isTrue();
         });

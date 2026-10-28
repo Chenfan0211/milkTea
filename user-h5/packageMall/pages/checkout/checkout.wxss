@@ -250,3 +250,14 @@
   min-width: 200rpx;
   margin-left: 20rpx;
 }
+
+.checkout-fee-note {
+  margin-top: 8rpx;
+  padding-left: 4rpx;
+}
+
+.checkout-fee-note__text {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}

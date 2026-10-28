@@ -277,6 +277,39 @@ verify() {
   check "储值套餐"      "http://127.0.0.1:8080/api/v1/app/stored-value/packages" '"code":0'
   check "未登录被拦截"  "http://127.0.0.1:8080/api/v1/app/orders" '8888'
 
+  # ---------- 商城路由配置校验（防止外部网关配置与仓库漂移导致 404） ----------
+  # 背景：生产网关使用宿主机外部配置，多次因缺商城路由而返回 404「资源不存在」。
+  #
+  # 为什么不能只靠 curl 探活：未登录时网关鉴权先返回 401，
+  # 路由缺失时请求会 fallback 到 legacy-server 同样得到 401，二者无法区分。
+  # 因此这里直接校验「生效的配置文件」是否含全部必需路由前缀；
+  # 再用 curl 补充一个「已登录才能区分」的正向可比对项（公开接口 code:0）。
+  local gw_config=/opt/wuling/config/gateway/application-prod.yml
+  route_pattern_check() {
+    local name="$1" pattern="$2"
+    if [ ! -f "$gw_config" ]; then
+      echo -e "  \033[1;31m✗\033[0m $name （未找到 $gw_config）"; fail=$((fail+1)); return
+    fi
+    if grep -qF "$pattern" "$gw_config"; then
+      echo -e "  \033[1;32m✓\033[0m $name"; ok=$((ok+1))
+    else
+      echo -e "  \033[1;31m✗\033[0m $name （生效配置缺少 $pattern，路由会落到 legacy-server）"; fail=$((fail+1))
+    fi
+  }
+
+  check "商城分类（公开）" "http://127.0.0.1:8080/api/v1/app/mall/categories" '"code":0'
+  check "商城商品（公开）" "http://127.0.0.1:8080/api/v1/app/mall/products?page=1&size=1" '"code":0'
+
+  route_pattern_check "商城分类路由"       "/api/v1/app/mall/categories"
+  route_pattern_check "商城商品路由"       "/api/v1/app/mall/products"
+  route_pattern_check "SKU 校验路由"       "/api/v1/app/mall/skus/validate"
+  route_pattern_check "商城结算报价路由"   "/api/v1/app/mall/checkout/quote"
+  route_pattern_check "商城下单路由"       "/api/v1/app/mall/orders"
+  route_pattern_check "商城售后路由"       "/api/v1/app/mall/after-sales"
+  route_pattern_check "收货地址路由"       "/api/v1/app/addresses"
+  route_pattern_check "后台商城商品路由"   "/api/v1/admin/mall/products"
+  route_pattern_check "后台商城分类路由"   "/api/v1/admin/mall/categories"
+
   echo
   log "通过 $ok 项，失败 $fail 项"
   [ $fail -eq 0 ] || return 1

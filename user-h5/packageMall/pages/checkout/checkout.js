@@ -17,6 +17,8 @@ Page({
     items: [],
     count: 0,
     amountText: '0',
+    commissionText: '',
+    hasCommission: false,
     paymentMethod: 'WXPAY',
     submitting: false
   },
@@ -109,10 +111,15 @@ Page({
         unitPriceText: mall.priceText(unitPrice)
       });
     });
+    const commissionAmount = Number(quote && quote.commissionAmount) || 0;
     return {
       items: displayItems,
       count: displayItems.reduce((sum, item) => sum + item.quantity, 0),
-      amountText: mall.moneyText(Number(quote && quote.payableAmount) || 0)
+      amountText: mall.moneyText(Number(quote && quote.payableAmount) || 0),
+      // 非团长应付价含分销服务费，商品列表展示的是不含佣金的售价；
+      // 这里显式展示差额，避免用户误以为结账时被加价。
+      commissionText: commissionAmount > 0 ? mall.moneyText(commissionAmount) : '',
+      hasCommission: commissionAmount > 0
     };
   },
 

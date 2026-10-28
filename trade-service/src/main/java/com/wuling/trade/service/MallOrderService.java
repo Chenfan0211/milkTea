@@ -95,6 +95,7 @@ public class MallOrderService {
         boolean orderable = true;
         String orderError = null;
         long payable = 0L;
+        long commissionTotal = 0L;
         for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
             long skuId = entry.getKey();
             int quantity = entry.getValue();
@@ -131,15 +132,19 @@ public class MallOrderService {
                 line.setReason("可用库存不足");
             } else {
                 long unitPrice = leaderBuyer ? sku.salePrice() : sku.salePrice() + sku.distributionCommission();
+                long lineCommission = leaderBuyer ? 0L : sku.distributionCommission();
                 line.setUnitPrice(unitPrice);
+                line.setDistributionCommission(lineCommission);
                 line.setLineAmount(unitPrice * quantity);
                 line.setValid(true);
                 payable += unitPrice * quantity;
+                commissionTotal += lineCommission * quantity;
             }
             lines.add(line);
         }
         quote.setItems(lines);
         quote.setPayableAmount(payable);
+        quote.setCommissionAmount(commissionTotal);
         quote.setOrderable(orderable);
         quote.setOrderError(orderError);
         return quote;
