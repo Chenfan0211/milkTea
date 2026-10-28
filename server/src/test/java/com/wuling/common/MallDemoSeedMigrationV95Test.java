@@ -21,7 +21,6 @@ class MallDemoSeedMigrationV95Test {
         assertTrue(Files.exists(MIGRATION), "V95 迁移脚本应存在: " + MIGRATION);
         return Files.readString(MIGRATION, StandardCharsets.UTF_8);
     }
-
     @Test
     void seedsThreeCategoriesAndEightDemoProducts() throws IOException {
         String sql = sql();
@@ -35,7 +34,6 @@ class MallDemoSeedMigrationV95Test {
             assertTrue(sql.contains(skuCode), "缺少演示 SKU: " + skuCode);
         }
     }
-
     @Test
     void coversOnSaleOriginalPriceAndSoldOutData() throws IOException {
         String sql = sql().toUpperCase();
@@ -44,7 +42,6 @@ class MallDemoSeedMigrationV95Test {
         assertTrue(sql.contains("16900 AS ORIGINAL_PRICE"), "演示数据必须包含划线价商品");
         assertTrue(sql.contains("UNION ALL SELECT 'DEMO-MALL-008', 'DEMO-MALL-SKU-008', 3900, 0, 1800, 200, 0"), "演示数据必须包含售罄库存商品");
     }
-
     @Test
     void resolvesDependenciesByExistingCodes() throws IOException {
         String sql = sql();
@@ -55,7 +52,6 @@ class MallDemoSeedMigrationV95Test {
         assertTrue(sql.contains("JOIN mall_category category ON category.code"), "商品分类必须按编码关联");
         assertTrue(sql.contains("JOIN mall_product product ON product.product_code"), "SKU 必须按商品编码关联");
     }
-
     @Test
     void allDemoRowsAreIdempotent() throws IOException {
         String sql = sql();
@@ -64,4 +60,22 @@ class MallDemoSeedMigrationV95Test {
         assertFalse(sql.toLowerCase().contains("flyway_schema_history"), "严禁手工写 flyway_schema_history");
         assertTrue(sql.contains("deleted = 0"), "幂等更新必须恢复演示数据");
     }
+    @Test
+    void requiresV94IconColumnBeforeSeeding() throws IOException {
+        String sql = sql();
+        String lower = sql.toLowerCase();
+        assertTrue(lower.contains("icon_image"), "V95 必须依赖 V94 的 icon_image 列");
+        assertTrue(lower.contains("information_schema.columns"), "V95 必须显式校验 V94 已执行");
+        assertTrue(lower.contains("v94__mall_category_icon.sql"), "依赖缺失时必须提示先执行 V94");
+    }
+    @Test
+    void failsFastWhenRequiredSeedDependenciesAreMissing() throws IOException {
+        String lower = sql().toLowerCase();
+        assertTrue(lower.contains("@mall_store_subject_id is null"), "门店主体缺失时必须终止");
+        assertTrue(lower.contains("@mall_supplier_subject_id is null"), "供应商主体缺失时必须终止");
+        assertTrue(lower.contains("@mall_split_rule_id is null"), "分账规则缺失时必须终止");
+        assertTrue(lower.contains("signal sqlstate"), "依赖缺失必须显式报错，禁止静默写入 NULL");
+        assertFalse(lower.contains("flyway_schema_history"), "严禁手工写 flyway_schema_history");
+}
+
 }

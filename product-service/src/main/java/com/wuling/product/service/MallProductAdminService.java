@@ -21,6 +21,7 @@ import com.wuling.product.mapper.MallStockLogMapper;
 import com.wuling.product.port.SubjectQueryPort;
 import com.wuling.product.port.SplitRuleValidationPort;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -130,6 +131,10 @@ public class MallProductAdminService {
     }
     @Transactional(rollbackFor = Exception.class)
     public MallProductAdminDTO create(MallProductSaveRequest request) {
+        return wrapDuplicateProductCode(() -> doCreate(request));
+    }
+
+    private MallProductAdminDTO doCreate(MallProductSaveRequest request) {
         String productCode = requireText(request.getProductCode(), "商品编码不能为空");
         MallProduct existing = productMapper.selectByProductCodeIncludingDeleted(productCode);
         if (existing != null) {
@@ -147,6 +152,10 @@ public class MallProductAdminService {
     }
     @Transactional(rollbackFor = Exception.class)
     public MallProductAdminDTO update(Long id, MallProductSaveRequest request) {
+        return wrapDuplicateProductCode(() -> doUpdate(id, request));
+    }
+
+    private MallProductAdminDTO doUpdate(Long id, MallProductSaveRequest request) {
         MallProduct product = requireProduct(id);
         String productCode = requireText(request.getProductCode(), "商品编码不能为空");
         MallProduct existing = productMapper.selectByProductCodeIncludingDeleted(productCode);
@@ -179,6 +188,14 @@ public class MallProductAdminService {
         product.setStatus(status);
         productMapper.updateById(product);
         return getProduct(id);
+    }
+
+    private MallProductAdminDTO wrapDuplicateProductCode(java.util.function.Supplier<MallProductAdminDTO> action) {
+        try {
+            return action.get();
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "商品编码已存在");
+        }
     }
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
@@ -531,4 +548,3 @@ public class MallProductAdminService {
         return value.trim();
     }
 }
-

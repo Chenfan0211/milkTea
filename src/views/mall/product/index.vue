@@ -21,6 +21,8 @@ import {
 import type { DataTableColumns } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField } from '@/views/_shared/types';
+import { fetchAdminSplitRules } from '@/service/api/product';
+import { fetchSubjectsByType } from '@/service/api/crud';
 import { formatFen, formatDateTime, renderTag, statusMap } from '@/views/_shared/render';
 import {
   adjustMallSkuStock,
@@ -95,6 +97,24 @@ const statusOptions = [
   { label: '已上架', value: 'ON_SALE' },
   { label: '已下架', value: 'OFF_SALE' }
 ];
+
+interface SubjectOption {
+  id?: number | string;
+  name?: string;
+  code?: string;
+}
+
+const subjects = ref<SubjectOption[]>([]);
+const splitRules = ref<any[]>([]);
+
+function subjectOptions() {
+  return subjects.value
+    .map(subject => ({
+      label: subject.name || subject.code || `主体 ${subject.id ?? subject.code}`,
+      value: Number(subject.id)
+    }))
+    .filter(option => Number.isFinite(option.value));
+}
 
 const categoryOptions = computed(() =>
   categories.value.map(category => ({ label: category.name, value: category.id }))
@@ -177,6 +197,31 @@ function toSkuRow(sku: MallSkuAdmin): SkuRow {
   };
 }
 
+async function loadFormOptions() {
+  const [stores, channels, suppliers, ruleResponse] = await Promise.all([
+    fetchSubjectsByType('STORE'),
+    fetchSubjectsByType('CHANNEL'),
+    fetchSubjectsByType('SUPPLIER'),
+    fetchAdminSplitRules({ current: 1, size: 100 })
+  ]);
+  subjects.value = [
+    ...(Array.isArray(stores) ? stores : []),
+    ...(Array.isArray(channels) ? channels : []),
+    ...(Array.isArray(suppliers) ? suppliers : [])
+  ];
+  const ruleResult = ruleResponse as any;
+  splitRules.value = ruleResult?.records ?? [];
+}
+const storeOptions = computed(() => subjectOptions());
+const channelOptions = computed(() => subjectOptions());
+const supplierOptions = computed(() => subjectOptions());
+const splitRuleOptions = computed(() =>
+  splitRules.value.map(rule => ({
+    label: `${rule.name || rule.code}（${rule.scope === 'GLOBAL' ? '全局' : rule.scope === 'PRODUCT' ? '商品' : rule.scope}）`,
+    value: Number(rule.id)
+  }))
+);
+
 async function loadCategories() {
   try {
     categories.value = await fetchMallCategories();
@@ -185,7 +230,12 @@ async function loadCategories() {
   }
 }
 
-onMounted(loadCategories);
+onMounted(() => {
+  loadCategories();
+  loadFormOptions().catch(error => {
+    window.$message?.error(error?.message || '商品表单选项加载失败');
+  });
+});
 
 function openCreate() {
   editingProduct.value = null;
@@ -581,20 +631,31 @@ const config: AdminListConfig = {
               <NFormItem label="状态">
                 <NSelect v-model:value="form.status" :options="statusOptions" />
               </NFormItem>
-              <NFormItem label="归属门店ID" required>
-                <NInputNumber v-model:value="form.attributionStoreSubjectId" :min="1" :precision="0" class="w-full" />
-              </NFormItem>
-              <NFormItem label="渠道ID（可选）">
-                <NInputNumber
-                  v-model:value="form.attributionChannelSubjectId"
-                  :min="1"
-                  :precision="0"
-                  clearable
-                  class="w-full"
+              <NFormItem label="归属门店" required>
+                <NSelect
+                  v-model:value="form.attributionStoreSubjectId"
+                  :options="storeOptions"
+                  filterable
+                  placeholder="请选择门店"
                 />
               </NFormItem>
-              <NFormItem label="分账规则ID（可选）">
-                <NInputNumber v-model:value="form.splitRuleId" :min="1" :precision="0" clearable class="w-full" />
+              <NFormItem label="归属渠道（可选）">
+                <NSelect
+                  v-model:value="form.attributionChannelSubjectId"
+                  :options="channelOptions"
+                  filterable
+                  clearable
+                  placeholder="请选择渠道"
+                />
+              </NFormItem>
+              <NFormItem label="分账规则（可选）">
+                <NSelect
+                  v-model:value="form.splitRuleId"
+                  :options="splitRuleOptions"
+                  filterable
+                  clearable
+                  placeholder="请选择分账规则"
+                />
               </NFormItem>
               <NFormItem label="排序">
                 <NInputNumber v-model:value="form.sort" :precision="0" class="w-full" />
@@ -666,8 +727,13 @@ const config: AdminListConfig = {
                     </NFormItem>
                     <NInputNumber v-model:value="sku.platformCommission" :min="0" :precision="0" class="w-full" />
                   </NFormItem>
-                  <NFormItem label="供应商ID" required>
-                    <NInputNumber v-model:value="sku.supplierSubjectId" :min="1" :precision="0" class="w-full" />
+                  <NFormItem label="供应商" required>
+                    <NSelect
+                      v-model:value="sku.supplierSubjectId"
+                      :options="supplierOptions"
+                      filterable
+                      placeholder="请选择供应商"
+                    />
                   </NFormItem>
                   <NFormItem label="实物库存" required>
                     <NInputNumber v-model:value="sku.stock" :min="sku.lockedStock" :precision="0" class="w-full" />

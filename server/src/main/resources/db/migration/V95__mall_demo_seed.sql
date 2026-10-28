@@ -26,6 +26,33 @@ SET @mall_split_rule_id := (
     LIMIT 1
 );
 
+-- ---------- V94 依赖守卫 ----------
+SET @mall_icon_ready := (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'mall_category'
+      AND column_name = 'icon_image'
+);
+
+SET @abort_migration := IF(
+    @mall_icon_ready = 0,
+    'V95 依赖缺失：请先执行 V94__mall_category_icon.sql，再执行商城演示数据迁移',
+    'SELECT 1'
+);
+
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = @abort_migration;
+
+-- ---------- 主体与分账规则依赖守卫 ----------
+SET @abort_seed_dependencies := IF(
+    @mall_store_subject_id IS NULL
+    OR @mall_supplier_subject_id IS NULL
+    OR @mall_split_rule_id IS NULL,
+    'V95 依赖缺失：必须存在 ST-1001、SU-1000 与 SR-1000，禁止写入空主体',
+    'SELECT 1'
+);
+
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = @abort_seed_dependencies;
 -- ---------- 演示分类 ----------
 INSERT INTO mall_category (code, name, icon_image, sort, status) VALUES
 ('tea-goods', '茶器好物', '/assets/images/3x/tea-dahongpao.jpg', 10, 'ENABLED'),
