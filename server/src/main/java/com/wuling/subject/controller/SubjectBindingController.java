@@ -199,7 +199,27 @@ public class SubjectBindingController {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该用户已拥有此角色");
         }
         String normalizedRole = normalizeRoleCode(roleCode);
-        bindPair(subjectId, userId, normalizedRole);
+        // 方案 A：多角色用户不能走 bindPair 的严格 1:1 校验。
+        // 原因：app_user.bound_subject_id 只能指向一个「主主体」，
+        // 而多角色用户的该字段仍指向既有主体，导致新角色永远绑不上。
+        // 这里改为「主体单向 1:1」：主体不得已被其他用户占用；
+        // 用户侧允许多角色，只以 user_role_grant 为准。
+        requireSubject(subjectId, null);
+        Long subjectOwner = queryLong(
+                "select bound_user_id from biz_subject where id = ? and deleted = 0", subjectId);
+        if (subjectOwner != null && !subjectOwner.equals(userId)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该主体已绑定其他用户，请先解绑");
+        }
+        jdbcTemplate.update("update biz_subject set bound_user_id = ? where id = ? and deleted = 0",
+                userId, subjectId);
+        // 主主体：仅当用户尚未绑定任何主体时才写入，避免覆盖既有主角色。
+        Long currentMain = queryLong(
+                "select bound_subject_id from app_user where id = ? and deleted = 0", userId);
+        if (currentMain == null) {
+            jdbcTemplate.update(
+                    "update app_user set bound_subject_id = ?, business_role = ? where id = ? and deleted = 0",
+                    subjectId, normalizedRole, userId);
+        }
         jdbcTemplate.update("insert into user_role_grant (user_id, role_code, subject_id, status, grant_time) "
                         + "values (?, ?, ?, 'active', now())",
                 userId, normalizedRole, subjectId);
