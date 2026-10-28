@@ -51,10 +51,12 @@ public class StoreOperatorService {
             return false;
         }
         // 1) 授权表：显式授予且已生效
+        // role_code / status 用 UPPER 归一：与 AppRoleController#mine 的 equalsIgnoreCase 口径一致。
+        // 若此处精确匹配，历史小写存量会导致「小程序看得到门店角色、接口却判定无权」。
         Long granted = jdbcTemplate.queryForObject(
                 "select count(*) from user_role_grant "
-                        + "where user_id = ? and role_code = 'STORE' and subject_id = ? "
-                        + "and status = 'active' and deleted = 0",
+                        + "where user_id = ? and UPPER(role_code) = 'STORE' and subject_id = ? "
+                        + "and UPPER(status) = 'ACTIVE' and deleted = 0",
                 Long.class, userId, subjectId);
         if (granted != null && granted > 0) {
             return true;
