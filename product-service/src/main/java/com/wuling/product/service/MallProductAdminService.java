@@ -457,16 +457,18 @@ public class MallProductAdminService {
         dto.setGalleryImages(parseStringList(product.getGalleryImages()));
         dto.setDescription(product.getDescription());
         dto.setAttributionStoreSubjectId(product.getAttributionStoreSubjectId());
-        dto.setAttributionStoreName(stores.get(product.getAttributionStoreSubjectId()));
+        dto.setAttributionStoreName(subjectName(stores, product.getAttributionStoreSubjectId()));
         dto.setAttributionChannelSubjectId(product.getAttributionChannelSubjectId());
-        dto.setAttributionChannelName(channels.get(product.getAttributionChannelSubjectId()));
+        dto.setAttributionChannelName(subjectName(channels, product.getAttributionChannelSubjectId()));
         dto.setSplitRuleId(product.getSplitRuleId());
         dto.setStatus(product.getStatus());
         dto.setSort(product.getSort());
         dto.setSalesCount(product.getSalesCount());
         dto.setCreateTime(product.getCreateTime() == null ? null : product.getCreateTime().format(TIME_FORMAT));
         dto.setUpdateTime(product.getUpdateTime() == null ? null : product.getUpdateTime().format(TIME_FORMAT));
-        dto.setSkus(skus.stream().map(sku -> toAdminSku(sku, suppliers.get(sku.getSupplierSubjectId()))).toList());
+        dto.setSkus(skus.stream()
+                .map(sku -> toAdminSku(sku, subjectName(suppliers, sku.getSupplierSubjectId())))
+                .toList());
         dto.setMinPrice(skus.stream().map(MallSku::getSalePrice).filter(Objects::nonNull).min(Long::compareTo).orElse(null));
         dto.setMaxPrice(skus.stream().map(MallSku::getSalePrice).filter(Objects::nonNull).max(Long::compareTo).orElse(null));
         dto.setAvailableStock(skus.stream().mapToInt(MallSku::availableStock).sum());
@@ -546,5 +548,9 @@ public class MallProductAdminService {
             throw new BusinessException(ResultCode.BAD_REQUEST, message);
         }
         return value.trim();
+    }
+
+    private static String subjectName(Map<Long, String> names, Long subjectId) {
+        return subjectId == null ? null : names.get(subjectId);
     }
 }

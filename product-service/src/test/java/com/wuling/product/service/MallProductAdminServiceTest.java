@@ -1,5 +1,7 @@
 package com.wuling.product.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.wuling.product.dto.MallProductAdminDTO;
 import com.wuling.product.dto.MallProductSaveRequest;
 import com.wuling.product.dto.MallSkuAdminDTO;
 import com.wuling.product.dto.MallStockAdjustRequest;
@@ -17,8 +19,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,6 +49,27 @@ class MallProductAdminServiceTest {
         subjectQueryPort = mock(SubjectQueryPort.class);
         service = new MallProductAdminService(
                 productMapper, skuMapper, categoryMapper, stockLogMapper, subjectQueryPort);
+    }
+
+    @Test
+    @DisplayName("无归属渠道的商品可以正常分页返回")
+    void pageProductsAllowsMissingChannel() {
+        MallProduct product = product(1L);
+        product.setAttributionChannelSubjectId(null);
+        Page<MallProduct> page = new Page<>(1, 10);
+        page.setRecords(List.of(product));
+        page.setTotal(1);
+
+        when(productMapper.selectPage(any(), any())).thenReturn(page);
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku(1L, 5, 0)));
+        when(categoryMapper.selectBatchIds(any())).thenReturn(List.of(category()));
+        when(subjectQueryPort.findNames(any())).thenReturn(Map.of(101L, "主体101", 401L, "主体401"));
+
+        MallProductAdminDTO result = service.pageProducts(1, 10, null, null, null)
+                .getRecords()
+                .get(0);
+
+        assertNull(result.getAttributionChannelName());
     }
 
     @Test
