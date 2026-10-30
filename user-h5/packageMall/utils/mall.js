@@ -45,6 +45,19 @@ function priceText(fen) {
   return `¥${moneyText(fen)}`;
 }
 
+/**
+ * 购物车最终单价是否发生变化。
+ *
+ * 首次从商品详情加购时只有 SKU 基础售价，尚未记录非团长的分销佣金；
+ * 因此没有历史 unitPrice 时不能提示改价。只有已经确认过的最终单价
+ * 与当前报价不同时，才属于真正的价格变化。
+ */
+function quotePriceChanged(item, unitPrice) {
+  const previous = Number(item && item.unitPrice);
+  const next = Number(unitPrice);
+  return Number.isFinite(previous) && previous > 0 && Number.isFinite(next) && previous !== next;
+}
+
 function imageUrl(value) {
   return resolveAssetUrl(value) || FALLBACK_IMAGE;
 }
@@ -315,6 +328,7 @@ module.exports = {
   payExistingOrder,
   plainText,
   priceText,
+  quotePriceChanged,
   quoteItems,
   validateItems
 };

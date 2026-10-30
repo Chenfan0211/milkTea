@@ -64,7 +64,7 @@ Page({
               lineAmount: Number(quoted.lineAmount) || unitPrice * item.quantity,
               valid: quoted.valid !== false && item.valid !== false,
               reason: quoted.reason || item.reason || '',
-              priceChanged: Boolean(item.salePriceFen && item.salePriceFen !== unitPrice)
+              priceChanged: mall.quotePriceChanged(item, unitPrice)
             });
           });
           const invalidQuote = merged.find(item => !item.valid);

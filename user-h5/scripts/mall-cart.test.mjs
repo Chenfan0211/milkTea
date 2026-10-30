@@ -15,6 +15,7 @@ global.wx = {
 };
 
 const cart = require('../utils/mall-cart.js');
+const mall = require('../packageMall/utils/mall.js');
 const item = {
   skuId: 101,
   productId: 11,
@@ -46,5 +47,13 @@ assert.equal(summary.count, 0, '库存不足条目不参与结算汇总');
 cart.add(Object.assign({}, item, { skuId: 102, quantity: 1, availableStock: 0 }), 'u1');
 summary = cart.summary(cart.read('u1'));
 assert.equal(summary.count, 0, '售罄商品不得参与结算');
+
+assert.equal(
+  mall.quotePriceChanged({ salePriceFen: 1000 }, 1100),
+  false,
+  '首次加购时，非团长的分销佣金不得误判为商品改价'
+);
+assert.equal(mall.quotePriceChanged({ unitPrice: 1100 }, 1100), false, '最终单价未变化时不得提示改价');
+assert.equal(mall.quotePriceChanged({ unitPrice: 1100 }, 1200), true, '最终单价变化时必须提示改价');
 
 console.log('mall-cart.test.mjs: passed');
