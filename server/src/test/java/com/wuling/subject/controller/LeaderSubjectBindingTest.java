@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,5 +50,16 @@ class LeaderSubjectBindingTest {
         String text = source();
         assertTrue(text.contains("on duplicate key update"),
                 "同一用户重新绑定团长必须使用幂等 upsert，逻辑删除后再次 insert 会触发唯一键冲突");
+    }
+
+    @Test
+    void recreatingLeaderMustRestoreSoftDeletedSubject() throws IOException {
+        String text = source().replaceAll("\\s+", " ");
+        assertTrue(Pattern.compile(
+                        "insert into biz_subject \\(code, name, subject_type, status\\) "
+                                + "values \\(\\?, \\?, 'LEADER', 'active'\\) \\\" \\+ \\\"on duplicate key update")
+                        .matcher(text)
+                        .find(),
+                "用户解除后再次设为团长，必须恢复原 LD-userId 主体而不是重复插入");
     }
 }

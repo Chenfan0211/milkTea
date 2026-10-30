@@ -111,7 +111,9 @@ public class AdminLeaderController {
                 : String.valueOf(payload.get("name")).trim();
         String code = "LD-" + userId;
         jdbcTemplate.update(
-                "insert into biz_subject (code, name, subject_type, status) values (?, ?, 'LEADER', 'active')",
+                "insert into biz_subject (code, name, subject_type, status) values (?, ?, 'LEADER', 'active') "
+                        + "on duplicate key update name = values(name), subject_type = 'LEADER', "
+                        + "status = 'active', deleted = 0, bound_user_id = null",
                 code, name);
         Long subjectId = jdbcTemplate.queryForObject(
                 "select id from biz_subject where code = ? and deleted = 0", Long.class, code);
