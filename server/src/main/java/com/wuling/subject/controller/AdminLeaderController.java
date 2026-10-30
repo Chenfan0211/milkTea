@@ -170,9 +170,10 @@ public class AdminLeaderController {
         }
         Object leaderSubjectIdValue = leaderRows.get(0).get("subject_id");
         Long leaderSubjectId = leaderSubjectIdValue == null ? null : ((Number) leaderSubjectIdValue).longValue();
-        jdbcTemplate.update("update user_leader set deleted = 1 where user_id = ?", userId);
         jdbcTemplate.update(
-                "insert into user_leader (user_id, leader_user_id, leader_subject_id) values (?, ?, ?)",
+                "insert into user_leader (user_id, leader_user_id, leader_subject_id) values (?, ?, ?) "
+                        + "on duplicate key update leader_user_id = values(leader_user_id), "
+                        + "leader_subject_id = values(leader_subject_id), deleted = 0",
                 userId, leaderUserId, leaderSubjectId);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("userId", userId);

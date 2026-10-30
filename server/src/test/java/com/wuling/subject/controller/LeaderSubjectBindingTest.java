@@ -43,4 +43,11 @@ class LeaderSubjectBindingTest {
         assertFalse(text.contains("update app_user set bound_subject_id = null, business_role = null"),
                 "解除团长不能清空用户的门店/资源方绑定");
     }
+
+    @Test
+    void assigningLeaderMustBeIdempotentForExistingUser() throws IOException {
+        String text = source();
+        assertTrue(text.contains("on duplicate key update"),
+                "同一用户重新绑定团长必须使用幂等 upsert，逻辑删除后再次 insert 会触发唯一键冲突");
+    }
 }
