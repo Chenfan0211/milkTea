@@ -73,12 +73,13 @@ const storeUtil = require(path.join(root, 'utils/store.js'));
 const share = require(path.join(root, 'utils/share.js'));
 
 storeUtil.setCityCatalogForTest([{ id: 1, code: '4301', name: '长沙市', latitude: 28.2282, longitude: 112.9388 }]);
-storeUtil.setStoreCatalogForTest([
+const STORE_FIXTURES = [
   {
     id: 101,
     code: 's-2of2',
     name: '两件都有店',
     cityCode: '4301',
+    businessStatus: 'open',
     address: 'A',
     latitude: 28.24,
     longitude: 113.08,
@@ -89,6 +90,7 @@ storeUtil.setStoreCatalogForTest([
     code: 's-1of2',
     name: '只有一件店',
     cityCode: '4301',
+    businessStatus: 'open',
     address: 'B',
     latitude: 28.25,
     longitude: 113.09,
@@ -99,6 +101,7 @@ storeUtil.setStoreCatalogForTest([
     code: 's-1of2-near',
     name: '只有一件近店',
     cityCode: '4301',
+    businessStatus: 'open',
     address: 'C',
     latitude: 28.241,
     longitude: 113.081,
@@ -109,6 +112,7 @@ storeUtil.setStoreCatalogForTest([
     code: 's-0of2',
     name: '全缺货店',
     cityCode: '4301',
+    businessStatus: 'open',
     address: 'D',
     latitude: 28.239,
     longitude: 113.079,
@@ -119,6 +123,7 @@ storeUtil.setStoreCatalogForTest([
     code: 's-unprobed',
     name: '远处未探测店',
     cityCode: '4301',
+    businessStatus: 'open',
     address: 'E',
     latitude: 28.3,
     longitude: 113.15,
@@ -129,12 +134,14 @@ storeUtil.setStoreCatalogForTest([
     code: 's-far-2of2',
     name: '远处两件都有店',
     cityCode: '4301',
+    businessStatus: 'open',
     address: 'F',
     latitude: 28.32,
     longitude: 113.18,
     modes: ['pickup']
   }
-]);
+];
+storeUtil.setStoreCatalogForTest(STORE_FIXTURES);
 
 function product(id, name) {
   return { id, name, price: 1290, originalPrice: 1290, storedValuePrice: 0, image: id + '.jpg' };
@@ -166,7 +173,7 @@ const MENUS = {
 };
 
 api.fetchCities = () => Promise.resolve([]);
-api.fetchStores = () => Promise.resolve([]);
+api.fetchStores = () => Promise.resolve(STORE_FIXTURES);
 api.fetchStoreDistances = (latitude, longitude, stores) =>
   Promise.resolve(
     (stores || []).map((store, index) => ({
