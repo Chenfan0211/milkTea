@@ -1,11 +1,18 @@
 const api = require('../../../utils/api');
 const mall = require('../../utils/mall');
+const mallCart = require('../../../utils/mall-cart');
 
 const PAGE_SIZE = 10;
+
+function cartQuantity(items) {
+  return (Array.isArray(items) ? items : []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+}
 
 Page({
   data: {
     categories: [{ id: 0, name: '全部', iconImage: mall.categoryIconUrl('') }],
+    cartCount: 0,
+    cartCountText: '',
     activeCategoryId: 0,
     products: [],
     page: 1,
@@ -21,16 +28,42 @@ Page({
     this.loadProducts(true);
   },
 
+  onShow() {
+    this.syncCartCount();
+  },
+
+  syncCartCount() {
+    const count = cartQuantity(mallCart.read());
+    this.setData({
+      cartCount: count,
+      cartCountText: count > 99 ? '99+' : String(count)
+    });
+  },
+
   loadCategories() {
     api
       .fetchMallCategories()
       .then(categories => {
         const list = (Array.isArray(categories) ? categories : []).map(mall.normalizeCategory);
-        this.setData({ categories: [{ id: 0, name: '全部', iconImage: mall.categoryIconUrl('') }].concat(list) });
+        this.setData({
+          categories: [{ id: 0, name: '全部', iconImage: mall.categoryIconUrl('') }].concat(list)
+        });
       })
       .catch(() => {
         // 分类失败不阻断商品浏览，保留「全部」。
       });
+  },
+
+  handleCategoryIconError(event) {
+    const id = Number(event.currentTarget.dataset.id);
+    const categories = (this.data.categories || []).map(item => {
+      if (Number(item.id) !== id || item.iconFallbackApplied) return item;
+      return Object.assign({}, item, {
+        iconImage: mall.CATEGORY_PLACEHOLDER_IMAGE,
+        iconFallbackApplied: true
+      });
+    });
+    this.setData({ categories });
   },
 
   loadProducts(reset) {

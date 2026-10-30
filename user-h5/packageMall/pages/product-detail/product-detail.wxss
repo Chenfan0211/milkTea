@@ -14,19 +14,25 @@
   box-shadow: var(--shadow-card);
 }
 
-.detail-gallery__scroll {
+.detail-gallery__swiper {
   width: 100%;
-  white-space: nowrap;
-}
-
-.detail-gallery__list {
-  display: inline-flex;
+  height: 560rpx;
 }
 
 .detail-gallery__image {
-  width: 710rpx;
+  width: 100%;
   height: 560rpx;
-  margin-right: 8rpx;
+}
+
+.detail-gallery__counter {
+  position: absolute;
+  right: 20rpx;
+  bottom: 20rpx;
+  padding: 8rpx 16rpx;
+  color: var(--text-main);
+  font-size: var(--font-caption);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-pill);
 }
 
 .detail-sold-out {
@@ -93,6 +99,13 @@
 .detail-sku {
   padding: 24rpx;
   margin-bottom: 20rpx;
+}
+
+.detail-sku__selected {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
 }
 
 .detail-sku__list {
@@ -178,9 +191,20 @@
   margin-bottom: 20rpx;
 }
 
+.detail-description__section {
+  margin-top: 20rpx;
+}
+
+.detail-description__label {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
 .detail-description__text {
   display: block;
-  margin-top: 16rpx;
+  margin-top: 8rpx;
   color: var(--text-secondary);
   font-size: var(--font-base);
   line-height: 1.7;

@@ -37,6 +37,7 @@
 > | components/health-profile-sheet/health-profile-sheet.wxss .profile-sheet\_\_panel      | width: 620rpx; height: 628rpx   | 舌诊个人信息弹窗居中尺寸，按参考图固化                                       |
 > | components/health-profile-sheet/health-profile-sheet.wxss .profile-sheet\_\_option     | height: 176rpx                  | 性别选择卡高度按参考图固化                                                   |
 > | components/health-profile-sheet/health-profile-sheet.wxss .profile-sheet\_\_birth-row  | height: 128rpx                  | 出生年年份选择卡高度按参考图固化                                             |
+> | `packageMall/pages/home/home.wxss` `.home-products-content`                            | `padding-bottom: 120rpx`        | 线上商城商品列表底部让位右下角悬浮购物车，避免最后一张卡被挡住               |
 >
 > 新增类似取值前必须先确认参考图依据，并在本表登记；未登记的非档位间距一律视为违规。
 
@@ -317,12 +318,17 @@ onShow() {
 - 描边标签：`1 ~ 2rpx` `var(--brand-green)` 描边 + 同色文字 + `var(--radius-xs)`，字号 `var(--font-sm)`。
 - 角标：`var(--price-red)` 或 `var(--brand-green)` 底 + 白字 + `var(--radius-pill)`。
 
-### 商城分类胶囊
+### 商城分类图文栏
 
-- 商城首页分类筛选使用横向滚动图文胶囊，单项高度 `64rpx`，间距 `12rpx`。
-- 分类图固定 `48rpx × 48rpx`、`border-radius: 50%`、`mode="aspectFill"`；文字与图间距 `8rpx`。
-- 默认态使用白底、`var(--line-color)` 描边和 `var(--text-secondary)` 文字；选中态使用 `var(--brand-green)` 底与白色文字。
-- 无分类图时统一使用 `/assets/images/3x/mall-category-placeholder.jpg`，不得使用 emoji、单字或临时图片代替。
+- 线上商城首页分类使用单行横向图文栏：图标在上、名称在下。图标固定 `80rpx × 80rpx`、`mode="aspectFill"`、`var(--radius-md)`；名称距图标 `8rpx`，使用 `var(--font-sm)`，超出时单行省略。
+- 「全部」放在最前并计入每屏 4 项。单项宽度固定为 `calc((100vw - 88rpx) / 4)`、间距 `16rpx`、页面左右边距 `20rpx`，超过 4 项时横向滑动，不得压缩图标或文字。
+- 横滑容器必须声明 `height: 144rpx` 与 `overflow: hidden`，避免 Skyline 下横向 `scroll-view` 高度塌陷；该项是运行时布局约束，不属于间距档位。
+- 默认名称使用 `var(--text-secondary)`；选中名称使用 `var(--brand-green)`、字重 600，不再使用文字下划线。
+- 分类图来自后台 `iconImage`；无图或加载失败统一降级为 `/assets/images/3x/mall-category-placeholder.jpg`，不得使用 emoji、单字或临时图片代替。
+- 演示分类专用图片仍保留在仓库：
+  - `tea-goods` → `/assets/images/3x/mall-category-tea-goods.jpg`
+  - `living-goods` → `/assets/images/3x/mall-category-living-goods.jpg`
+  - `gift-box` → `/assets/images/3x/mall-category-gift-box.jpg`
 
 ### 列表
 

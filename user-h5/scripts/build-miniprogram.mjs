@@ -47,6 +47,10 @@ function isSkipped(relativePath, hidden) {
   if (!normalized) return false;
   const segments = normalized.split('/');
   if (segments.some(segment => ALWAYS_SKIP.has(segment))) return true;
+  // ALWAYS_SKIP 里也可能登记多段路径（如 assets/temp）。
+  // 只按单段比较会永远匹配不到，导致源图被整体复制进产物目录
+  // （历史问题：dist 产物长期带着 assets/temp 的全部源图）。
+  if ([...ALWAYS_SKIP].some(item => normalized === item || normalized.startsWith(item + '/'))) return true;
   if (!hidden) return false;
   return HIDDEN_SKIP.some(item => normalized === item || normalized.startsWith(item + '/'));
 }

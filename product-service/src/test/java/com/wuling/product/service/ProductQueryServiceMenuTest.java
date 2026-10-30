@@ -65,6 +65,7 @@ class ProductQueryServiceMenuTest {
         when(redis.opsForValue()).thenReturn(valueOps);
         // 默认：所有缓存未命中，强制走 DB 组装 + 过滤
         when(valueOps.get(anyString())).thenReturn(null);
+        when(subjectQueryPort.findStoreBusinessStatus(any())).thenReturn("open");
 
         service = new ProductQueryService(productMapper, categoryMapper, specMapper,
                 productStoreMapper, subjectQueryPort, new ObjectMapper(), redisManager);
@@ -183,6 +184,17 @@ class ProductQueryServiceMenuTest {
 
         assertEquals(1, countProducts(menu));
         Mockito.verify(productStoreMapper, Mockito.never()).selectListedProductIds(any());
+    }
+
+    @Test
+    @DisplayName("停用门店：不读菜单缓存，也不回源")
+    void closedStoreReturnsEmptyMenu() {
+        when(subjectQueryPort.findStoreBusinessStatus(STORE_ID)).thenReturn("closed");
+
+        List<MenuDTO.MenuTab> menu = service.getMenu(STORE_ID);
+
+        assertTrue(menu.isEmpty(), "停用门店不得继续展示商品");
+        Mockito.verify(categoryMapper, Mockito.never()).selectList(any());
     }
 
     private List<MenuDTO.MenuTab> buildPlatformMenu() {

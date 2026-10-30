@@ -117,6 +117,11 @@ class MemberPricingOrderTest {
         public String findSubjectName(Long subjectId) {
             return "星沙乐运魔方店";
         }
+
+        @Override
+        public String findStoreBusinessStatus(Long subjectId) {
+            return "open";
+        }
     }
 
     private StubMemberLevelPort memberPort;

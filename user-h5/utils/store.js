@@ -54,7 +54,9 @@ function refreshStoreCatalogFromRemote() {
   storeCatalogInflight = api
     .fetchStores()
     .then(list => {
-      if (Array.isArray(list) && list.length) {
+      // 空数组也要覆盖。停用店已从接口消失时，若这里因 length 为 0 而保留旧目录，
+      // 当前店会继续留在内存里被点单和下单使用。
+      if (Array.isArray(list)) {
         storeCatalog = list.map(normalizeRemoteStore);
       }
       return storeCatalog;
@@ -345,7 +347,8 @@ function resolveStorePreference(now = Date.now()) {
   }
 
   const activeStore = preference.activeStoreId ? getStoreById(preference.activeStoreId) : null;
-  if (!activeStore || activeStore.cityCode !== preference.cityCode) {
+  // 不在当前营业目录里，或档案已是停用，都不能继续当作当前店。
+  if (!activeStore || activeStore.cityCode !== preference.cityCode || activeStore.businessStatus !== 'open') {
     preference.activeStoreId = null;
   }
 

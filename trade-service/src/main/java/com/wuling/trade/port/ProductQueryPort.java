@@ -45,6 +45,13 @@ public interface ProductQueryPort {
      */
     String findSubjectName(Long subjectId);
 
+    /**
+     * 门店营业状态。
+     *
+     * @return {@code open} 才允许下单；停用、缺失档案或查询失败返回 null / 其他值
+     */
+    String findStoreBusinessStatus(Long subjectId);
+
     /** 商品视图（只暴露交易域需要的字段，避免泄漏 product 域实体） */
     class ProductView {
         /** 商品主键 */

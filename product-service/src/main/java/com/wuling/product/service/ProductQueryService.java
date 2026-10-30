@@ -114,6 +114,10 @@ public class ProductQueryService {
         if (storeSubjectId == null) {
             return getPlatformMenu();
         }
+        // 停用店不读、不写菜单缓存，避免点单页继续展示这家店的商品。
+        if (!"open".equals(subjectQueryPort.findStoreBusinessStatus(storeSubjectId))) {
+            return List.of();
+        }
 
         // 门店维度：缓存「已按本店选品过滤后的结果」。
         // 历史 bug：共用一个 menu:all 缓存且命中即返回，门店过滤只在缓存未命中时执行，

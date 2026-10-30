@@ -100,4 +100,12 @@ public class LocalSubjectQueryAdapter implements SubjectQueryPort {
         }
         return result;
     }
+
+    @Override
+    public String findStoreBusinessStatus(Long storeSubjectId) {
+        if (storeSubjectId == null) {
+            return null;
+        }
+        return bizSubjectMapper.selectBusinessStatus(storeSubjectId);
+    }
 }

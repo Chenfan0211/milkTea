@@ -5,11 +5,15 @@ import com.wuling.common.api.ResultCode;
 import com.wuling.common.cache.AppConfigCacheService;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.common.sql.SqlGuard;
+import com.wuling.system.cache.MenuCacheEvictor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -40,6 +44,8 @@ public class CrudService {
      * 「后台改了客服热线，小程序却一直显示旧号码」，且没有任何报错，排查成本极高。
      */
     private static final String RESOURCE_APP_CONFIG = "appConfig";
+    /** 点单分类：改标签、名称、排序或启停后必须立刻失效菜单缓存。 */
+    private static final String RESOURCE_PRODUCT_CATEGORIES = "productCategories";
     /** 活动城市（运营白名单，V71）：新增后需回填门店的 activity_city_id 绑定。 */
     private static final String RESOURCE_ACTIVITY_CITIES = "activityCities";
 
@@ -114,10 +120,19 @@ public class CrudService {
 
     private final JdbcTemplate jdbcTemplate;
     private final AppConfigCacheService appConfigCacheService;
+    private final MenuCacheEvictor menuCacheEvictor;
 
+    /** 单测使用：不接菜单缓存失效。 */
     public CrudService(JdbcTemplate jdbcTemplate, AppConfigCacheService appConfigCacheService) {
+        this(jdbcTemplate, appConfigCacheService, null);
+    }
+
+    @Autowired
+    public CrudService(JdbcTemplate jdbcTemplate, AppConfigCacheService appConfigCacheService,
+                       MenuCacheEvictor menuCacheEvictor) {
         this.jdbcTemplate = jdbcTemplate;
         this.appConfigCacheService = appConfigCacheService;
+        this.menuCacheEvictor = menuCacheEvictor;
     }
 
     public PageResult<Map<String, Object>> page(String resource, long current, long size,
@@ -251,6 +266,7 @@ public class CrudService {
         }
         writeAudit(resource, "新增", created, null, created);
         evictAppConfigCache(resource, created);
+        evictMenuCacheIfCategory(resource);
         return created;
     }
 
@@ -282,6 +298,7 @@ public class CrudService {
         Map<String, Object> updated = getOne(resource, id);
         writeAudit(resource, "编辑", updated, before, updated);
         evictAppConfigCache(resource, updated);
+        evictMenuCacheIfCategory(resource);
         return updated;
     }
 
@@ -303,6 +320,7 @@ public class CrudService {
         }
         writeAudit(resource, "删除", before, before, null);
         evictAppConfigCache(resource, before);
+        evictMenuCacheIfCategory(resource);
     }
 
     /**
@@ -454,6 +472,28 @@ public class CrudService {
             return;
         }
         appConfigCacheService.evict(String.valueOf(configKey));
+    }
+
+    /**
+     * 分类写成功后失效点单菜单缓存。
+     *
+     * <p>放在事务提交之后：若在提交前删除，并发的菜单请求会把旧数据又写回 Redis。
+     * 没有事务同步（单测）时立即删除。
+     */
+    private void evictMenuCacheIfCategory(String resource) {
+        if (!RESOURCE_PRODUCT_CATEGORIES.equals(resource) || menuCacheEvictor == null) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    menuCacheEvictor.evict();
+                }
+            });
+            return;
+        }
+        menuCacheEvictor.evict();
     }
 
     /**

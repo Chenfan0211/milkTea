@@ -89,6 +89,8 @@ const {
   resolveLocationContext,
   resolveStorePreference,
   resolveStoreCatalog,
+  setStoreCatalogForTest,
+  getStoreById,
   getQueueStatus,
   getFavoriteStoreIds,
   isFavoriteStore,
@@ -194,5 +196,45 @@ assert.deepEqual(getFavoriteStoreIds().sort(), ['store-001', 'store-004'], '多�
 const removedFavorite = toggleFavoriteStore('store-001');
 assert.equal(removedFavorite.favorite, false, '重复点击必须取消收藏');
 assert.deepEqual(getFavoriteStoreIds(), ['store-004'], '取消收藏不得影响其他门店');
+
+setStoreCatalogForTest([
+  {
+    id: 104,
+    code: 'store-004',
+    name: '停用店',
+    city: '长沙市',
+    cityCode: '4301',
+    businessStatus: 'closed',
+    latitude: 28.2,
+    longitude: 112.9
+  }
+]);
+selectStore('store-004', 30000);
+assert.equal(resolveStorePreference(30000).activeStoreId, null, '停用门店不得保留为当前店');
+
+setStoreCatalogForTest([
+  {
+    id: 101,
+    code: 'store-001',
+    name: '营业店',
+    city: '长沙市',
+    cityCode: '4301',
+    businessStatus: 'open',
+    latitude: 28.2,
+    longitude: 112.9
+  }
+]);
+selectStore('store-001', 31000);
+assert.equal(resolveStorePreference(31000).activeStoreId, 'store-001', '营业门店必须保留为当前店');
+const previousRequest = globalThis.wx.request;
+globalThis.wx.request = function request(options) {
+  const url = String(options.url || '');
+  const data = url.includes('/config/cities') ? cities : [];
+  setTimeout(() => options.success({ statusCode: 200, data: { code: 0, data, message: 'ok' } }), 0);
+};
+await refreshStoreCatalogFromRemote();
+globalThis.wx.request = previousRequest;
+assert.equal(getStoreById('store-001'), null, '门店接口返回空列表时必须清掉内存目录');
+assert.equal(resolveStorePreference(32000).activeStoreId, null, '营业列表为空时必须清掉当前店');
 
 console.log('门店定位、排序与 30 分钟会话测试通过');

@@ -68,7 +68,10 @@ class DedicatedEndpointConsistencyTest {
      */
     private static final Map<String, String> LOCAL_DERIVED_FIELDS = Map.of(
             "balance", "由 store.subjectAccounts 镜像本地查表算出，不来自专用接口",
-            "action", "表格操作列占位，无数据来源"
+            "action", "表格操作列占位，无数据来源",
+            // AdminListPage 是通用列表页骨架：操作列由 rowActions 配置在本地渲染，
+            // 列 key 固定为 __actions__，不对应任何后端字段。
+            "__actions__", "通用列表页骨架的操作列占位，由 rowActions 本地渲染，无数据来源"
     );
 
     /**
@@ -193,7 +196,11 @@ class DedicatedEndpointConsistencyTest {
             // deviceBrewRecords，不调用 service/api，故不在本测试覆盖范围。
             "src/views/subject/device/index.vue",
             // 用户列表：绑定团长 / 归属团长走 AdminLeaderController 专用接口
-            "src/views/user/list/index.vue"
+            "src/views/user/list/index.vue",
+            // 通用列表页骨架：表单字段 type=uploadImage 时调用文件服务上传接口
+            // （uploadAdminImage → FileController）。仅登记覆盖范围可见性，
+            // 该页表格列由各业务页 config.columns 传入，不存在直读列漂移面。
+            "src/views/_shared/AdminListPage.vue"
     );
 
     /** 后端行字段名 -> 是否可用（含 SQL select 出来的列，做 camel/snake 双向匹配）。 */

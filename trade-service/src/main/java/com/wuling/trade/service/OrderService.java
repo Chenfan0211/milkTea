@@ -164,6 +164,9 @@ public class OrderService {
         if (storeName == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "门店不存在");
         }
+        if (!"open".equals(productQueryPort.findStoreBusinessStatus(request.getStoreSubjectId()))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "门店已停用");
+        }
 
 
         // 会员等级：以服务端记录为准，客户端传入值仅作交叉校验（见 MemberPricingService）

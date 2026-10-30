@@ -13,19 +13,13 @@
       </view>
 
       <block wx:else>
-        <view class="detail-gallery">
-          <scroll-view class="detail-gallery__scroll" scroll-x show-scrollbar="{{false}}">
-            <view class="detail-gallery__list">
-              <image
-                wx:for="{{galleryImages}}"
-                wx:key="*this"
-                class="detail-gallery__image"
-                src="{{item}}"
-                mode="aspectFill"
-                aria-label="{{product.name}}商品图"
-              />
-            </view>
-          </scroll-view>
+        <view class="mall-card detail-gallery">
+          <swiper class="detail-gallery__swiper" current="{{galleryIndex}}" bindchange="onGalleryChange">
+            <swiper-item wx:for="{{galleryImages}}" wx:key="*this">
+              <image class="detail-gallery__image" src="{{item}}" mode="aspectFill" aria-label="{{product.name}}商品图" />
+            </swiper-item>
+          </swiper>
+          <view wx:if="{{galleryImages.length > 1}}" class="detail-gallery__counter">{{galleryIndex + 1}}/{{galleryImages.length}}</view>
           <view wx:if="{{product.soldOut}}" class="detail-sold-out">已售罄</view>
         </view>
 
@@ -43,7 +37,8 @@
         </view>
 
         <view class="mall-card detail-sku">
-          <text class="mall-section-title">{{product.specName}}</text>
+          <text class="mall-section-title">选择规格</text>
+          <text class="detail-sku__selected">已选：{{selectedSku.specValue || '默认规格'}}</text>
           <view class="detail-sku__list">
             <view
               wx:for="{{product.skus}}"
@@ -73,9 +68,24 @@
           </view>
         </view>
 
-        <view wx:if="{{product.description}}" class="mall-card detail-description">
-          <text class="mall-section-title">商品详情</text>
-          <text class="detail-description__text">{{product.description}}</text>
+        <view class="mall-card detail-description">
+          <text class="mall-section-title">商品说明</text>
+          <view class="detail-description__section">
+            <text class="detail-description__label">简介</text>
+            <text class="detail-description__text">{{product.description || '精选商城好物，品质与实用兼具。'}}</text>
+          </view>
+          <view class="detail-description__section">
+            <text class="detail-description__label">规格</text>
+            <text class="detail-description__text">{{selectedSku.specValue || '标准款'}}</text>
+          </view>
+          <view class="detail-description__section">
+            <text class="detail-description__label">配送</text>
+            <text class="detail-description__text">全场包邮，发货后可查看物流信息</text>
+          </view>
+          <view class="detail-description__section">
+            <text class="detail-description__label">售后</text>
+            <text class="detail-description__text">发货后可按商城售后规则申请售后</text>
+          </view>
         </view>
 
         <view class="detail-note">商城商品不参与会员折扣、储值立减、优惠券或积分抵扣</view>

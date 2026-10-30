@@ -82,7 +82,17 @@ public class InternalQueryController {
         BizSubject subject = bizSubjectMapper.selectById(subjectId);
         Map<String, Object> result = new HashMap<>();
         result.put("name", subject == null ? null : subject.getName());
+        result.put("businessStatus", subject == null ? null : storeBusinessStatus(subjectId));
         return result;
+    }
+
+    /** 门店档案上的营业状态；非门店主体或没有档案时为 null。 */
+    private String storeBusinessStatus(Long subjectId) {
+        List<String> statuses = jdbcTemplate.query(
+                "select business_status from store_profile where subject_id = ? and deleted = 0 limit 1",
+                (rs, rowNum) -> rs.getString(1),
+                subjectId);
+        return statuses.isEmpty() ? null : statuses.get(0);
     }
 
     /**

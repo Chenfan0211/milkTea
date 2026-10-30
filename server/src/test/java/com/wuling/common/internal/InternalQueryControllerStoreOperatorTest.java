@@ -1,16 +1,21 @@
 package com.wuling.common.internal;
 
 import com.wuling.finance.mapper.SettlementRecordMapper;
+import com.wuling.subject.entity.BizSubject;
 import com.wuling.subject.mapper.BizSubjectMapper;
 import com.wuling.subject.service.StoreOperatorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,13 +32,17 @@ import static org.mockito.Mockito.when;
 class InternalQueryControllerStoreOperatorTest {
 
     private StoreOperatorService storeOperatorService;
+    private BizSubjectMapper bizSubjectMapper;
+    private JdbcTemplate jdbcTemplate;
     private InternalQueryController controller;
 
     @BeforeEach
     void setUp() {
         storeOperatorService = mock(StoreOperatorService.class);
-        controller = new InternalQueryController(mock(BizSubjectMapper.class),
-                mock(SettlementRecordMapper.class), mock(JdbcTemplate.class), storeOperatorService);
+        bizSubjectMapper = mock(BizSubjectMapper.class);
+        jdbcTemplate = mock(JdbcTemplate.class);
+        controller = new InternalQueryController(bizSubjectMapper,
+                mock(SettlementRecordMapper.class), jdbcTemplate, storeOperatorService);
     }
 
     @Test
@@ -57,5 +66,20 @@ class InternalQueryControllerStoreOperatorTest {
     void missingParamsArePassedThroughAndDenied() {
         // 未 mock 的返回值默认 false：参数缺失时必须是「拒绝」而不是放行或 NPE
         assertEquals(Map.of("allowed", false), controller.storeOperatorCheck(null, 101L));
+    }
+
+    @Test
+    void subjectNameIncludesStoreBusinessStatus() {
+        BizSubject subject = new BizSubject();
+        subject.setId(101L);
+        subject.setName("停用店");
+        when(bizSubjectMapper.selectById(101L)).thenReturn(subject);
+        when(jdbcTemplate.query(contains("business_status"), any(RowMapper.class), eq(101L)))
+                .thenReturn(List.of("closed"));
+
+        Map<String, Object> result = controller.subjectName(101L);
+
+        assertEquals("停用店", result.get("name"));
+        assertEquals("closed", result.get("businessStatus"));
     }
 }

@@ -106,6 +106,24 @@ try {
   assert.equal(visibleBuildPolicy.features.tongueHealth, true, '未隐藏版本必须保留舌诊能力');
   assert.equal(visibleBuildPolicy.features.memberZone, false, '未隐藏版本不得占用会员专区 Tab');
 
+  // 源图目录（assets/temp、design、docs、scripts）一律不得进产物。
+  // 历史问题：ALWAYS_SKIP 里登记的是多段路径 'assets/temp'，而 isSkipped 早先只按
+  // 单段比较，导致该规则永远匹配不到，源图被整体复制进 dist，使包体平白增大。
+  for (const outputDir of [hiddenOutput, visibleOutput]) {
+    for (const relativePath of ['assets/temp', 'design', 'docs', 'scripts']) {
+      assert.equal(
+        fs.existsSync(path.join(outputDir, relativePath)),
+        false,
+        `构建产物不得包含源目录 ${relativePath}（${path.basename(outputDir)}）`
+      );
+    }
+    // 运行图必须照常保留，避免「跳过源图」误伤 3x 产物。
+    assert.ok(
+      fs.existsSync(path.join(outputDir, 'assets/images/3x/mall-category-tea-goods.jpg')),
+      `构建产物必须保留商城分类运行图（${path.basename(outputDir)}）`
+    );
+  }
+
   console.log('build-miniprogram.test.mjs: passed');
 } finally {
   for (const dir of [hiddenOutput, visibleOutput]) {

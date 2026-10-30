@@ -13,6 +13,7 @@ Page({
     selectedSku: null,
     quantity: 1,
     galleryImages: [],
+    galleryIndex: 0,
     canBuy: false,
     priceText: '¥0'
   },
@@ -42,6 +43,7 @@ Page({
           selectedSku,
           quantity: 1,
           galleryImages: product.galleryImages.length ? product.galleryImages : [product.image],
+          galleryIndex: 0,
           priceText: selectedSku ? selectedSku.salePriceText : product.priceText,
           canBuy: Boolean(selectedSku && !selectedSku.soldOut)
         });
@@ -65,6 +67,16 @@ Page({
       priceText: selectedSku.salePriceText,
       canBuy: !selectedSku.soldOut
     });
+  },
+
+  /**
+   * 主图轮播切换。
+   * 仅记录当前页用于右下角「当前/总数」指示，不参与任何购买或库存判断。
+   */
+  onGalleryChange(event) {
+    const index = Number(event && event.detail && event.detail.current);
+    if (!Number.isFinite(index) || index < 0) return;
+    this.setData({ galleryIndex: index });
   },
 
   increaseQuantity() {

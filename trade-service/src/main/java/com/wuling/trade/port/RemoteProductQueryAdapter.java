@@ -99,17 +99,29 @@ public class RemoteProductQueryAdapter implements ProductQueryPort {
     @Override
     @SuppressWarnings("unchecked")
     public String findSubjectName(Long subjectId) {
+        Map<String, Object> body = loadSubject(subjectId);
+        return body == null ? null : (String) body.get("name");
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public String findStoreBusinessStatus(Long subjectId) {
+        Map<String, Object> body = loadSubject(subjectId);
+        return body == null ? null : (String) body.get("businessStatus");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> loadSubject(Long subjectId) {
         if (subjectId == null) {
             return null;
         }
         try {
-            Map<String, Object> body = serverRestClient.get()
+            return serverRestClient.get()
                     .uri("/internal/subject-name?subjectId={id}", subjectId)
                     .retrieve()
                     .body(Map.class);
-            return body == null ? null : (String) body.get("name");
         } catch (Exception e) {
-            log.error("远程查询主体名失败 subjectId={} err={}", subjectId, e.getMessage());
+            log.error("远程查询主体失败 subjectId={} err={}", subjectId, e.getMessage());
             return null;
         }
     }

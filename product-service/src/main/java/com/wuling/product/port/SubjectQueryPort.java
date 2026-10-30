@@ -100,4 +100,11 @@ public interface SubjectQueryPort {
      * 批量查询主体名称（供列表场景避免 N+1）。
      */
     java.util.Map<Long, String> findNames(List<Long> subjectIds);
+
+    /**
+     * 门店营业状态。
+     *
+     * @return {@code open} / {@code closed}；不是门店或档案缺失时返回 null
+     */
+    String findStoreBusinessStatus(Long storeSubjectId);
 }

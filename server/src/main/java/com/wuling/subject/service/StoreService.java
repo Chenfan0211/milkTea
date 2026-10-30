@@ -123,6 +123,11 @@ public class StoreService {
                     || !enabledActivityCityIds.contains(profile.getActivityCityId())) {
                 continue;
             }
+            // 后台「停用」只把 business_status 写成 closed，主体仍是 active。
+            // 消费者列表只返回营业中的店；null 与 closed 都不算营业。
+            if (!"open".equals(profile.getBusinessStatus())) {
+                continue;
+            }
             AppStoreDTO dto = new AppStoreDTO();
             dto.setId(subject.getId());
             dto.setCode(subject.getCode());

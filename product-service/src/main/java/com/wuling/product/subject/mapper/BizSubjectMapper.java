@@ -13,6 +13,10 @@ public interface BizSubjectMapper extends BaseMapper<BizSubject> {
     @Select("select investor_subject_id from store_profile where subject_id = #{storeSubjectId} and deleted = 0 limit 1")
     Long selectInvestorOfStore(@Param("storeSubjectId") Long storeSubjectId);
 
+    /** 门店营业状态：open / closed；无档案时返回 null */
+    @Select("select business_status from store_profile where subject_id = #{storeSubjectId} and deleted = 0 limit 1")
+    String selectBusinessStatus(@Param("storeSubjectId") Long storeSubjectId);
+
     /** 渠道绑定的门店主体 ID 列表 */
     @Select("select store_subject_id from channel_store where channel_subject_id = #{channelSubjectId} and deleted = 0")
     List<Long> selectStoreIdsByChannel(@Param("channelSubjectId") Long channelSubjectId);

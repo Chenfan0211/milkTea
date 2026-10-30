@@ -39,6 +39,32 @@ const jobs = [
     maxBytes: 20 * 1024,
     cover: true
   },
+  // 商城分类专用图：首页已改为文字 Tab，不再引用。素材按原 48rpx 圆形的 3x 保留为 144×144。
+  // 源图为 AI 生成的 1024×1024 方图，cover 裁切成正方可保证圆形内主体不被拉形。
+  {
+    source: 'mall-category/tea-goods.jpg',
+    output: 'mall-category-tea-goods.jpg',
+    width: 144,
+    height: 144,
+    maxBytes: 20 * 1024,
+    cover: true
+  },
+  {
+    source: 'mall-category/living-goods.jpg',
+    output: 'mall-category-living-goods.jpg',
+    width: 144,
+    height: 144,
+    maxBytes: 20 * 1024,
+    cover: true
+  },
+  {
+    source: 'mall-category/gift-box.jpg',
+    output: 'mall-category-gift-box.jpg',
+    width: 144,
+    height: 144,
+    maxBytes: 20 * 1024,
+    cover: true
+  },
   { source: 'profile-avatar.jpg', output: 'profile-avatar.jpg', width: 336, height: 336 },
   { source: 'profile-banner.jpg', output: 'profile-banner.jpg', width: 2130, height: 480, maxBytes: 60 * 1024 },
   { source: 'profile-hero.jpg', output: 'profile-hero.jpg', width: 2250, height: 1311, maxBytes: 200 * 1024 },

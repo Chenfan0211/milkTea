@@ -78,7 +78,7 @@ assert.deepEqual(wxmlErrors, [], `商城 WXML 标签必须成对闭合：\n${wxm
 
 // ---- 2) 页面模块可加载且关键交互方法完整 ----
 const expectedMethods = {
-  home: ['loadCategories', 'loadProducts', 'selectCategory', 'loadMore', 'openProduct'],
+  home: ['loadCategories', 'handleCategoryIconError', 'loadProducts', 'selectCategory', 'loadMore', 'openProduct'],
   'product-detail': ['loadProduct', 'selectSku', 'addToCart', 'buyNow'],
   cart: ['loadCart', 'toggleSelected', 'increaseQuantity', 'decreaseQuantity', 'removeItem', 'checkout'],
   checkout: ['initialize', 'openAddressPicker', 'selectPayment', 'submitOrder', 'createAndPay'],
@@ -92,6 +92,7 @@ const expectedMethods = {
 };
 
 let capturedPage = null;
+let homePage = null;
 global.Page = definition => {
   capturedPage = definition;
 };
@@ -100,6 +101,7 @@ try {
     capturedPage = null;
     require(path.join(mallRoot, name, `${name}.js`));
     assert.ok(capturedPage, `${name}.js 必须调用 Page()`);
+    if (name === 'home') homePage = capturedPage;
     for (const method of expectedMethods[name]) {
       assert.equal(typeof capturedPage[method], 'function', `${name}.js 必须实现 ${method}()`);
     }
@@ -155,7 +157,7 @@ assert.match(homeJs, /fetchMallCategories/, '商城首页必须加载分类');
 assert.match(homeJs, /fetchMallProducts/, '商城首页必须分页加载商品');
 assert.match(homeJs, /categoryId/, '商城首页必须支持分类筛选');
 assert.match(homeWxml, /已售罄/, '售罄商品必须展示已售罄标签');
-assert.match(homeWxml, /商品分类/, '商城首页必须有分类区域');
+assert.match(homeWxml, /category-tab/, '商城首页必须有文字分类区域');
 
 const detailJs = readPage('product-detail', 'js');
 const detailWxml = readPage('product-detail', 'wxml');
@@ -262,6 +264,8 @@ for (const [name, wxss] of [['shared', sharedWxss], ...pageNames.map(name => [na
   assert.deepEqual(colorLiterals, [], `${name} 不得写死设计 token 以外的颜色`);
   for (const line of wxss.split('\n')) {
     if (!/^\s*(?:padding(?:-[a-z]+)?|margin(?:-[a-z]+)?|top|right|bottom|left|gap)\s*:/.test(line)) continue;
+    // 首页商品区底部 120rpx 已在 design-system.md 登记，用来避开悬浮购物车。
+    if (name === 'home' && /padding:\s*20rpx 20rpx 120rpx/.test(line)) continue;
     for (const match of line.matchAll(/(?<![\d.])(\d+)rpx/g)) {
       assert.ok(allowedSpacing.has(match[1]), `${name} 间距必须使用设计档位：${line.trim()}`);
     }
@@ -296,7 +300,7 @@ for (const name of pageNames) {
 
 console.log(`商城分包子页面结构测试通过（${pageNames.length} 个页面）`);
 
-// ---- 4.1) 商城分类图片：真实 URL 解析 + 本地占位图 + 图文胶囊 ----
+// ---- 4.1) 商城分类图片：数据层解析真实 URL，首页按图标在上、名称在下的横滑图文展示 ----
 const categoryPlaceholder = '/assets/images/3x/mall-category-placeholder.jpg';
 assert.equal(
   mall.normalizeCategory({
@@ -312,13 +316,50 @@ assert.equal(
   categoryPlaceholder,
   '无图分类必须降级到本地占位图'
 );
+assert.match(homeWxml, /class="category-tab__image"[\s\S]*?src="\{\{item\.iconImage\}\}"/, '商城首页必须渲染分类图');
+assert.match(
+  homeWxml,
+  /class="category-tab__image"[\s\S]*?mode="aspectFill"[\s\S]*?class="category-tab__label"/,
+  '分类图必须在名称上方'
+);
+const categoryContext = {
+  data: {
+    categories: [
+      { id: 0, name: '全部', iconImage: categoryPlaceholder },
+      { id: 7, name: '茶器好物', iconImage: 'https://broken.example/icon.png' },
+      { id: 8, name: '轻养生活', iconImage: '/assets/images/3x/valid.jpg' }
+    ]
+  },
+  setData(patch) {
+    this.data = Object.assign({}, this.data, patch);
+  }
+};
+homePage.handleCategoryIconError.call(categoryContext, { currentTarget: { dataset: { id: 7 } } });
+assert.equal(categoryContext.data.categories[1].iconImage, categoryPlaceholder, '分类图加载失败必须回退到本地占位图');
+assert.equal(categoryContext.data.categories[1].iconFallbackApplied, true, '分类图回退必须标记，避免重复触发');
 assert.equal(
-  homeWxml.includes('category-tab__image') &&
-    homeWxml.includes("item.iconImage || '/assets/images/3x/mall-category-placeholder.jpg'"),
-  true,
-  '商城首页分类胶囊必须渲染圆形分类图并在缺失时使用占位图'
+  categoryContext.data.categories[2].iconImage,
+  '/assets/images/3x/valid.jpg',
+  '单个分类图失败不得影响其他分类'
 );
 const categoryWxss = readPage('home', 'wxss');
-assert.match(categoryWxss, /height:\s*64rpx/, '分类图文胶囊高度必须为 64rpx');
-assert.match(categoryWxss, /width:\s*48rpx[\s\S]*height:\s*48rpx/, '分类图必须为 48rpx 圆形图标');
-assert.match(categoryWxss, /border-radius:\s*50%/, '分类图必须圆形展示');
+assert.match(
+  categoryWxss,
+  /\.category-scroll\s*\{[\s\S]*?height:\s*144rpx;[\s\S]*?overflow:\s*hidden/,
+  '分类横滑区必须有显式高度'
+);
+assert.match(
+  categoryWxss,
+  /\.category-tab\s*\{[\s\S]*?width:\s*calc\(\(100vw - 88rpx\) \/ 4\)/,
+  '分类必须每屏展示 4 个'
+);
+assert.match(
+  categoryWxss,
+  /\.category-tab__image\s*\{[\s\S]*?width:\s*80rpx;[\s\S]*?height:\s*80rpx/,
+  '分类图必须为 80rpx'
+);
+assert.match(
+  categoryWxss,
+  /\.category-tab\.is-active\s*\{[^}]*color:\s*var\(--brand-green\)/,
+  '选中分类必须为品牌绿字'
+);
