@@ -68,7 +68,9 @@ public class AdminDetailQueryController {
     @GetMapping("/snapshot/{id}")
     public Result<Map<String, Object>> snapshotDetail(@PathVariable Long id) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select * from split_snapshot where id = ? and deleted = 0", id);
+                "select s.*, o.order_type from split_snapshot s "
+                        + "join orders o on o.id = s.order_id and o.deleted = 0 "
+                        + "where s.id = ? and s.deleted = 0", id);
         if (rows.isEmpty()) {
             throw new BusinessException(ResultCode.NOT_FOUND, "分账快照不存在");
         }
@@ -77,6 +79,7 @@ public class AdminDetailQueryController {
         out.put("id", r.get("id"));
         out.put("snapshotNo", r.get("snapshot_no"));
         out.put("orderNo", r.get("order_no"));
+        out.put("orderType", r.get("order_type"));
         out.put("itemCount", r.get("item_count"));
         out.put("summary", summarizeOrderItems(r.get("order_id")));
         out.put("platformAmount", r.get("platform_amount"));
@@ -84,6 +87,7 @@ public class AdminDetailQueryController {
         out.put("channelAmount", r.get("channel_amount"));
         out.put("investorAmount", r.get("investor_amount"));
         out.put("supplierAmount", r.get("supplier_amount"));
+        out.put("leaderAmount", r.get("leader_amount") == null ? 0L : r.get("leader_amount"));
         out.put("platformCommission", r.get("platform_commission"));
         out.put("platformBonus", r.get("platform_bonus"));
         out.put("totalCheck", r.get("total_check"));

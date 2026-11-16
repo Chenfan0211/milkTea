@@ -136,8 +136,8 @@ assert.ok(!navigationBarWxss.includes('.weui-navigation-bar__search'), '共享�
 const homeWxml = fs.readFileSync(path.join(root, 'pages/home/home.wxml'), 'utf8');
 assert.ok(
   homeWxml.includes('home-hero') &&
-    homeWxml.includes('src="{{homeHeroUrl}}"') &&
-    homeWxml.includes('mode="aspectFill"'),
+    homeWxml.includes('wx:for="{{homeBanners}}"') &&
+    homeWxml.includes('mode="aspectFit"'),
   '首页主视觉必须引用 3x 高清图'
 );
 assert.ok(
@@ -1319,7 +1319,13 @@ const tabPaths = [...tabBarPolicy.matchAll(/pagePath:\s*'([^']+)'/g)].map(match 
 assert.equal(tabPaths.length, 5, '底部导航必须保留五个 Tab 页面');
 assert.deepEqual(
   tabPaths,
-  ['/pages/home/home', '/pages/menu/menu', '/pages/tongue/tongue', '/pages/orders/orders', '/pages/profile/profile'],
+  [
+    '/pages/home/home',
+    '/pages/menu/menu',
+    '/pages/feature-tab/feature-tab',
+    '/pages/orders/orders',
+    '/pages/profile/profile'
+  ],
   '底部导航路径必须与五个 Tab 页面逐项一致'
 );
 assert.ok(

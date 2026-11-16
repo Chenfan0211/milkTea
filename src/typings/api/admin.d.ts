@@ -184,12 +184,16 @@ declare namespace Api {
     interface SplitSnapshot {
       snapshotNo: string;
       orderNo: string;
+      orderType: 'STORE' | 'MALL';
       parties: string;
       platformAmount: number;
       storeAmount: number;
       channelAmount: number;
       investorAmount: number;
       supplierAmount: number;
+      leaderAmount: number;
+      platformCommission: number;
+      platformBonus: number;
       totalCheck: string;
       status: string;
       createTime: string;

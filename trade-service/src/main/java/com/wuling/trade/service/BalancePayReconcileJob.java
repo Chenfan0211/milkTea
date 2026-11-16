@@ -11,8 +11,12 @@ import com.wuling.trade.pay.storedvalue.StoredValueBalancePort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,7 +33,7 @@ import java.util.List;
  * <p><b>判定与处理（只处理资金，不改订单状态）</b>：
  * <ol>
  *   <li>扫 {@code balance_pay_intent} 中状态为 PENDING 的记录；</li>
- *   <li>若订单已到 PAID/COMPLETED 且有 PAID 支付单 → 意图标记 DONE（正常，补漏）；</li>
+ *   <li>若订单已支付、发货、完成或退款且有 PAID 支付单 → 标记 DONE（正常，补漏）；</li>
  *   <li>否则（订单仍未支付，或支付单缺失）→ 视为悬挂单，调用 marketing
  *       退回余额，并把意图标记 COMPENSATED。</li>
  * </ol>
@@ -38,8 +42,8 @@ import java.util.List;
  * 保守做法是「退钱」而不是「猜订单该不该付」—— 把钱退回用户，让用户重新支付，
  * 风险远低于「凭空把一笔未确认的扣款当成已支付交付商品」。
  *
- * <p><b>幂等与并发</b>：回冲前用条件更新（PENDING → COMPENSATED）作为闸门，
- * 且 marketing 的 addBalance 有非负约束，重复回冲会被余额上限/订单状态挡住。
+ * <p><b>幂等与并发</b>：每笔独立事务先锁订单，与正常支付串行；
+ * marketing 以 COMP 业务号保证重放只退一次，本地按 PENDING 条件更新。
  * 频率可用 {@code app.balance-pay-reconcile.cron} 覆盖，默认每 5 分钟一次
  * （悬挂单窗口应尽量短）。
  */
@@ -53,17 +57,33 @@ public class BalancePayReconcileJob {
     private final PaymentMapper paymentMapper;
     private final StoredValueBalancePort storedValueBalancePort;
     private final boolean enabled;
+    private final TransactionTemplate transactions;
 
     public BalancePayReconcileJob(BalancePayIntentMapper intentMapper,
                                   OrderMapper orderMapper,
                                   PaymentMapper paymentMapper,
                                   StoredValueBalancePort storedValueBalancePort,
-                                  @Value("${app.balance-pay-reconcile.enabled:true}") boolean enabled) {
+                                  boolean enabled) {
+        this(intentMapper, orderMapper, paymentMapper, storedValueBalancePort, enabled, null);
+    }
+
+    @Autowired
+    public BalancePayReconcileJob(BalancePayIntentMapper intentMapper,
+                                  OrderMapper orderMapper,
+                                  PaymentMapper paymentMapper,
+                                  StoredValueBalancePort storedValueBalancePort,
+                                  @Value("${app.balance-pay-reconcile.enabled:true}") boolean enabled,
+                                  PlatformTransactionManager transactionManager) {
         this.intentMapper = intentMapper;
         this.orderMapper = orderMapper;
         this.paymentMapper = paymentMapper;
         this.storedValueBalancePort = storedValueBalancePort;
         this.enabled = enabled;
+        this.transactions = transactionManager == null ? null : new TransactionTemplate(transactionManager);
+        if (this.transactions != null) {
+            this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            this.transactions.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        }
     }
 
     @Scheduled(cron = "${app.balance-pay-reconcile.cron:0 */5 * * * ?}")
@@ -87,38 +107,11 @@ public class BalancePayReconcileJob {
                         && intent.getCreateTime().isAfter(LocalDateTime.now().minusMinutes(2))) {
                     continue;
                 }
-                if (isOrderPaid(intent)) {
-                    intentMapper.update(updateStatus(intent.getId(), BalancePayIntent.STATUS_DONE),
-                            new LambdaQueryWrapper<BalancePayIntent>()
-                                    .eq(BalancePayIntent::getId, intent.getId())
-                                    .eq(BalancePayIntent::getStatus, BalancePayIntent.STATUS_PENDING));
-                    done++;
-                    continue;
-                }
-                // 悬挂单：只有确认确实存在成功扣款（PAY:<orderNo>）才退余额，
-                // 否则说明扣款压根没成功（余额不足等），只标记 COMPENSATED，绝不退款。
-                if (!storedValueBalancePort.hasSuccessfulPay("PAY:" + intent.getOrderNo())) {
-                    intentMapper.update(updateStatus(intent.getId(), BalancePayIntent.STATUS_COMPENSATED),
-                            new LambdaQueryWrapper<BalancePayIntent>()
-                                    .eq(BalancePayIntent::getId, intent.getId())
-                                    .eq(BalancePayIntent::getStatus, BalancePayIntent.STATUS_PENDING));
-                    compensated++;
-                    log.warn("余额支付无成功扣款记录，仅标记补偿 orderNo={}", intent.getOrderNo());
-                    continue;
-                }
                 try {
-                    Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
-                            .eq(Order::getOrderNo, intent.getOrderNo())
-                            .last("limit 1"));
-                    storedValueBalancePort.refund(intent.getUserId(), intent.getAmount(),
-                            "COMP:" + intent.getOrderNo(), order == null ? null : order.getStoreSubjectId());
-                    intentMapper.update(updateStatus(intent.getId(), BalancePayIntent.STATUS_COMPENSATED),
-                            new LambdaQueryWrapper<BalancePayIntent>()
-                                    .eq(BalancePayIntent::getId, intent.getId())
-                                    .eq(BalancePayIntent::getStatus, BalancePayIntent.STATUS_PENDING));
-                    compensated++;
-                    log.warn("余额支付悬挂单已回冲 orderNo={} userId={} amount={}",
-                            intent.getOrderNo(), intent.getUserId(), intent.getAmount());
+                    String outcome = transactions == null ? reconcileOne(intent)
+                            : transactions.execute(status -> reconcileOne(intent));
+                    if (BalancePayIntent.STATUS_DONE.equals(outcome)) done++;
+                    if (BalancePayIntent.STATUS_COMPENSATED.equals(outcome)) compensated++;
                 } catch (Exception e) {
                     // 回冲失败保留 PENDING，下轮重试；记日志并告警，不中断整批
                     log.error("余额支付悬挂单回冲失败，保留 PENDING 下轮重试 orderNo={} err={}",
@@ -134,16 +127,39 @@ public class BalancePayReconcileJob {
         }
     }
 
-    /** 订单是否已支付且存在 PAID 的支付单（扣款-落库两段均成功） */
-    private boolean isOrderPaid(BalancePayIntent intent) {
+    /** 每笔查证与补偿共享正常支付持有的订单行锁。 */
+    private String reconcileOne(BalancePayIntent intent) {
+        // 与正常支付共享订单行锁；查证、远端退款、意图更新全程持锁至提交。
         Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
                 .eq(Order::getOrderNo, intent.getOrderNo())
-                .last("limit 1"));
+                .last("limit 1 for update"));
+        String outcome;
+        if (isOrderPaid(intent, order)) {
+            outcome = BalancePayIntent.STATUS_DONE;
+        } else if (!storedValueBalancePort.hasSuccessfulPay("PAY:" + intent.getOrderNo())) {
+            // 已确认没扣款：不再反复扫描，但仍允许原订单补付。
+            outcome = BalancePayIntent.STATUS_NO_DEBIT;
+        } else {
+            storedValueBalancePort.refund(intent.getUserId(), intent.getAmount(),
+                    "COMP:" + intent.getOrderNo(), order == null ? null : order.getStoreSubjectId());
+            outcome = BalancePayIntent.STATUS_COMPENSATED;
+        }
+        intentMapper.update(updateStatus(intent.getId(), outcome),
+                new LambdaQueryWrapper<BalancePayIntent>()
+                        .eq(BalancePayIntent::getId, intent.getId())
+                        .eq(BalancePayIntent::getStatus, BalancePayIntent.STATUS_PENDING));
+        return outcome;
+    }
+
+    /** 订单已进入支付后生命周期，且存在 PAID 支付单。 */
+    private boolean isOrderPaid(BalancePayIntent intent, Order order) {
         if (order == null) {
             return false;
         }
         if (!OrderService.STATUS_PAID.equals(order.getStatus())
-                && !OrderService.STATUS_COMPLETED.equals(order.getStatus())) {
+                && !OrderService.STATUS_SHIPPED.equals(order.getStatus())
+                && !OrderService.STATUS_COMPLETED.equals(order.getStatus())
+                && !OrderService.STATUS_REFUNDED.equals(order.getStatus())) {
             return false;
         }
         Long paidCount = paymentMapper.selectCount(new LambdaQueryWrapper<Payment>()

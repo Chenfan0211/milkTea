@@ -27,7 +27,7 @@ const store = useAdminStore();
 /** 配置键 -> 中文用途说明，供运营识别「这条配置影响哪里」。 */
 const KEY_HINTS: Record<string, string> = {
   home_shortcuts: '小程序首页金刚区入口',
-  home_hero: '小程序首页主视觉背景图（请到首页装修页维护）',
+  home_hero: '首页轮播历史配置（已迁移；请到首页装修页维护图片）',
   menu_activity: '点单页活动弹层文案',
   profile_functions: '我的页功能宫格',
   signin_rules: '签到规则页文案',
@@ -38,6 +38,7 @@ const KEY_HINTS: Record<string, string> = {
   service_info: '客服页：热线 / 在线客服说明（改此值即生效）',
   service_faqs: '客服页：常见问题列表',
   withdraw_rule: '提现规则说明',
+  mini_tab_bar: '小程序底部导航：按微信上传版本号精确控制第三个 Tab',
   tencent_map_key: '腾讯位置服务密钥（敏感，不下发小程序）'
 };
 
@@ -46,6 +47,9 @@ const SENSITIVE_KEYS = ['tencent_map_key'];
 
 /** 系统依赖配置：允许查看，但禁止在通用 JSON 表单中修改或删除。 */
 const PROTECTED_KEYS = ['service_info', 'home_hero'];
+
+/** 可编辑但不可删除的系统配置。 */
+const NON_DELETABLE_KEYS = ['service_info', 'home_hero', 'mini_tab_bar'];
 
 function hintOf(row: any): string {
   return KEY_HINTS[row?.configKey] ?? '';
@@ -125,6 +129,41 @@ function assertJson(value: unknown, key: string) {
   }
 }
 
+/** 导航配置只允许受控枚举，避免写入客户端无法识别的页面。 */
+function assertMiniTabBar(value: unknown, key: string) {
+  if (key !== 'mini_tab_bar') return;
+  let parsed: any;
+  try {
+    parsed = typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return;
+  }
+  const allowedKeys = new Set(['schemaVersion', 'defaultThirdTab', 'releases']);
+  const unknownKeys = Object.keys(parsed || {}).filter(field => !allowedKeys.has(field));
+  if (unknownKeys.length) {
+    throw new Error('「mini_tab_bar」仅支持 schemaVersion、defaultThirdTab 和 releases');
+  }
+  if (Number(parsed?.schemaVersion) !== 2) {
+    throw new Error('「mini_tab_bar」的 schemaVersion 必须为 2');
+  }
+  const thirdTabs = ['memberZone', 'tongueHealth'];
+  if (!thirdTabs.includes(parsed?.defaultThirdTab)) {
+    throw new Error('「mini_tab_bar」的 defaultThirdTab 仅支持 memberZone 或 tongueHealth');
+  }
+  const releases = parsed?.releases;
+  if (!releases || typeof releases !== 'object' || Array.isArray(releases)) {
+    throw new Error('「mini_tab_bar」的 releases 必须是版本到第三项的映射对象');
+  }
+  for (const [version, thirdTab] of Object.entries(releases)) {
+    if (!/^[A-Za-z0-9.]+$/.test(version)) {
+      throw new Error(`「mini_tab_bar」版本号仅允许字母、数字和小数点：${version}`);
+    }
+    if (!thirdTabs.includes(thirdTab as string)) {
+      throw new Error(`「mini_tab_bar」版本 ${version} 仅支持 memberZone 或 tongueHealth`);
+    }
+  }
+}
+
 /** 一键把客服热线改成新号码（只改 hotline 字段，保留其余配置）。 */
 async function updateHotline(row: any, phone: string) {
   const next = String(phone || '').trim();
@@ -184,7 +223,7 @@ const rowActions: RowAction[] = [
     reasonPrompt: '确认删除该配置？（小程序将取不到该配置，请谨慎操作并填写备注）',
     handler: async (row, reason) => await store.remove('appConfig', row.id, '运营配置', 'configName', reason),
     // 敏感配置、客服配置与首页主视觉是系统依赖项，禁止直接删除
-    visible: row => !isSensitive(row) && !PROTECTED_KEYS.includes(String(row.configKey || ''))
+    visible: row => !isSensitive(row) && !NON_DELETABLE_KEYS.includes(String(row.configKey || ''))
   }
 ];
 
@@ -203,6 +242,7 @@ const config = computed<AdminListConfig>(() => ({
       const key = String(data.configKey ?? '').trim();
       if (!key) throw new Error('配置键不能为空');
       assertJson(data.value, key);
+      assertMiniTabBar(data.value, key);
       const payload = { ...data, configKey: key };
       if (editing) await store.update('appConfig', editing.id, payload, '运营配置', 'configName');
       else await store.add('appConfig', payload, '运营配置', 'configName');

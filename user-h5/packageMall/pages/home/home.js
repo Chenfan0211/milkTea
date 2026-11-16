@@ -26,10 +26,13 @@ Page({
   onLoad() {
     this.loadCategories();
     this.loadProducts(true);
+    this.hasShown = false;
   },
 
   onShow() {
     this.syncCartCount();
+    if (this.hasShown) this.loadProducts(true);
+    this.hasShown = true;
   },
 
   syncCartCount() {
@@ -79,11 +82,10 @@ Page({
     this.productRequestId = requestId;
     if (!reset) this.setData({ loadingMore: true });
 
-    api
-      .fetchMallProducts({ page, size: PAGE_SIZE, categoryId })
-      .then(result => {
+    Promise.all([api.fetchMallProducts({ page, size: PAGE_SIZE, categoryId }), mall.fetchLeaderBuyer()])
+      .then(([result, leaderBuyer]) => {
         if (this.productRequestId !== requestId) return;
-        const records = ((result && result.records) || []).map(mall.normalizeProduct);
+        const records = ((result && result.records) || []).map(row => mall.normalizeProduct(row, leaderBuyer));
         const products = reset ? records : this.data.products.concat(records);
         const total = Number(result && result.total) || products.length;
         this.setData({

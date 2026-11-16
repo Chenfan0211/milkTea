@@ -1,7 +1,3 @@
 {
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "navigation-bar": "/components/navigation-bar/navigation-bar",
-    "health-profile-sheet": "/components/health-profile-sheet/health-profile-sheet"
-  }
+  "navigationStyle": "custom"
 }

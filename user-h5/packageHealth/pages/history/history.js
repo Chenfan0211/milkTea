@@ -44,12 +44,16 @@ Page({
   },
 
   onLoad() {
-    featurePolicy.redirectIfHidden('/packageHealth/pages/history/history');
+    return featurePolicy.ready(api.fetchConfig).then(() => {
+      featurePolicy.redirectIfHidden('/packageHealth/pages/history/history');
+    });
   },
 
   onShow() {
-    if (featurePolicy.shouldHideRoute('/packageHealth/pages/history/history')) return;
-    this.loadReports();
+    return featurePolicy.ready(api.fetchConfig).then(() => {
+      if (featurePolicy.shouldHideRoute('/packageHealth/pages/history/history')) return;
+      this.loadReports();
+    });
   },
 
   loadReports() {

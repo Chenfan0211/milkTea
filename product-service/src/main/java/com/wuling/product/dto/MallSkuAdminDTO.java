@@ -13,11 +13,8 @@ public class MallSkuAdminDTO {
     private Long costPrice;
     private Long platformCommission;
     private Long distributionCommission;
-    private Long supplierSubjectId;
-    private String supplierName;
     private Integer stock;
     private Integer lockedStock;
     private Integer availableStock;
-    private Integer sort;
     private Integer version;
 }

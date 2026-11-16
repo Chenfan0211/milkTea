@@ -2,14 +2,14 @@
 # =============================================================
 # 五零时光 · 应用容器与旧镜像清理脚本
 #
-# 目标：每次更新后，只保留「最近 1 个版本」的应用镜像，清理其余产物。
+# 目标：每次更新后只保留「当前运行版本 + :latest + 最近 1 个回滚版本」。
 #
 # 背景：
 #   1. 应用容器由 docker-compose.prod.yml 用固定 container_name 管理
 #      （wuling-gateway 等），`compose up -d` 会替换同名容器，
 #      因此「运行中残留旧容器」基本不会发生；真正堆积的是旧镜像。
-#   2. deploy-backend.sh 每次 build 都会打新 tag（日期-时间）并覆盖 :latest，
-#      不清理的话 wuling/*:<时间戳> 会无限累积，占满磁盘。
+#   2. deploy-backend.sh 每次 build 都会打新 tag 并覆盖 :latest，
+#      不清理的话旧版本会无限累积，占满磁盘。
 #
 # 安全护栏（务必遵守，改动前请重新确认）：
 #   - 只处理 wuling/ 前缀的**应用**镜像与 wuling- 前缀的应用容器；
@@ -20,10 +20,12 @@
 #   - 不使用 docker system prune -a（会误删中间件/其他项目的镜像）；
 #   - 正在运行的容器所用镜像永远保留（通过 docker ps 反查保护）。
 #
-# 保留规则（"最近 1 个版本"）：
+# 保留规则：
 #   - :latest 始终保留（回滚与 compose 默认引用都需要它）；
-#   - 保留最新 1 个时间戳 tag；
-#   - 其余更早的 wuling/*:<时间戳> 镜像删除。
+#   - 当前运行容器使用的镜像始终保留；
+#   - 额外保留最近 KEEP_VERSIONS 个旧镜像作为回滚版本；
+#   - 其余旧 wuling/* 应用镜像删除。
+#   - 版本排序使用镜像 CreatedAt，不依赖 tag 命名格式。
 #   可用 KEEP_VERSIONS 覆盖保留数量（默认 1）。
 #
 # 构建缓存（可选，默认开启但很保守）：
@@ -57,7 +59,7 @@ warn() { echo "[clean-containers][warn] $*"; }
 
 # 校验保留数量为正整数
 case "$KEEP_VERSIONS" in
-  ''|*[!0-9]*) warn "非法 KEEP_VERSIONS：$KEEP_VERSIONS"; exit 2 ;;
+  ''|*[!0-9]*|0) warn "非法 KEEP_VERSIONS：$KEEP_VERSIONS（必须 >= 1）"; exit 2 ;;
 esac
 
 command -v docker >/dev/null 2>&1 || { warn "docker 未安装"; exit 1; }
@@ -134,10 +136,10 @@ is_protected_id() {
   return 1
 }
 
-# ---------- 3. 只保留最近 N 个版本，删除更早的时间戳镜像 ----------
-# 按每个服务分别判断：wuling/gateway:20260927-120000 这类 tag 按字典序
-# 等价于按时间序（tag 是 yyyyMMdd-HHmmss），倒序即最新在前。
-log "步骤 3/4：清理旧版本镜像（每个服务保留最近 ${KEEP_VERSIONS} 个时间戳 tag）"
+# ---------- 3. 保留当前版本、latest 和最近 N 个回滚版本 ----------
+# 不依赖 tag 命名格式：按镜像 CreatedAt 排序，先把当前运行镜像和 latest
+# 对应镜像排除，再按唯一镜像 ID 保留最近 KEEP_VERSIONS 个回滚版本。
+log "步骤 3/4：清理旧版本镜像（当前版本 + latest + 最近 ${KEEP_VERSIONS} 个回滚版本）"
 
 REPOS=$(docker images --format '{{.Repository}}' 2>/dev/null \
   | grep "^${IMAGE_PREFIX}" | sort -u || true)
@@ -146,41 +148,39 @@ if [ -z "$REPOS" ]; then
   log "  未找到 wuling/ 应用镜像"
 else
   for repo in $REPOS; do
-    # 只把「标准时间戳 tag」（YYYYMMDD-HHMMSS）纳入版本管理。
-    # 其余命名（如手工构建的 :v55-balpay）不参与排序——它们不是发版产物，
-    # 若混入排序会因字典序（v > 数字）被错误当成"最新"而保留下发版镜像。
-    # 这类 tag 一律只提示、不自动删除，避免误删人工保留的调试镜像。
-    ENTRIES=$(docker images --format '{{.ID}} {{.Repository}}:{{.Tag}}' "$repo" 2>/dev/null \
-      | grep -v ':latest$' \
-      | grep -E ':[0-9]{8}-[0-9]{6}$' \
-      | sort -k2 -r || true)
-
-    OTHER_TAGS=$(docker images --format '{{.Repository}}:{{.Tag}}' "$repo" 2>/dev/null \
-      | grep -v ':latest$' \
-      | grep -Ev ':[0-9]{8}-[0-9]{6}$' || true)
-    if [ -n "$OTHER_TAGS" ]; then
-      for ot in $OTHER_TAGS; do
-        log "  跳过非发版 tag（请人工确认）: $ot"
-      done
-    fi
+    ENTRIES=$(docker images --format '{{.ID}}|{{.Repository}}:{{.Tag}}|{{.CreatedAt}}' "$repo" 2>/dev/null \
+      | grep -v '|.*:latest|' \
+      | grep -v '|.*:<none>|' || true)
 
     [ -z "$ENTRIES" ] && continue
 
-    kept=0
+    CANDIDATES=$(while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      img_id=$(echo "$line" | cut -d'|' -f1)
+      is_protected_id "$img_id" || echo "$line"
+    done <<< "$ENTRIES" | sort -t'|' -k3,3 -r)
+
+    ROLLBACK_IDS=$(echo "$CANDIDATES" | awk -F'|' '
+      NF >= 3 && !seen[$1]++ { print $1; if (++n >= keep) exit }
+    ' keep="$KEEP_VERSIONS")
+
+    is_rollback_id() {
+      local id="$1"
+      [ -z "$id" ] && return 1
+      echo "$ROLLBACK_IDS" | grep -Fxq "$id"
+    }
+
     while IFS= read -r line; do
       [ -z "$line" ] && continue
-      img_id=$(echo "$line" | awk '{print $1}')
-      tag=$(echo "$line" | awk '{print $2}')
+      img_id=$(echo "$line" | cut -d'|' -f1)
+      tag=$(echo "$line" | cut -d'|' -f2)
 
-      # 运行中容器或 :latest 指向的镜像：永远保留，且不占用「历史版本」名额
       if is_protected_id "$img_id"; then
-        log "  保护（使用中/最新）: $tag"
+        log "  保护（当前运行/最新）: $tag"
         continue
       fi
-
-      kept=$((kept+1))
-      if [ "$kept" -le "$KEEP_VERSIONS" ]; then
-        log "  保留: $tag"
+      if is_rollback_id "$img_id"; then
+        log "  保留回滚版本: $tag"
         continue
       fi
 

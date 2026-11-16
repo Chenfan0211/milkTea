@@ -49,12 +49,9 @@ export interface MallSkuAdmin {
   costPrice?: number;
   platformCommission?: number;
   distributionCommission?: number;
-  supplierSubjectId?: number;
-  supplierName?: string;
   stock?: number;
   lockedStock?: number;
   availableStock?: number;
-  sort?: number;
   version?: number;
 }
 
@@ -69,13 +66,9 @@ export interface MallProductAdmin {
   coverImage?: string;
   galleryImages?: string[];
   description?: string;
-  attributionStoreSubjectId?: number;
-  attributionStoreName?: string;
-  attributionChannelSubjectId?: number;
-  attributionChannelName?: string;
-  splitRuleId?: number;
+  supplierSubjectId?: number;
+  supplierName?: string;
   status: MallProductStatus;
-  sort?: number;
   salesCount?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -96,16 +89,13 @@ export interface MallProductPayload {
   coverImage?: string;
   galleryImages?: string[];
   description?: string;
-  attributionStoreSubjectId: number;
-  attributionChannelSubjectId?: number;
-  splitRuleId?: number;
+  supplierSubjectId: number;
   status: MallProductStatus;
-  sort: number;
 }
 
 export interface MallSkuPayload {
   id?: number;
-  skuCode: string;
+  skuCode?: string;
   specValue: string;
   image?: string;
   salePrice: number;
@@ -113,9 +103,7 @@ export interface MallSkuPayload {
   costPrice: number;
   platformCommission: number;
   distributionCommission: number;
-  supplierSubjectId: number;
   stock: number;
-  sort: number;
 }
 
 export interface MallProductQuery {
@@ -331,7 +319,15 @@ export async function shipMallOrder(orderNo: string, payload: MallShipPayload): 
   });
   return unwrap<MallOrder>(res);
 }
-export type MallAfterSaleStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REFUNDING' | 'SUCCESS' | 'FAILED';
+export type MallAfterSaleStatus =
+  | 'PENDING'
+  | 'RETURN_SHIPPED'
+  | 'RETURN_RECEIVED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REFUNDING'
+  | 'SUCCESS'
+  | 'FAILED';
 
 export interface MallAfterSaleItem {
   orderItemId?: number;
@@ -357,6 +353,11 @@ export interface MallAfterSale {
   reason?: string;
   refundAmount?: number;
   items?: MallAfterSaleItem[];
+  returnCarrier?: string;
+  returnTrackingNo?: string;
+  returnShippedTime?: string;
+  returnReceivedTime?: string;
+  returnReceiver?: string;
   applyTime?: string;
   reviewTime?: string;
   reviewer?: string;
@@ -403,6 +404,14 @@ export async function approveMallAfterSale(
     url: `/api/v1/admin/trade/after-sales/${encodeURIComponent(afterSaleNo)}/approve`,
     method: 'post',
     data: payload
+  });
+  return unwrap<MallAfterSale>(res);
+}
+
+export async function confirmMallReturnReceipt(afterSaleNo: string): Promise<MallAfterSale> {
+  const res = await request<MallAfterSale>({
+    url: `/api/v1/admin/trade/after-sales/${encodeURIComponent(afterSaleNo)}/confirm-return-receipt`,
+    method: 'post'
   });
   return unwrap<MallAfterSale>(res);
 }

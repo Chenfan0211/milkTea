@@ -67,10 +67,6 @@ Component({
       this.triggerEvent('close');
     },
     handleSkip() {
-      if (!this.data.agreementChecked) {
-        guard.toast('请先阅读并同意协议');
-        return;
-      }
       this.triggerEvent('skip');
     },
     openAgreement(event) {
@@ -86,6 +82,7 @@ Component({
       const detail = event.detail || {};
       if (!detail.encryptedData || !detail.iv) {
         guard.toast('已取消授权');
+        this.handleSkip();
         return;
       }
       if (!this.data.agreementChecked) {

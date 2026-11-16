@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -84,6 +85,29 @@ class AdminFinanceQueryControllerTest {
         assertEquals(ResultCode.BAD_REQUEST, exception.getCode());
         assertTrue(exception.getMessage().contains("不支持的流水类型"));
         verifyNoInteractions(jdbcTemplate);
+    }
+
+    @Test
+    void snapshotsExposeOrderTypeAndLeaderAmount() {
+        when(jdbcTemplate.queryForList(contains("from split_snapshot"), any(Object[].class)))
+                .thenReturn(List.of(Map.of(
+                        "id", 11L,
+                        "order_id", 9L,
+                        "order_no", "MO-THREE-PARTY",
+                        "platform_amount", 1200L,
+                        "supplier_amount", 800L,
+                        "leader_amount", 200L
+                )));
+        when(jdbcTemplate.queryForList(contains("from orders"), any(Object[].class)))
+                .thenReturn(List.of(Map.of("id", 9L, "order_type", "MALL")));
+
+        Map<String, Object> row = controller.snapshots(1L, 10L, null)
+                .getData()
+                .getRecords()
+                .get(0);
+
+        assertEquals("MALL", row.get("orderType"));
+        assertEquals(200L, row.get("leaderAmount"));
     }
 
     private String assertPageSqlContains(String fragment) {

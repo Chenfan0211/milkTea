@@ -6,6 +6,7 @@
     "pages/product-detail/product-detail",
     "pages/recommendation-stores/recommendation-stores",
     "pages/tongue/tongue",
+    "pages/feature-tab/feature-tab",
     "pages/orders/orders",
     "pages/profile/profile",
     "pages/auth-login/auth-login",
@@ -116,8 +117,8 @@
         "text": "点单"
       },
       {
-        "pagePath": "pages/tongue/tongue",
-        "text": "一人一饮"
+        "pagePath": "pages/feature-tab/feature-tab",
+        "text": "会员专区"
       },
       {
         "pagePath": "pages/orders/orders",

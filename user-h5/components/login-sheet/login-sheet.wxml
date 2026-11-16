@@ -22,13 +22,15 @@
         <!-- 主操作：手机号一键登录（getPhoneNumber 必须由用户点击触发） -->
         <view class="login-sheet__primary-wrap">
           <button
-            class="login-sheet__primary"
+            class="login-sheet__primary {{agreementChecked ? '' : 'is-disabled'}}"
             open-type="getPhoneNumber"
             bindgetphonenumber="handleGetPhoneNumber"
+            disabled="{{!agreementChecked}}"
+            aria-disabled="{{!agreementChecked}}"
             aria-role="button"
-            aria-label="手机号一键登录"
+            aria-label="手机号授权登录"
           >
-            <text class="login-sheet__primary-text">手机号一键登录</text>
+            <text class="login-sheet__primary-text">手机号授权登录</text>
           </button>
         </view>
 
@@ -37,8 +39,8 @@
           class="login-sheet__skip"
           bindtap="handleSkip"
           aria-role="button"
-          aria-label="暂时跳过登录"
-        >暂时跳过</view>
+          aria-label="暂不登录，继续浏览"
+        >暂不登录，继续浏览</view>
       </view>
 
       <!-- 协议勾选 -->
@@ -57,7 +59,7 @@
             mode="aspectFit"
           />
         </view>
-        <text class="login-sheet__consent-text">允许我们在必要场景下，合理使用您的个人信息，且阅读并同意<text class="login-sheet__link" data-type="privacy" catchtap="openAgreement" aria-role="button" aria-label="查看隐私条款">《隐私条款》</text>、<text class="login-sheet__link" data-type="agreement" catchtap="openAgreement" aria-role="button" aria-label="查看会员协议">《会员协议》</text>等内容</text>
+        <text class="login-sheet__consent-text">我已阅读并同意<text class="login-sheet__link" data-type="privacy" catchtap="openAgreement" aria-role="button" aria-label="查看隐私条款">《隐私条款》</text>、<text class="login-sheet__link" data-type="agreement" catchtap="openAgreement" aria-role="button" aria-label="查看会员协议">《会员协议》</text>，授权手机号用于注册、登录及相关账户服务</text>
       </view>
     </view>
   </view>

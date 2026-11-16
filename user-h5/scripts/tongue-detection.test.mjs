@@ -23,16 +23,20 @@ assert.deepEqual(
 );
 
 // ---- 舌诊 Tab：体质健康管理入口（参考图 1/10） ----
-const tongueJs = read('pages/tongue/tongue.js');
-const tongueWxml = read('pages/tongue/tongue.wxml');
-const tongueJson = JSON.parse(read('pages/tongue/tongue.json'));
+const tongueJs = read('components/tongue-home-panel/tongue-home-panel.js');
+const tongueWxml = read('components/tongue-home-panel/tongue-home-panel.wxml');
+const tongueJson = JSON.parse(read('components/tongue-home-panel/tongue-home-panel.json'));
+const featureTabJs = read('pages/feature-tab/feature-tab.js');
 assert.ok(!tongueWxml.includes('<cart-bar') && !tongueWxml.includes('<cart-sheet'), '舌诊页不得渲染购物车浮条或弹层');
 assert.ok(
   !tongueJson.usingComponents['cart-bar'] && !tongueJson.usingComponents['cart-sheet'],
   '舌诊页不得注册购物车组件'
 );
 assert.ok(!tongueJs.includes('recommendation-cart-state'), '舌诊页不得接管推荐购物车状态');
-assert.ok(tongueJs.includes("getTabBarSelectedIndex('/pages/tongue/tongue')"), '舌诊 Tab 必须同步 Tab 选中态');
+assert.ok(
+  featureTabJs.includes("getTabBarSelectedIndex('/pages/feature-tab/feature-tab')"),
+  '动态宿主页必须同步第三项选中态'
+);
 assert.ok(tongueJs.includes("require('../../utils/tongue-profile')"), '舌诊入口必须复用本地舌诊资料');
 assert.ok(tongueJs.includes('loginGuard.requireLogin'), '未登录时必须先登录再进入拍摄页与记录页');
 assert.ok(tongueJson.usingComponents && tongueJson.usingComponents['navigation-bar'], '必须注册自定义导航栏组件');
@@ -74,7 +78,7 @@ assert.ok(!/agreed/.test(tongueWxml), '按参考图移除授权勾选');
 assert.ok(!/agreed/.test(tongueJs), '按参考图移除授权勾选逻辑');
 assert.ok(!tongueWxml.includes('/assets/images/3x/health-feature'), '功能卡图标必须使用 Lucide，不再引用截图裁切素材');
 
-const tongueWxss = read('pages/tongue/tongue.wxss');
+const tongueWxss = read('components/tongue-home-panel/tongue-home-panel.wxss');
 assert.ok(!cssRule(tongueWxss, '.health-features').includes('padding: 0 40rpx'), '功能卡区域不得再有 40rpx 横向内边距');
 assert.match(
   cssRule(tongueWxss, '.health-avatar'),
@@ -142,12 +146,12 @@ for (const token of ['--health-feature-pill-bg', '--health-cta-shell', '--health
   assert.ok(appWxss.includes(token), `app.wxss 必须提供舌诊样式 token ${token}`);
 }
 
-// ---- 底部导航：文案「一人一饮」+ 图标 personalized-drink/personalized-drink-active ----
+// ---- 底部导航：第三项由数据库配置选择，静态页固定为动态宿主页 ----
 const tabBarJs = read('custom-tab-bar/index.js');
-const tabBarPolicy = read('config/build-policy.js');
-assert.ok(tabBarJs.includes('featurePolicy.getTabBarItems()'), '底部导航必须按版本策略生成');
-assert.ok(tabBarPolicy.includes("pagePath: '/pages/tongue/tongue'"), '底部导航第三项必须指向舌诊页');
-assert.ok(tabBarPolicy.includes("text: '一人一饮'"), '底部导航第三项文案必须是一人一饮');
+const tabBarPolicy = read('utils/tab-bar-config.js');
+assert.ok(tabBarJs.includes('tabBarConfig.getTabBarItems()'), '底部导航必须按数据库配置生成');
+assert.ok(tabBarPolicy.includes('pagePath: THIRD_TAB_PATH'), '第三项必须使用统一宿主路由');
+assert.ok(tabBarPolicy.includes("text: '一人一饮'"), '舌诊模式第三项文案必须是一人一饮');
 assert.ok(
   tabBarPolicy.includes("icon: '/assets/icons/lucide/personalized-drink.svg'") &&
     tabBarPolicy.includes("activeIcon: '/assets/icons/lucide/personalized-drink-active.svg'"),
@@ -365,7 +369,7 @@ assert.ok(!historyJs.includes('tongueProfile'), '记录页不得回落本次弹�
 assert.ok(!modelJs.includes('tongueProfile'), '渲染模型不得引用本次弹层资料');
 // ---- WXSS 约束：只用设计 token，且舌诊页统一使用渐变背景 token ----
 for (const rel of [
-  'pages/tongue/tongue.wxss',
+  'components/tongue-home-panel/tongue-home-panel.wxss',
   'packageHealth/pages/capture/capture.wxss',
   'packageHealth/pages/report/report.wxss',
   'packageHealth/pages/history/history.wxss',
@@ -378,7 +382,11 @@ for (const rel of [
 }
 const backgroundImagePath = '/assets/images/3x/health-gradient-bg.png';
 const healthPageBackgrounds = [
-  ['pages/tongue/tongue.wxss', 'pages/tongue/tongue.wxml', '.health-page'],
+  [
+    'components/tongue-home-panel/tongue-home-panel.wxss',
+    'components/tongue-home-panel/tongue-home-panel.wxml',
+    '.health-page'
+  ],
   ['packageHealth/pages/capture/capture.wxss', 'packageHealth/pages/capture/capture.wxml', '.capture-page'],
   ['packageHealth/pages/report/report.wxss', 'packageHealth/pages/report/report.wxml', '.report-page'],
   ['packageHealth/pages/history/history.wxss', 'packageHealth/pages/history/history.wxml', '.history-page']

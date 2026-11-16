@@ -139,7 +139,7 @@ const shippedOrder = mall.decorateOrder({
 });
 assert.equal(shippedOrder.statusText, '待收货', '商城已发货状态文案必须正确');
 assert.equal(shippedOrder.canConfirm, true, '待收货订单必须允许确认收货');
-assert.equal(shippedOrder.amountText, '12.9', '订单金额必须按分转元展示');
+assert.equal(shippedOrder.amountText, '12.90', '商城订单金额必须按分转元并保留两位小数');
 assert.match(shippedOrder.autoCompleteCountdown, /天/, '待收货订单必须展示自动完成倒计时');
 const refundingOrder = mall.decorateOrder({
   status: 'PAID',
@@ -194,6 +194,28 @@ assert.match(addressJs, /deleteAddress/, '地址列表必须支持删除');
 assert.match(addressJs, /setDefaultAddress/, '地址列表必须支持设默认');
 assert.match(addressJs, /selectAddress/, '地址列表必须支持结算选择模式');
 assert.match(addressWxml, /新增收货地址/, '地址列表必须提供新增地址入口');
+assert.equal(
+  (addressWxml.match(/wx:for="\{\{addresses\}\}"/g) || []).length,
+  1,
+  '每个地址的操作必须与对应卡片一起渲染'
+);
+assert.match(
+  addressWxml,
+  /<view class="address-item" wx:for="\{\{addresses\}\}"[\s\S]*?class="address-card[\s\S]*?class="address-action-row"/,
+  '地址卡片下方必须紧邻操作区'
+);
+assert.doesNotMatch(
+  addressWxml,
+  /<view wx:if="\{\{mode === 'manage'\}\}" class="address-actions">/,
+  '选择地址时也必须提供编辑和设默认入口'
+);
+assert.match(
+  addressWxml,
+  /class="mall-button mall-button--small address-action-row__default[^"]*"[\s\S]*?bindtap="setDefault"/,
+  '每张地址卡片外必须能设置默认地址'
+);
+assert.match(addressWxml, /bindtap="editAddress"/, '选择地址时必须有明确的编辑入口');
+assert.match(addressWxml, /wx:if="\{\{mode === 'manage'\}\}"[^>]*bindtap="removeAddress"/, '删除操作只在管理模式展示');
 
 const addressEditJs = readPage('address-edit', 'js');
 const addressEditWxml = readPage('address-edit', 'wxml');
@@ -348,15 +370,11 @@ assert.match(
   /\.category-scroll\s*\{[\s\S]*?height:\s*144rpx;[\s\S]*?overflow:\s*hidden/,
   '分类横滑区必须有显式高度'
 );
+assert.match(categoryWxss, /\.category-tab\s*\{[\s\S]*?width:\s*120rpx/, '分类必须紧凑排列并支持横滑');
 assert.match(
   categoryWxss,
-  /\.category-tab\s*\{[\s\S]*?width:\s*calc\(\(100vw - 88rpx\) \/ 4\)/,
-  '分类必须每屏展示 4 个'
-);
-assert.match(
-  categoryWxss,
-  /\.category-tab__image\s*\{[\s\S]*?width:\s*80rpx;[\s\S]*?height:\s*80rpx/,
-  '分类图必须为 80rpx'
+  /\.category-tab__image\s*\{[\s\S]*?width:\s*88rpx;[\s\S]*?height:\s*88rpx/,
+  '分类图必须为 88rpx'
 );
 assert.match(
   categoryWxss,

@@ -34,8 +34,7 @@ public class RemoteMallCatalogAdapter implements MallCatalogPort {
                         text(row.get("image")), asLong(row.get("salePrice"), 0L),
                         asLong(row.get("originalPrice"), 0L), asLong(row.get("costPrice"), 0L),
                         asLong(row.get("platformCommission"), 0L), asLong(row.get("distributionCommission"), 0L), asLong(row.get("supplierSubjectId")),
-                        asLong(row.get("attributionStoreSubjectId")), asLong(row.get("attributionChannelSubjectId")),
-                        asLong(row.get("splitRuleId")), asLong(row.get("availableStock"), 0L).intValue(),
+                        asLong(row.get("availableStock"), 0L).intValue(),
                         Boolean.TRUE.equals(row.get("onSale")));
             }).toList();
         } catch (Exception e) {
@@ -61,7 +60,7 @@ public class RemoteMallCatalogAdapter implements MallCatalogPort {
 
     @Override
     public StockResult restore(String orderNo, List<StockLine> lines) {
-        return restore(orderNo, orderNo, lines);
+        return mutate("restore", orderNo, lines);
     }
 
     @Override

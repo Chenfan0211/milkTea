@@ -32,6 +32,9 @@ public class MockPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public boolean closeOrder(String orderNo) { return true; }
+
+    @Override
     public boolean verifyCallback(String payload, String signature) {
         // Mock 通道不做真实验签
         return true;

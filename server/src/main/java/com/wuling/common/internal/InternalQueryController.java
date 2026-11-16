@@ -125,7 +125,7 @@ public class InternalQueryController {
      * 该判断无法用异步事件替代。
      *
      * @param orderId 订单 ID
-     * @return { "settled": true/false, "hasSettlement": true/false }
+     * @return { "settled": true/false, "hasSettlement": true/false, "legacyInvestorShare": true/false }
      */
     @GetMapping("/settlement-status")
     public Map<String, Object> settlementStatus(@RequestParam Long orderId) {
@@ -133,9 +133,12 @@ public class InternalQueryController {
                 new LambdaQueryWrapper<SettlementRecord>().eq(SettlementRecord::getOrderId, orderId));
         boolean settled = records.stream()
                 .anyMatch(r -> SETTLE_SETTLEABLE.equals(r.getStatus()) || SETTLE_SETTLED.equals(r.getStatus()));
+        Long investorAmount = jdbcTemplate.queryForObject(
+                "select coalesce(sum(investor_amount), 0) from split_snapshot where order_id = ?", Long.class, orderId);
         return Map.of(
                 "settled", settled,
-                "hasSettlement", !records.isEmpty()
+                "hasSettlement", !records.isEmpty(),
+                "legacyInvestorShare", investorAmount != null && investorAmount != 0L
         );
     }
 

@@ -98,8 +98,9 @@ public class MallProductQueryService {
         dto.setGalleryImages(parseStringList(product.getGalleryImages()));
         dto.setDescription(product.getDescription());
         dto.setSalesCount(product.getSalesCount());
-        dto.setSkus(skus.stream().map(this::toSkuView).toList());
+        dto.setSkus(skus.stream().map(sku -> toSkuView(sku, product)).toList());
         dto.setMinPrice(min(skus, MallSku::getSalePrice));
+        dto.setMinCustomerPrice(min(skus, MallProductQueryService::customerPrice));
         dto.setOriginalPrice(min(skus, MallSku::getOriginalPrice));
         dto.setAvailableStock(totalAvailable(skus));
         dto.setSoldOut(dto.getAvailableStock() <= 0);
@@ -198,19 +199,21 @@ public class MallProductQueryService {
         dto.setCoverImage(product.getCoverImage());
         dto.setSort(product.getSort());
         dto.setMinPrice(min(skus, MallSku::getSalePrice));
+        dto.setMinCustomerPrice(min(skus, MallProductQueryService::customerPrice));
         dto.setOriginalPrice(min(skus, MallSku::getOriginalPrice));
         dto.setAvailableStock(totalAvailable(skus));
         dto.setSoldOut(dto.getAvailableStock() <= 0);
         return dto;
     }
 
-    private MallSkuView toSkuView(MallSku sku) {
+    private MallSkuView toSkuView(MallSku sku, MallProduct product) {
         MallSkuView view = new MallSkuView();
         view.setId(sku.getId());
         view.setSkuCode(sku.getSkuCode());
         view.setSpecValue(sku.getSpecValue());
-        view.setImage(sku.getImage());
+        view.setImage(productImage(sku, product));
         view.setSalePrice(sku.getSalePrice());
+        view.setDistributionCommission(sku.getDistributionCommission());
         view.setOriginalPrice(sku.getOriginalPrice());
         view.setAvailableStock(sku.availableStock());
         view.setSoldOut(sku.availableStock() <= 0);
@@ -223,22 +226,19 @@ public class MallProductQueryService {
         view.setProductId(sku.getProductId());
         view.setSkuCode(sku.getSkuCode());
         view.setSpecValue(sku.getSpecValue());
-        view.setImage(sku.getImage());
+        view.setImage(productImage(sku, product));
         view.setSalePrice(sku.getSalePrice());
         view.setOriginalPrice(sku.getOriginalPrice());
         view.setCostPrice(sku.getCostPrice());
         view.setPlatformCommission(sku.getPlatformCommission());
         view.setDistributionCommission(sku.getDistributionCommission());
-        view.setSupplierSubjectId(sku.getSupplierSubjectId());
+        view.setSupplierSubjectId(product == null ? null : product.getSupplierSubjectId());
         view.setStock(sku.getStock());
         view.setLockedStock(sku.getLockedStock());
         view.setAvailableStock(sku.availableStock());
         if (product != null) {
             view.setProductCode(product.getProductCode());
             view.setProductName(product.getName());
-            view.setAttributionStoreSubjectId(product.getAttributionStoreSubjectId());
-            view.setAttributionChannelSubjectId(product.getAttributionChannelSubjectId());
-            view.setSplitRuleId(product.getSplitRuleId());
             view.setOnSale("ON_SALE".equals(product.getStatus()));
         } else {
             view.setOnSale(false);
@@ -251,7 +251,7 @@ public class MallProductQueryService {
         item.setProductName(product == null ? null : product.getName());
         item.setSkuCode(sku.getSkuCode());
         item.setSpecValue(sku.getSpecValue());
-        item.setImage(sku.getImage());
+        item.setImage(productImage(sku, product));
         item.setSalePrice(sku.getSalePrice());
         item.setDistributionCommission(sku.getDistributionCommission());
         item.setOriginalPrice(sku.getOriginalPrice());
@@ -264,6 +264,17 @@ public class MallProductQueryService {
 
     private static Long min(List<MallSku> skus, Function<MallSku, Long> getter) {
         return skus.stream().map(getter).filter(Objects::nonNull).min(Long::compareTo).orElse(null);
+    }
+
+    private static Long customerPrice(MallSku sku) {
+        if (sku.getSalePrice() == null) return null;
+        return sku.getSalePrice() + (sku.getDistributionCommission() == null ? 0L : sku.getDistributionCommission());
+    }
+
+    private static String productImage(MallSku sku, MallProduct product) {
+        return StringUtils.hasText(sku.getImage())
+                ? sku.getImage()
+                : product == null ? null : product.getCoverImage();
     }
 
     private List<String> parseStringList(String json) {

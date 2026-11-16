@@ -1,7 +1,9 @@
 const { withShare } = require('../../utils/share');
 const navigate = require('../../utils/navigate');
 const featurePolicy = require('../../utils/feature-policy');
+const tabBarConfig = require('../../utils/tab-bar-config');
 const profileBanner = require('../../utils/profile-banner');
+const bannerTarget = require('../../utils/banner-target');
 const {
   DEFAULT_AVATAR,
   getUserProfile,
@@ -43,26 +45,17 @@ function formatBalance(value) {
 /**
  * 「我的功能」暂缓上线的入口（前端隐藏名单）。
  *
- * 收货地址、活动报名功能尚未开发完成，先不展示入口；
- * 后端 profile_functions 配置仍保留这两项，便于后台继续维护图标与文案。
+ * 活动报名功能尚未开发完成；
+ * 后端 profile_functions 配置仍保留这些项，便于后台继续维护图标与文案。
  * 后续功能开发完成后，把对应 id 从本数组移除即可恢复展示。
  */
 const HIDDEN_PROFILE_FUNCTIONS = ['activity'];
 
-/**
- * 线上商城是核心交易入口，不能依赖运营配置是否下发。
- * 后端配置缺失时由前端补齐；已有同名入口时保持单一，避免重复宫格。
- */
-const MALL_PROFILE_FUNCTION = {
-  id: 'mall',
-  label: '线上商城',
-  icon: '/assets/icons/lucide/shopping-bag.svg'
-};
-
-function mergeProfileFunctions(functions) {
+function filterProfileFunctions(functions) {
   const list = Array.isArray(functions) ? functions : [];
-  if (list.some(item => item && item.id === MALL_PROFILE_FUNCTION.id)) return list;
-  return [MALL_PROFILE_FUNCTION].concat(list);
+  return list.filter(
+    item => item && typeof item.id === 'string' && item.id.trim() && !HIDDEN_PROFILE_FUNCTIONS.includes(item.id)
+  );
 }
 
 function buildRoleFunctions(roleId) {
@@ -81,7 +74,7 @@ function buildRoleFunctions(roleId) {
 Page(
   withShare({
     data: {
-      profileFunctions: mergeProfileFunctions([]),
+      profileFunctions: filterProfileFunctions([]),
       profileBanners: profileBanner.DEFAULT_PROFILE_BANNERS.map(item => Object.assign({}, item)),
       roleFunctions: [],
       userProfile: initialProfile,
@@ -109,8 +102,6 @@ Page(
       progressTarget: initialMeta.progressTarget,
       // 未授权头像时的默认头像（避免空白）
       defaultAvatar: DEFAULT_AVATAR,
-      // 登录弹层：未登录时「我的」页的登录入口（页内唤起，不跳独立页）
-      loginSheetVisible: false,
       // 礼品卡列表是否已加载（区分「加载中」与「确实无卡」，避免空态闪切）
       giftCardsLoaded: false
     },
@@ -275,6 +266,14 @@ Page(
                 region: latestProfile.region
               })
             );
+            // 整页授权返回时资料可能稍后到达，不能停留在进入页面时的旧登录等级。
+            const refreshedState = authState.getAuthState();
+            this.setData({
+              loggedIn: refreshedState.hasToken,
+              authStateLevel: refreshedState.level,
+              authLabel: refreshedState.label,
+              phoneMasked: refreshedState.phone ? maskPhone(refreshedState.phone) : ''
+            });
             // 关键：远端返回后必须重算资产卡（含时光币），
             // 否则卡片停留在 onShow 那一刻的本地旧值 ——
             // 表现为「商城显示 25、我的页仍显示 13」。
@@ -307,9 +306,7 @@ Page(
         .then(cfg => {
           const updates = {};
           if (cfg && Array.isArray(cfg.functions) && cfg.functions.length) {
-            updates.profileFunctions = mergeProfileFunctions(
-              cfg.functions.filter(item => !HIDDEN_PROFILE_FUNCTIONS.includes(item.id))
-            );
+            updates.profileFunctions = filterProfileFunctions(cfg.functions);
           }
           if (cfg && Array.isArray(cfg.banners)) {
             updates.profileBanners = profileBanner.normalizeBanners(cfg.banners, api.resolveAssetUrl);
@@ -330,7 +327,7 @@ Page(
 
     /**
      * 用户卡片点击分流：
-     *   · 未登录 → 弹登录层（个人资料需登录态才能取数，直接跳会空白）
+     *   · 未登录 → 统一授权页（个人资料需登录态才能取数，直接跳会空白）
      *   · 已登录 → 跳个人资料页
      */
     handleUserCardTap() {
@@ -340,31 +337,9 @@ Page(
       }
       this.openProfileData();
     },
-    /** 未登录时的登录入口：页内唤起登录弹层（不跳独立授权页） */
+    /** 未登录时的登录入口：与首页和受保护操作共用整页授权。 */
     openLogin() {
-      this.setData({ loginSheetVisible: true });
-    },
-    closeLoginSheet() {
-      this.setData({ loginSheetVisible: false });
-    },
-    /** 弹层内「暂时跳过」：仅关闭弹层，页面保持未登录态（个人数据仍隐藏） */
-    handleLoginSkip() {
-      this.setData({ loginSheetVisible: false });
-      loginGuard.clearPendingAction();
-    },
-    /** 弹层内授权成功：刷新登录态与资料，并续跑被拦截的操作 */
-    handleLoginSuccess() {
-      this.setData({ loginSheetVisible: false });
-      refreshUserProfileFromRemote()
-        .then(() => {
-          if (typeof this.syncUserCard === 'function') this.syncUserCard();
-          this.onShow();
-        })
-        .catch(() => null);
-      loginGuard.flushPendingAction();
-    },
-    handleLoginFail() {
-      loginGuard.toast('登录失败，请稍后重试');
+      loginGuard.openLoginSheet({ reason: '登录后可查看个人资料与会员权益' });
     },
 
     /** 绑定手机号入口 */
@@ -450,12 +425,29 @@ Page(
       wx.navigateTo({ url: '/pages/order-detail/order-detail?id=' + id });
     },
     openMemberRights() {
-      navigate.open('/pages/member-rights/member-rights');
+      return this.openMemberEntry();
+    },
+    openMemberEntry() {
+      return tabBarConfig.ready(api.fetchConfig).then(() => {
+        if (tabBarConfig.isMemberZoneTab()) {
+          wx.switchTab({ url: tabBarConfig.getThirdTabPath() });
+          return;
+        }
+        navigate.open('/pages/member-rights/member-rights');
+      });
     },
     handleBannerError(event) {
       const index = Number(((event && event.currentTarget && event.currentTarget.dataset) || {}).index);
       if (Number.isNaN(index)) return;
       this.setData({ profileBanners: profileBanner.removeFailedBanner(this.data.profileBanners, index) });
+    },
+    openProfileBanner(event) {
+      const index = Number(
+        event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.index
+      );
+      const item = this.data.profileBanners[index];
+      if (item) return bannerTarget.openBannerTarget(item);
+      return null;
     },
     openMenu() {
       wx.switchTab({ url: '/pages/menu/menu' });
@@ -551,7 +543,7 @@ Page(
         return;
       }
       if (id === 'benefits') {
-        navigate.open('/pages/member-rights/member-rights');
+        this.openMemberEntry();
         return;
       }
       if (id === 'share') {

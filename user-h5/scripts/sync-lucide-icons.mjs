@@ -37,6 +37,7 @@ const jobs = [
   { source: 'headset', output: 'headset', color: '#666762' },
   { source: 'handshake', output: 'handshake', color: '#666762' },
   { source: 'receipt', output: 'receipt', color: '#666762' },
+  { source: 'receipt', output: 'receipt-white', color: '#FFFFFF' },
   { source: 'shopping-bag', output: 'shopping-bag', color: '#747570' },
   { source: 'receipt-text', output: 'receipt-brand', color: '#53882C' },
   { source: 'settings', output: 'settings-brand', color: '#53882C' },

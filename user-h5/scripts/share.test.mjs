@@ -87,6 +87,17 @@ assert.equal(originalLoadCalled, false, '私密页朋友圈重定向时不得执
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
 for (const page of appJson.pages) {
   const source = fs.readFileSync(path.join(root, `${page}.js`), 'utf8');
+  if (page === 'pages/tongue/tongue') {
+    assert.ok(source.includes('tabBarConfig.getThirdTabPath()'), '旧舌诊路由必须重定向到动态第三项');
+    continue;
+  }
+  if (page === 'pages/feature-tab/feature-tab') {
+    assert.ok(
+      source.includes('onShareAppMessage()') && source.includes('onShareTimeline()'),
+      '动态第三项必须提供与会话和朋友圈分享钩子'
+    );
+    continue;
+  }
   assert.ok(source.includes('withShare('), `${page} 必须使用 withShare 分享包装器`);
 }
 

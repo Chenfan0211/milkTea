@@ -61,17 +61,18 @@ function describeAuthError(res) {
 }
 
 /**
- * 需要登录的请求返回 401 时的统一处理。区分两种情形：
- *
- *   1) 匿名用户（本地无 token，如冷启动未授权就浏览）：只是「该功能需要登录」，
- *      弹温和引导而非「登录已失效」，否则新用户一进来就被吓到，也不符合
- *      「先浏览后授权」的合规要求（历史问题：首页误请求 /me 触发此弹窗）。
- *   2) 已登录但 token 失效（静默重登也失败）：此时弹「登录已失效，是否重新登录」。
- *
- * 页面常并发发起多个请求，若各自处理会连弹多次，这里统一节流。
+ * 登录失效先清理会话，后台刷新默认不弹窗，错误仍返回给调用方。
+ * 仅明确的用户操作可传 promptLogin: true 申请登录提示；常规业务优先用 login-guard。
+ * 多个交互请求并发失效时统一节流，避免重复提示。
  */
-function handleUnauthorized(res) {
+function handleUnauthorized(res, options = {}, failedToken = readToken()) {
   if (typeof wx === 'undefined') return;
+  // 迟到的旧请求无权清理后来重新建立的会话。
+  if (failedToken !== readToken()) return;
+  const hadToken = Boolean(failedToken);
+  const auth = getAuth();
+  if (auth && hadToken) auth.clearSession();
+  if (options.promptLogin !== true) return;
   const now = Date.now();
   if (now - unauthorizedNotifiedAt < UNAUTHORIZED_TOAST_INTERVAL) return;
   unauthorizedNotifiedAt = now;
@@ -87,7 +88,7 @@ function handleUnauthorized(res) {
   };
 
   // 匿名用户：温和引导（非「失效」语义）
-  if (!readToken()) {
+  if (!hadToken) {
     wx.showModal({
       title: '登录后可查看',
       content: '该功能需要登录后使用，是否前往登录？',
@@ -146,10 +147,8 @@ function request(options) {
     }
 
     const header = Object.assign({ 'content-type': 'application/json' }, options.header || {});
-    if (!options.skipAuth) {
-      const token = readToken();
-      if (token) header.Authorization = `Bearer ${token}`;
-    }
+    const requestToken = options.skipAuth ? '' : readToken();
+    if (requestToken) header.Authorization = `Bearer ${requestToken}`;
 
     wx.request({
       url: (config.BASE_URL || '') + options.url,
@@ -165,8 +164,8 @@ function request(options) {
         if (body && (body.code === 8888 || body.code === 9999) && !options.skipAuth && options.retryAuth !== false) {
           silentRelogin().then(token => {
             if (!token) {
-              // 重登失败：清理会话并明确提示，避免页面静默卡在 401
-              handleUnauthorized(body);
+              // 重登失败：清理会话；后台刷新不打断浏览，错误交给调用方。
+              handleUnauthorized(body, options, requestToken);
               resolve(body);
               return;
             }
@@ -179,11 +178,15 @@ function request(options) {
               header: retryHeader,
               timeout: options.timeout || 8000,
               success(retryRes) {
-                resolve(retryRes && retryRes.data);
+                const retryBody = retryRes && retryRes.data;
+                if (retryBody && (retryBody.code === 8888 || retryBody.code === 9999)) {
+                  handleUnauthorized(retryBody, options, token);
+                }
+                resolve(retryBody);
               },
-              fail() {
-                handleUnauthorized(body);
-                resolve(body);
+              fail(error) {
+                // 断网不代表新 token 失效，保留会话并返回真实网络错误。
+                reject(error);
               }
             });
           });

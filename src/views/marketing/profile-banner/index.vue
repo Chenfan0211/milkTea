@@ -17,9 +17,20 @@ interface ProfileBanner {
   altText: string;
   sort: number;
   status: 'enabled' | 'disabled';
+  targetType: string;
+  targetId: string;
 }
 
 const store = useAdminStore();
+const targetLabels: Record<string, string> = {
+  none: '不跳转',
+  orders: '订单页',
+  coupons: '优惠券页',
+  recharge: '充值页',
+  menu: '点单商品列表',
+  menuProduct: '点单商品',
+  mallProduct: '商城商品'
+};
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
 const editorVisible = ref(false);
 const editingBanner = ref<ProfileBanner | null>(null);
@@ -51,6 +62,15 @@ const columns: DataTableColumns<ProfileBanner> = [
         : '—'
   },
   { title: '图片说明', key: 'altText', minWidth: 180, render: row => row.altText || '—' },
+  {
+    title: '跳转目标',
+    key: 'targetType',
+    minWidth: 140,
+    render: row =>
+      row.targetId
+        ? `${targetLabels[row.targetType] || '商品'}：${row.targetId}`
+        : targetLabels[row.targetType] || '点单商品列表'
+  },
   { title: '排序', key: 'sort', width: 90, align: 'right' },
   {
     title: '状态',

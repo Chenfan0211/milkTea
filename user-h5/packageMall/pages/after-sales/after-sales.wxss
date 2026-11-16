@@ -5,6 +5,13 @@
   padding-bottom: 40rpx;
 }
 
+.after-sales-end {
+  padding: 24rpx 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
 .after-sales-card {
   margin-bottom: 20rpx;
   padding: 24rpx;

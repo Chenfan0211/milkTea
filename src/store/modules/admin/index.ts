@@ -82,6 +82,7 @@ const REMOTE_RESOURCES: Record<string, string> = {
   giftCardOrders: 'giftCardOrders',
   memberLevels: 'memberLevels',
   profileBanners: 'profileBanners',
+  homeBanners: 'homeBanners',
   // 授权管理
   roles: 'roles',
   grants: 'grants',
@@ -237,6 +238,7 @@ function seed(): AdminData {
     exchangeRecords: [],
     memberLevels: [],
     profileBanners: [],
+    homeBanners: [],
     auditLogs: []
   };
 }
@@ -446,6 +448,8 @@ function migrate(data: AdminData): AdminData {
   (data.snapshots || []).forEach((snap: any) => {
     if (!snap.summary) snap.summary = '—';
     if (snap.itemCount == null) snap.itemCount = 1;
+    if (!snap.orderType) snap.orderType = 'STORE';
+    if (snap.leaderAmount == null) snap.leaderAmount = 0;
     if (snap.platformCommission == null) snap.platformCommission = 0;
     if (snap.platformBonus == null) snap.platformBonus = snap.platformAmount ?? 0;
   });
@@ -748,6 +752,16 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
       });
     }
 
+    if (key === 'snapshots') {
+      return rows.map(r => ({
+        ...r,
+        orderType: r.orderType ?? 'STORE',
+        leaderAmount: r.leaderAmount ?? 0,
+        platformCommission: r.platformCommission ?? 0,
+        platformBonus: r.platformBonus ?? r.platformAmount ?? 0
+      }));
+    }
+
     // ---------- 角色授权记录（后台账号 ↔ 角色）----------
 
     if (key === 'grants') {
@@ -801,6 +815,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     storedValuePackages: '储值套餐',
     giftCards: '礼品卡',
     profileBanners: '我的页轮播',
+    homeBanners: '首页装修',
     appConfig: '运营配置'
   };
 

@@ -128,7 +128,7 @@ for (const component of FULLSCREEN_SHEET_COMPONENTS) {
       `${relative} 使用 ${component} 时必须加 wx:if 控制渲染（否则会拦截整页点击）`
     );
   }
-  assert.ok(usedCount > 0, `${component} 应至少在一个页面中被使用`);
+  assert.equal(usedCount, 0, `${component} 已统一为整页授权，不得再由页面挂载`);
 }
 
 console.log(`全屏弹层组件渲染约定校验通过（${FULLSCREEN_SHEET_COMPONENTS.join(', ')}）`);

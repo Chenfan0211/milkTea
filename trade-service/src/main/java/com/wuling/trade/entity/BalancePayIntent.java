@@ -27,6 +27,8 @@ public class BalancePayIntent {
 
     /** 状态：扣款已发起、待确认订单是否已支付 */
     public static final String STATUS_PENDING = "PENDING";
+    /** 状态：已确认没有成功扣款；停止扫描，原订单补付时可重新登记。 */
+    public static final String STATUS_NO_DEBIT = "NO_DEBIT";
     /** 状态：订单已支付（扣款-落库两段都成功，正常终态） */
     public static final String STATUS_DONE = "DONE";
     /** 状态：已回冲（发现悬挂单后把余额退回） */

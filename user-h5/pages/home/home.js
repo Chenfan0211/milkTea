@@ -5,19 +5,11 @@ const { getUsableCouponCount, refreshCouponsFromRemote } = require('../../utils/
 const loginGuard = require('../../utils/login-guard');
 const authState = require('../../utils/auth-state');
 const featurePolicy = require('../../utils/feature-policy');
+const homeHero = require('../../utils/home-hero');
+const bannerTarget = require('../../utils/banner-target');
 
 const DEFAULT_HOME_HERO = '/assets/images/3x/home-hero.jpg';
 const DEFAULT_HOME_HERO_ALT = '金秋入茶限定上新';
-
-function normalizeHomeHero(config) {
-  const hero = config && config.hero && typeof config.hero === 'object' ? config.hero : {};
-  const rawUrl = typeof hero.imageUrl === 'string' ? hero.imageUrl.trim() : '';
-  const rawAlt = typeof hero.altText === 'string' ? hero.altText.trim() : '';
-  return {
-    url: rawUrl ? api.resolveAssetUrl(rawUrl) : DEFAULT_HOME_HERO,
-    altText: rawAlt || DEFAULT_HOME_HERO_ALT
-  };
-}
 
 Page(
   withShare({
@@ -25,11 +17,10 @@ Page(
       homeShortcuts: [],
       homeHeroUrl: DEFAULT_HOME_HERO,
       homeHeroAlt: DEFAULT_HOME_HERO_ALT,
+      homeBanners: homeHero.DEFAULT_HOME_BANNERS.map(item => Object.assign({}, item)),
       userProfile: getUserProfile(),
       // 可用优惠券数（首页「优惠券N张」）；null 表示未登录，不展示入口
-      couponCount: null,
-      // 登录弹层（图 1）：首页「点击登录」唤起，不再跳独立授权页
-      loginSheetVisible: false
+      couponCount: null
     },
     onShow() {
       if (this.getTabBar)
@@ -39,10 +30,11 @@ Page(
       const configTask = api
         .fetchHomeConfig()
         .then(cfg => {
-          const hero = normalizeHomeHero(cfg);
+          const banners = homeHero.normalizeHomeBanners(cfg && cfg.hero, api.resolveAssetUrl);
           const updates = {
-            homeHeroUrl: hero.url,
-            homeHeroAlt: hero.altText
+            homeHeroUrl: banners[0].imageUrl,
+            homeHeroAlt: banners[0].altText,
+            homeBanners: banners
           };
           if (cfg && Array.isArray(cfg.shortcuts) && cfg.shortcuts.length) {
             updates.homeShortcuts = cfg.shortcuts;
@@ -67,35 +59,25 @@ Page(
         .catch(() => this.setData({ couponCount: null }));
       return Promise.all([configTask, profileTask]);
     },
-    handleHeroError() {
-      if (this.data.homeHeroUrl !== DEFAULT_HOME_HERO) {
-        this.setData({ homeHeroUrl: DEFAULT_HOME_HERO, homeHeroAlt: DEFAULT_HOME_HERO_ALT });
-      }
+    handleHeroError(event) {
+      const index = Number(
+        event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.index
+      );
+      const banners = homeHero.removeFailedHomeBanner(this.data.homeBanners, Number.isFinite(index) ? index : 0);
+      this.setData({ homeBanners: banners, homeHeroUrl: banners[0].imageUrl, homeHeroAlt: banners[0].altText });
+    },
+    openHomeBanner(event) {
+      const index = Number(
+        event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.index
+      );
+      const item = this.data.homeBanners[index];
+      if (item) return bannerTarget.openBannerTarget(item);
+      return null;
     },
 
     /** 首页昵称位登录入口：跳转独立登录页（用户主动点击，符合「先浏览后登录」的合规要求） */
     handleLoginTap() {
       loginGuard.openLoginSheet({ reason: '登录后可同步会员权益与订单' });
-    },
-    closeLoginSheet() {
-      this.setData({ loginSheetVisible: false });
-    },
-    /** 弹层内「暂时跳过」：仅关闭弹层，可继续浏览公开内容 */
-    handleLoginSkip() {
-      this.setData({ loginSheetVisible: false });
-      loginGuard.clearPendingAction();
-    },
-    /** 弹层内授权成功：关闭弹层、刷新资料，并续跑被拦截的操作 */
-    handleLoginSuccess() {
-      this.setData({ loginSheetVisible: false });
-      api
-        .fetchMe(true)
-        .then(() => this.setData({ userProfile: getUserProfile() }))
-        .catch(() => null);
-      loginGuard.flushPendingAction();
-    },
-    handleLoginFail() {
-      loginGuard.toast('登录失败，请稍后重试');
     },
     openCoupons() {
       loginGuard.requireLogin(
@@ -107,13 +89,9 @@ Page(
     },
     selectOrderMode(event) {
       const { mode } = event.currentTarget.dataset;
-      loginGuard.requireLogin(
-        () => {
-          getApp().globalData.orderMode = mode;
-          wx.switchTab({ url: '/pages/menu/menu' });
-        },
-        { reason: '登录后即可点单' }
-      );
+      // 选择消费方式只进入公开菜单，登录留到下单等账户操作时申请。
+      getApp().globalData.orderMode = mode;
+      wx.switchTab({ url: '/pages/menu/menu' });
     },
     openJoinApply() {
       wx.navigateTo({ url: '/packageRole/role-apply/role-apply' });

@@ -42,7 +42,7 @@ test('mall api uses the confirmed product status and stock contracts', () => {
   assert.match(source, /\/api\/v1\/admin\/trade\/orders\/\$\{orderNo\}\/ship/);
 });
 
-test('mall product page exposes the required drawer and SKU maintenance fields', () => {
+test('mall product page exposes SPU supplier and the required SKU maintenance fields', () => {
   const source = readIfPresent('src/views/mall/product/index.vue', 'mall product page');
   const importsMallApi = /@\/service\/api\/mall/.test(source);
 
@@ -54,9 +54,10 @@ test('mall product page exposes the required drawer and SKU maintenance fields',
   assert.match(source, /specName/);
   assert.match(source, /coverImage/);
   assert.match(source, /description/);
-  assert.match(source, /attributionStoreSubjectId/);
-  assert.match(source, /attributionChannelSubjectId/);
-  assert.match(source, /splitRuleId/);
+  assert.match(source, /supplierSubjectId/);
+  assert.doesNotMatch(source, /attributionStoreSubjectId/);
+  assert.doesNotMatch(source, /attributionChannelSubjectId/);
+  assert.doesNotMatch(source, /splitRuleId/);
   assert.match(source, /specValue/);
   assert.match(source, /salePrice/);
   assert.match(source, /originalPrice/);
@@ -67,6 +68,8 @@ test('mall product page exposes the required drawer and SKU maintenance fields',
   assert.match(source, /deleteBlockedReason/, '商品页必须展示不可删除原因');
   assert.match(source, /stockAvailableAfter/, '库存弹窗必须展示调整后可用库存');
   assert.match(source, /库存调整/);
+  assert.doesNotMatch(source, /title: '归属门店'/);
+  assert.doesNotMatch(source, /title: '排序'/);
 });
 
 test('mall order page uses the shared detail modal and shipping fields', () => {

@@ -273,13 +273,18 @@ Skyline 当前不采用 CSS `linear-gradient()`，舌诊链路禁止再用 CSS �
 
 ### Tab 页统一约定
 
-Tab 页（首页 / 点单 / 一人一饮 / 订单 / 我的）必须在 `onShow` 同步选中态：
+Tab 页（首页 / 点单 / 动态第三项 / 订单 / 我的）必须在 `onShow` 同步选中态：
 
 ```js
 onShow() {
-  if (this.getTabBar) this.getTabBar().setData({ selected: 0 }) // 首页0 点单1 一人一饮2 订单3 我的4
+  if (this.getTabBar) this.getTabBar().setData({ selected: 0 }) // 首页0 点单1 第三项2 订单3 我的4
 }
 ```
+
+第三个 Tab 使用固定宿主页 `pages/feature-tab/feature-tab`。小程序根据微信上传版本号，
+精确匹配数据库 `mini_tab_bar.releases` 中的 `memberZone` 或 `tongueHealth`；未匹配时使用
+`defaultThirdTab`。配置查询完成前不得展示 TabBar。发布统一使用
+`npm run release:upload -- --version <版本号> --desc <说明>`，确保构建版本与微信上传版本一致。
 
 底部导航统一使用原生 `open-type="switchTab"`，禁止改成 `bindtap` + `wx.switchTab`。
 
@@ -318,12 +323,16 @@ onShow() {
 - 描边标签：`1 ~ 2rpx` `var(--brand-green)` 描边 + 同色文字 + `var(--radius-xs)`，字号 `var(--font-sm)`。
 - 角标：`var(--price-red)` 或 `var(--brand-green)` 底 + 白字 + `var(--radius-pill)`。
 
+### 商城首页订单入口
+
+- 头图标题行右侧使用 `80rpx` 高的品牌绿圆角入口，白色收据图标与「我的订单」文字并排；图标 `40rpx`，文字 `var(--font-base)`、字重 600，点击进入商城订单。
+
 ### 商城分类图文栏
 
-- 线上商城首页分类使用单行横向图文栏：图标在上、名称在下。图标固定 `80rpx × 80rpx`、`mode="aspectFill"`、`var(--radius-md)`；名称距图标 `8rpx`，使用 `var(--font-sm)`，超出时单行省略。
-- 「全部」放在最前并计入每屏 4 项。单项宽度固定为 `calc((100vw - 88rpx) / 4)`、间距 `16rpx`、页面左右边距 `20rpx`，超过 4 项时横向滑动，不得压缩图标或文字。
+- 线上商城首页分类使用单行横向图文栏：图标在上、名称在下。图标固定 `88rpx × 88rpx`、`mode="aspectFill"`、`var(--radius-md)`；分类项上下内边距 `4rpx`，名称距图标 `8rpx`，使用 `var(--font-sm)`，超出时单行省略。
+- 「全部」放在最前。单项宽度固定为 `120rpx`、间距 `16rpx`、页面左右边距 `20rpx`，超过屏宽时横向滑动，不得压缩图标或文字。
 - 横滑容器必须声明 `height: 144rpx` 与 `overflow: hidden`，避免 Skyline 下横向 `scroll-view` 高度塌陷；该项是运行时布局约束，不属于间距档位。
-- 默认名称使用 `var(--text-secondary)`；选中名称使用 `var(--brand-green)`、字重 600，不再使用文字下划线。
+- 默认名称使用 `var(--text-secondary)`；选中名称使用 `var(--brand-green)`、字重 600，并在分类项底部显示同色 `4rpx` 细线。
 - 分类图来自后台 `iconImage`；无图或加载失败统一降级为 `/assets/images/3x/mall-category-placeholder.jpg`，不得使用 emoji、单字或临时图片代替。
 - 演示分类专用图片仍保留在仓库：
   - `tea-goods` → `/assets/images/3x/mall-category-tea-goods.jpg`

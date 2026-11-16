@@ -19,13 +19,18 @@ public class MallAfterSale {
     private Long orderId;
     private String orderNo;
     private Long userId;
-    /** PENDING / APPROVED / REJECTED / REFUNDING / SUCCESS / FAILED */
+    /** PENDING / RETURN_SHIPPED / RETURN_RECEIVED / APPROVED / REJECTED / REFUNDING / SUCCESS / FAILED */
     private String status;
     private String reason;
     /** 退款金额（分） */
     private Long refundAmount;
     /** 退货明细 JSON：[{orderItemId,skuId,skuCode,name,spec,quantity,unitPrice,distributionCommission,lineAmount}] */
     private String items;
+    private String returnCarrier;
+    private String returnTrackingNo;
+    private LocalDateTime returnShippedTime;
+    private LocalDateTime returnReceivedTime;
+    private String returnReceiver;
     private LocalDateTime applyTime;
     private LocalDateTime reviewTime;
     private String reviewer;

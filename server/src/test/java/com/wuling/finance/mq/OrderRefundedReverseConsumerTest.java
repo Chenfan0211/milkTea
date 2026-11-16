@@ -10,6 +10,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -63,6 +64,23 @@ class OrderRefundedReverseConsumerTest {
 
         assertEquals("evt-100", message.getMessageProperties().getMessageId());
         verify(ledgerService).reverseForOrder("ORDER-2", "REFUND-2", 10000);
+        verify(channel).basicAck(anyLong(), eq(false));
+    }
+
+    @Test
+    void routesMallPartialRefundWithExactSubjectShares() throws Exception {
+        when(idempotent.tryAcquire("ORDER-M:REFUND-M:REVERSE")).thenReturn(true);
+        Message event = message("""
+                {"orderNo":"ORDER-M","refundNo":"REFUND-M","refundRatio":5000,
+                 "subjectRefundAmounts":{"201":400,"301":100},
+                 "platformCommissionRefund":200,"platformBonusRefund":300,
+                 "platformCommissionOriginal":200,"platformBonusOriginal":600}
+                """);
+
+        consumer.onOrderRefunded(event, channel);
+
+        verify(ledgerService).reverseMallAfterSale("ORDER-M", "REFUND-M", 5000,
+                Map.of(201L, 400L, 301L, 100L), 200L, 300L, 200L, 600L);
         verify(channel).basicAck(anyLong(), eq(false));
     }
 

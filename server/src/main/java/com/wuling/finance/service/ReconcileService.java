@@ -29,11 +29,11 @@ import java.util.Map;
  * <ol>
  *   <li><b>完成后未分账</b>：订单状态为 COMPLETED，但 split_snapshot 无记录；</li>
  *   <li><b>退款后未冲正</b>：订单为 CANCELED 且 refund_status=REFUNDED，但仍有 PENDING 的 settlement_record；</li>
- *   <li><b>分账金额不一致</b>：快照五方之和 ≠ 订单实付金额。</li>
+ *   <li><b>分账金额不一致</b>：快照全部分账方之和 ≠ 订单实付金额。</li>
  * </ol>
  *
  * <p><b>核心原则：只发现、不自动改账</b>。
- * 资金修复涉及多方账目（平台/门店/渠道/投资人/供应商），
+ * 资金修复涉及多方账目（平台/门店/渠道/投资人/供应商/团长），
  * 自动修改的风险高于人工介入。因此本服务只写入 reconcile_issue 并告警，
  * 由人工确认后再决定是否补偿。
  *
@@ -141,14 +141,15 @@ public class ReconcileService {
     }
 
     /**
-     * 检查项 3：分账五方之和与实付不一致。
+     * 检查项 3：分账全部分佣方之和与实付不一致。
      *
      * <p>虽在 executeSplit 中已有 total_check 标记，但那是写入时的自检。
      * 对账是独立复核，能发现写入后数据被改动等异常。
      */
     private int checkSplitAmountMismatch() {
         String sql = "select s.order_no, s.snapshot_no, o.paid_amount, "
-                + "(s.platform_amount + s.store_amount + s.channel_amount + s.investor_amount + s.supplier_amount) as parts "
+                + "(s.platform_amount + s.store_amount + s.channel_amount + s.investor_amount "
+                + "+ s.supplier_amount + s.leader_amount) as parts "
                 + "from split_snapshot s join orders o on o.id = s.order_id "
                 + "where s.deleted = 0 and o.deleted = 0 "
                 + "having parts <> o.paid_amount "

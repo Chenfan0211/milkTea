@@ -9,6 +9,7 @@ public class MallSkuView {
     private String specValue;
     private String image;
     private Long salePrice;
+    private Long distributionCommission;
     private Long originalPrice;
     private Integer availableStock;
     private Boolean soldOut;

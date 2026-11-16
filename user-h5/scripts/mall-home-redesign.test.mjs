@@ -44,8 +44,8 @@ assert.match(wxml, /<navigation-bar\b[^>]*\/>/, '导航栏只保留标题，不�
 assert.doesNotMatch(wxml, /slot="right"/, '订单不得继续占用导航栏右侧插槽');
 assert.match(
   wxml,
-  /class="home-hero__head"[\s\S]*?class="home-hero__title">把好物带回家[\s\S]*?bindtap="openOrders"[\s\S]*?aria-label="查看商城订单"[\s\S]*?receipt\.svg[\s\S]*?订单/,
-  '订单必须放在头图标题同一行的最右侧，使用收据图标和「订单」二字'
+  /class="home-hero__head"[\s\S]*?class="home-hero__title">把好物带回家[\s\S]*?bindtap="openOrders"[\s\S]*?aria-label="查看商城订单"[\s\S]*?receipt-white\.svg[\s\S]*?我的订单/,
+  '订单入口应在标题行右侧显示白色收据图标和「我的订单」'
 );
 assert.match(
   wxml,
@@ -96,11 +96,16 @@ assert.match(
   /\.home-cart__badge\s*\{[\s\S]*?color:\s*var\(--card-bg\);[\s\S]*?background:\s*var\(--brand-green\)/,
   '角标必须是品牌绿底白字'
 );
-assert.match(wxss, /\.home-order__icon\s*\{[\s\S]*?width:\s*32rpx;[\s\S]*?height:\s*32rpx/, '订单图标必须为 32rpx');
 assert.match(
   wxss,
-  /\.home-order__label\s*\{[\s\S]*?color:\s*var\(--text-main\);[\s\S]*?font-size:\s*var\(--font-sm\)/,
-  '订单文字必须使用正文色和小字号'
+  /\.home-order\s*\{[^}]*height:\s*80rpx;[^}]*background:\s*var\(--brand-green\);[^}]*border-radius:\s*var\(--radius-pill\)/,
+  '订单入口必须使用品牌绿主按钮样式'
+);
+assert.match(wxss, /\.home-order__icon\s*\{[\s\S]*?width:\s*40rpx;[\s\S]*?height:\s*40rpx/, '订单图标必须为 40rpx');
+assert.match(
+  wxss,
+  /\.home-order__label\s*\{[\s\S]*?color:\s*var\(--card-bg\);[\s\S]*?font-size:\s*var\(--font-base\);[\s\S]*?font-weight:\s*600/,
+  '订单文字必须使用白色正文大字并加粗'
 );
 assert.match(
   wxss,
@@ -108,7 +113,7 @@ assert.match(
   '商品列表底部必须留出 120rpx，避免被悬浮按钮挡住'
 );
 
-// 图文分类：图标在上、名称在下，一屏固定 4 项，超过后横向滑动。
+// 图文分类：图标在上、名称在下，紧凑排列并横向滑动。
 assert.match(
   wxml,
   /class="category-tab__image"[\s\S]*?mode="aspectFill"[\s\S]*?class="category-tab__label"/,
@@ -128,20 +133,21 @@ assert.match(
 );
 assert.match(
   wxss,
-  /\.category-tab\s*\{[\s\S]*?flex:\s*none;[\s\S]*?width:\s*calc\(\(100vw - 88rpx\) \/ 4\)/,
-  '分类项必须固定为每屏 4 项，不得被压缩'
+  /\.category-tab\s*\{[\s\S]*?flex:\s*none;[\s\S]*?width:\s*120rpx/,
+  '分类项必须使用紧凑的固定宽度，不得被压缩'
 );
 assert.match(wxss, /\.category-tab:last-child\s*\{\s*margin-right:\s*0;/, '最后一个分类不得保留右边距');
 const tabRule = wxss.match(/\.category-tab\s*\{[^}]*\}/);
 assert.ok(tabRule, '必须定义图文分类 Tab');
+assert.match(tabRule[0], /padding:\s*4rpx 0/, '分类项上下留白应收紧到 4rpx');
 assert.match(tabRule[0], /color:\s*var\(--text-secondary\)/, '分类默认色必须为次级文字');
 assert.doesNotMatch(tabRule[0], /flex:\s*1/, '分类不得用 flex:1 把文字挤扁');
 assert.match(wxss, /\.category-tab\.is-active\s*\{[^}]*color:\s*var\(--brand-green\)/, '选中分类必须为品牌绿字');
 assert.match(wxss, /\.category-tab\.is-active\s*\{[^}]*font-weight:\s*600/, '选中分类必须加粗');
 assert.match(
   wxss,
-  /\.category-tab__image\s*\{[\s\S]*?width:\s*80rpx;[\s\S]*?height:\s*80rpx;[\s\S]*?border-radius:\s*var\(--radius-md\)/,
-  '分类图标必须为 80rpx 圆角方图'
+  /\.category-tab__image\s*\{[\s\S]*?width:\s*88rpx;[\s\S]*?height:\s*88rpx;[\s\S]*?border-radius:\s*var\(--radius-md\)/,
+  '分类图标必须为 88rpx 圆角方图'
 );
 assert.match(
   wxss,
@@ -149,7 +155,11 @@ assert.match(
   '分类名称必须与图标间隔 8rpx，并保持单行省略'
 );
 assert.match(wxml, /scroll-x/, '分类超出时必须可以横向滚动');
-assert.doesNotMatch(wxss, /\.category-tab\.is-active::after/, '图文分类不得继续使用文字下划线选中态');
+assert.match(
+  wxss,
+  /\.category-tab\.is-active::after\s*\{[^}]*background:\s*var\(--brand-green\)/,
+  '选中分类使用品牌绿细线'
+);
 
 assert.match(wxss, /\.home-products-content\s*\{[\s\S]*?padding:\s*20rpx/, '商品区顶部必须保留 20rpx 安全间距');
 assert.doesNotMatch(wxss, /\.product-card\s*\{[\s\S]*?margin-top:\s*-\d/, '商品卡不得使用负外边距上移');

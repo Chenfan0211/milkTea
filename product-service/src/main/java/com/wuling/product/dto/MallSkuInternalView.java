@@ -11,9 +11,6 @@ public class MallSkuInternalView {
     private String skuCode;
     private String specValue;
     private String image;
-    private Long attributionStoreSubjectId;
-    private Long attributionChannelSubjectId;
-    private Long splitRuleId;
     private Long salePrice;
     private Long originalPrice;
     private Long costPrice;

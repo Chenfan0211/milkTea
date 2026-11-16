@@ -241,21 +241,6 @@
   text-align: right;
 }
 
-.order-detail__more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20rpx;
-  color: var(--brand-green);
-  font-size: var(--font-sm);
-}
-
-.order-detail__more-icon {
-  width: 28rpx;
-  height: 28rpx;
-  margin-left: 8rpx;
-}
-
 .order-detail-actions {
   display: flex;
   justify-content: flex-end;

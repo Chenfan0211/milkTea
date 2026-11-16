@@ -203,7 +203,7 @@ class ReconcileLogicIT {
 
         try (Connection c = conn()) {
             insertOrder(c, orderId, orderNo, "COMPLETED", 1000L, "PAID");
-            // 五方之和 = 900 ≠ 实付 1000
+            // 全部分账方之和 = 900 ≠ 实付 1000
             try (PreparedStatement ps = c.prepareStatement(
                     "insert into split_snapshot (snapshot_no, order_id, order_no, item_count, "
                             + "platform_amount, store_amount, channel_amount, investor_amount, supplier_amount, deleted) "
@@ -216,7 +216,7 @@ class ReconcileLogicIT {
 
             List<String> found = querySplitMismatch(c);
             assertTrue(found.contains(orderNo),
-                    "五方之和与实付不一致的订单应被对账发现");
+                    "全部分账方之和与实付不一致的订单应被对账发现");
         } finally {
             cleanup(orderId, orderNo);
         }
@@ -243,7 +243,8 @@ class ReconcileLogicIT {
     private List<String> querySplitMismatch(Connection c) throws Exception {
         String sql = "select s.order_no from split_snapshot s join orders o on o.id = s.order_id "
                 + "where s.deleted = 0 and o.deleted = 0 "
-                + "and (s.platform_amount + s.store_amount + s.channel_amount + s.investor_amount + s.supplier_amount) <> o.paid_amount "
+                + "and (s.platform_amount + s.store_amount + s.channel_amount + s.investor_amount "
+                + "+ s.supplier_amount + s.leader_amount) <> o.paid_amount "
                 + "and s.order_no like 'IT-RECON%'";
         return collect(c, sql);
     }

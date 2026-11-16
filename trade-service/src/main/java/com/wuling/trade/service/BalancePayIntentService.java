@@ -34,7 +34,7 @@ public class BalancePayIntentService {
      * 扣款前登记支付意图（独立事务提交）。
      *
      * <p><b>幂等</b>：同订单已有未完结意图时，视为重复提交，直接复用；
-     * 已 DONE / COMPENSATED 的订单不应再发起余额支付（订单状态机已挡掉），
+     * NO_DEBIT 表示未发生扣款，可按原业务号重新登记；已 DONE / COMPENSATED 不可再支付，
      * 这里防御性地抛错，避免异常流程绕进支付。
      *
      * @param orderNo 订单号
@@ -52,10 +52,22 @@ public class BalancePayIntentService {
         try {
             intentMapper.insert(intent);
         } catch (DuplicateKeyException duplicate) {
-            // 并发下同订单重复发起：查询复用，仅 PENDING 可复用
+            // 已确认未扣款时只重开原意图；真实回冲的 COMPENSATED 不得重开。
             BalancePayIntent existing = intentMapper.selectOne(new LambdaQueryWrapper<BalancePayIntent>()
                     .eq(BalancePayIntent::getOrderNo, orderNo)
                     .last("limit 1"));
+            if (existing != null && BalancePayIntent.STATUS_NO_DEBIT.equals(existing.getStatus())
+                    && java.util.Objects.equals(existing.getUserId(), userId)
+                    && java.util.Objects.equals(existing.getAmount(), amount)) {
+                BalancePayIntent retry = new BalancePayIntent();
+                retry.setStatus(BalancePayIntent.STATUS_PENDING);
+                if (intentMapper.update(retry, new LambdaQueryWrapper<BalancePayIntent>()
+                        .eq(BalancePayIntent::getId, existing.getId())
+                        .eq(BalancePayIntent::getStatus, BalancePayIntent.STATUS_NO_DEBIT)) == 1) {
+                    existing.setStatus(BalancePayIntent.STATUS_PENDING);
+                    return existing;
+                }
+            }
             if (existing != null && BalancePayIntent.STATUS_PENDING.equals(existing.getStatus())) {
                 log.info("余额支付意图已存在（复用） orderNo={} intentId={}", orderNo, existing.getId());
                 return existing;

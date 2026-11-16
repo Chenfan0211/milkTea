@@ -40,7 +40,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>幂等：
  * <ul>
- *   <li>同一订单已支付时，重复回调直接返回成功，不重复入账；</li>
+ *   <li>重复回调补齐支付记录与幂等库存确认，不重复发布支付事件；</li>
  *   <li>通过订单行锁 + 状态机保证并发安全。</li>
  * </ul>
  *
@@ -159,13 +159,14 @@ public class PaymentService {
         }
 
         Payment payment = new Payment();
-        payment.setPaymentNo(gatewayResolver.active().prepay(orderNo, request.getAmount()));
+        PaymentGateway gateway = gatewayForOrder(orderNo);
+        payment.setPaymentNo(gateway.prepay(orderNo, request.getAmount()));
         payment.setOrderId(order.getId());
         payment.setOrderNo(orderNo);
         payment.setBizType(Payment.BIZ_ORDER);
         payment.setBizNo(orderNo);
         payment.setAmount(request.getAmount());
-        payment.setChannel(request.getChannel());
+        payment.setChannel(gateway.channel());
         payment.setThirdStatus("PENDING");
         payment.setStandardStatus("PAYING");
         paymentMapper.insert(payment);
@@ -212,17 +213,26 @@ public class PaymentService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "储值余额订单请走余额支付，不发起第三方支付");
         }
 
-        String channel = gatewayResolver.activeChannel();
-        WxPayPrepayResult result = gatewayResolver.active()
-                .prepayForMiniApp(orderNo, amountFen, payerOpenid, description);
+        PaymentGateway gateway = gatewayForOrder(orderNo);
+        String channel = gateway.channel();
+        LocalDateTime deadline = "MALL".equalsIgnoreCase(order.getOrderType())
+                ? order.getCreateTime().plusMinutes(15) : null;
+        if (deadline != null && !deadline.isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "订单支付已超时，请重新下单");
+        }
+        WxPayPrepayResult result = gateway.prepayForMiniApp(
+                orderNo, amountFen, payerOpenid, description, deadline);
         if (result == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST,
                     "当前支付通道不支持小程序支付: " + channel);
         }
 
-        Payment payment = new Payment();
-        // 支付单号用「本次下单请求」的唯一标识，便于与微信侧对账
-        payment.setPaymentNo(nextPaymentNo(orderNo));
+        Payment payment = findOrderPayment(orderNo);
+        boolean existingPayment = payment != null;
+        if (!existingPayment) {
+            payment = new Payment();
+            payment.setPaymentNo(nextPaymentNo(orderNo));
+        }
         payment.setOrderId(order.getId());
         payment.setOrderNo(orderNo);
         payment.setBizType(Payment.BIZ_ORDER);
@@ -233,7 +243,7 @@ public class PaymentService {
         payment.setStandardStatus("PAYING");
         payment.setPrepayId(result.getPrepayId());
         payment.setPayerOpenid(payerOpenid);
-        paymentMapper.insert(payment);
+        if (existingPayment) paymentMapper.updateById(payment); else paymentMapper.insert(payment);
         return result;
     }
 
@@ -244,7 +254,7 @@ public class PaymentService {
      */
     @Transactional(rollbackFor = Exception.class)
     public OrderDTO handleCallback(String orderNo, String transactionId) {
-        return settlePaid(orderNo, transactionId, null, "MOCK");
+        return settlePaid(orderNo, transactionId, "MOCK");
     }
 
     /**
@@ -380,6 +390,7 @@ public class PaymentService {
      *
      * @return 订单支付返回订单视图；储值支付返回 null（储值无订单实体）
      */
+    @Transactional(rollbackFor = Exception.class)
     public OrderDTO routeWxPayCallback(WxPayTransaction transaction) {
         String orderNo = transaction.getOutTradeNo();
         if (isGiftCardOrder(orderNo)) {
@@ -574,14 +585,14 @@ public class PaymentService {
         String orderNo = transaction.getOutTradeNo();
         Long callbackAmount = transaction.getTotalAmount();
 
-        Order order = orderService.lockForUpdate(orderNo);
-        // 幂等：已支付订单直接返回，不重复入账（微信会重试回调）
-        if (isDuplicatePaymentCallback(order)) {
-            log.info("duplicate wxpay callback ignored, orderNo={} notifyId={}",
-                    orderNo, transaction.getNotifyId());
-            return orderService.toDTO(order, loadItems(order.getId()));
+        if (!StringUtils.hasText(transaction.getTransactionId())
+                || (StringUtils.hasText(transaction.getTradeState())
+                    && !WxPayStatusMapper.isSuccess(transaction.getTradeState()))
+                || (StringUtils.hasText(transaction.getCurrency()) && !"CNY".equals(transaction.getCurrency()))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "支付成功事实缺失或币种不匹配");
         }
 
+        Order order = orderService.lockForUpdate(orderNo);
         if (callbackAmount == null || !order.getPaidAmount().equals(callbackAmount)) {
             String detail = "订单金额=" + order.getPaidAmount()
                     + " 回调金额=" + callbackAmount
@@ -592,8 +603,7 @@ public class PaymentService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "回调金额与订单金额不一致");
         }
 
-        return settlePaid(orderNo, transaction.getTransactionId(),
-                WxPayStatusMapper.STANDARD_PAID, "WXPAY");
+        return settlePaid(orderNo, transaction.getTransactionId(), "WXPAY");
     }
 
     /**
@@ -718,20 +728,21 @@ public class PaymentService {
      * 入账核心逻辑：行锁 + 状态机 + 支付单落库。
      *
      * <p>mock 与微信两条回调路径共用，避免两套入账逻辑漂移。
-     * {@code expectedStandardStatus} 为 null 时表示由调用方已完成校验（mock 路径）。
+     * 微信路径在调用前已校验交易号、状态、金额与币种。
      */
-    private OrderDTO settlePaid(String orderNo, String transactionId,
-                                String expectedStandardStatus, String channelTag) {
+    private OrderDTO settlePaid(String orderNo, String transactionId, String channelTag) {
         Order order = orderService.lockForUpdate(orderNo);
 
-        if (isDuplicatePaymentCallback(order)) {
-            log.info("duplicate callback ignored, orderNo={}", orderNo);
+        boolean duplicate = isDuplicatePaymentCallback(order);
+        // 已退款订单只保留退款终态；普通 PAID 重推必须补齐库存确认与支付记录。
+        if (duplicate && ("REFUNDED".equalsIgnoreCase(order.getRefundStatus())
+                || OrderService.STATUS_REFUNDED.equals(order.getStatus()))) {
             return orderService.toDTO(order, loadItems(order.getId()));
         }
         if (isStoredValueChannel(order.getPayChannel())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "储值余额订单不可通过第三方支付回调入账");
         }
-        if (!OrderService.STATUS_CREATED.equals(order.getStatus())) {
+        if (!duplicate && !OrderService.STATUS_CREATED.equals(order.getStatus())) {
             // 典型场景：订单已被 MQ 超时关闭，但用户实际已付款 —— 需人工介入退款
             String detail = "订单状态=" + order.getStatus()
                     + " 渠道=" + channelTag
@@ -740,35 +751,135 @@ public class PaymentService {
             log.error("回调到达但订单状态不可支付，需人工核查 orderNo={} {}", orderNo, detail);
             alertChannel.send(AlertChannel.Level.CRITICAL,
                     "支付回调到达但订单已关闭", detail, orderNo);
-            throw new BusinessException(ResultCode.BAD_REQUEST, "订单状态不可支付: " + order.getStatus());
+            syncOrderPayment(order, transactionId, channelTag, LocalDateTime.now());
+            return orderService.toDTO(order, loadItems(order.getId()));
         }
 
         LocalDateTime now = LocalDateTime.now();
-        orderService.markPaid(order, now);
-        if (mallStockService != null) {
+        if (!duplicate) orderService.markPaid(order, now);
+        if (mallStockService != null && (OrderService.STATUS_CREATED.equals(order.getStatus())
+                || OrderService.STATUS_PAID.equals(order.getStatus()))) {
             mallStockService.deductForPaid(order);
         }
 
-        Payment payment = paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
-                .eq(Payment::getOrderNo, orderNo).orderByDesc(Payment::getId).last("limit 1"));
-        if (payment != null) {
-            // third_status 保留第三方原始值，便于追溯；standard_status 用项目口径
-            payment.setThirdStatus(expectedStandardStatus == null ? "SUCCESS" : expectedStandardStatus);
-            payment.setStandardStatus("PAID");
-            // 流水订单号（三方订单号）：回调未带回时回落到系统订单号，
-            // 保证后台「流水订单号」列可用（储值支付场景该值即订单号）。
-            payment.setTransactionId(
-                    StringUtils.hasText(transactionId) ? transactionId : orderNo);
-            payment.setCallbackTime(now);
-            paymentMapper.updateById(payment);
-        }
-        publishOrderPaid(order, channelTag);
+        syncOrderPayment(order, transactionId, channelTag, now);
+        if (!duplicate) publishOrderPaid(order, channelTag);
         log.info("order paid, orderNo={} channel={} pickupCode={}", orderNo, channelTag, order.getPickupCode());
         OrderDTO dto = orderService.toDTO(order, loadItems(order.getId()));
-        if (!"MALL".equalsIgnoreCase(order.getOrderType())) {
+        if (!duplicate && !"MALL".equalsIgnoreCase(order.getOrderType())) {
             orderSubscribeNotifier.enqueueForOrder(order, dto);
         }
         return dto;
+    }
+
+    private Payment findOrderPayment(String orderNo) {
+        return paymentMapper.selectCanonicalOrderPayment(orderNo);
+    }
+
+    private PaymentGateway gatewayForOrder(String orderNo) {
+        Payment previous = findOrderPayment(orderNo);
+        return previous == null ? gatewayResolver.active() : gatewayResolver.forPayment(previous);
+    }
+
+    private void syncOrderPayment(Order order, String transactionId, String channel, LocalDateTime now) {
+        Payment payment = findOrderPayment(order.getOrderNo());
+        boolean insert = payment == null;
+        if (insert) {
+            payment = new Payment(); payment.setPaymentNo("PAY-" + order.getOrderNo());
+            payment.setOrderId(order.getId()); payment.setOrderNo(order.getOrderNo());
+            payment.setBizType(Payment.BIZ_ORDER); payment.setBizNo(order.getOrderNo());
+            payment.setAmount(order.getPaidAmount()); payment.setChannel(channel);
+        } else if (!channel.equalsIgnoreCase(payment.getChannel())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "回调与原支付通道不一致，请人工核查");
+        }
+        if (StringUtils.hasText(payment.getTransactionId())
+                && !payment.getTransactionId().equals(transactionId)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "同一订单出现不同支付流水，请人工核查");
+        }
+        if (!shouldPreserveRefundStatus(payment.getStandardStatus(), "PAID")) {
+            payment.setThirdStatus("SUCCESS"); payment.setStandardStatus("PAID");
+        }
+        payment.setTransactionId(transactionId); payment.setCallbackTime(now);
+        if (insert) paymentMapper.insert(payment); else paymentMapper.updateById(payment);
+        paymentMapper.closeSupersededAttempts(order.getOrderNo(), payment.getId());
+    }
+
+    /** 主动查单与通知共用入账；网络不明和未知状态保持支付记录原样。 */
+    @Transactional(rollbackFor = Exception.class)
+    public Payment reconcilePayment(Long paymentId) {
+        Payment payment = paymentMapper.selectById(paymentId);
+        if (payment == null) throw new BusinessException(ResultCode.NOT_FOUND, "支付单不存在");
+        if (Payment.BIZ_ORDER.equals(payment.getBizType()) || payment.getOrderId() != null) {
+            // 与回调、取消保持同一锁顺序：先订单，再读最新支付记录，防旧查询回退 PAID。
+            orderService.lockForUpdate(paymentOrderNo(payment));
+            payment = paymentMapper.selectById(paymentId);
+        }
+        PaymentGateway.PaymentQueryResult result = gatewayResolver.forPayment(payment)
+                .queryOrder(paymentOrderNo(payment));
+        if (result == null) return payment;
+        return applyQueryResult(payment, result);
+    }
+
+    private Payment applyQueryResult(Payment payment, PaymentGateway.PaymentQueryResult result) {
+        String standard = WxPayStatusMapper.toStandardStatus(result.tradeState());
+        if (standard == null) return payment;
+        String orderNo = paymentOrderNo(payment);
+        if (StringUtils.hasText(result.outTradeNo()) && !orderNo.equals(result.outTradeNo())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "查单订单号不一致");
+        }
+        if ("PAID".equals(standard)) {
+            if (!StringUtils.hasText(result.outTradeNo()) || !StringUtils.hasText(result.transactionId())
+                    || result.totalAmount() == null || !result.totalAmount().equals(payment.getAmount())
+                    || !"CNY".equals(result.currency())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "查单支付金额、币种或交易标识不匹配");
+            }
+            WxPayTransaction transaction = new WxPayTransaction();
+            transaction.setOutTradeNo(orderNo); transaction.setTransactionId(result.transactionId());
+            transaction.setTradeState(result.tradeState()); transaction.setTotalAmount(result.totalAmount());
+            transaction.setCurrency(result.currency()); transaction.setMchId(result.mchId());
+            transaction.setAppId(result.appId()); transaction.setPayerOpenid(result.payerOpenid());
+            routeWxPayCallback(transaction);
+            return Payment.BIZ_ORDER.equals(payment.getBizType()) || payment.getOrderId() != null
+                    ? findOrderPayment(orderNo) : paymentMapper.selectById(payment.getId());
+        }
+        // 支付成功、退款中的资金事实不能被迟到的未付查询结果回退。
+        if (!preserveMoneyStatus(payment.getStandardStatus())) {
+            payment.setThirdStatus(result.tradeState()); payment.setStandardStatus(standard);
+            paymentMapper.updateById(payment);
+        }
+        return payment;
+    }
+
+    private String paymentOrderNo(Payment payment) {
+        return StringUtils.hasText(payment.getOrderNo()) ? payment.getOrderNo() : payment.getBizNo();
+    }
+
+    private boolean preserveMoneyStatus(String status) {
+        return "PAID".equalsIgnoreCase(status) || "REFUNDING".equalsIgnoreCase(status)
+                || "REFUNDED".equalsIgnoreCase(status);
+    }
+
+    /** 取消/超时前持有订单锁调用：已收款先入账，只有确认关单才返回 true。 */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean prepareUnpaidClose(String orderNo) {
+        Order order = orderService.lockForUpdate(orderNo);
+        Payment payment = findOrderPayment(orderNo);
+        if (payment == null || isStoredValueChannel(order.getPayChannel())) return true;
+        PaymentGateway gateway = gatewayResolver.forPayment(payment);
+        if ("MOCK".equalsIgnoreCase(payment.getChannel())) return gateway.closeOrder(orderNo);
+        PaymentGateway.PaymentQueryResult result = gateway.queryOrder(orderNo);
+        if (result == null || WxPayStatusMapper.toStandardStatus(result.tradeState()) == null) return false;
+        if (!orderNo.equals(result.outTradeNo()) || !"CNY".equals(result.currency())) return false;
+        if (WxPayStatusMapper.isSuccess(result.tradeState())) {
+            applyQueryResult(payment, result);
+            return false;
+        }
+        if (preserveMoneyStatus(payment.getStandardStatus())) return false;
+        if (!List.of("NOTPAY", "CLOSED", "REVOKED", "PAYERROR").contains(result.tradeState())) return false;
+        if (!"CLOSED".equals(result.tradeState()) && !gateway.closeOrder(orderNo)) return false;
+        payment.setThirdStatus("CLOSED"); payment.setStandardStatus("CLOSED");
+        paymentMapper.updateById(payment);
+        return true;
     }
 
     /** Mock 直接支付：创建支付单并立即置为已支付（用于联调与演示） */

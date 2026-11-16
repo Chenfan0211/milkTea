@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -188,7 +189,7 @@ public class LedgerService {
     /**
      * 分账主入口（商城订单支持）：
      * <ul>
-     *   <li>{@code mallOrder}=true 时门店提成恒为 0（店主不参与商城分佣）；</li>
+     *   <li>{@code mallOrder}=true 时仅平台、供应商和团长参与分账；门店、渠道、投资人固定为 0；</li>
      *   <li>分销佣金（Σ distributionCommission × 件数）优先计入 {@code leaderSubjectId} 主体；</li>
      *   <li>无团长主体时佣金自然留在平台尾差中（不单独立账）。</li>
      * </ul>
@@ -217,20 +218,28 @@ public class LedgerService {
                     "订单存在未绑定供应商的商品，无法分账: " + orderNo);
         }
 
-        SplitRule rule = ruleSnapshot != null ? ruleSnapshot
+        SplitRule rule = mallOrder ? null
+                : ruleSnapshot != null ? ruleSnapshot
                 : (splitRuleId == null ? resolveRule(productId) : splitRuleMapper.selectById(splitRuleId));
-        if (rule == null) {
+        if (!mallOrder && rule == null) {
             throw new IllegalStateException("未配置分账规则，无法分账: " + orderNo);
         }
-        boolean hasChannel = channelSubjectId != null;
+        boolean hasChannel = !mallOrder && channelSubjectId != null;
         // 投资人「当月达标后比例」：需先算出该投资人当月已累计分账额，
         // 再交给 SplitCalculator 决定本单用原比例还是达标后比例。
         // 未绑定投资人（investorOf 为 null）时不启用阈值判定。
-        Long investorSubjectId = investorOf(storeSubjectId);
-        Long accumulatedInvestorAmount = accumulatedThisMonth(investorSubjectId);
+        Long investorSubjectId = mallOrder ? null : investorOf(storeSubjectId);
+        Long accumulatedInvestorAmount = mallOrder ? null : accumulatedThisMonth(investorSubjectId);
         SplitCalculator.SplitAmount amount = splitCalculator.calc(
                 paidAmount, itemCount, hasChannel, rule, platformCommission,
                 items == null ? List.of() : items, accumulatedInvestorAmount, mallOrder);
+        if (mallOrder && leaderSubjectId == null && amount.leader() != 0L) {
+            // 无归属团长时，成交价中的分销差额归平台；快照与实际入账保持一致。
+            amount = new SplitCalculator.SplitAmount(
+                    amount.platform() + amount.leader(), amount.store(), amount.channel(),
+                    amount.investor(), amount.supplier(), amount.platformCommission(),
+                    amount.platformBonus() + amount.leader(), 0L);
+        }
 
         SplitSnapshot snapshot = new SplitSnapshot();
         snapshot.setSnapshotNo(nextNo("SN"));
@@ -465,7 +474,7 @@ public class LedgerService {
             return;
         }
         try {
-            transactionTemplate.executeWithoutResult(status -> reverseInTransaction(orderId, orderNo, refundNo, refundRatio));
+            transactionTemplate.executeWithoutResult(status -> reverseInTransaction(orderId, orderNo, refundNo, refundRatio, null));
         } catch (InsufficientBalanceException e) {
             reconcileService.recordOnce(ReconcileIssue.TYPE_REFUND_BALANCE_SHORTAGE,
                     orderNo,
@@ -478,19 +487,46 @@ public class LedgerService {
         }
     }
 
+    /** 商城按退货明细精确冲正，避免部分退款按整单比例误扣其他供应商。 */
+    public void reverseMallAfterSale(String orderNo, String refundNo, int refundRatio,
+                                     Map<Long, Long> subjectRefundAmounts,
+                                     long platformCommissionRefund, long platformBonusRefund,
+                                     long platformCommissionOriginal, long platformBonusOriginal) {
+        Long orderId = selectOrderId(orderNo);
+        if (orderId == null) return;
+        try {
+            transactionTemplate.executeWithoutResult(status -> reverseInTransaction(orderId, orderNo, refundNo,
+                    refundRatio, new MallRefundShares(subjectRefundAmounts, platformCommissionRefund,
+                            platformBonusRefund, platformCommissionOriginal, platformBonusOriginal)));
+        } catch (InsufficientBalanceException e) {
+            reconcileService.recordOnce(ReconcileIssue.TYPE_REFUND_BALANCE_SHORTAGE, orderNo, refundNo,
+                    "账户可用余额=" + e.getAvailable(), "应扣回=" + e.getRequired(),
+                    e.getRequired() - e.getAvailable());
+        }
+    }
+
     /** 兼容旧调用；新退款链路应携带 refundNo。 */
     public void reverseForOrder(String orderNo) {
         reverseForOrder(orderNo, null);
     }
 
-    private void reverseInTransaction(Long orderId, String orderNo, String refundNo, int refundRatio) {
+    private record MallRefundShares(Map<Long, Long> subjects, long commissionRefund, long bonusRefund,
+                                    long commissionOriginal, long bonusOriginal) { }
+
+    private void reverseInTransaction(Long orderId, String orderNo, String refundNo, int refundRatio,
+                                      MallRefundShares shares) {
         List<SettlementRecord> records = settlementRecordMapper.selectByOrderIdForUpdate(orderId);
         long safeRatio = refundRatio <= 0 ? 10000 : refundRatio;
+        boolean fullReverse = shares == null && safeRatio >= 10000;
+        Map<Long, Long> exact = shares == null ? null : mallRecordRefundShares(records, shares);
         for (SettlementRecord record : records) {
             if (SETTLE_CANCELED.equals(record.getStatus())) {
+                if (exact != null && exact.getOrDefault(record.getId(), 0L) != 0L) {
+                    throw new IllegalStateException("已冲正结算记录仍有退货份额 recordId=" + record.getId());
+                }
                 continue;
             }
-            if (SETTLE_PENDING.equals(record.getStatus())) {
+            if (SETTLE_PENDING.equals(record.getStatus()) && fullReverse) {
                 // 历史待结算尚未进入任何余额桶，只取消，不伪造退款流水。
                 if (settlementRecordMapper.updateStatusIfCurrent(
                         record.getId(), SETTLE_PENDING, SETTLE_CANCELED) != 1) {
@@ -499,11 +535,22 @@ public class LedgerService {
                 record.setStatus(SETTLE_CANCELED);
                 continue;
             }
-            if (!FUNDED_SETTLEMENT_STATUSES.contains(record.getStatus())) {
+            if (!SETTLE_PENDING.equals(record.getStatus()) && !FUNDED_SETTLEMENT_STATUSES.contains(record.getStatus())) {
                 throw new IllegalStateException("未知结算状态，无法退款冲正: " + record.getStatus());
             }
-            if (record.getAmount() == null || record.getAmount() == 0L) {
+            if (record.getAmount() == null) {
                 throw new IllegalStateException("结算金额非法，无法退款冲正 recordId=" + record.getId());
+            }
+            if (record.getAmount() == 0L) {
+                if (exact != null && exact.getOrDefault(record.getId(), 0L) != 0L) {
+                    throw new IllegalStateException("退货份额超过已冲正结算金额 recordId=" + record.getId());
+                }
+                if (fullReverse && settlementRecordMapper.updateStatusIfCurrent(
+                        record.getId(), record.getStatus(), SETTLE_CANCELED) != 1) {
+                    throw new IllegalStateException("零余额结算记录状态流转失败 recordId=" + record.getId());
+                }
+                if (fullReverse) record.setStatus(SETTLE_CANCELED);
+                continue;
             }
 
             long remainingAmount = record.getAmount();
@@ -512,14 +559,38 @@ public class LedgerService {
             long refundedAmount = nz(record.getRefundedAmount());
             // refundRatio 是本次退款占订单实付的比例；每次按原结算金额计算份额，
             // 再与已冲正累计额相加，不能拿扣减后的剩余金额再乘比例。
-            long deduct = Math.round(originalAmount * safeRatio / 10000.0);
-            if (originalAmount >= 0L) {
+            long deduct = exact == null ? Math.round(originalAmount * safeRatio / 10000.0)
+                    : exact.getOrDefault(record.getId(), 0L);
+            if (exact != null && deduct != 0L && (Long.signum(deduct) != Long.signum(remainingAmount)
+                    || Math.abs(deduct) > Math.abs(remainingAmount))) {
+                throw new IllegalStateException("退货冲正份额超过结算记录余额 recordId=" + record.getId());
+            }
+            if (originalAmount >= 0L && exact == null) {
                 // 正分账记录：部分退款按剩余金额封顶，避免累计冲正超过原金额。
                 deduct = Math.min(deduct, Math.max(0L, remainingAmount));
                 if (deduct <= 0L) {
                     continue;
                 }
+            } else if (exact == null && originalAmount < 0L) {
+                deduct = Math.max(deduct, Math.min(0L, remainingAmount));
+                if (deduct == 0L) continue;
             } else if (deduct == 0L) {
+                continue;
+            }
+            if (SETTLE_PENDING.equals(record.getStatus())) {
+                if (settlementRecordMapper.deductAmountIfCurrent(record.getId(), SETTLE_PENDING,
+                        deduct, refundedAmount) != 1) {
+                    throw new IllegalStateException("待结算记录冲正失败 recordId=" + record.getId());
+                }
+                record.setAmount(remainingAmount - deduct);
+                record.setRefundedAmount(refundedAmount + deduct);
+                if (record.getAmount() == 0L) {
+                    if (settlementRecordMapper.updateStatusIfCurrent(record.getId(), SETTLE_PENDING,
+                            SETTLE_CANCELED) != 1) {
+                        throw new IllegalStateException("待结算记录关闭失败 recordId=" + record.getId());
+                    }
+                    record.setStatus(SETTLE_CANCELED);
+                }
                 continue;
             }
             long fullAmount = remainingAmount;
@@ -535,10 +606,10 @@ public class LedgerService {
                     "REFUND",
                     refundNo,
                     SETTLE_SETTLED,
-                    refundRatio >= 10000
+                    fullReverse
                             ? (fullAmount > 0L ? "退款成功，按结算记录扣回可用余额" : "退款成功，冲回平台承担的负分账")
-                            : "退款成功（部分退），按比例扣回可用余额"));
-            if (safeRatio >= 10000) {
+                            : exact == null ? "退款成功（部分退），按比例扣回可用余额" : "退款成功（部分退），按退货明细扣回可用余额"));
+            if (fullReverse) {
                 // 全退：结算记录直接置 CANCELED（与旧行为一致）
                 if (settlementRecordMapper.updateStatusIfCurrent(
                         record.getId(), record.getStatus(), SETTLE_CANCELED) != 1) {
@@ -553,8 +624,49 @@ public class LedgerService {
                 }
                 record.setAmount(fullAmount - deduct);
                 record.setRefundedAmount(refundedAmount + deduct);
+                if (record.getAmount() == 0L) {
+                    if (settlementRecordMapper.updateStatusIfCurrent(record.getId(), record.getStatus(),
+                            SETTLE_CANCELED) != 1) {
+                        throw new IllegalStateException("结算记录关闭失败 recordId=" + record.getId());
+                    }
+                    record.setStatus(SETTLE_CANCELED);
+                }
             }
         }
+    }
+
+    private Map<Long, Long> mallRecordRefundShares(List<SettlementRecord> records, MallRefundShares shares) {
+        Map<Long, Long> byRecord = new HashMap<>();
+        Map<Long, Long> unmatched = new HashMap<>(shares.subjects());
+        Long platformId = shares.commissionRefund() == 0L && shares.bonusRefund() == 0L
+                ? null : platformSubjectId();
+        List<SettlementRecord> platformRecords = records.stream()
+                .filter(record -> platformId != null && platformId.equals(record.getSubjectId()))
+                .sorted(Comparator.comparing(SettlementRecord::getId)).toList();
+        if (platformId != null && platformRecords.isEmpty()) {
+            throw new IllegalStateException("商城退款缺少平台结算记录");
+        }
+        for (SettlementRecord record : records) {
+            if (platformId != null && platformId.equals(record.getSubjectId())) continue;
+            Long amount = unmatched.remove(record.getSubjectId());
+            if (amount != null) byRecord.put(record.getId(), amount);
+        }
+        if (unmatched.values().stream().anyMatch(amount -> amount != 0L)) {
+            throw new IllegalStateException("商城退款缺少收款主体结算记录: " + unmatched.keySet());
+        }
+        if (platformRecords.size() == 1) {
+            byRecord.put(platformRecords.get(0).getId(),
+                    shares.commissionRefund() + shares.bonusRefund());
+        } else if (platformRecords.size() == 2) {
+            if (shares.commissionOriginal() <= 0L || shares.bonusOriginal() <= 0L) {
+                throw new IllegalStateException("平台结算记录与原分账组成不一致");
+            }
+            byRecord.put(platformRecords.get(0).getId(), shares.commissionRefund());
+            byRecord.put(platformRecords.get(1).getId(), shares.bonusRefund());
+        } else if (platformRecords.size() > 2) {
+            throw new IllegalStateException("平台结算记录数量异常");
+        }
+        return byRecord;
     }
 
     /** 后台手动冻结；业务号 MF 前缀，流水关联 MANUAL。 */

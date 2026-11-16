@@ -27,6 +27,7 @@ const {
   decorateStoresWithRealDistance
 } = require('../../utils/store');
 const location = require('../../utils/location');
+const bannerTarget = require('../../utils/banner-target');
 
 /**
  * 取首个分类 id：菜单为空、分组为空或分类为空时统一返回 ''。
@@ -313,7 +314,23 @@ Page(
         .then(() => {
           if (pendingRecommendationCart) this.applyRecommendationCart(pendingRecommendationCart);
         })
+        .then(() => this.openPendingBannerProduct())
         .then(() => this.notifyMenuLoadFailure());
+    },
+    openPendingBannerProduct() {
+      const app = getApp();
+      const productId = app.globalData.pendingBannerProductId;
+      app.globalData.pendingBannerProductId = null;
+      if (!productId) return;
+      const product =
+        this.data.currentStore && this.data.currentStore.id && !getMenuSyncState().error
+          ? bannerTarget.findMenuProduct(getMenuCatalog(), productId)
+          : null;
+      if (!product) {
+        wx.showToast({ title: '商品已售罄或下架，请浏览其他商品', icon: 'none' });
+        return;
+      }
+      this.handleSpec({ detail: { product } });
     },
     /** 点击当前 Tab（已在点单页）时同样走统一入口，保证每次点进来都刷新。 */
     onTabItemTap() {

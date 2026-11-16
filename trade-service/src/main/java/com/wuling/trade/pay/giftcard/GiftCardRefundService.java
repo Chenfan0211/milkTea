@@ -95,8 +95,17 @@ public class GiftCardRefundService {
             throw new BusinessException(ResultCode.ERROR,
                     "退款受理结果未知，请稍后查询订单状态再重试");
         }
-        if (gatewayResult == null || !gatewayResult.accepted()) {
-            String failReason = gatewayResult == null || !StringUtils.hasText(gatewayResult.failReason())
+        if (gatewayResult == null || gatewayResult.unknown()) {
+            // 共享网关将超时/5xx/无法确认的响应显式标记为 unknown；空响应同样不能证明未退款。
+            String detail = "微信退款受理结果未知，订单保持退款中，请按原退款号查询。refundNo="
+                    + refund.refundNo();
+            log.warn("礼品卡退款响应未知 orderNo={} refundNo={}", orderNo, refund.refundNo());
+            alertChannel.send(AlertChannel.Level.CRITICAL, "礼品卡退款受理结果未知", detail, orderNo);
+            throw new BusinessException(ResultCode.ERROR,
+                    "退款受理结果未知，请稍后查询订单状态再重试");
+        }
+        if (!gatewayResult.accepted()) {
+            String failReason = !StringUtils.hasText(gatewayResult.failReason())
                     ? "支付通道未受理退款"
                     : gatewayResult.failReason();
             orderPort.refundFail(orderNo, refund.refundNo(), failReason);

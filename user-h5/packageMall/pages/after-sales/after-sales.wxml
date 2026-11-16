@@ -1,7 +1,7 @@
 <view class="mall-page">
   <navigation-bar title="售后记录" back="{{true}}" background="#FFFFFF" color="#2F302D" />
 
-  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
+  <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}" bindscrolltolower="loadMore">
     <view class="after-sales-content">
       <view wx:if="{{needLogin}}" class="mall-state">
         <text class="mall-state__text">登录后可查看售后记录</text>
@@ -40,6 +40,10 @@
             <text class="mall-muted">申请时间 {{item.applyTimeText}}</text>
             <text class="after-sales-card__amount">¥{{item.refundAmountText}}</text>
           </view>
+        </view>
+        <view class="after-sales-end">
+          <view wx:if="{{moreError}}" class="mall-retry" bindtap="loadMore" aria-role="button" aria-label="重新加载更多售后记录">{{moreError}}，点击重试</view>
+          <text wx:else>{{loadingMore ? '正在加载更多' : (hasMore ? '上拉加载更多' : '已经到底了')}}</text>
         </view>
       </block>
       <view wx:else class="mall-state">

@@ -82,8 +82,16 @@ public interface PaymentGateway {
      * @param totalAmount  订单金额（分）
      */
     record PaymentQueryResult(String tradeState, String tradeStateDesc,
-                              String transactionId, Long totalAmount) {
+                              String transactionId, Long totalAmount, String outTradeNo,
+                              String currency, String mchId, String appId, String payerOpenid) {
+        public PaymentQueryResult(String tradeState, String tradeStateDesc,
+                                  String transactionId, Long totalAmount) {
+            this(tradeState, tradeStateDesc, transactionId, totalAmount, null, null, null, null, null);
+        }
     }
+
+    /** 未付关单成功才允许释放本地库存；超时、不可用和未知结果均为 false。 */
+    default boolean closeOrder(String orderNo) { return false; }
 
     /**
      * 发起退款（微信支付 v3 退款下单）。
@@ -101,6 +109,12 @@ public interface PaymentGateway {
      * @return 受理结果；通道不支持时返回 null
      */
     default RefundApplyResult refund(String orderNo, String refundNo, long amountFen, String reason) {
+        return refund(orderNo, refundNo, amountFen, amountFen, reason);
+    }
+
+    /** 部分退款必须传原支付总额，旧四参接口保留全额退款语义。 */
+    default RefundApplyResult refund(String orderNo, String refundNo, long refundAmountFen,
+                                    long originalTotalFen, String reason) {
         return null;
     }
 
@@ -125,7 +139,10 @@ public interface PaymentGateway {
         return null;
     }
 
-    record RefundApplyResult(boolean accepted, String thirdRefundNo, String failReason) {
+    record RefundApplyResult(boolean accepted, String thirdRefundNo, String failReason, boolean unknown) {
+        public RefundApplyResult(boolean accepted, String thirdRefundNo, String failReason) {
+            this(accepted, thirdRefundNo, failReason, false);
+        }
     }
 
     /**

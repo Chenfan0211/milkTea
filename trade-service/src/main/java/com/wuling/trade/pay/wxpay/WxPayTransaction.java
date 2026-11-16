@@ -31,6 +31,9 @@ public class WxPayTransaction {
     /** 订单总金额（分） */
     private Long totalAmount;
 
+    /** 交易币种，微信人民币支付为 CNY。 */
+    private String currency;
+
     /** 用户支付金额（分） */
     private Long payerTotal;
 

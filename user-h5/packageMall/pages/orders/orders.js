@@ -1,6 +1,7 @@
 const api = require('../../../utils/api');
 const auth = require('../../../utils/auth');
 const loginGuard = require('../../../utils/login-guard');
+const mallCart = require('../../../utils/mall-cart');
 const { requestOrderPayment } = require('../../../utils/order-payment');
 const mall = require('../../utils/mall');
 
@@ -46,15 +47,19 @@ Page({
   },
 
   onUnload() {
+    this.ordersRequestId = (this.ordersRequestId || 0) + 1;
     this.stopCountdown();
   },
 
   loadOrders(reset) {
+    if (reset) this.ordersRequestId = (this.ordersRequestId || 0) + 1;
+    const requestId = (this.ordersRequestId = this.ordersRequestId || 0);
+    const userId = auth.getUserId();
     if (!auth.isLoggedIn()) {
-      this.setData({ needLogin: true, loading: false, orders: [] });
+      this.setData({ needLogin: true, loading: false, loadingMore: false, orders: [] });
       return;
     }
-    if (!reset && (this.data.loadingMore || !this.data.hasMore)) return;
+    if (!reset && (this.data.loading || this.data.loadingMore || !this.data.hasMore)) return;
     const page = reset ? 1 : this.data.page + 1;
     const options = { category: 'mall' };
     const status = this.data.activeStatus;
@@ -65,10 +70,14 @@ Page({
       loadingMore: !reset,
       error: reset ? '' : this.data.error
     });
-    api
+    return api
       .fetchOrders(page, PAGE_SIZE, options)
       .then(result => {
+        if (requestId !== this.ordersRequestId || userId !== auth.getUserId()) return;
         const records = ((result && result.records) || []).map(order => mall.decorateOrder(order));
+        records.forEach(order => {
+          if (mall.normalizeStatus(order.payStatus) === 'PAID') mallCart.settlePaidOrder(order.orderNo, userId);
+        });
         const orders = reset ? records : this.data.orders.concat(records);
         const total = Number(result && result.total) || orders.length;
         this.setData({
@@ -80,6 +89,7 @@ Page({
         });
       })
       .catch(error => {
+        if (requestId !== this.ordersRequestId || userId !== auth.getUserId()) return;
         this.setData({
           loading: false,
           loadingMore: false,
@@ -130,6 +140,7 @@ Page({
     const order = this.findOrder(event);
     if (!order || this.data.actionOrderNo) return;
     const amountFen = Number(order.paidAmount || order.totalAmount) || 0;
+    const paymentUserId = auth.getUserId();
     this.setData({ actionOrderNo: order.orderNo });
     wx.showLoading({ title: '正在支付', mask: true });
     const task =
@@ -144,6 +155,7 @@ Page({
           order.payChannel === 'STORED_VALUE'
             ? mall.normalizeStatus(result && result.payStatus) === 'PAID'
             : Boolean(result && result.paid);
+        if (paid) mallCart.settlePaidOrder(order.orderNo, paymentUserId);
         wx.showToast({ title: paid ? '支付成功' : '订单待支付', icon: 'none' });
         this.loadOrders(true);
       })

@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const detailDir = path.join(root, 'packageMall', 'pages', 'product-detail');
@@ -138,3 +140,59 @@ for (const match of wxml.matchAll(/<view\b[^>]*bindtap="[^"]+"[^>]*>/g)) {
 }
 
 console.log('商城商品详情页白卡升级测试通过');
+
+// 商品详情页的购物车入口应与商城首页展示相同的商品件数。
+assert.match(wxml, /wx:if="\{\{cartCount > 0\}\}"[^>]*detail-cart-entry__badge/);
+assert.match(wxml, /detail-cart-entry__badge">\{\{cartCountText\}\}/);
+assert.match(wxss, /\.detail-cart-entry__badge\s*\{/);
+
+const pageFile = path.join(detailDir, 'product-detail.js');
+const localRequire = createRequire(pageFile);
+const storage = new Map();
+global.wx = {
+  getStorageSync: key => storage.get(key) ?? '',
+  setStorageSync: (key, value) => storage.set(key, structuredClone(value)),
+  showToast() {}
+};
+const cart = localRequire('../../../utils/mall-cart');
+let definition;
+vm.runInNewContext(
+  js,
+  {
+    require: id => (id.endsWith('/login-guard') ? { requireLogin: action => action() } : localRequire(id)),
+    Page: value => {
+      definition = value;
+    },
+    wx: global.wx,
+    console
+  },
+  { filename: pageFile }
+);
+const page = {
+  ...definition,
+  data: structuredClone(definition.data),
+  setData(patch) {
+    Object.assign(this.data, patch);
+  }
+};
+page.loadProduct = () => {};
+page.onShow();
+assert.equal(page.data.cartCount, 0, '空购物车不应显示角标');
+cart.add({ skuId: 101, productId: 1, quantity: 2 });
+cart.add({ skuId: 102, productId: 1, quantity: 3 });
+page.onShow();
+assert.equal(page.data.cartCount, 5, '从购物车返回时应读取全部商品件数');
+assert.equal(page.data.cartCountText, '5');
+page.data.canBuy = true;
+page.validateAndUseSku = onSuccess => onSuccess({ skuId: 101, productId: 1, quantity: 2 });
+page.addToCart();
+assert.equal(page.data.cartCount, 7, '加购成功后角标应立即增加');
+cart.replace([
+  { skuId: 101, productId: 1, quantity: 99 },
+  { skuId: 102, productId: 1, quantity: 1 }
+]);
+page.onShow();
+assert.equal(page.data.cartCountText, '99+', '超过 99 件时应限制角标宽度');
+cart.replace([]);
+page.onShow();
+assert.equal(page.data.cartCount, 0, '清空购物车后角标应隐藏');

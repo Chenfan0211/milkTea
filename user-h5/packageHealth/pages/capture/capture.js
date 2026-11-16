@@ -173,11 +173,13 @@ Page({
   },
 
   onLoad() {
-    if (featurePolicy.redirectIfHidden('/packageHealth/pages/capture/capture')) return;
-    const platform = wx.getSystemInfoSync ? wx.getSystemInfoSync().platform || '' : '';
-    if (String(platform).toLowerCase() === 'devtools') {
-      this.setData({ devtoolsHint: '开发者工具不支持直接拍照，请从相册选择' });
-    }
+    return featurePolicy.ready(api.fetchConfig).then(() => {
+      if (featurePolicy.redirectIfHidden('/packageHealth/pages/capture/capture')) return;
+      const platform = wx.getSystemInfoSync ? wx.getSystemInfoSync().platform || '' : '';
+      if (String(platform).toLowerCase() === 'devtools') {
+        this.setData({ devtoolsHint: '开发者工具不支持直接拍照，请从相册选择' });
+      }
+    });
   },
 
   choosePhoto() {

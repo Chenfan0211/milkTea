@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "navigation-bar": "/components/navigation-bar/navigation-bar",
+    "tongue-home-panel": "/components/tongue-home-panel/tongue-home-panel",
+    "member-panel": "/components/member-panel/member-panel"
+  }
+}

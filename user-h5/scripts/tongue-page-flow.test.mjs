@@ -46,15 +46,15 @@ auth.isLoggedIn = () => true;
 loginGuard.requireLogin = action => Promise.resolve().then(action);
 
 let definition;
-globalThis.Page = page => {
-  definition = page;
+globalThis.Component = component => {
+  definition = component;
 };
-require(path.join(root, 'pages/tongue/tongue.js'));
+require(path.join(root, 'components/tongue-home-panel/tongue-home-panel.js'));
 
 function resetPage() {
   Object.keys(storage).forEach(key => delete storage[key]);
   calls.length = 0;
-  const page = Object.assign({}, definition);
+  const page = Object.assign({}, definition.methods);
   page.data = Object.assign({}, definition.data);
   page.setData = function setData(updates) {
     this.data = Object.assign({}, this.data, updates);
@@ -65,7 +65,7 @@ function resetPage() {
 test('每次点击测试都会加载资料并弹出个人信息层', async () => {
   const page = resetPage();
 
-  await definition.startDetect.call(page);
+  await page.startDetect();
 
   assert.equal(page.data.sheetVisible, true);
   assert.equal(page.data.sheetGender, 'female');
@@ -90,7 +90,7 @@ test('保存弹层只写舌诊缓存并直接进入拍摄页', async () => {
     return Promise.resolve({});
   };
 
-  definition.handleSheetSave.call(page, {
+  page.handleSheetSave({
     detail: { gender: 'male', birthYear: '2006' }
   });
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -115,7 +115,7 @@ test('第二次点击测试优先显示上次保存的本地资料', async () =>
     return Promise.resolve({ gender: 'female', birthday: '1998-04-05' });
   };
 
-  await definition.startDetect.call(page);
+  await page.startDetect();
 
   assert.equal(page.data.sheetGender, 'male');
   assert.equal(page.data.sheetBirthYear, '2006');
@@ -126,7 +126,7 @@ test('关闭个人信息层不会跳转拍摄页', () => {
   const page = resetPage();
   page.setData({ sheetVisible: true });
 
-  definition.closeProfileSheet.call(page);
+  page.closeProfileSheet();
 
   assert.equal(page.data.sheetVisible, false);
   assert.equal(
@@ -137,10 +137,10 @@ test('关闭个人信息层不会跳转拍摄页', () => {
 
 test('舌诊页不接管推荐购物车', () => {
   const page = resetPage();
-  page.onShow();
 
   assert.equal(page.data.cartCount, undefined);
   assert.equal(page.data.cartVisible, undefined);
-  assert.equal(definition.handleCartOpen, undefined);
-  assert.equal(definition.handleCartCheckout, undefined);
+  assert.equal(page.handleCartOpen, undefined);
+  assert.equal(page.handleCartCheckout, undefined);
+  assert.ok(definition.pageLifetimes && definition.pageLifetimes.show, '舌诊组件必须同步页面显示生命周期');
 });

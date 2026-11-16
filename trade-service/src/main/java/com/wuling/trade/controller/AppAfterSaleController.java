@@ -5,6 +5,7 @@ import com.wuling.common.api.Result;
 import com.wuling.security.CurrentUser;
 import com.wuling.trade.dto.CreateAfterSaleRequest;
 import com.wuling.trade.dto.MallAfterSaleVO;
+import com.wuling.trade.dto.ReturnTrackingRequest;
 import com.wuling.trade.service.MallAfterSaleService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,5 +50,12 @@ public class AppAfterSaleController {
     @GetMapping("/after-sales/{afterSaleNo}")
     public Result<MallAfterSaleVO> detail(@PathVariable String afterSaleNo) {
         return Result.ok(afterSaleService.detail(CurrentUser.require(), afterSaleNo));
+    }
+
+    @PostMapping("/after-sales/{afterSaleNo}/return-tracking")
+    public Result<MallAfterSaleVO> submitReturnTracking(@PathVariable String afterSaleNo,
+                                                         @Valid @RequestBody ReturnTrackingRequest request) {
+        return Result.ok(afterSaleService.submitReturnTracking(CurrentUser.require(), afterSaleNo,
+                request.getCarrier(), request.getTrackingNo()));
     }
 }

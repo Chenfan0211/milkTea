@@ -24,6 +24,9 @@ public class Order {
     private Long splitRuleId;
     private String splitRuleSnapshot;
     private Long channelSubjectId;
+    /** 商城订单下单时快照的团长用户与主体。 */
+    private Long leaderUserId;
+    private Long leaderSubjectId;
     private String mealType;
     private LocalDateTime pickupTime;
     private String status;

@@ -10,6 +10,7 @@ import com.wechat.pay.java.service.payments.jsapi.model.Amount;
 import com.wechat.pay.java.service.payments.jsapi.model.Payer;
 import com.wechat.pay.java.service.payments.jsapi.model.PrepayRequest;
 import com.wechat.pay.java.service.payments.jsapi.model.QueryOrderByOutTradeNoRequest;
+import com.wechat.pay.java.service.payments.jsapi.model.CloseOrderRequest;
 import com.wechat.pay.java.service.payments.model.Transaction;
 import com.wechat.pay.java.service.payments.jsapi.model.PrepayWithRequestPaymentResponse;
 import com.wuling.common.api.ResultCode;
@@ -173,12 +174,22 @@ public class WechatPayGateway implements PaymentGateway {
             if (transaction == null) {
                 return null;
             }
+            if (!orderNo.equals(transaction.getOutTradeNo())
+                    || !java.util.Objects.equals(properties.getMchId(), transaction.getMchid())
+                    || !java.util.Objects.equals(properties.getAppId(), transaction.getAppid())
+                    || transaction.getAmount() == null
+                    || !"CNY".equals(transaction.getAmount().getCurrency())) {
+                log.error("微信查单身份或币种不匹配，拒绝采信 orderNo={}", orderNo);
+                return null;
+            }
             Integer total = transaction.getAmount() == null ? null : transaction.getAmount().getTotal();
             return new PaymentQueryResult(
                     transaction.getTradeState() == null ? null : transaction.getTradeState().name(),
                     transaction.getTradeStateDesc(),
                     transaction.getTransactionId(),
-                    total == null ? null : total.longValue());
+                    total == null ? null : total.longValue(), transaction.getOutTradeNo(),
+                    transaction.getAmount().getCurrency(), transaction.getMchid(), transaction.getAppid(),
+                    transaction.getPayer() == null ? null : transaction.getPayer().getOpenid());
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -190,11 +201,27 @@ public class WechatPayGateway implements PaymentGateway {
     }
 
     @Override
-    public RefundApplyResult refund(String orderNo, String refundNo, long amountFen, String reason) {
+    public boolean closeOrder(String orderNo) {
+        if (!StringUtils.hasText(orderNo)) return false;
+        CloseOrderRequest request = new CloseOrderRequest();
+        request.setMchid(properties.getMchId()); request.setOutTradeNo(orderNo);
+        try {
+            jsapiService.closeOrder(request);
+            return true;
+        } catch (Exception error) {
+            // 包括 ORDERPAID：绝不能在不确定远端已关单时释放库存。
+            log.warn("微信关单未确认成功 orderNo={}", orderNo);
+            return false;
+        }
+    }
+
+    @Override
+    public RefundApplyResult refund(String orderNo, String refundNo, long amountFen,
+                                   long originalTotalFen, String reason) {
         if (!StringUtils.hasText(orderNo) || !StringUtils.hasText(refundNo)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "退款参数缺失");
         }
-        if (amountFen <= 0) {
+        if (amountFen <= 0 || originalTotalFen < amountFen) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "退款金额必须大于 0");
         }
 
@@ -212,20 +239,32 @@ public class WechatPayGateway implements PaymentGateway {
 
         AmountReq amount = new AmountReq();
         amount.setRefund(amountFen);
-        amount.setTotal(amountFen);
+        amount.setTotal(originalTotalFen);
         amount.setCurrency("CNY");
         request.setAmount(amount);
 
         try {
             Refund refund = refundService.create(request);
+            if (refund == null || refund.getStatus() == null) {
+                return new RefundApplyResult(false, null, "退款响应缺少确定状态，待查证", true);
+            }
             // 受理成功：微信返回退款状态（PROCESSING 等），最终结果以退款结果通知为准
-            return new RefundApplyResult(true, refund == null ? null : refund.getRefundId(), null);
+            return new RefundApplyResult(true, refund.getRefundId(), null);
         } catch (BusinessException e) {
             throw e;
-        } catch (Exception e) {
-            // 同步失败：记录日志并返回失败结果，由 RefundService 置 FAILED 并保留订单可重试
-            log.error("微信支付退款下单失败 orderNo={} refundNo={} err={}", orderNo, refundNo, e.getMessage(), e);
-            return new RefundApplyResult(false, null, e.getMessage());
+        } catch (com.wechat.pay.java.core.exception.ServiceException error) {
+            int status = error.getHttpStatusCode();
+            boolean rejected = status >= 400 && status < 500 && status != 408 && status != 409
+                    && status != 429 && StringUtils.hasText(error.getErrorCode())
+                    && !"SYSTEM_ERROR".equals(error.getErrorCode());
+            log.warn("微信退款请求未确认受理 orderNo={} refundNo={} httpStatus={} unknown={}",
+                    orderNo, refundNo, status, !rejected);
+            return new RefundApplyResult(false, null,
+                    rejected ? "微信明确拒绝退款: " + error.getErrorCode() : "退款结果待查证", !rejected);
+        } catch (Exception error) {
+            // 超时、5xx、响应验签失败均可能已经扣款受理，必须保留原退款号继续查证。
+            log.warn("微信退款结果不确定，保留原退款号查单 orderNo={} refundNo={}", orderNo, refundNo);
+            return new RefundApplyResult(false, null, "退款结果待查证", true);
         }
     }
     @Override

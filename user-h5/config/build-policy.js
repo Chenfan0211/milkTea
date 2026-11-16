@@ -2,7 +2,7 @@ module.exports = {
   version: 'dev',
   features: {
     tongueHealth: true,
-    memberZone: false
+    memberZone: true
   },
   tabBar: [
     {
@@ -18,11 +18,10 @@ module.exports = {
       activeIcon: '/assets/icons/lucide/menu-active.svg'
     },
     {
-      pagePath: '/pages/tongue/tongue',
-      text: '一人一饮',
-      icon: '/assets/icons/lucide/personalized-drink.svg',
-      activeIcon: '/assets/icons/lucide/personalized-drink-active.svg',
-      feature: 'tongueHealth'
+      pagePath: '/pages/feature-tab/feature-tab',
+      text: '会员专区',
+      icon: '/assets/icons/lucide/member.svg',
+      activeIcon: '/assets/icons/lucide/member-active.svg'
     },
     {
       pagePath: '/pages/orders/orders',

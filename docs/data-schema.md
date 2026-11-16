@@ -180,10 +180,11 @@
 ## 三之三、小程序商城（2026-10-25）
 
 - 商城商品独立使用 `mall_product` / `mall_sku`，不混入门店饮品 `product`。
+- 商城商品统一面向全部门店销售，`mall_product.supplier_subject_id` 为 SPU 唯一供应商，所有 SKU 自动继承；旧门店、渠道、分账字段仅作历史兼容并停止对外提供。
 - 商城订单复用 `orders` / `order_item`，以 `order_type=MALL` 区分；门店订单保持 `STORE`。
 - 商城状态机：`CREATED → PAID → SHIPPED → COMPLETED`，取消为 `CANCELED`；整单退完为 `REFUNDED`，部分退款保持 `SHIPPED/COMPLETED` 并置 `refund_status=REFUNDED`。
 - 售后单存于 `mall_after_sale`，状态为 `PENDING → APPROVED / REJECTED`，审核通过后 `REFUNDING → SUCCESS / FAILED`；`refund.after_sale_id` 关联退款单，`refund.original_amount` 保存订单实付快照。
 - 退款冲正按结算记录累计：`settlement_record.original_amount` 为原分账金额，`refunded_amount` 为累计已冲正；同一订单多次部分退不得重复或超扣。
 - `order_shipping` 保存收货与物流快照；`app_user_address` 保存用户地址簿。
 - SKU 可用库存 = `stock - locked_stock`；下单预占、支付扣减、取消释放、退款回补，全部写 `mall_stock_log`。`biz_type/biz_no` 区分 `ORDER/orderNo` 与 `AFTER_SALE/afterSaleNo`，保证多次售后部分回补幂等。
-- 完成时发布五方分账与积分/成长值/邀请奖励事件；支付时不为商城提前发放会员累计权益。
+- 完成时发布“平台 + 供应商 + 团长”三方分账与积分/成长值/邀请奖励事件；门店、渠道、投资人不在本阶段商城分账范围内，支付时不为商城提前发放会员累计权益。

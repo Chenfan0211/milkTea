@@ -151,13 +151,18 @@ assert.ok(
   'auth page must bind the agree button to WeChat phone authorization'
 );
 
-// 未勾选协议时「同意」必须被拦截（aria-disabled + JS 双重保护）
+// 未勾选协议时不渲染原生授权按钮，绿色普通控件只给提示。
 assert.ok(
-  authWxml.includes("agreementChecked ? '' : 'is-disabled'") && authJs.includes('请先阅读并勾选同意协议'),
+  /<button\s+wx:if="\{\{agreementChecked\}\}"/.test(authWxml) &&
+    authWxml.includes('bindtap="handleAgreementRequired"') &&
+    authJs.includes('请先阅读并勾选同意协议'),
   'auth page must block authorization until the agreement is checked'
 );
-// 用户取消系统授权时必须留在本页，不得误跳首页
-assert.ok(authJs.includes('已取消授权'), 'auth page must stay put when the user cancels the phone authorization');
+// 用户取消系统授权后返回原浏览位置，并清理待执行操作。
+assert.ok(
+  authJs.includes('已取消授权') && authJs.includes('this.handleReject()'),
+  'auth page must return to browsing when phone authorization is cancelled'
+);
 
 // 协议确认：勾选框 + 隐私政策/用户协议链接 + 底部「拒绝仅浏览 / 同意」双按钮
 assert.ok(
@@ -272,8 +277,10 @@ assert.ok(appJson.pages.includes('pages/launch/launch'), 'launch page must stay 
   );
 }
 
-// 登录弹层（图 1）只允许挂在首页与我的页：其它业务页不得私自注册 login-sheet
+// 所有登录入口共用整页授权：首页、我的及业务页均不得再挂载旧弹层。
 for (const page of [
+  'home',
+  'profile',
   'order-confirm',
   'stored-value',
   'points-exchange',
@@ -289,11 +296,11 @@ for (const page of [
   assert.ok(!/login-sheet/.test(wxml), `${page} must not render login-sheet`);
   assert.ok(!/login-sheet/.test(json), `${page} must not register login-sheet`);
 }
-// 组件目录必须存在（首页 / 我的页共用登录弹层）
+// 本轮保留旧组件文件，但不再作为页面登录入口使用。
 assert.ok(
   fs.existsSync(path.join(root, 'components/login-sheet/login-sheet.js')) &&
     fs.existsSync(path.join(root, 'components/login-sheet/login-sheet.wxml')),
-  'the login-sheet component must exist for the login entry'
+  'the legacy login-sheet component files must remain available'
 );
 // 授权页列入私密名单，不参与分享
 const shareSource = fs.readFileSync(path.join(root, 'utils/share.js'), 'utf8');

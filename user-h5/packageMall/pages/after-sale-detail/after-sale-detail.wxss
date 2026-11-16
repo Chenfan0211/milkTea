@@ -41,6 +41,19 @@
   padding: 24rpx;
 }
 
+.return-tracking-input {
+  margin-top: 16rpx;
+  padding: 16rpx;
+  border: 1rpx solid var(--line-color);
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-size: var(--font-base);
+}
+
+.return-tracking-submit {
+  margin-top: 20rpx;
+}
+
 .after-sale-info-row {
   display: flex;
   align-items: flex-start;

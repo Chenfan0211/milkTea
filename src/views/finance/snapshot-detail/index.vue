@@ -5,6 +5,7 @@ import type { DetailGroup } from '@/views/_shared/AdminDetailPage.vue';
 import { useAdminStore } from '@/store/modules/admin';
 import { fetchAdminSnapshotDetail } from '@/service/api/finance';
 import { formatDateTime, formatFen } from '@/views/_shared/render';
+import { splitComposition } from '@/views/finance/snapshot/split-parties';
 
 const store = useAdminStore();
 const route = useRoute();
@@ -12,6 +13,14 @@ const route = useRoute();
 const statusLabel = (v: string) => ({ valid: '有效', invalid: '已作废' })[v] ?? v;
 const totalCheckLabel = (v: string) => ({ 一致: '一致', 不一致: '不一致', ok: '一致', mismatch: '不一致' })[v] ?? v;
 const money = (v: any) => `¥${formatFen(v)}`;
+const formatParties = (parties: ReturnType<typeof splitComposition>['currentParties']) =>
+  parties.length ? parties.map(item => `${item.label} ${money(item.amount)}`).join(' · ') : '—';
+const orderTypeText = (row: any) => splitComposition(row).orderTypeLabel;
+const currentPartyText = (row: any) => formatParties(splitComposition(row).currentParties);
+const legacyPartyText = (row: any) => {
+  const composition = splitComposition(row);
+  return composition.isLegacyMall ? formatParties(composition.legacyParties) : '—';
+};
 
 /**
  * 详情数据来源：优先查后端接口（含 order_item 聚合出的商品摘要）。
@@ -35,6 +44,8 @@ const groups: DetailGroup[] = [
     fields: [
       { label: '快照号', key: 'snapshotNo' },
       { label: '订单号', key: 'orderNo' },
+      { label: '订单类型', render: (r: any) => orderTypeText(r) },
+      { label: '当前口径', render: (r: any) => (r.orderType === 'MALL' ? '商城三方分账' : '门店订单分账') },
       { label: '商品信息', render: (r: any) => r.summary || '—' },
       { label: '商品件数', render: (r: any) => String(r.itemCount ?? 0) },
       { label: '合计校验', render: (r: any) => totalCheckLabel(r.totalCheck) },
@@ -45,13 +56,11 @@ const groups: DetailGroup[] = [
   {
     title: '分账金额（元）',
     fields: [
-      { label: '供应商（成本）', render: (r: any) => money(r.supplierAmount) },
-      { label: '门店', render: (r: any) => money(r.storeAmount) },
-      { label: '资源方', render: (r: any) => money(r.channelAmount) },
-      { label: '投资人', render: (r: any) => money(r.investorAmount) },
+      { label: '当前分佣关系', render: (r: any) => currentPartyText(r) },
       { label: '平台分佣', render: (r: any) => money(r.platformCommission) },
       { label: '平台提成', render: (r: any) => money(r.platformBonus) },
-      { label: '平台合计', render: (r: any) => money(r.platformAmount) }
+      { label: '平台合计', render: (r: any) => money(r.platformAmount) },
+      { label: '历史已结算调整', render: (r: any) => legacyPartyText(r) }
     ]
   }
 ];

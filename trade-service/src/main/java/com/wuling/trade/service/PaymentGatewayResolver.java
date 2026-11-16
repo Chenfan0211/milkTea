@@ -62,6 +62,18 @@ public class PaymentGatewayResolver {
         return gateways.get(activeChannel);
     }
 
+    /** 历史支付只能回到当时实际使用的通道，不能跟随当前配置切换。 */
+    public PaymentGateway forChannel(String channel) {
+        PaymentGateway gateway = channel == null ? null : gateways.get(channel.trim().toUpperCase());
+        if (gateway == null) throw new IllegalStateException("支付记录通道不可用，请人工核查");
+        return gateway;
+    }
+
+    public PaymentGateway forPayment(com.wuling.trade.entity.Payment payment) {
+        if (payment == null) throw new IllegalStateException("缺少原支付记录，请人工核查");
+        return forChannel(payment.getChannel());
+    }
+
     /** 当前通道标识（大写，如 MOCK / WXPAY） */
     public String activeChannel() {
         return activeChannel;

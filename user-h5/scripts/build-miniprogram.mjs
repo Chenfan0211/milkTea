@@ -5,7 +5,6 @@ import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const featurePolicy = require('../utils/feature-policy.js');
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultSourceRoot = path.resolve(scriptDir, '..');
 const ALWAYS_SKIP = new Set([
@@ -19,30 +18,13 @@ const ALWAYS_SKIP = new Set([
   'scripts',
   'assets/temp'
 ]);
-const HIDDEN_SKIP = [
-  'pages/tongue',
-  'packageHealth',
-  'components/health-profile-sheet',
-  'utils/tongue-profile.js',
-  'utils/tongue-capture.js',
-  'utils/tongue-report-model.js',
-  'assets/icons/lucide/personalized-drink.svg',
-  'assets/icons/lucide/personalized-drink-active.svg',
-  'assets/icons/lucide/scan-face-brand.svg',
-  'assets/icons/lucide/coffee-brand.svg',
-  'assets/icons/lucide/brew-record-brand.svg',
-  'assets/icons/lucide/glass-water-brand.svg',
-  'assets/images/3x/health-gradient-bg.png',
-  'assets/images/3x/tongue-capture-guide.jpg'
-];
 const TEXT_EXTENSIONS = new Set(['.js', '.json', '.wxml', '.wxss']);
-const FORBIDDEN_COPY = /AI生成|人工智能生成|舌象|舌诊|体质健康管理|一人一饮/;
 
 function toPosix(value) {
   return String(value || '').replaceAll('\\', '/');
 }
 
-function isSkipped(relativePath, hidden) {
+function isSkipped(relativePath) {
   const normalized = toPosix(relativePath).replace(/^\/+|\/+$/g, '');
   if (!normalized) return false;
   const segments = normalized.split('/');
@@ -51,8 +33,7 @@ function isSkipped(relativePath, hidden) {
   // 只按单段比较会永远匹配不到，导致源图被整体复制进产物目录
   // （历史问题：dist 产物长期带着 assets/temp 的全部源图）。
   if ([...ALWAYS_SKIP].some(item => normalized === item || normalized.startsWith(item + '/'))) return true;
-  if (!hidden) return false;
-  return HIDDEN_SKIP.some(item => normalized === item || normalized.startsWith(item + '/'));
+  return false;
 }
 
 function processFeatureMarkers(content, visibility) {
@@ -88,13 +69,12 @@ function processFeatureMarkers(content, visibility) {
 }
 
 function copyTree(sourceDir, outputDir, visibility, rootDir) {
-  const hidden = visibility.tongueHealth === false;
   fs.mkdirSync(outputDir, { recursive: true });
 
   for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
     const sourcePath = path.join(sourceDir, entry.name);
     const relativePath = path.relative(rootDir, sourcePath);
-    if (isSkipped(relativePath, hidden)) continue;
+    if (isSkipped(relativePath)) continue;
 
     const targetPath = path.join(outputDir, entry.name);
     if (entry.isDirectory()) {
@@ -112,27 +92,19 @@ function copyTree(sourceDir, outputDir, visibility, rootDir) {
   }
 }
 
-function createBuildPolicy(version, hidden) {
-  const tongueTab = {
-    pagePath: '/pages/tongue/tongue',
-    text: '一人一饮',
-    icon: '/assets/icons/lucide/personalized-drink.svg',
-    activeIcon: '/assets/icons/lucide/personalized-drink-active.svg',
-    feature: 'tongueHealth'
-  };
-  const memberTab = {
-    pagePath: '/pages/member-rights/member-rights',
+function createBuildPolicy(version) {
+  const featureTab = {
+    pagePath: '/pages/feature-tab/feature-tab',
     text: '会员专区',
     icon: '/assets/icons/lucide/member.svg',
-    activeIcon: '/assets/icons/lucide/member-active.svg',
-    feature: 'memberZone'
+    activeIcon: '/assets/icons/lucide/member-active.svg'
   };
 
   return {
     version,
     features: {
-      tongueHealth: !hidden,
-      memberZone: hidden
+      tongueHealth: true,
+      memberZone: true
     },
     tabBar: [
       {
@@ -147,7 +119,7 @@ function createBuildPolicy(version, hidden) {
         icon: '/assets/icons/lucide/menu.svg',
         activeIcon: '/assets/icons/lucide/menu-active.svg'
       },
-      hidden ? memberTab : tongueTab,
+      featureTab,
       {
         pagePath: '/pages/orders/orders',
         text: '订单',
@@ -171,16 +143,13 @@ function writeBuildPolicy(outputDir, policy) {
   fs.writeFileSync(target, source, 'utf8');
 }
 
-function rewriteAppJson(outputDir, hidden) {
+function rewriteAppJson(outputDir) {
   const appJsonPath = path.join(outputDir, 'app.json');
   const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
-  if (!hidden) return;
-  appJson.pages = appJson.pages.filter(page => page !== 'pages/tongue/tongue');
-  appJson.subpackages = (appJson.subpackages || []).filter(item => item.root !== 'packageHealth');
   appJson.tabBar.list = appJson.tabBar.list.map(item => {
-    if (item.pagePath !== 'pages/tongue/tongue') return item;
+    if (item.pagePath !== 'pages/feature-tab/feature-tab') return item;
     return {
-      pagePath: 'pages/member-rights/member-rights',
+      pagePath: 'pages/feature-tab/feature-tab',
       text: '会员专区'
     };
   });
@@ -208,25 +177,22 @@ function walkTextFiles(dir) {
   return files;
 }
 
-function validateOutput(outputDir, visibility) {
+function validateOutput(outputDir) {
   const appJson = JSON.parse(fs.readFileSync(path.join(outputDir, 'app.json'), 'utf8'));
   const thirdTab = appJson.tabBar.list[2];
-  if (visibility.tongueHealth === false) {
-    if (appJson.pages.includes('pages/tongue/tongue')) throw new Error('隐藏产物仍注册舌诊主包页');
-    if ((appJson.subpackages || []).some(item => item.root === 'packageHealth')) {
-      throw new Error('隐藏产物仍注册 packageHealth 分包');
-    }
-    if (!thirdTab || thirdTab.pagePath !== 'pages/member-rights/member-rights' || thirdTab.text !== '会员专区') {
-      throw new Error('隐藏产物第三个 Tab 不是会员专区');
-    }
+  if (!thirdTab || thirdTab.pagePath !== 'pages/feature-tab/feature-tab') {
+    throw new Error('第三个 Tab 必须固定指向动态宿主页');
+  }
+  if (!appJson.pages.includes('pages/tongue/tongue')) {
+    throw new Error('运行时可切换产物必须保留舌诊页面');
+  }
+  if (!(appJson.subpackages || []).some(item => item.root === 'packageHealth')) {
+    throw new Error('运行时可切换产物必须保留 packageHealth 分包');
   }
 
   for (const file of walkTextFiles(outputDir)) {
     const content = fs.readFileSync(file, 'utf8');
     if (content.includes('@mini-release:')) throw new Error(`构建产物残留功能标记: ${path.relative(outputDir, file)}`);
-    if (visibility.tongueHealth === false && FORBIDDEN_COPY.test(content)) {
-      throw new Error(`隐藏产物残留禁词: ${path.relative(outputDir, file)}`);
-    }
   }
 }
 
@@ -266,21 +232,19 @@ async function buildMiniProgram(options) {
   const sourceRoot = path.resolve(options.sourceRoot || defaultSourceRoot);
   const version = String(options.version || '').trim();
   if (!version) throw new Error('缺少构建版本号 --version');
-  const remotePolicy = featurePolicy.normalizeRemotePolicy(options.policy);
-  const hidden = featurePolicy.isVersionHidden(remotePolicy, version);
-  const visibility = { tongueHealth: !hidden, memberZone: hidden };
+  const visibility = { tongueHealth: true, memberZone: true };
   const outputDir = path.resolve(options.outputDir || path.join(sourceRoot, 'dist', 'miniprogram', version));
   assertSafeOutput(outputDir, sourceRoot);
   fs.rmSync(outputDir, { recursive: true, force: true });
   copyTree(sourceRoot, outputDir, visibility, sourceRoot);
-  rewriteAppJson(outputDir, hidden);
-  writeBuildPolicy(outputDir, createBuildPolicy(version, hidden));
+  rewriteAppJson(outputDir);
+  writeBuildPolicy(outputDir, createBuildPolicy(version));
   writePackageJson(outputDir, version);
-  validateOutput(outputDir, visibility);
+  validateOutput(outputDir);
   if (!options.quiet) {
-    console.log(`[miniprogram] version=${version} tongueHealth=${!hidden} output=${outputDir}`);
+    console.log(`[miniprogram] version=${version} runtimeTabBar=db output=${outputDir}`);
   }
-  return { outputDir, hidden, version };
+  return { outputDir, hidden: false, version };
 }
 
 function parseArgs(argv) {
@@ -298,15 +262,9 @@ function parseArgs(argv) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const policy = options.policyFile
-    ? JSON.parse(fs.readFileSync(path.resolve(options.policyFile), 'utf8'))
-    : await fetchReleasePolicy(
-        options.configUrl || process.env.MINI_CONFIG_BASE_URL || 'https://api.wulingshiguang.top'
-      );
   await buildMiniProgram({
     version: options.version,
     outputDir: options.outputDir,
-    policy,
     quiet: options.quiet
   });
 }

@@ -176,7 +176,14 @@ class MallInventoryServiceTest {
     void restoreWritesStockLog() {
         when(skuMapper.selectByIdForUpdateIncludingDeleted(1L)).thenReturn(sku(1L, 8, 0));
         when(stockLogMapper.existsBizChange("ORDER", "ORDER-10", "RESTORE")).thenReturn(false);
-        when(stockLogMapper.existsBizChange("ORDER", "ORDER-10", "DEDUCT")).thenReturn(true);
+        MallStockLog deduction = new MallStockLog();
+        deduction.setOrderNo("ORDER-10");
+        deduction.setBizType("ORDER");
+        deduction.setBizNo("ORDER-10");
+        deduction.setSkuId(1L);
+        deduction.setChangeType("DEDUCT");
+        deduction.setStockDelta(-2);
+        when(stockLogMapper.selectRefundChangesForUpdate("ORDER-10")).thenReturn(List.of(deduction));
 
         assertTrue(service.restore(request("ORDER-10", item(1L, 2))).isSuccess());
 

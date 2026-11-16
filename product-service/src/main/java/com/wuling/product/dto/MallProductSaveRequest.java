@@ -29,11 +29,7 @@ public class MallProductSaveRequest {
     private List<String> galleryImages;
     private String description;
 
-    @NotNull(message = "请选择归属门店")
-    private Long attributionStoreSubjectId;
-
-    private Long attributionChannelSubjectId;
-    private Long splitRuleId;
+    @NotNull(message = "请选择商品供应商")
+    private Long supplierSubjectId;
     private String status;
-    private Integer sort;
 }

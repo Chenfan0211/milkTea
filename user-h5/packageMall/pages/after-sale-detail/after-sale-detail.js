@@ -4,7 +4,9 @@ const loginGuard = require('../../../utils/login-guard');
 const mall = require('../../utils/mall');
 
 const STATUS_TEXT = {
-  PENDING: '待审核',
+  PENDING: '待填写退货物流',
+  RETURN_SHIPPED: '退货已寄出',
+  RETURN_RECEIVED: '商家已收货',
   APPROVED: '已通过',
   REJECTED: '已拒绝',
   REFUNDING: '退款中',
@@ -18,7 +20,10 @@ Page({
     record: null,
     loading: true,
     needLogin: false,
-    error: ''
+    error: '',
+    returnCarrier: '',
+    returnTrackingNo: '',
+    trackingSaving: false
   },
 
   onLoad(options) {
@@ -63,8 +68,14 @@ Page({
             reviewTimeText: record && record.reviewTime ? record.reviewTime : '—',
             completeTimeText: record && record.completeTime ? record.completeTime : '—',
             refundFailReason: record && record.refundFailReason ? record.refundFailReason : '',
+            canSubmitTracking:
+              status === 'PENDING' ||
+              status === 'RETURN_SHIPPED' ||
+              (status === 'FAILED' && !record.returnReceivedTime),
             items
           }),
+          returnCarrier: record && record.returnCarrier ? record.returnCarrier : '',
+          returnTrackingNo: record && record.returnTrackingNo ? record.returnTrackingNo : '',
           loading: false,
           error: ''
         });
@@ -78,6 +89,33 @@ Page({
     const no = this.data.afterSaleNo;
     if (!no) return;
     wx.setClipboardData({ data: no, success: () => wx.showToast({ title: '单号已复制', icon: 'none' }) });
+  },
+
+  inputReturnCarrier(event) {
+    this.setData({ returnCarrier: event.detail.value });
+  },
+
+  inputReturnTrackingNo(event) {
+    this.setData({ returnTrackingNo: event.detail.value });
+  },
+
+  submitReturnTracking() {
+    if (this.data.trackingSaving) return;
+    const carrier = this.data.returnCarrier.trim();
+    const trackingNo = this.data.returnTrackingNo.trim();
+    if (!carrier || !trackingNo) {
+      wx.showToast({ title: '请填写快递公司和退货单号', icon: 'none' });
+      return;
+    }
+    this.setData({ trackingSaving: true });
+    api
+      .submitReturnTracking(this.data.afterSaleNo, carrier, trackingNo)
+      .then(() => {
+        wx.showToast({ title: '退货物流已提交', icon: 'none' });
+        this.loadAfterSale();
+      })
+      .catch(error => wx.showToast({ title: (error && error.message) || '提交失败', icon: 'none' }))
+      .finally(() => this.setData({ trackingSaving: false }));
   },
 
   openOrder() {

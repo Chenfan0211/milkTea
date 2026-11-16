@@ -94,8 +94,11 @@
   </scroll-view>
 
   <view wx:if="{{!loading && !error}}" class="mall-action-bar">
-    <view class="detail-cart-entry" bindtap="openCart" aria-role="button" aria-label="打开购物车">
-      <image class="detail-cart-entry__icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" />
+    <view class="detail-cart-entry" bindtap="openCart" aria-role="button" aria-label="打开购物车，当前{{cartCount}}件商品">
+      <view class="detail-cart-entry__icon-wrap">
+        <image class="detail-cart-entry__icon" src="/assets/icons/lucide/shopping-bag.svg" mode="aspectFit" />
+        <view wx:if="{{cartCount > 0}}" class="detail-cart-entry__badge">{{cartCountText}}</view>
+      </view>
       <text class="detail-cart-entry__label">购物车</text>
     </view>
     <view class="detail-actions">

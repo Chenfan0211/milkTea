@@ -2,11 +2,14 @@ const DEFAULT_PROFILE_BANNERS = [
   {
     id: 'default-profile-banner',
     imageUrl: '/assets/images/3x/profile-banner.jpg',
-    altText: '抹茶轻茉莉新品'
+    altText: '抹茶轻茉莉新品',
+    targetType: 'menu',
+    targetId: ''
   }
 ];
 
 const DEFAULT_ALT_TEXT = '抹茶轻茉莉新品';
+const { normalizeTarget } = require('./banner-target');
 
 function cloneDefaults() {
   return DEFAULT_PROFILE_BANNERS.map(item => Object.assign({}, item));
@@ -25,7 +28,8 @@ function normalizeBanners(list, resolveAssetUrl) {
       return {
         id: String(source.id == null ? `banner-${index}` : source.id),
         imageUrl: resolve(imageUrl),
-        altText
+        altText,
+        ...normalizeTarget({ ...source, targetType: source.targetType || 'menu' })
       };
     })
     .filter(Boolean);

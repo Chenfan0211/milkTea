@@ -79,6 +79,11 @@ public class CrudService {
     private static final java.util.Set<String> POINTS_BASIS_UNITS =
             java.util.Set.of("yuan", "person", "time", "day");
 
+    /** 小程序第三项白名单与上传版本号格式。 */
+    private static final Set<String> MINI_THIRD_TABS = Set.of("memberZone", "tongueHealth");
+    private static final java.util.regex.Pattern MINI_VERSION_PATTERN =
+            java.util.regex.Pattern.compile("[A-Za-z0-9.]+");
+
     /**
      * 「专属优惠券」权益的标识。
      *
@@ -225,6 +230,7 @@ public class CrudService {
         guardSuperOnly(resource);
         guardReadOnly(def, "新增");
         Map<String, Object> values = filterWritable(def, payload);
+        guardMiniTabBar(def, values, null);
         guardSplitRule(def, values, true);
         guardPointsCategoryCreate(def, values);
         guardMemberLevel(def, values);
@@ -277,12 +283,13 @@ public class CrudService {
         guardReadOnly(def, "编辑");
         guardBuiltinRoleWrite(resource, id, false);
         Map<String, Object> values = filterWritable(def, payload);
+        Map<String, Object> before = getOne(resource, id);
+        guardMiniTabBar(def, values, before);
         guardSplitRule(def, values, false);
         if (values.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "没有可更新的字段");
         }
         // 部分更新必须先取旧行再校验；积分商城分类编码创建后不可修改。
-        Map<String, Object> before = getOne(resource, id);
         guardPointsCategoryWrite(def, values, before);
         guardPointsProduct(def, values, before);
         guardMemberLevel(def, values);
@@ -560,6 +567,71 @@ public class CrudService {
                 "select count(*) from sys_user where id = ? and is_super = 1 and deleted = 0",
                 Integer.class, userId);
         return n != null && n > 0;
+    }
+
+    /**
+     * 小程序底部导航只允许保存受控的第三项枚举。
+     *
+     * <p>其余四个 Tab 与两种第三项的页面、名称、图标均由客户端白名单维护，
+     * 避免后台写入任意路由后导致 switchTab 失败或页面无法渲染。
+     */
+    private void guardMiniTabBar(CrudRegistry.Resource def, Map<String, Object> values,
+                                 Map<String, Object> before) {
+        if (!RESOURCE_APP_CONFIG.equals(def.resource())) {
+            return;
+        }
+        Object configKey = values.get("config_key");
+        Object beforeKey = before == null ? null : before.get("configKey");
+        if (!"mini_tab_bar".equals(String.valueOf(configKey))
+                && !"mini_tab_bar".equals(String.valueOf(beforeKey))) {
+            return;
+        }
+        Object raw = values.get("value");
+        if (raw == null) {
+            return;
+        }
+        Object parsed = raw;
+        if (raw instanceof String text) {
+            try {
+                parsed = new com.fasterxml.jackson.databind.ObjectMapper().readValue(text, Object.class);
+            } catch (Exception error) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "mini_tab_bar 配置必须是合法 JSON");
+            }
+        }
+        if (!(parsed instanceof Map<?, ?> map)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "mini_tab_bar 配置必须是 JSON 对象");
+        }
+        if (map.keySet().stream().anyMatch(key ->
+                !"schemaVersion".equals(key)
+                        && !"defaultThirdTab".equals(key)
+                        && !"releases".equals(key))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "mini_tab_bar 仅支持 schemaVersion、defaultThirdTab 和 releases");
+        }
+        Object schemaVersion = map.get("schemaVersion");
+        if (!(schemaVersion instanceof Number number) || number.intValue() != 2) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "mini_tab_bar.schemaVersion 必须为 2");
+        }
+        String defaultThirdTab = String.valueOf(map.get("defaultThirdTab"));
+        if (!MINI_THIRD_TABS.contains(defaultThirdTab)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "mini_tab_bar.defaultThirdTab 仅支持 memberZone 或 tongueHealth");
+        }
+        if (!(map.get("releases") instanceof Map<?, ?> releases)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "mini_tab_bar.releases 必须是版本到第三项的映射对象");
+        }
+        for (Map.Entry<?, ?> entry : releases.entrySet()) {
+            String version = String.valueOf(entry.getKey());
+            if (version.isBlank() || !MINI_VERSION_PATTERN.matcher(version).matches()) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "mini_tab_bar.releases 版本号仅允许字母、数字和小数点");
+            }
+            if (!MINI_THIRD_TABS.contains(String.valueOf(entry.getValue()))) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "mini_tab_bar.releases 仅支持 memberZone 或 tongueHealth");
+            }
+        }
     }
 
     /**

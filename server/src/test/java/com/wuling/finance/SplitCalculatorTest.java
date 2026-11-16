@@ -164,25 +164,23 @@ class SplitCalculatorTest {
     }
 
     @Test
-    void mallOrderDistributionCommissionGoesToLeader() {
-        // 实付 2200（售价 1000×2 + 佣金 100×2），2 件，有渠道
-        // 门店=0（商城），资源方=100×2=200，供应商成本=400×2=800，平台佣金=50×2=100，
-        // 分销佣金=100×2=200；base = 2200-0-200-800-100 = 1100；投资人 15% = 165
-        // 平台 = 2200-0-200-800-165-200 = 835；
+    void mallOrderUsesPlatformSupplierAndLeaderOnly() {
+        // 实付 2200；供应商成本=400×2=800；团长佣金=100×2=200；
+        // 门店、渠道、投资人本阶段均不参与，平台=2200-800-200=1200。
         SplitRule rule = defaultRule();
         List<SplitCalculator.LineItem> items = List.of(
                 new SplitCalculator.LineItem(401L, 2200L, 50L, 400L, 2, 100L));
         SplitCalculator.SplitAmount amount = calculator.calc(2200L, 2, true, rule, 0L, items, null, true);
         assertEquals(0L, amount.store());
-        assertEquals(200L, amount.channel());
+        assertEquals(0L, amount.channel());
         assertEquals(800L, amount.supplier());
         assertEquals(100L, amount.platformCommission());
         assertEquals(200L, amount.leader(), "分销佣金 = 100 × 2 件");
-        assertEquals(165L, amount.investor());
-        assertEquals(835L, amount.platform());
+        assertEquals(0L, amount.investor());
+        assertEquals(1200L, amount.platform());
         long sum = amount.platform() + amount.store() + amount.channel() + amount.investor()
                 + amount.supplier() + amount.leader();
-        assertEquals(2200L, sum, "平台+门店+资源方+投资人+供应商+团长 必须等于实付");
+        assertEquals(2200L, sum, "平台+供应商+团长 必须等于实付");
     }
 
     @Test

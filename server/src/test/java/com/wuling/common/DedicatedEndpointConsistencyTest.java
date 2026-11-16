@@ -116,6 +116,9 @@ class DedicatedEndpointConsistencyTest {
             "server/src/main/java/com/wuling/device/dto/AdminDeviceDTO.java",
             // 运营后台图片上传：首页装修 / 我的页轮播复用文件服务上传接口。
             "file-service/src/main/java/com/wuling/file/controller/FileController.java",
+            // 轮播目标商品选择：点单商品走商品管理接口，商城商品走商城管理接口。
+            "product-service/src/main/java/com/wuling/product/controller/AdminProductController.java",
+            "product-service/src/main/java/com/wuling/product/dto/AdminProductDTO.java",
             // 商城分类 / 商品与 SKU 维护
             "product-service/src/main/java/com/wuling/product/controller/AdminMallCategoryController.java",
             "product-service/src/main/java/com/wuling/product/controller/AdminMallProductController.java",
@@ -145,13 +148,18 @@ class DedicatedEndpointConsistencyTest {
             "src/views/marketing/gift/GiftGroupManager.vue",
             // 我的页轮播编辑弹窗：复用文件服务图片上传接口。
             "src/views/marketing/profile-banner/ProfileBannerEditor.vue",
+            // 轮播目标选择组件调用点单 / 商城商品专用列表接口。
+            "src/views/_shared/BannerTargetFields.vue",
             "src/views/marketing/stored/index.vue",
-            // 首页装修页：复用文件服务图片上传接口。
+            // 首页装修编辑弹窗复用文件服务图片上传接口。
             "src/views/system/home-decor/index.vue",
+            "src/views/system/home-decor/HomeBannerEditor.vue",
             // 商城管理：分类、商品、订单均走专用接口（订单复用 AdminOrderController/OrderDTO）
             "src/views/mall/category/index.vue",
             "src/views/mall/after-sale/index.vue",
             "src/views/mall/product/index.vue",
+            // 商城商品主图 / SKU 图片复用文件服务上传接口。
+            "src/views/mall/product/ProductImageUpload.vue",
             "src/views/mall/order/index.vue",
             // 以下 3 个为详情页：用描述列表（descriptions）而非 DataTable columns 展示，
             // 故不参与「直读列」校验，仅登记以满足覆盖范围可见性要求

@@ -29,8 +29,8 @@ import java.util.stream.Collectors;
  *
  * <p>所有订单库存操作先按 skuId 升序逐行 SELECT ... FOR UPDATE，保证不同订单
  * 即使商品明细顺序不同也不会形成交叉死锁。订单级幂等以
- * mall_stock_log(order_no, change_type) 是否存在作为判定依据；锁住 SKU 后会再次
- * 检查，覆盖同一订单并发重试。
+ * mall_stock_log(biz_type, biz_no, change_type) 是否存在作为判定依据；退款在锁住
+ * SKU 后当前读原订单流水，覆盖并发重试并限制累计回补量。
  */
 @Service
 public class MallInventoryService {
@@ -188,15 +188,29 @@ public class MallInventoryService {
         }
         Map<Long, Integer> items = normalizeItems(request);
         Map<Long, MallSku> skus = lockSkusIncludingDeleted(items);
-        if (stockLogMapper.existsBizChange(bizType, bizNo, RESTORE)) {
+        List<MallStockLog> refundChanges = stockLogMapper.selectRefundChangesForUpdate(orderNo);
+        if (refundChanges.stream().anyMatch(log -> RESTORE.equals(log.getChangeType())
+                && bizType.equals(log.getBizType()) && bizNo.equals(log.getBizNo()))) {
             return MallStockMutationResponse.ok();
         }
-        if (!stockLogMapper.existsBizChange(bizType, bizNo, DEDUCT)) {
+        List<MallStockLog> deductions = refundChanges.stream()
+                .filter(log -> DEDUCT.equals(log.getChangeType())
+                        && "ORDER".equals(log.getBizType()) && orderNo.equals(log.getBizNo()))
+                .toList();
+        if (deductions.isEmpty()) {
             return MallStockMutationResponse.fail("订单尚未支付，不能回补库存");
         }
         for (Map.Entry<Long, Integer> entry : items.entrySet()) {
             if (skus.get(entry.getKey()) == null) {
                 return MallStockMutationResponse.fail("SKU 不存在");
+            }
+            long deducted = deductions.stream().filter(log -> entry.getKey().equals(log.getSkuId()))
+                    .mapToLong(log -> -(long) value(log.getStockDelta())).sum();
+            long restored = refundChanges.stream().filter(log -> RESTORE.equals(log.getChangeType())
+                            && entry.getKey().equals(log.getSkuId()))
+                    .mapToLong(log -> value(log.getStockDelta())).sum();
+            if (entry.getValue() > deducted - restored) {
+                return MallStockMutationResponse.fail("回补数量超过该 SKU 原订单剩余可回补数量");
             }
         }
         for (Map.Entry<Long, Integer> entry : items.entrySet()) {

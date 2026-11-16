@@ -35,7 +35,7 @@ public class MallAfterSaleService {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final TypeReference<List<MallAfterSaleVO.Item>> ITEM_LIST = new TypeReference<>() {};
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final List<String> ACTIVE = List.of("PENDING", "APPROVED", "REFUNDING");
+    private static final List<String> ACTIVE = List.of("PENDING", "RETURN_SHIPPED", "RETURN_RECEIVED", "APPROVED", "REFUNDING");
     private static final List<String> ELIGIBLE_ORDER_STATUS = List.of("SHIPPED", "COMPLETED");
 
     private final OrderMapper orderMapper;
@@ -136,14 +136,69 @@ public class MallAfterSaleService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public MallAfterSaleVO approve(String afterSaleNo, String reviewer, String remark) {
+    public MallAfterSaleVO submitReturnTracking(Long userId, String afterSaleNo, String carrier, String trackingNo) {
         MallAfterSale afterSale = requireByNoForUpdate(afterSaleNo);
-        if (!"PENDING".equals(afterSale.getStatus())) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "仅待审核售后单可通过");
+        if (!afterSale.getUserId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权填写该售后单退货物流");
         }
-        Order order = orderMapper.selectById(afterSale.getOrderId());
-        if (order == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "原订单不存在");
+        if (!List.of("PENDING", "RETURN_SHIPPED", "FAILED").contains(afterSale.getStatus())
+                || afterSale.getReturnReceivedTime() != null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "当前售后状态不能填写退货物流");
+        }
+        if (!StringUtils.hasText(carrier) || !StringUtils.hasText(trackingNo)
+                || carrier.trim().length() > 64 || trackingNo.trim().length() > 100) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请填写有效的退货快递公司和快递单号");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        MallAfterSale patch = new MallAfterSale();
+        patch.setId(afterSale.getId());
+        String status = "FAILED".equals(afterSale.getStatus()) ? "FAILED" : "RETURN_SHIPPED";
+        patch.setStatus(status);
+        patch.setReturnCarrier(carrier.trim());
+        patch.setReturnTrackingNo(trackingNo.trim());
+        patch.setReturnShippedTime(now);
+        afterSaleMapper.updateById(patch);
+        afterSale.setStatus(status);
+        afterSale.setReturnCarrier(carrier.trim());
+        afterSale.setReturnTrackingNo(trackingNo.trim());
+        afterSale.setReturnShippedTime(now);
+        return toVO(afterSale);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MallAfterSaleVO confirmReturnReceipt(String afterSaleNo, String receiver) {
+        MallAfterSale afterSale = requireByNoForUpdate(afterSaleNo);
+        if (afterSale.getReturnReceivedTime() != null) return toVO(afterSale);
+        if (!List.of("RETURN_SHIPPED", "FAILED").contains(afterSale.getStatus())
+                || !StringUtils.hasText(afterSale.getReturnTrackingNo())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "买家尚未填写退货快递单号");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        MallAfterSale patch = new MallAfterSale();
+        patch.setId(afterSale.getId());
+        String status = "FAILED".equals(afterSale.getStatus()) ? "FAILED" : "RETURN_RECEIVED";
+        patch.setStatus(status);
+        patch.setReturnReceivedTime(now);
+        patch.setReturnReceiver(receiver);
+        afterSaleMapper.updateById(patch);
+        afterSale.setStatus(status);
+        afterSale.setReturnReceivedTime(now);
+        afterSale.setReturnReceiver(receiver);
+        return toVO(afterSale);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MallAfterSaleVO approve(String afterSaleNo, String reviewer, String remark) {
+        MallAfterSale located = requireByNo(afterSaleNo);
+        Order order = lockOrder(located.getOrderNo());
+        MallAfterSale afterSale = requireByNoForUpdate(afterSaleNo);
+        if (List.of("APPROVED", "REFUNDING", "SUCCESS").contains(afterSale.getStatus())) {
+            return toVO(afterSale);
+        }
+        if (!"RETURN_RECEIVED".equals(afterSale.getStatus())
+                || !StringUtils.hasText(afterSale.getReturnTrackingNo())
+                || afterSale.getReturnReceivedTime() == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请先确认收到退货，再进行退款");
         }
         Refund refund = refundService.refundAfterSale(order, afterSale, remark);
         LocalDateTime now = LocalDateTime.now();
@@ -178,8 +233,8 @@ public class MallAfterSaleService {
     @Transactional(rollbackFor = Exception.class)
     public MallAfterSaleVO reject(String afterSaleNo, String reviewer, String remark) {
         MallAfterSale afterSale = requireByNoForUpdate(afterSaleNo);
-        if (!"PENDING".equals(afterSale.getStatus())) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "仅待审核售后单可拒绝");
+        if (!List.of("PENDING", "RETURN_RECEIVED").contains(afterSale.getStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "当前售后状态不能拒绝");
         }
         if (!StringUtils.hasText(remark)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "驳回售后必须填写原因");
@@ -300,6 +355,11 @@ public class MallAfterSaleService {
         vo.setReason(afterSale.getReason());
         vo.setRefundAmount(afterSale.getRefundAmount());
         vo.setItems(readItems(afterSale.getItems()));
+        vo.setReturnCarrier(afterSale.getReturnCarrier());
+        vo.setReturnTrackingNo(afterSale.getReturnTrackingNo());
+        vo.setReturnShippedTime(fmt(afterSale.getReturnShippedTime()));
+        vo.setReturnReceivedTime(fmt(afterSale.getReturnReceivedTime()));
+        vo.setReturnReceiver(afterSale.getReturnReceiver());
         vo.setApplyTime(fmt(afterSale.getApplyTime()));
         vo.setReviewTime(fmt(afterSale.getReviewTime()));
         vo.setReviewer(afterSale.getReviewer());

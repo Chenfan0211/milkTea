@@ -148,6 +148,14 @@ function fetchAfterSaleDetail(afterSaleNo) {
   }).then(unwrap);
 }
 
+function submitReturnTracking(afterSaleNo, carrier, trackingNo) {
+  return request({
+    url: `/api/v1/app/mall/after-sales/${afterSaleNo}/return-tracking`,
+    method: 'POST',
+    data: { carrier, trackingNo }
+  }).then(unwrap);
+}
+
 function confirmMallReceipt(orderNo) {
   return request({ url: `/api/v1/app/orders/${orderNo}/confirm-receipt`, method: 'POST' }).then(unwrap);
 }
@@ -964,8 +972,12 @@ function fetchSigninConfig() {
 }
 
 /** 通用配置读取（按 key） */
-function fetchConfig(key) {
-  return request({ url: `/api/v1/app/config/${key}`, method: 'GET' }).then(unwrap);
+function fetchConfig(key, options = {}) {
+  return request({
+    url: `/api/v1/app/config/${key}`,
+    method: 'GET',
+    timeout: Number(options.timeout) > 0 ? Number(options.timeout) : 8000
+  }).then(unwrap);
 }
 
 module.exports = {
@@ -1003,6 +1015,7 @@ module.exports = {
   fetchOrderAfterSales,
   fetchAfterSales,
   fetchAfterSaleDetail,
+  submitReturnTracking,
   confirmMallReceipt,
   createOrder,
   fetchOrders,

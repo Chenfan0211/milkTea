@@ -1,6 +1,8 @@
 package com.wuling.trade.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.common.mq.MqConstants;
@@ -23,12 +25,17 @@ import com.wuling.trade.port.SettlementQueryPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -57,6 +64,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class RefundService {
 
     private static final Logger log = LoggerFactory.getLogger(RefundService.class);
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     /** 退款单状态：退款中 */
     public static final String STATUS_REFUNDING = "REFUNDING";
@@ -76,6 +84,10 @@ public class RefundService {
     private final StoredValueBalancePort storedValueBalancePort;
     private final MallStockService mallStockService;
     private final MallAfterSaleMapper afterSaleMapper;
+
+    /** 延迟重查必须重新进入 Spring 事务代理。 */
+    @Autowired
+    private ObjectProvider<RefundService> self;
 
     /**
      * 是否启用「退款受理后即时重查」。
@@ -145,6 +157,7 @@ public class RefundService {
         if (order == null || afterSale == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "售后退款参数不完整");
         }
+        order = orderService.lockForUpdate(order.getOrderNo());
         if (!"MALL".equalsIgnoreCase(order.getOrderType())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "仅商城订单支持售后退款");
         }
@@ -162,6 +175,16 @@ public class RefundService {
         refund.setStatus(STATUS_REFUNDING);
         refund.setReason(reason);
         refund.setApplyTime(now);
+        SettlementQueryPort.SettlementStatus settlement = settlementQueryPort.query(order.getId());
+        if (settlement != null && settlement.isLegacyInvestorShare()
+                && refund.getAmount() < refund.getOriginalAmount()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "历史商城订单含投资人分账，部分退款需先完成账务核对");
+        }
+        if (settlement != null && settlement.isHasSettlement()
+                && refund.getAmount() < refund.getOriginalAmount()) {
+            fillMallRefundShares(new OrderRefundedEvent(), order, afterSale, refund);
+        }
         refundMapper.insert(refund);
         orderService.markRefundPending(order);
         applyToGateway(refund);
@@ -169,6 +192,7 @@ public class RefundService {
         return refund;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public OrderDTO refund(String orderNo, String reason) {
         Order order = orderService.lockForUpdate(orderNo);
         validateRefundable(order);
@@ -179,6 +203,7 @@ public class RefundService {
         refund.setOrderId(order.getId());
         refund.setOrderNo(orderNo);
         refund.setAmount(order.getPaidAmount());
+        refund.setOriginalAmount(order.getPaidAmount());
         refund.setStatus(STATUS_REFUNDING);
         refund.setReason(reason);
         refund.setApplyTime(now);
@@ -204,28 +229,40 @@ public class RefundService {
      * 调用支付通道发起退款；同步失败置 FAILED（订单保持退款前状态，可重试）。
      */
     private void applyToGateway(Refund refund) {
-        Payment payment = paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
-                .eq(Payment::getOrderNo, refund.getOrderNo())
-                .eq(Payment::getStandardStatus, "PAID")
-                .orderByDesc(Payment::getId)
-                .last("limit 1"));
+        Payment payment = paidPayment(refund.getOrderNo());
+        long originalTotal = payment != null && payment.getAmount() != null ? payment.getAmount()
+                : refund.getOriginalAmount() != null ? refund.getOriginalAmount() : refund.getAmount();
+        if (!java.util.Objects.equals(refund.getOriginalAmount(), originalTotal)) {
+            refund.setOriginalAmount(originalTotal);
+            Refund amountSnapshot = new Refund();
+            amountSnapshot.setId(refund.getId());
+            amountSnapshot.setOriginalAmount(originalTotal);
+            refundMapper.updateById(amountSnapshot);
+        }
         if (payment != null && PaymentService.isStoredValueChannel(payment.getChannel())) {
             Order order = orderMapper.selectById(refund.getOrderId());
             if (order == null) {
                 throw new BusinessException(ResultCode.NOT_FOUND, "原订单不存在");
             }
-            // 稳定业务号按订单维度生成：即使退款单重试/响应丢失，营销侧也只回冲一次。
+            // 整单保持原业务号；多次部分售后按售后单区分，重试仍复用同一个业务号。
+            String businessNo = "REFUND:" + refund.getOrderNo()
+                    + (refund.getAfterSaleId() == null ? "" : ":AS:" + refund.getAfterSaleId());
             storedValueBalancePort.refund(order.getUserId(), refund.getAmount(),
-                    "REFUND:" + refund.getOrderNo(), order.getStoreSubjectId());
+                    businessNo, order.getStoreSubjectId());
             markSuccess(refund);
             return;
         }
 
-        PaymentGateway.RefundApplyResult result = gatewayResolver.active()
-                .refund(refund.getOrderNo(), refund.getRefundNo(), refund.getAmount(), refund.getReason());
+        PaymentGateway.RefundApplyResult result = gatewayResolver.forPayment(payment)
+                .refund(refund.getOrderNo(), refund.getRefundNo(), refund.getAmount(), originalTotal, refund.getReason());
 
         if (result == null) {
             // mock 通道不支持退款：保持 REFUNDING（由外部/定时补偿推进），不伪造成功
+            return;
+        }
+        if (result.unknown()) {
+            // 请求可能已受理；保留原退款号查单，不能进入可换号重试的FAILED。
+            log.warn("退款请求结果待确认，保留退款中 refundNo={}", refund.getRefundNo());
             return;
         }
         if (result.accepted()) {
@@ -248,42 +285,45 @@ public class RefundService {
      */
     @Transactional(rollbackFor = Exception.class)
     public boolean onRefundResult(String refundNo, boolean success, String failReason) {
-        Refund refund = refundMapper.selectOne(new LambdaQueryWrapper<Refund>()
-                .eq(Refund::getRefundNo, refundNo));
-        if (refund == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "退款单不存在：" + refundNo);
-        }
+        Refund refund = lockRefund(refundNo);
         // 幂等：终态不重复处理
         if (STATUS_SUCCESS.equals(refund.getStatus()) || STATUS_FAILED.equals(refund.getStatus())) {
             return false;
         }
         if (success) {
-            markSuccess(refund);
-            return true;
+            return markSuccess(refund);
         }
-        markFailed(refund, failReason);
-        return true;
+        return markFailed(refund, failReason);
     }
 
     /**
      * 主动查询三方退款状态并推进本地状态（退款兜底扫描专用）。
      *
-     * <p>只处理 REFUNDING 单：查三方真实状态，SUCCESS 推进成功，
+     * <p>REFUNDING 单查三方真实状态，SUCCESS 推进成功，
      * CLOSED/ABNORMAL 置失败，PROCESSING/查询失败保持 REFUNDING 下轮重试。
-     * 幂等安全：复用 {@link #onRefundResult} 的终态跳过逻辑。
+     * 已 SUCCESS 的售后退款仅查证本地成功快照、修复全退订单终态，不重放外部副作用。
      *
-     * @return true 本次真正推进了状态（首次）；false 未推进（mock/查询失败/未终态）
+     * @return true 本次推进了退款或订单状态；false 未推进
      */
+    @Transactional(rollbackFor = Exception.class)
     public boolean syncRefundStatus(String orderNo, String refundNo) {
-        String status = gatewayResolver.active().queryRefund(orderNo, refundNo);
+        Refund refund = lockRefund(refundNo);
+        if (!orderNo.equals(refund.getOrderNo())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "退款单与原订单不匹配");
+        }
+        if (STATUS_SUCCESS.equals(refund.getStatus())) return repairAfterSaleOrderProjection(refund);
+        if (!STATUS_REFUNDING.equals(refund.getStatus())) return false;
+        Payment payment = paidPayment(orderNo);
+        if (payment != null && PaymentService.isStoredValueChannel(payment.getChannel())) return false;
+        String status = gatewayResolver.forPayment(payment).queryRefund(orderNo, refundNo);
         if (status == null) {
             return false;
         }
         if ("SUCCESS".equals(status)) {
-            return onRefundResult(refundNo, true, null);
+            return markSuccess(refund);
         }
         if ("CLOSED".equals(status) || "ABNORMAL".equals(status)) {
-            return onRefundResult(refundNo, false, "微信退款状态：" + status);
+            return markFailed(refund, "微信退款状态：" + status);
         }
         return false;
     }
@@ -293,6 +333,7 @@ public class RefundService {
      * <p>先按退款单号定位退款单，再调 {@link #syncRefundStatus} 查询并推进。
      * 返回查询后的最新状态与是否真正推进，便于运维确认结果。
      */
+    @Transactional(rollbackFor = Exception.class)
     public RefundSyncResult syncRefundStatusByRefundNo(String refundNo) {
         Refund refund = refundMapper.selectOne(new LambdaQueryWrapper<Refund>()
                 .eq(Refund::getRefundNo, refundNo));
@@ -312,22 +353,27 @@ public class RefundService {
     /**
      * 重新退款：仅退款失败(FAILED)可重试，走同一套下单逻辑。
      */
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public OrderDTO retry(Long refundId) {
-        Refund refund = refundMapper.selectById(refundId);
-        if (refund == null) {
+        Refund snapshot = refundMapper.selectById(refundId);
+        if (snapshot == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "退款单不存在");
         }
+        // 和售后申请、审核、通知保持同一顺序：订单 → 退款 → 售后。
+        Order order = orderService.lockForUpdate(snapshot.getOrderNo());
+        Refund refund = refundMapper.selectOne(new LambdaQueryWrapper<Refund>()
+                .eq(Refund::getId, refundId).last("for update"));
+        if (refund == null) throw new BusinessException(ResultCode.NOT_FOUND, "退款单不存在");
         if (!STATUS_FAILED.equals(refund.getStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "仅退款失败的单据可重新退款");
         }
-        Order order = orderMapper.selectById(refund.getOrderId());
-        if (order == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "原订单不存在");
-        }
-
-        MallAfterSale afterSale = refund.getAfterSaleId() == null
-                ? null : afterSaleMapper.selectById(refund.getAfterSaleId());
+        List<Refund> occupiedRefunds = refund.getAfterSaleId() == null ? List.of()
+                : refundMapper.selectList(new LambdaQueryWrapper<Refund>()
+                        .eq(Refund::getOrderId, order.getId())
+                        .in(Refund::getStatus, STATUS_REFUNDING, STATUS_SUCCESS).last("for update"));
+        MallAfterSale afterSale = refund.getAfterSaleId() == null ? null
+                : afterSaleMapper.selectOne(new LambdaQueryWrapper<MallAfterSale>()
+                        .eq(MallAfterSale::getId, refund.getAfterSaleId()).last("for update"));
         if (refund.getAfterSaleId() != null) {
             if (afterSale == null) {
                 throw new BusinessException(ResultCode.NOT_FOUND, "关联售后单不存在");
@@ -335,16 +381,36 @@ public class RefundService {
             if (!"FAILED".equals(afterSale.getStatus())) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "仅退款失败的售后单可重试");
             }
+            validateAfterSaleRetry(order, refund, afterSale, occupiedRefunds);
+            SettlementQueryPort.SettlementStatus settlement = settlementQueryPort.query(order.getId());
+            if (settlement != null && settlement.isLegacyInvestorShare()
+                    && refund.getOriginalAmount() != null && refund.getAmount() < refund.getOriginalAmount()) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "历史商城订单含投资人分账，部分退款需先完成账务核对");
+            }
         } else {
             validateRefundable(order);
         }
 
-        // 微信要求商户退款单号唯一，但售后重试必须复用原退款记录（afterSaleId/originalAmount 不变）。
-        refund.setRefundNo(nextNo());
+        // 只有原FAILED记录的抢占者可以生成新通道退款；并发请求失败即回滚。
+        String nextRefundNo = nextNo();
+        LocalDateTime applyTime = LocalDateTime.now();
+        int claimed = refundMapper.update(null, new LambdaUpdateWrapper<Refund>()
+                .eq(Refund::getId, refund.getId())
+                .eq(Refund::getRefundNo, refund.getRefundNo())
+                .eq(Refund::getStatus, STATUS_FAILED)
+                .set(Refund::getRefundNo, nextRefundNo)
+                .set(Refund::getStatus, STATUS_REFUNDING)
+                .set(Refund::getApplyTime, applyTime)
+                .set(Refund::getThirdRefundNo, null));
+        if (claimed != 1) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "退款已在处理中，请勿重复重试");
+        }
+        // 售后重试复用原退款记录，保留afterSaleId与originalAmount。
+        refund.setRefundNo(nextRefundNo);
         refund.setStatus(STATUS_REFUNDING);
-        refund.setApplyTime(LocalDateTime.now());
+        refund.setApplyTime(applyTime);
         refund.setThirdRefundNo(null);
-        refundMapper.updateById(refund);
 
         if (afterSale != null) {
             MallAfterSale patch = new MallAfterSale();
@@ -356,7 +422,89 @@ public class RefundService {
         orderService.markRefundPending(order);
 
         applyToGateway(refund);
+        scheduleQuickRecheck(refund);
         return orderService.toDTO(order, loadItems(order.getId()));
+    }
+
+    /** 当前读保证参与外层REPEATABLE_READ事务时也不会沿用等锁前的额度快照。 */
+    private void validateAfterSaleRetry(Order order, Refund refund, MallAfterSale afterSale,
+                                       List<Refund> occupiedRefunds) {
+        if (afterSale.getReturnReceivedTime() == null
+                || !org.springframework.util.StringUtils.hasText(afterSale.getReturnTrackingNo())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请先确认收到退货，再重试退款");
+        }
+        if (!"MALL".equalsIgnoreCase(order.getOrderType())
+                || !List.of(OrderService.STATUS_SHIPPED, OrderService.STATUS_COMPLETED).contains(order.getStatus())
+                || "PENDING".equalsIgnoreCase(order.getRefundStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "订单当前状态不支持重试售后退款");
+        }
+        if (!order.getId().equals(afterSale.getOrderId())
+                || !java.util.Objects.equals(refund.getAmount(), afterSale.getRefundAmount())
+                || refund.getAmount() == null || refund.getAmount() <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "售后退款与原订单不一致");
+        }
+        List<MallAfterSale> occupied = afterSaleMapper.selectList(new LambdaQueryWrapper<MallAfterSale>()
+                .eq(MallAfterSale::getOrderId, order.getId())
+                .in(MallAfterSale::getStatus, "PENDING", "RETURN_SHIPPED", "RETURN_RECEIVED", "APPROVED", "REFUNDING", "SUCCESS")
+                .last("for update"));
+        Map<Long, Integer> used = new LinkedHashMap<>();
+        for (MallAfterSale other : occupied) {
+            if (afterSale.getId().equals(other.getId())) continue;
+            if (List.of("PENDING", "RETURN_SHIPPED", "RETURN_RECEIVED", "APPROVED", "REFUNDING").contains(other.getStatus())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "该订单已有其他处理中的售后申请");
+            }
+            quantities(other).forEach((id, quantity) -> used.merge(id, quantity, Math::addExact));
+        }
+        Map<Long, OrderItem> originals = new LinkedHashMap<>();
+        for (OrderItem item : loadItems(order.getId())) originals.put(item.getId(), item);
+        for (Map.Entry<Long, Integer> requested : quantities(afterSale).entrySet()) {
+            OrderItem item = originals.get(requested.getKey());
+            int total = item == null || item.getQuantity() == null ? 0 : item.getQuantity();
+            if (item == null || !order.getId().equals(item.getOrderId())
+                    || requested.getValue() > Math.max(0, total - used.getOrDefault(item.getId(), 0))) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "原售后数量已被其他售后占用，不能重试");
+            }
+        }
+        Payment payment = paidPayment(order.getOrderNo());
+        long originalTotal = payment != null && payment.getAmount() != null ? payment.getAmount()
+                : refund.getOriginalAmount() != null ? refund.getOriginalAmount() : order.getPaidAmount();
+        long occupiedAmount = 0L;
+        for (Refund other : occupiedRefunds) {
+            if (!refund.getId().equals(other.getId()) && other.getAmount() != null) {
+                occupiedAmount = Math.addExact(occupiedAmount, other.getAmount());
+            }
+        }
+        if (originalTotal <= 0 || refund.getAmount() > originalTotal - occupiedAmount) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "订单剩余可退金额不足，不能重试原售后");
+        }
+    }
+
+    private Map<Long, Integer> quantities(MallAfterSale afterSale) {
+        try {
+            var items = JSON.readTree(afterSale.getItems() == null ? "[]" : afterSale.getItems());
+            if (!items.isArray() || items.isEmpty()) throw new IllegalArgumentException();
+            Map<Long, Integer> quantities = new LinkedHashMap<>();
+            for (var item : items) {
+                long id = item.path("orderItemId").asLong(0);
+                int quantity = item.path("quantity").asInt(0);
+                if (id <= 0 || quantity <= 0) throw new IllegalArgumentException();
+                quantities.merge(id, quantity, Math::addExact);
+            }
+            return quantities;
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "售后商品快照损坏，不能重试退款");
+        }
+    }
+
+    private Refund lockRefund(String refundNo) {
+        Refund snapshot = refundMapper.selectOne(new LambdaQueryWrapper<Refund>()
+                .eq(Refund::getRefundNo, refundNo));
+        if (snapshot == null) throw new BusinessException(ResultCode.NOT_FOUND, "退款单不存在：" + refundNo);
+        orderService.lockForUpdate(snapshot.getOrderNo());
+        Refund current = refundMapper.selectOne(new LambdaQueryWrapper<Refund>()
+                .eq(Refund::getRefundNo, refundNo).last("for update"));
+        if (current == null) throw new BusinessException(ResultCode.NOT_FOUND, "退款单不存在：" + refundNo);
+        return current;
     }
 
     /**
@@ -384,7 +532,7 @@ public class RefundService {
             // 储值同步退款等场景已直接成功，无需再查
             return;
         }
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
+        Runnable schedule = () -> java.util.concurrent.CompletableFuture.runAsync(() -> {
             try {
                 Thread.sleep(Math.max(0, quickRecheckDelayMs));
             } catch (InterruptedException e) {
@@ -392,21 +540,37 @@ public class RefundService {
                 return;
             }
             try {
-                syncRefundStatus(refund.getOrderNo(), refund.getRefundNo());
+                self.getObject().syncRefundStatus(refund.getOrderNo(), refund.getRefundNo());
             } catch (Exception e) {
                 // 主动查询失败不是异常路径：定时兜底会继续重试
                 log.warn("退款受理后即时重查失败 refundNo={} err={}", refund.getRefundNo(), e.getMessage());
             }
         });
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() { schedule.run(); }
+            });
+        }
     }
 
-    private void markSuccess(Refund refund) {
-        Order order = orderMapper.selectById(refund.getOrderId());
+    private boolean markSuccess(Refund refund) {
+        if (!advance(refund, STATUS_SUCCESS, null)) return false;
+        Order order = orderService.lockForUpdate(refund.getOrderNo());
         MallAfterSale afterSale = refund.getAfterSaleId() == null
                 ? null : afterSaleMapper.selectById(refund.getAfterSaleId());
         boolean fullRefund = true;
         Map<Long, Integer> restoredMap = Map.of();
         if (afterSale != null) {
+            // 同步储值退款进入这里时售后仍为 PENDING；先在本地事务内置成功，
+            // 再查累计数量，才能把此前成功售后与本次合并。后续失败会整体回滚。
+            MallAfterSale afterSalePatch = new MallAfterSale();
+            afterSalePatch.setId(afterSale.getId());
+            afterSalePatch.setStatus("SUCCESS");
+            afterSalePatch.setCompleteTime(LocalDateTime.now());
+            afterSaleMapper.updateById(afterSalePatch);
+            afterSale.setStatus("SUCCESS");
+            afterSale.setCompleteTime(afterSalePatch.getCompleteTime());
             restoredMap = mallStockService == null
                     ? Map.of() : mallStockService.restoreForAfterSale(order, afterSale);
             List<OrderItem> orderItems = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
@@ -417,23 +581,6 @@ public class RefundService {
         } else if (order != null && "MALL".equalsIgnoreCase(order.getOrderType())
                 && mallStockService != null) {
             mallStockService.restoreForRefund(order);
-        }
-
-        Refund patch = new Refund();
-        patch.setId(refund.getId());
-        patch.setStatus(STATUS_SUCCESS);
-        patch.setCompleteTime(LocalDateTime.now());
-        refundMapper.updateById(patch);
-        refund.setStatus(STATUS_SUCCESS);
-
-        if (afterSale != null) {
-            MallAfterSale afterSalePatch = new MallAfterSale();
-            afterSalePatch.setId(afterSale.getId());
-            afterSalePatch.setStatus("SUCCESS");
-            afterSalePatch.setCompleteTime(LocalDateTime.now());
-            afterSaleMapper.updateById(afterSalePatch);
-            afterSale.setStatus("SUCCESS");
-            afterSale.setCompleteTime(afterSalePatch.getCompleteTime());
         }
 
         if (order != null) {
@@ -455,6 +602,11 @@ public class RefundService {
                 event.setRefundAmount(refund.getAmount());
                 event.setRefundNo(refund.getRefundNo());
                 event.setRefundRatio(refundRatio(refund));
+                if (afterSale != null && refund.getAmount() != null && refund.getOriginalAmount() != null
+                        && refund.getAmount() < refund.getOriginalAmount()
+                        && !settlementStatus.isLegacyInvestorShare()) {
+                    fillMallRefundShares(event, order, afterSale, refund);
+                }
                 outboxService.enqueue(
                         "ORDER", order.getOrderNo(), "ORDER_REFUNDED",
                         MqConstants.FINANCE_REVERSE_ROUTING_KEY, order.getOrderNo(), event);
@@ -470,6 +622,130 @@ public class RefundService {
                         MqConstants.COUPON_EVENT_ROUTING_KEY, order.getOrderNo(), event);
             }
         }
+        return true;
+    }
+
+    /** 原成功退款查证：仅修复历史售后累计遗漏的订单终态，不重放任何外部副作用。 */
+    private boolean repairAfterSaleOrderProjection(Refund refund) {
+        if (refund.getAfterSaleId() == null || afterSaleMapper == null) return false;
+        Order order = orderService.lockForUpdate(refund.getOrderNo());
+        if (!java.util.Objects.equals(order.getId(), refund.getOrderId())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "退款单与原订单不匹配");
+        }
+        if (!"MALL".equalsIgnoreCase(order.getOrderType())) return false;
+        MallAfterSale requested = afterSaleMapper.selectById(refund.getAfterSaleId());
+        validateProjectionAfterSale(order, refund, requested);
+        if (!STATUS_SUCCESS.equals(requested.getStatus())
+                || (!OrderService.STATUS_SHIPPED.equals(order.getStatus())
+                && !OrderService.STATUS_COMPLETED.equals(order.getStatus()))) return false;
+
+        Payment payment = paidPayment(order.getOrderNo());
+        if (payment == null || payment.getAmount() == null || payment.getAmount() <= 0
+                || (payment.getOrderId() != null && !order.getId().equals(payment.getOrderId()))) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "原支付记录不可查证");
+        }
+        long originalAmount = payment.getAmount();
+        List<OrderItem> orderItems = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                .eq(OrderItem::getOrderId, order.getId()));
+        Map<Long, Integer> originalQuantities = new LinkedHashMap<>();
+        for (OrderItem item : orderItems) {
+            originalQuantities.put(item.getId(), item.getQuantity() == null ? 0 : item.getQuantity());
+        }
+        Map<Long, Integer> refundedQuantities = new LinkedHashMap<>();
+        java.util.Set<Long> countedAfterSales = new java.util.HashSet<>();
+        long refundedAmount = 0;
+        for (Refund completed : refundMapper.selectList(new LambdaQueryWrapper<Refund>()
+                .eq(Refund::getOrderId, order.getId()).eq(Refund::getStatus, STATUS_SUCCESS))) {
+            if (!java.util.Objects.equals(order.getId(), completed.getOrderId())
+                    || !order.getOrderNo().equals(completed.getOrderNo())
+                    || completed.getAmount() == null || completed.getAmount() <= 0
+                    || completed.getAmount() > originalAmount - refundedAmount) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "成功退款金额与原订单不一致");
+            }
+            refundedAmount += completed.getAmount();
+            if (completed.getAfterSaleId() == null) continue;
+            MallAfterSale afterSale = afterSaleMapper.selectById(completed.getAfterSaleId());
+            validateProjectionAfterSale(order, completed, afterSale);
+            if (!STATUS_SUCCESS.equals(afterSale.getStatus())) continue;
+            if (!countedAfterSales.add(afterSale.getId())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "同一售后存在重复成功退款");
+            }
+            for (Map.Entry<Long, Integer> entry : quantities(afterSale).entrySet()) {
+                int previous = refundedQuantities.getOrDefault(entry.getKey(), 0);
+                if (entry.getValue() > originalQuantities.getOrDefault(entry.getKey(), 0) - previous) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "成功售后数量超过原订单");
+                }
+                refundedQuantities.put(entry.getKey(), previous + entry.getValue());
+            }
+        }
+        boolean full = !orderItems.isEmpty() && orderItems.stream().allMatch(item ->
+                refundedQuantities.getOrDefault(item.getId(), 0).equals(originalQuantities.get(item.getId())));
+        if (!full || refundedAmount != originalAmount) return false;
+        int total = orderItems.stream().mapToInt(item -> originalQuantities.get(item.getId())).sum();
+        return orderService.markAfterSaleRefunded(order, total, total);
+    }
+
+    private void validateProjectionAfterSale(Order order, Refund refund, MallAfterSale afterSale) {
+        if (afterSale == null || !java.util.Objects.equals(order.getId(), afterSale.getOrderId())
+                || !order.getOrderNo().equals(afterSale.getOrderNo())
+                || !java.util.Objects.equals(afterSale.getRefundId(), refund.getId())
+                || !java.util.Objects.equals(afterSale.getRefundAmount(), refund.getAmount())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "售后退款快照与原订单不匹配");
+        }
+    }
+
+    private void fillMallRefundShares(OrderRefundedEvent event, Order order,
+                                      MallAfterSale afterSale, Refund refund) {
+        Map<Long, Integer> returned = quantities(afterSale);
+        Map<Long, Long> subjects = new LinkedHashMap<>();
+        long supplierOriginal = 0L;
+        long leaderOriginal = 0L;
+        long commissionOriginal = 0L;
+        long supplierRefund = 0L;
+        long leaderRefund = 0L;
+        long commissionRefund = 0L;
+        long refundCheck = 0L;
+        for (OrderItem item : loadItems(order.getId())) {
+            int originalQty = item.getQuantity() == null ? 0 : item.getQuantity();
+            int refundQty = returned.containsKey(item.getId()) ? returned.remove(item.getId()) : 0;
+            if (refundQty < 0 || refundQty > originalQty) {
+                throw new IllegalStateException("退货数量与订单快照不一致 itemId=" + item.getId());
+            }
+            long cost = item.getCostPrice() == null ? 0L : item.getCostPrice();
+            long leader = order.getLeaderSubjectId() == null || item.getDistributionCommission() == null
+                    ? 0L : item.getDistributionCommission();
+            long commission = item.getPlatformCommission() == null ? 0L : item.getPlatformCommission();
+            supplierOriginal += cost * originalQty;
+            leaderOriginal += leader * originalQty;
+            commissionOriginal += commission * originalQty;
+            if (refundQty == 0) continue;
+            if (item.getSupplierSubjectId() == null) {
+                throw new IllegalStateException("退货商品缺少供应商主体 itemId=" + item.getId());
+            }
+            subjects.merge(item.getSupplierSubjectId(), cost * refundQty, Long::sum);
+            supplierRefund += cost * refundQty;
+            leaderRefund += leader * refundQty;
+            commissionRefund += commission * refundQty;
+            refundCheck += (item.getUnitPrice() == null ? 0L : item.getUnitPrice()) * refundQty;
+        }
+        if (!returned.isEmpty() || refundCheck != refund.getAmount()) {
+            throw new IllegalStateException("退货明细与退款金额不一致 refundNo=" + refund.getRefundNo());
+        }
+        if (leaderRefund != 0L) {
+            if (order.getLeaderSubjectId() == null) {
+                throw new IllegalStateException("退货商品缺少团长主体 refundNo=" + refund.getRefundNo());
+            }
+            subjects.merge(order.getLeaderSubjectId(), leaderRefund, Long::sum);
+        }
+        long platformOriginal = order.getPaidAmount() - supplierOriginal - leaderOriginal;
+        long platformRefund = refund.getAmount() - supplierRefund - leaderRefund;
+        if (platformOriginal < 0L) commissionRefund = 0L;
+        long bookedCommissionOriginal = platformOriginal < 0L ? 0L : commissionOriginal;
+        event.setSubjectRefundAmounts(subjects);
+        event.setPlatformCommissionRefund(commissionRefund);
+        event.setPlatformBonusRefund(platformRefund - commissionRefund);
+        event.setPlatformCommissionOriginal(bookedCommissionOriginal);
+        event.setPlatformBonusOriginal(platformOriginal - bookedCommissionOriginal);
     }
 
     private int refundRatio(Refund refund) {
@@ -483,15 +759,9 @@ public class RefundService {
         markSuccess(refund);
     }
 
-    private void markFailed(Refund refund, String failReason) {
-        Refund patch = new Refund();
-        patch.setId(refund.getId());
-        patch.setStatus(STATUS_FAILED);
-        if (failReason != null && !failReason.isBlank()) {
-            patch.setReason(failReason.substring(0, Math.min(failReason.length(), 255)));
-        }
-        refundMapper.updateById(patch);
-        refund.setStatus(STATUS_FAILED);
+    private boolean markFailed(Refund refund, String failReason) {
+        if (!advance(refund, STATUS_FAILED, failReason)) return false;
+        Order order = orderService.lockForUpdate(refund.getOrderNo());
 
         if (refund.getAfterSaleId() != null) {
             MallAfterSale afterSale = afterSaleMapper.selectById(refund.getAfterSaleId());
@@ -502,7 +772,6 @@ public class RefundService {
                 afterSaleMapper.updateById(afterSalePatch);
             }
         }
-        Order order = orderMapper.selectById(refund.getOrderId());
         if (order != null) {
             if (refund.getAfterSaleId() != null) {
                 orderService.markAfterSaleRefundFailed(order);
@@ -510,6 +779,31 @@ public class RefundService {
                 orderService.markRefundFailed(order);
             }
         }
+        return true;
+    }
+
+    /** 先条件推进再执行副作用，过期回调或并发落败者不会重复回补与冲正。 */
+    private boolean advance(Refund refund, String status, String failReason) {
+        LambdaUpdateWrapper<Refund> update = new LambdaUpdateWrapper<Refund>()
+                .eq(Refund::getId, refund.getId())
+                .eq(Refund::getRefundNo, refund.getRefundNo())
+                .eq(Refund::getStatus, STATUS_REFUNDING)
+                .set(Refund::getStatus, status);
+        if (STATUS_SUCCESS.equals(status)) update.set(Refund::getCompleteTime, LocalDateTime.now());
+        if (failReason != null && !failReason.isBlank()) {
+            update.set(Refund::getReason, failReason.substring(0, Math.min(failReason.length(), 255)));
+        }
+        if (refundMapper.update(null, update) == 0) return false;
+        refund.setStatus(status);
+        return true;
+    }
+
+    private Payment paidPayment(String orderNo) {
+        return paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
+                .eq(Payment::getOrderNo, orderNo)
+                .eq(Payment::getStandardStatus, "PAID")
+                .and(query -> query.eq(Payment::getBizType, Payment.BIZ_ORDER).or().isNull(Payment::getBizType))
+                .orderByDesc(Payment::getId).last("limit 1"));
     }
 
     void markFailedForTest(Refund refund, String failReason) {

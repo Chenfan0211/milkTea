@@ -21,8 +21,8 @@ public interface MallCatalogPort {
 
     record SkuView(Long skuId, Long productId, String productCode, String name, String specValue,
                    String image, long salePrice, long originalPrice, long costPrice,
-                   long platformCommission, long distributionCommission, Long supplierSubjectId, Long storeSubjectId,
-                   Long channelSubjectId, Long splitRuleId, int availableStock, boolean onSale) {}
+                   long platformCommission, long distributionCommission, Long supplierSubjectId,
+                   int availableStock, boolean onSale) {}
 
     record StockResult(boolean success, String message) {
         public static StockResult ok() { return new StockResult(true, null); }

@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Select;
 public interface MallAfterSaleMapper extends BaseMapper<MallAfterSale> {
 
     @Select("select * from mall_after_sale where order_id = #{orderId} "
-            + "and status in ('PENDING','APPROVED','REFUNDING') and deleted = 0 "
+            + "and status in ('PENDING','RETURN_SHIPPED','RETURN_RECEIVED','APPROVED','REFUNDING') and deleted = 0 "
             + "order by id desc limit 1 for update")
     MallAfterSale selectActiveByOrderIdForUpdate(@Param("orderId") Long orderId);
 
@@ -27,7 +27,7 @@ public interface MallAfterSaleMapper extends BaseMapper<MallAfterSale> {
      * 已成功或退款中的退货数量：两者都占用可退额度。
      * FAILED 不占用额度，用户可继续申请或复用原退款重试。
      */
-    @Select("select coalesce(sum(cast(json_extract(item.quantity, '$') as unsigned)), 0) "
+    @Select("select coalesce(sum(item.quantity), 0) "
             + "from mall_after_sale a, json_table(a.items, '$[*]' columns("
             + "order_item_id bigint path '$.orderItemId', quantity int path '$.quantity')) item "
             + "where a.order_id = #{orderId} and a.deleted = 0 "

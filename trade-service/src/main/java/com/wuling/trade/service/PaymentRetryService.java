@@ -8,6 +8,7 @@ import com.wuling.trade.pay.wxpay.WxPayStatusMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -39,6 +40,12 @@ public class PaymentRetryService {
 
     private final PaymentMapper paymentMapper;
     private final PaymentGatewayResolver gatewayResolver;
+    private PaymentService paymentService;
+
+    @Autowired
+    public void setPaymentService(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
 
     public PaymentRetryService(PaymentMapper paymentMapper, PaymentGatewayResolver gatewayResolver) {
         this.paymentMapper = paymentMapper;
@@ -71,7 +78,9 @@ public class PaymentRetryService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "支付单缺少订单号，无法查询三方状态");
         }
 
-        PaymentGateway.PaymentQueryResult result = gatewayResolver.active().queryOrder(orderNo);
+        if (paymentService != null) return paymentService.reconcilePayment(paymentId);
+
+        PaymentGateway.PaymentQueryResult result = gatewayResolver.forPayment(payment).queryOrder(orderNo);
         if (result == null) {
             // 查不到（订单不存在 / 通道不支持 / 网络异常）：保持原状态，如实告知
             String channel = gatewayResolver.activeChannel();
@@ -86,6 +95,10 @@ public class PaymentRetryService {
             // 未知状态不猜：保持原状态并提示，避免把未知当成成功
             throw new BusinessException(ResultCode.ERROR,
                     "三方返回未知交易状态：" + result.tradeState() + "，已保持原状态");
+        }
+        if (WxPayStatusMapper.STANDARD_PAID.equals(standard)) {
+            // 保留旧构造兼容非 Spring 工具，但缺共享入账能力时绝不能只改支付记录。
+            throw new BusinessException(ResultCode.ERROR, "支付成功必须完成订单入账后才能更新支付记录");
         }
 
         payment.setThirdStatus(StringUtils.hasText(result.tradeState())

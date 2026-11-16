@@ -1,7 +1,8 @@
 const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
 const api = require('../../utils/api');
-const { getUserProfile, refreshUserProfileFromRemote, roundMoney } = require('../../utils/user-profile');
+const auth = require('../../utils/auth');
+const { getUserProfile, normalizeRemoteProfile, saveUserProfile, roundMoney } = require('../../utils/user-profile');
 const {
   MAX_STORED_VALUE_QUANTITY,
   buildStoredValueSummary,
@@ -49,7 +50,7 @@ Page(
       this.loadPackages();
     },
     onShow() {
-      this.syncBalance();
+      this.syncBalance(true);
       this.syncStore();
     },
     /** 拉取后台配置的储值套餐并默认选中一张 */
@@ -88,11 +89,28 @@ Page(
     },
     syncBalance(force) {
       const render = () => this.setData({ balanceText: roundMoney(Number(getUserProfile().balance) || 0).toFixed(2) });
-      // 支付成功后必须拉后端最新余额，不能只读本地缓存（否则显示充值前的旧值）
-      if (force) {
-        return refreshUserProfileFromRemote().then(render).catch(render);
-      }
       render();
+      if (!force || !auth.isLoggedIn()) return Promise.resolve();
+      const userId = auth.getUserId();
+      if (this.balanceRequest && this.balanceRequestUserId === userId) return this.balanceRequest;
+      this.balanceRequestUserId = userId;
+      // 进入页面及支付后读取最新余额；迟到的旧账号回包不得覆盖当前资料缓存。
+      const task = api
+        .fetchUserProfile()
+        .then(user => {
+          if (userId !== auth.getUserId() || !auth.isLoggedIn()) return;
+          const normalized = normalizeRemoteProfile(user);
+          if (normalized) saveUserProfile(normalized);
+          render();
+        })
+        .catch(() => {
+          if (userId === auth.getUserId() && auth.isLoggedIn()) render();
+        })
+        .finally(() => {
+          if (this.balanceRequest === task) this.balanceRequest = null;
+        });
+      this.balanceRequest = task;
+      return task;
     },
     syncStore() {
       this.setData({ currentStore: getDisplayStore() });

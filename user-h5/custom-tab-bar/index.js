@@ -1,10 +1,17 @@
-const featurePolicy = require('../utils/feature-policy');
+const api = require('../utils/api');
+const tabBarConfig = require('../utils/tab-bar-config');
 
 Component({
   data: {
     selected: 0,
     hidden: false,
-    list: featurePolicy.getTabBarItems()
+    ready: false,
+    list: []
+  },
+  lifetimes: {
+    attached() {
+      this.syncFeaturePolicy();
+    }
   },
   pageLifetimes: {
     show() {
@@ -13,8 +20,12 @@ Component({
   },
   methods: {
     syncFeaturePolicy() {
-      const list = featurePolicy.getTabBarItems();
-      if (JSON.stringify(list) !== JSON.stringify(this.data.list)) this.setData({ list });
+      return tabBarConfig.ready(api.fetchConfig).then(() => {
+        const list = tabBarConfig.getTabBarItems();
+        if (JSON.stringify(list) !== JSON.stringify(this.data.list) || !this.data.ready) {
+          this.setData({ list, ready: true });
+        }
+      });
     }
   }
 });

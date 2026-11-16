@@ -19,7 +19,10 @@ assert.ok(migration.includes("'R_OPERATION'"), '轮播菜单必须授权运营�
 const registry = read('server/src/main/java/com/wuling/system/crud/CrudRegistry.java');
 assert.ok(registry.includes('"profileBanners"'), '后台 CRUD 必须登记 profileBanners 资源');
 assert.ok(registry.includes('"profile_banner"'), 'profileBanners 必须绑定 profile_banner 表');
-assert.ok(registry.includes('"image_url", "alt_text", "sort", "status"'), '轮播可写字段必须显式登记');
+assert.ok(
+  registry.includes('"image_url", "alt_text", "target_type", "target_id", "sort", "status"'),
+  '轮播及跳转目标可写字段必须显式登记'
+);
 
 const controller = read('server/src/main/java/com/wuling/system/controller/AppConfigController.java');
 assert.ok(controller.includes('from profile_banner'), '我的页配置接口必须查询 profile_banner');
@@ -50,6 +53,7 @@ assert.ok(page.includes('profileBanners'), '轮播后台必须读写 profileBann
 assert.ok(page.includes('2130'), '轮播后台必须提示推荐宽度');
 assert.ok(page.includes('480'), '轮播后台必须提示推荐高度');
 assert.ok(page.includes('status'), '轮播后台必须支持启用停用');
+assert.ok(page.includes('BannerTargetFields'), '我的页轮播必须支持绑定跳转目标');
 
 const store = read('src/store/modules/admin/index.ts');
 assert.ok(store.includes("profileBanners: 'profileBanners'"), '后台 store 必须登记 profileBanners 远端资源');

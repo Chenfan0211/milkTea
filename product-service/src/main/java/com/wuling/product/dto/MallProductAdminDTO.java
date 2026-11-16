@@ -16,13 +16,9 @@ public class MallProductAdminDTO {
     private String coverImage;
     private List<String> galleryImages;
     private String description;
-    private Long attributionStoreSubjectId;
-    private String attributionStoreName;
-    private Long attributionChannelSubjectId;
-    private String attributionChannelName;
-    private Long splitRuleId;
+    private Long supplierSubjectId;
+    private String supplierName;
     private String status;
-    private Integer sort;
     private Integer salesCount;
     private Long minPrice;
     private Long maxPrice;

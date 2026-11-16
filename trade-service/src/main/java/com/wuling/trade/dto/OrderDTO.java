@@ -35,7 +35,7 @@ public class OrderDTO {
     /** 储值余额支付立减金额（分）。 */
     private Long storedValueDiscount;
     private String refundStatus;
-    /** 是否存在处理中的商城售后（PENDING/APPROVED/REFUNDING）。 */
+    /** 是否存在处理中的商城售后。 */
     private Boolean activeAfterSale;
     /** 最近一笔商城售后状态（含 SUCCESS/FAILED/REJECTED），无售后为 null。 */
     private String afterSaleStatus;

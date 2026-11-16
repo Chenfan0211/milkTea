@@ -13,6 +13,7 @@ const expectedPages = [
   'pages/product-detail/product-detail',
   'pages/recommendation-stores/recommendation-stores',
   'pages/tongue/tongue',
+  'pages/feature-tab/feature-tab',
   'pages/orders/orders',
   'pages/profile/profile',
   'pages/auth-login/auth-login',
@@ -76,7 +77,7 @@ const expectedSubPages = expectedSubPageNames.map(name => `${SUBPACKAGE_ROOT}/${
 const expectedTabBarPages = [
   'pages/home/home',
   'pages/menu/menu',
-  'pages/tongue/tongue',
+  'pages/feature-tab/feature-tab',
   'pages/orders/orders',
   'pages/profile/profile'
 ];
@@ -437,14 +438,13 @@ if (cartSheetWxml.includes('cart-sheet__summary')) {
   errors.push('购物车弹层不得保留重复的底部结算条');
 }
 const tabBarWxml = fs.readFileSync(path.join(root, 'custom-tab-bar/index.wxml'), 'utf8');
-const tabBarPolicy = fs.readFileSync(path.join(root, 'config/build-policy.js'), 'utf8');
-const tabPaths = [...tabBarPolicy.matchAll(/pagePath:\s*'([^']+)'/g)].map(match => match[1]);
+const tabPaths = (appJson.tabBar?.list || []).map(item => `/${item.pagePath}`);
 if (
   tabPaths.length !== 5 ||
   ![
     '/pages/home/home',
     '/pages/menu/menu',
-    '/pages/tongue/tongue',
+    '/pages/feature-tab/feature-tab',
     '/pages/orders/orders',
     '/pages/profile/profile'
   ].every((item, index) => item === tabPaths[index])

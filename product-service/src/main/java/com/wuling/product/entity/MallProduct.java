@@ -23,6 +23,9 @@ public class MallProduct {
     /** JSON 数组文本，落库格式与 V86 迁移保持一致。 */
     private String galleryImages;
     private String description;
+    /** SPU 唯一供应商，所有 SKU 自动继承。 */
+    private Long supplierSubjectId;
+    /** 以下归属字段为 V86 历史列，保留落库用于兼容，不再对外提供。 */
     private Long attributionStoreSubjectId;
     private Long attributionChannelSubjectId;
     private Long splitRuleId;

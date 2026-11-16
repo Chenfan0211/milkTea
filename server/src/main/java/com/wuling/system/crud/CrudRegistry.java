@@ -228,7 +228,10 @@ public final class CrudRegistry {
                     List.of(), "id asc")),
             // “我的”页轮播：运营在营销中心维护，启停和排序后由小程序直接读取。
             Map.entry("profileBanners", new Resource("profileBanners", "profile_banner",
-                    List.of("image_url", "alt_text", "sort", "status"),
+                    List.of("image_url", "alt_text", "target_type", "target_id", "sort", "status"),
+                    List.of("alt_text"), "sort asc, id asc", List.of("status"))),
+            Map.entry("homeBanners", new Resource("homeBanners", "home_banner",
+                    List.of("image_url", "alt_text", "target_type", "target_id", "sort", "status"),
                     List.of("alt_text"), "sort asc, id asc", List.of("status"))),
             // 运营配置（首页入口 / 活动说明 / 我的页宫格 / 城市 / 签到规则文案）
             Map.entry("appConfig", new Resource("appConfig", "app_config",

@@ -6,8 +6,8 @@
       <view class="home-hero__head">
         <text class="home-hero__title">把好物带回家</text>
         <view class="home-order" bindtap="openOrders" aria-role="button" aria-label="查看商城订单">
-          <image class="home-order__icon" src="/assets/icons/lucide/receipt.svg" mode="aspectFit" />
-          <text class="home-order__label">订单</text>
+          <image class="home-order__icon" src="/assets/icons/lucide/receipt-white.svg" mode="aspectFit" />
+          <text class="home-order__label">我的订单</text>
         </view>
       </view>
       <view class="home-hero__meta">

@@ -49,10 +49,10 @@ class MallProductDuplicateCodeTest {
         when(productMapper.insert(any(MallProduct.class))).thenThrow(new DuplicateKeyException("uk_mall_product_code"));
         MallCategory category = new MallCategory();
         category.setId(5L);
-        SubjectQueryPort.SubjectView store = new SubjectQueryPort.SubjectView();
-        store.setId(101L);
-        store.setSubjectType("STORE");
-        when(subjectQueryPort.findById(101L)).thenReturn(store);
+        SubjectQueryPort.SubjectView supplier = new SubjectQueryPort.SubjectView();
+        supplier.setId(401L);
+        supplier.setSubjectType("SUPPLIER");
+        when(subjectQueryPort.findById(401L)).thenReturn(supplier);
         when(categoryMapper.selectById(5L)).thenReturn(category);
 
         MallProductSaveRequest request = request();
@@ -75,10 +75,10 @@ class MallProductDuplicateCodeTest {
         when(productMapper.updateById(any(MallProduct.class))).thenThrow(new DuplicateKeyException("uk_mall_product_code"));
         MallCategory category = new MallCategory();
         category.setId(5L);
-        SubjectQueryPort.SubjectView store = new SubjectQueryPort.SubjectView();
-        store.setId(101L);
-        store.setSubjectType("STORE");
-        when(subjectQueryPort.findById(101L)).thenReturn(store);
+        SubjectQueryPort.SubjectView supplier = new SubjectQueryPort.SubjectView();
+        supplier.setId(401L);
+        supplier.setSubjectType("SUPPLIER");
+        when(subjectQueryPort.findById(401L)).thenReturn(supplier);
         when(categoryMapper.selectById(5L)).thenReturn(category);
 
         MallProductSaveRequest request = request();
@@ -100,7 +100,7 @@ class MallProductDuplicateCodeTest {
         MallProductSaveRequest request = new MallProductSaveRequest();
         request.setProductCode("P-1");
         request.setName("商品1");
-        request.setAttributionStoreSubjectId(101L);
+        request.setSupplierSubjectId(401L);
         return request;
     }
 }

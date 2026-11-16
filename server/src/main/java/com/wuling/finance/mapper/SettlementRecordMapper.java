@@ -30,7 +30,8 @@ public interface SettlementRecordMapper extends BaseMapper<SettlementRecord> {
     @Update("update settlement_record set amount = amount - #{deduct}, "
             + "refunded_amount = coalesce(refunded_amount, 0) + #{deduct}, update_time = now() "
             + "where id = #{id} and status = #{expectedStatus} and deleted = 0 "
-            + "and amount >= #{deduct} and coalesce(refunded_amount, 0) = #{expectedRefunded}")
+            + "and abs(amount) >= abs(#{deduct}) and sign(amount) = sign(#{deduct}) "
+            + "and coalesce(refunded_amount, 0) = #{expectedRefunded}")
     int deductAmountIfCurrent(@Param("id") Long id,
                               @Param("expectedStatus") String expectedStatus,
                               @Param("deduct") Long deduct,

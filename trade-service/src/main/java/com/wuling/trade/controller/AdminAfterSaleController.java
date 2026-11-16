@@ -53,6 +53,14 @@ public class AdminAfterSaleController {
         return Result.ok(result);
     }
 
+    @PostMapping("/after-sales/{afterSaleNo}/confirm-return-receipt")
+    public Result<MallAfterSaleVO> confirmReturnReceipt(@PathVariable String afterSaleNo) {
+        String operator = adminName();
+        MallAfterSaleVO result = afterSaleService.confirmReturnReceipt(afterSaleNo, operator);
+        auditLog.record(operator, "MALL_AFTER_SALE", "RETURN_RECEIVED", afterSaleNo, "确认收到退货", null);
+        return Result.ok(result);
+    }
+
     @PostMapping("/after-sales/{afterSaleNo}/reject")
     public Result<MallAfterSaleVO> reject(@PathVariable String afterSaleNo,
                                           @Valid @RequestBody(required = false) AfterSaleReviewRequest request) {

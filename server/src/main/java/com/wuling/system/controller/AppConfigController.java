@@ -17,8 +17,8 @@ import java.util.Set;
 /**
  * 小程序端运营配置读取。
  *
- * 配置存于 app_config 表（config_key -> JSON），后台可编辑。
- * 这样首页入口、活动说明、我的页宫格等运营内容无需发版即可调整。
+ * 通用配置存于 app_config 表（config_key -> JSON）；首页和我的页轮播逐条存于各自的轮播表。
+ * 首页入口、活动说明、轮播和我的页宫格等运营内容无需发版即可调整。
  *
  * 读取链路：Redis 缓存优先，未命中回源 MySQL 并写回缓存
  * （见 {@link AppConfigCacheService}，TTL 1 个月，更新时主动失效）。
@@ -71,13 +71,23 @@ public class AppConfigController {
         return Result.ok(result);
     }
 
-    /** 首页所需配置（快捷入口 + 活动） */
+    /** 首页所需配置（快捷入口、活动和启用的轮播） */
     @GetMapping("/home")
     public Result<Map<String, Object>> home() {
         Map<String, Object> result = new HashMap<>();
         result.put("shortcuts", readPublicValue("home_shortcuts"));
         result.put("menuActivity", readPublicValue("menu_activity"));
-        result.put("hero", readPublicValue("home_hero"));
+        List<Map<String, Object>> banners = jdbcTemplate.queryForList(
+                "select id, image_url as imageUrl, alt_text as altText, "
+                        + "target_type as targetType, target_id as targetId from home_banner "
+                        + "where status = 'enabled' and deleted = 0 order by sort asc, id asc");
+        Map<String, Object> hero = new LinkedHashMap<>();
+        hero.put("banners", banners);
+        hero.put("imageUrl", banners.isEmpty() ? "/assets/images/3x/home-hero.jpg" : banners.get(0).get("imageUrl"));
+        hero.put("altText", banners.isEmpty() ? "金秋入茶限定上新" : banners.get(0).get("altText"));
+        hero.put("targetType", banners.isEmpty() ? "none" : banners.get(0).get("targetType"));
+        hero.put("targetId", banners.isEmpty() ? "" : banners.get(0).get("targetId"));
+        result.put("hero", hero);
         return Result.ok(result);
     }
 
@@ -87,7 +97,8 @@ public class AppConfigController {
         Map<String, Object> result = new HashMap<>();
         result.put("functions", readPublicValue("profile_functions"));
         result.put("banners", jdbcTemplate.queryForList(
-                "select id, image_url as imageUrl, alt_text as altText from profile_banner "
+                "select id, image_url as imageUrl, alt_text as altText, "
+                        + "target_type as targetType, target_id as targetId from profile_banner "
                         + "where status = 'enabled' and deleted = 0 order by sort asc, id asc"));
         return Result.ok(result);
     }

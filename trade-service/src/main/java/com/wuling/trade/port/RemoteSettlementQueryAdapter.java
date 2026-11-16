@@ -53,6 +53,7 @@ public class RemoteSettlementQueryAdapter implements SettlementQueryPort {
         SettlementStatus status = new SettlementStatus();
         status.setSettled(Boolean.TRUE.equals(body.get("settled")));
         status.setHasSettlement(Boolean.TRUE.equals(body.get("hasSettlement")));
+        status.setLegacyInvestorShare(Boolean.TRUE.equals(body.get("legacyInvestorShare")));
         return status;
     }
 }

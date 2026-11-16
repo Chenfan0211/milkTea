@@ -1,6 +1,10 @@
 package com.wuling.trade.service;
 
 import com.wuling.common.mq.MqConstants;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import com.wuling.trade.entity.Payment;
 import com.wuling.common.mq.event.OrderRefundedEvent;
 import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.entity.MallAfterSale;
@@ -23,7 +27,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -48,9 +54,11 @@ class RefundServiceAfterSaleTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Refund.class);
         orderMapper = mock(OrderMapper.class);
         orderItemMapper = mock(OrderItemMapper.class);
         refundMapper = mock(RefundMapper.class);
+        when(refundMapper.update(isNull(), any())).thenReturn(1);
         afterSaleMapper = mock(MallAfterSaleMapper.class);
         orderService = mock(OrderService.class);
         settlementQueryPort = mock(SettlementQueryPort.class);
@@ -70,9 +78,11 @@ class RefundServiceAfterSaleTest {
         Refund refund = afterSaleRefund(2_000L);
         MallAfterSale afterSale = afterSale();
         when(orderMapper.selectById(order.getId())).thenReturn(order);
+        when(orderService.lockForUpdate(order.getOrderNo())).thenReturn(order);
         when(orderItemMapper.selectList(any())).thenReturn(List.of(orderItem(2)));
         when(refundMapper.selectById(refund.getId())).thenReturn(refund);
         when(afterSaleMapper.selectById(401L)).thenReturn(afterSale);
+        when(afterSaleMapper.selectOne(any())).thenReturn(afterSale);
         when(settlementQueryPort.query(order.getId())).thenReturn(settlement(true));
         when(mallStockService.restoreForAfterSale(order, afterSale)).thenReturn(Map.of(301L, 1));
         when(orderService.markAfterSaleRefunded(order, 1, 2)).thenReturn(false);
@@ -84,8 +94,52 @@ class RefundServiceAfterSaleTest {
         verify(outboxService).enqueue(eq("ORDER"), eq(order.getOrderNo()), eq("ORDER_REFUNDED"),
                 eq(MqConstants.FINANCE_REVERSE_ROUTING_KEY), eq(order.getOrderNo()), event.capture());
         assertEquals(1_000, event.getValue().getRefundRatio());
+        assertEquals(800L, event.getValue().getSubjectRefundAmounts().get(412L));
+        assertEquals(100L, event.getValue().getSubjectRefundAmounts().get(411L));
+        assertEquals(200L, event.getValue().getPlatformCommissionRefund());
+        assertEquals(900L, event.getValue().getPlatformBonusRefund());
         verify(outboxService, never()).enqueue(eq("ORDER"), anyString(),
                 eq("COUPON_RESTORE_REFUND"), anyString(), anyString(), any());
+    }
+
+    @Test
+    void noLeaderRefundReturnsDistributionDifferenceFromPlatform() {
+        Order order = mallOrder(OrderService.STATUS_SHIPPED, 20_000L);
+        order.setLeaderSubjectId(null);
+        Refund refund = afterSaleRefund(2_000L);
+        MallAfterSale afterSale = afterSale();
+        when(orderMapper.selectById(order.getId())).thenReturn(order);
+        when(orderService.lockForUpdate(order.getOrderNo())).thenReturn(order);
+        when(orderItemMapper.selectList(any())).thenReturn(List.of(orderItem(2)));
+        when(refundMapper.selectById(refund.getId())).thenReturn(refund);
+        when(afterSaleMapper.selectById(401L)).thenReturn(afterSale);
+        when(afterSaleMapper.selectOne(any())).thenReturn(afterSale);
+        when(settlementQueryPort.query(order.getId())).thenReturn(settlement(true));
+        when(mallStockService.restoreForAfterSale(order, afterSale)).thenReturn(Map.of(301L, 1));
+        when(orderService.markAfterSaleRefunded(order, 1, 2)).thenReturn(false);
+
+        service.markSuccessForTest(refund);
+
+        ArgumentCaptor<OrderRefundedEvent> event = ArgumentCaptor.forClass(OrderRefundedEvent.class);
+        verify(outboxService).enqueue(eq("ORDER"), eq(order.getOrderNo()), eq("ORDER_REFUNDED"),
+                eq(MqConstants.FINANCE_REVERSE_ROUTING_KEY), eq(order.getOrderNo()), event.capture());
+        assertEquals(Map.of(412L, 800L), event.getValue().getSubjectRefundAmounts());
+        assertEquals(200L, event.getValue().getPlatformCommissionRefund());
+        assertEquals(1_000L, event.getValue().getPlatformBonusRefund());
+    }
+
+    @Test
+    void partialRefundRejectsHistoricalMallInvestorSplitBeforePaying() {
+        Order order = mallOrder(OrderService.STATUS_COMPLETED, 20_000L);
+        MallAfterSale afterSale = afterSale();
+        SettlementQueryPort.SettlementStatus status = settlement(true);
+        status.setLegacyInvestorShare(true);
+        when(orderService.lockForUpdate(order.getOrderNo())).thenReturn(order);
+        when(settlementQueryPort.query(order.getId())).thenReturn(status);
+
+        assertThrows(com.wuling.common.exception.BusinessException.class,
+                () -> service.refundAfterSale(order, afterSale, null));
+        verify(refundMapper, never()).insert(any(Refund.class));
     }
 
     @Test
@@ -96,9 +150,11 @@ class RefundServiceAfterSaleTest {
         Refund refund = afterSaleRefund(20_000L);
         MallAfterSale afterSale = afterSale();
         when(orderMapper.selectById(order.getId())).thenReturn(order);
+        when(orderService.lockForUpdate(order.getOrderNo())).thenReturn(order);
         when(orderItemMapper.selectList(any())).thenReturn(List.of(orderItem(2)));
         when(refundMapper.selectById(refund.getId())).thenReturn(refund);
         when(afterSaleMapper.selectById(401L)).thenReturn(afterSale);
+        when(afterSaleMapper.selectOne(any())).thenReturn(afterSale);
         when(settlementQueryPort.query(order.getId())).thenReturn(settlement(false));
         when(mallStockService.restoreForAfterSale(order, afterSale)).thenReturn(Map.of(301L, 2));
         when(orderService.markAfterSaleRefunded(order, 2, 2)).thenReturn(true);
@@ -117,6 +173,7 @@ class RefundServiceAfterSaleTest {
         Order order = mallOrder(OrderService.STATUS_SHIPPED, 20_000L);
         Refund refund = afterSaleRefund(2_000L);
         when(orderMapper.selectById(order.getId())).thenReturn(order);
+        when(orderService.lockForUpdate(order.getOrderNo())).thenReturn(order);
         when(orderItemMapper.selectList(any())).thenReturn(List.of(orderItem(2)));
         when(afterSaleMapper.selectById(401L)).thenReturn(afterSale());
 
@@ -135,17 +192,21 @@ class RefundServiceAfterSaleTest {
         MallAfterSale afterSale = afterSale();
         afterSale.setStatus("FAILED");
         when(refundMapper.selectById(501L)).thenReturn(refund);
+        when(refundMapper.selectOne(any())).thenReturn(refund);
+        when(orderItemMapper.selectList(any())).thenReturn(List.of(orderItem(2)));
+        when(orderService.lockForUpdate(order.getOrderNo())).thenReturn(order);
         when(orderMapper.selectById(200L)).thenReturn(order);
         when(afterSaleMapper.selectById(401L)).thenReturn(afterSale);
+        when(afterSaleMapper.selectOne(any())).thenReturn(afterSale);
         PaymentGateway gateway = mock(PaymentGateway.class);
-        when(gatewayResolver.active()).thenReturn(gateway);
-        when(gateway.refund(anyString(), anyString(), anyLong(), any())).thenReturn(new PaymentGateway.RefundApplyResult(true, "WX-RETRY", null));
+        when(gatewayResolver.forPayment(any())).thenReturn(gateway);
+        when(gateway.refund(anyString(), anyString(), anyLong(), anyLong(), any())).thenReturn(new PaymentGateway.RefundApplyResult(true, "WX-RETRY", null));
 
         service.retry(501L);
 
         verify(afterSaleMapper).updateById(any(MallAfterSale.class));
         verify(orderService).markRefundPending(order);
-        verify(refundMapper).updateById(refund);
+        verify(refundMapper).update(isNull(), any());
         assertEquals(RefundService.STATUS_REFUNDING, refund.getStatus());
     }
 
@@ -155,6 +216,11 @@ class RefundServiceAfterSaleTest {
         item.setOrderId(200L);
         item.setMallSkuId(101L);
         item.setQuantity(quantity);
+        item.setUnitPrice(2_000L);
+        item.setCostPrice(800L);
+        item.setPlatformCommission(200L);
+        item.setDistributionCommission(100L);
+        item.setSupplierSubjectId(412L);
         return item;
     }
 
@@ -166,6 +232,7 @@ class RefundServiceAfterSaleTest {
         order.setUserId(88L);
         order.setStatus(status);
         order.setPaidAmount(paidAmount);
+        order.setLeaderSubjectId(411L);
         return order;
     }
 
@@ -186,7 +253,10 @@ class RefundServiceAfterSaleTest {
         MallAfterSale afterSale = new MallAfterSale();
         afterSale.setId(401L);
         afterSale.setOrderId(200L);
+        afterSale.setRefundAmount(2_000L);
         afterSale.setStatus("REFUNDING");
+        afterSale.setReturnTrackingNo("SF123456789");
+        afterSale.setReturnReceivedTime(java.time.LocalDateTime.now());
         afterSale.setItems("[{\"orderItemId\":301,\"skuId\":101,\"quantity\":1}]");
         return afterSale;
     }

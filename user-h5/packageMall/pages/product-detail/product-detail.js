@@ -15,7 +15,9 @@ Page({
     galleryImages: [],
     galleryIndex: 0,
     canBuy: false,
-    priceText: '¥0'
+    priceText: '¥0',
+    cartCount: 0,
+    cartCountText: ''
   },
 
   onLoad(options) {
@@ -26,14 +28,25 @@ Page({
       return;
     }
     this.loadProduct();
+    this.hasShown = false;
+  },
+
+  onShow() {
+    this.syncCartCount();
+    if (this.hasShown) this.loadProduct();
+    this.hasShown = true;
+  },
+
+  syncCartCount() {
+    const count = mallCart.read().reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    this.setData({ cartCount: count, cartCountText: count > 99 ? '99+' : String(count) });
   },
 
   loadProduct() {
     this.setData({ loading: true, error: '' });
-    api
-      .fetchMallProductDetail(this.data.productId)
-      .then(detail => {
-        const product = mall.normalizeDetail(detail);
+    Promise.all([api.fetchMallProductDetail(this.data.productId), mall.fetchLeaderBuyer()])
+      .then(([detail, leaderBuyer]) => {
+        const product = mall.normalizeDetail(detail, leaderBuyer);
         const selectedSku = product.skus.find(sku => !sku.soldOut) || product.skus[0] || null;
         this.setData({
           loading: false,
@@ -104,6 +117,7 @@ Page({
       () => {
         this.validateAndUseSku(item => {
           mallCart.add(item);
+          this.syncCartCount();
           wx.showToast({ title: '已加入购物车', icon: 'none' });
         });
       },

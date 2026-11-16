@@ -1,4 +1,5 @@
 const buildPolicy = require('../config/build-policy');
+const tabBarConfig = require('./tab-bar-config');
 
 const REPLACEMENT_TABS = {
   memberZone: {
@@ -83,51 +84,43 @@ function selectTabBarItems(basePolicy, visibility) {
 }
 
 function getVisibility() {
-  return resolveFeatureVisibility(buildPolicy, runtimePolicy, buildPolicy.version);
+  return {
+    tongueHealth: !tabBarConfig.isMemberZoneTab(),
+    memberZone: tabBarConfig.isMemberZoneTab()
+  };
 }
 
 function getTabBarItems() {
-  return selectTabBarItems(buildPolicy, getVisibility()).map(item => Object.assign({}, item));
+  return tabBarConfig.getTabBarItems();
 }
 
 function getTabBarPages() {
-  return getTabBarItems().map(item => item.pagePath);
+  return tabBarConfig.getTabBarPages();
 }
 
 function getThirdTabPath() {
-  const items = getTabBarItems();
-  const third = items[2] || items[items.length - 1];
-  return third ? third.pagePath : '/pages/home/home';
+  return tabBarConfig.getThirdTabPath();
 }
 
 function getTabBarSelectedIndex(url) {
-  const target = normalizePath(url);
-  return getTabBarPages().indexOf(target);
+  return tabBarConfig.getTabBarSelectedIndex(url);
 }
 
 function shouldHideRoute(url, visibility) {
-  const effective = visibility || getVisibility();
-  if (effective.tongueHealth) return false;
-  const target = normalizePath(url);
-  return TONGUE_ROUTE_PREFIXES.some(prefix => target.indexOf(prefix) === 0);
+  if (visibility) {
+    if (visibility.tongueHealth) return false;
+    const target = normalizePath(url);
+    return TONGUE_ROUTE_PREFIXES.some(prefix => target.indexOf(prefix) === 0);
+  }
+  return tabBarConfig.shouldHideRoute(url);
 }
 
 function redirectIfHidden(url, fallback) {
-  if (!shouldHideRoute(url)) return false;
-  const visibility = getVisibility();
-  const target = fallback || (visibility.memberZone ? getThirdTabPath() : '/pages/home/home');
-  if (typeof wx === 'undefined') return true;
-  if (getTabBarPages().indexOf(normalizePath(target)) !== -1 && wx.switchTab) {
-    wx.switchTab({ url: normalizePath(target) });
-  } else if (wx.reLaunch) {
-    wx.reLaunch({ url: target });
-  }
-  return true;
+  return tabBarConfig.redirectIfHidden(url, fallback);
 }
 
 function isMemberZoneTab() {
-  const visibility = getVisibility();
-  return visibility.memberZone && !visibility.tongueHealth;
+  return tabBarConfig.isMemberZoneTab();
 }
 
 function setRuntimePolicy(policy) {
@@ -147,6 +140,11 @@ function refreshRemote(fetchConfig) {
 
 function resetRuntimePolicy() {
   runtimePolicy = null;
+  tabBarConfig.resetForTest();
+}
+
+function ready(fetchConfig, options) {
+  return tabBarConfig.ready(fetchConfig, options);
 }
 
 module.exports = {
@@ -161,6 +159,7 @@ module.exports = {
   isVersionHidden,
   normalizePath,
   normalizeRemotePolicy,
+  ready,
   redirectIfHidden,
   refreshRemote,
   resetRuntimePolicy,

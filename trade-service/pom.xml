@@ -133,6 +133,14 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 库存 HTTP 契约测试使用商品服务真实控制器与库存事务，不进入运行时依赖。 -->
+        <dependency>
+            <groupId>com.wuling</groupId>
+            <artifactId>product-service</artifactId>
+            <version>${project.version}</version>
+            <classifier>contract</classifier>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <!--

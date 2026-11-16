@@ -148,7 +148,3 @@
 .auth-actions__primary::after {
   border: none;
 }
-
-.is-disabled {
-  opacity: 0.5;
-}

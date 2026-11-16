@@ -118,7 +118,7 @@ build() {
 }
 
 # ---------- 清理旧容器与旧镜像 ----------
-# 只保留最近 KEEP_VERSIONS 个版本（默认 1），并清理已退出的应用容器。
+# 每次 up 健康后只保留当前运行镜像、:latest 和最近 KEEP_VERSIONS 个回滚版本。
 # 安全护栏见 scripts/clean-containers.sh（不动中间件、不动数据卷）。
 clean_images() {
   local script="/opt/wuling/scripts/clean-containers.sh"
@@ -126,7 +126,7 @@ clean_images() {
     warn "缺少 $script，跳过镜像清理（请先 $0 sync-scripts）"
     return 0
   fi
-  log "清理旧容器与旧镜像（保留最近 ${KEEP_VERSIONS:-1} 个版本）"
+  log "清理旧容器与旧镜像（当前版本 + latest + 最近 ${KEEP_VERSIONS:-1} 个回滚版本）"
   # 清理失败不应让整个部署失败：镜像清理是运维优化，不是上线必要条件
   bash "$script" || warn "镜像清理未完全成功，请手动检查：$script"
 }
@@ -139,7 +139,7 @@ up() {
   compose up -d --no-build
   wait_healthy
   # 健康后再清理：确保新版本已稳定接管，旧镜像才可安全删除。
-  # 保留最近 1 个历史版本，便于出问题时快速回滚。
+  # 保留当前版本、latest 和最近 1 个历史版本，便于出问题时快速回滚。
   clean_images
 }
 
@@ -360,7 +360,7 @@ EOF
 
 环境变量：
   IMAGE_TAG=20260927-120000    指定构建/启动使用的镜像 tag
-  KEEP_VERSIONS=1              保留的历史镜像版本数（up 后自动清理时生效）
+  KEEP_VERSIONS=1              保留的最近回滚版本数（当前版本与 latest 始终保留）
   BUILD_CACHE_MAX_AGE=168     构建缓存保留小时数（0=清空全部可回收缓存）
 USAGE
   ;;

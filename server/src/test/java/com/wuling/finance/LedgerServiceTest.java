@@ -23,6 +23,7 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -479,6 +480,83 @@ class LedgerServiceTest {
     }
 
     @Test
+    void partialMallRefundOnlyReversesReturnedSuppliersShare() {
+        String orderNo = "MALL-MIXED-SUPPLIERS";
+        long orderId = 9_412L;
+        SettlementRecord first = settlementRecord(821L, 201L, orderId, 400L, LedgerService.SETTLE_SETTLED);
+        SettlementRecord second = settlementRecord(822L, 202L, orderId, 700L, LedgerService.SETTLE_SETTLED);
+        SubjectAccount firstAccount = account(51L, 201L, "SUPPLIER", 400L, 0L);
+        SubjectAccount secondAccount = account(52L, 202L, "SUPPLIER", 700L, 0L);
+        when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
+        when(settlementRecordMapper.selectByOrderIdForUpdate(orderId)).thenReturn(List.of(first, second));
+        when(subjectAccountMapper.selectOne(any())).thenReturn(firstAccount);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(201L)).thenReturn(firstAccount);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(202L)).thenReturn(secondAccount);
+
+        // 金额比例四舍五入到 10000 时，带明细的部分退仍不能按整单全退。
+        ledgerService.reverseMallAfterSale(orderNo, "RF-MIXED", 10000,
+                Map.of(201L, 400L), 0L, 0L, 0L, 0L);
+
+        assertEquals(0L, firstAccount.getAvailableBalance());
+        assertEquals(700L, secondAccount.getAvailableBalance());
+    }
+
+    @Test
+    void partialMallRefundReversesSupplierLeaderAndPlatformComponents() {
+        String orderNo = "MALL-THREE-PARTIES";
+        long orderId = 9_413L;
+        SettlementRecord supplierA = settlementRecord(831L, 201L, orderId, 400L, LedgerService.SETTLE_SETTLED);
+        SettlementRecord supplierB = settlementRecord(832L, 202L, orderId, 700L, LedgerService.SETTLE_SETTLED);
+        SettlementRecord leader = settlementRecord(833L, 301L, orderId, 100L, LedgerService.SETTLE_SETTLED);
+        SettlementRecord commission = settlementRecord(834L, 1L, orderId, 200L, LedgerService.SETTLE_SETTLED);
+        SettlementRecord bonus = settlementRecord(835L, 1L, orderId, 600L, LedgerService.SETTLE_SETTLED);
+        SubjectAccount a = account(61L, 201L, "SUPPLIER", 400L, 0L);
+        SubjectAccount b = account(62L, 202L, "SUPPLIER", 700L, 0L);
+        SubjectAccount l = account(63L, 301L, "LEADER", 100L, 0L);
+        SubjectAccount p = account(64L, 1L, "PLATFORM", 800L, 0L);
+        when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
+        when(settlementRecordMapper.selectByOrderIdForUpdate(orderId))
+                .thenReturn(List.of(commission, bonus, supplierA, supplierB, leader));
+        when(subjectQueryPort.findFirstByType("PLATFORM")).thenReturn(1L);
+        when(subjectAccountMapper.selectOne(any())).thenReturn(a);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(201L)).thenReturn(a);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(202L)).thenReturn(b);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(301L)).thenReturn(l);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(1L)).thenReturn(p);
+
+        ledgerService.reverseMallAfterSale(orderNo, "RF-THREE", 5000,
+                Map.of(201L, 400L, 301L, 100L), 200L, 300L, 200L, 600L);
+
+        assertEquals(0L, a.getAvailableBalance());
+        assertEquals(700L, b.getAvailableBalance());
+        assertEquals(0L, l.getAvailableBalance());
+        assertEquals(300L, p.getAvailableBalance());
+        assertEquals(0L, commission.getAmount());
+        assertEquals(300L, bonus.getAmount());
+    }
+
+    @Test
+    void partialMallRefundCreditsBackPlatformLoss() {
+        String orderNo = "MALL-PLATFORM-LOSS";
+        long orderId = 9_414L;
+        SettlementRecord loss = settlementRecord(836L, 1L, orderId, -100L, LedgerService.SETTLE_SETTLED);
+        SubjectAccount platform = account(65L, 1L, "PLATFORM", 900L, 0L);
+        when(splitSnapshotMapper.selectOrderIdByNo(orderNo)).thenReturn(orderId);
+        when(settlementRecordMapper.selectByOrderIdForUpdate(orderId)).thenReturn(List.of(loss));
+        when(subjectQueryPort.findFirstByType("PLATFORM")).thenReturn(1L);
+        stubSingleAccount(platform);
+
+        ledgerService.reverseMallAfterSale(orderNo, "RF-LOSS", 5000,
+                Map.of(), 0L, -100L, 0L, -100L);
+
+        assertEquals(1_000L, platform.getAvailableBalance());
+        assertEquals(0L, loss.getAmount());
+        ledgerService.reverseForOrder(orderNo, "RF-FINAL", 10000);
+        assertEquals(1_000L, platform.getAvailableBalance());
+        assertEquals(LedgerService.SETTLE_CANCELED, loss.getStatus());
+    }
+
+    @Test
     void cumulativePartialRefundNeverExceedsOriginalAmount() {
         String orderNo = "ORDER-REFUND-PARTIAL-CLAMP";
         long orderId = 9_411L;
@@ -626,29 +704,21 @@ class LedgerServiceTest {
     void mallOrderWithLeaderSettlesCommissionToLeaderAndNoStoreShare() {
         long orderId = 9_700L;
         String orderNo = "ORDER-MALL-LEADER";
-        SplitRule rule = new SplitRule();
-        rule.setStoreRatio(1_000);   // 规则仍有门店提成，但商城应不发
-        rule.setChannelRatio(100);
-        rule.setInvestorRatio(1500);
 
         SubjectAccount platformAccount = account(21L, 1L, "PLATFORM", 0L, 0L);
-        SubjectAccount storeAccount = account(22L, 2L, "STORE", 0L, 0L);
         SubjectAccount leaderAccount = account(23L, 9L, "LEADER", 0L, 0L);
         SubjectAccount supplierAccount = account(24L, 3L, "SUPPLIER", 0L, 0L);
-        when(splitRuleMapper.selectOne(any())).thenReturn(rule);
-        when(subjectQueryPort.findInvestorOfStore(2L)).thenReturn(null);
         when(subjectQueryPort.findFirstByType("PLATFORM")).thenReturn(1L);
         when(subjectQueryPort.findById(anyLong())).thenAnswer(invocation -> {
             Long subjectId = invocation.getArgument(0);
             return subject(subjectId, subjectId == 1L ? "PLATFORM"
                     : subjectId == 3L ? "SUPPLIER"
-                    : subjectId == 9L ? "LEADER" : "STORE");
+                    : "LEADER");
         });
         when(subjectAccountMapper.selectOne(any())).thenReturn(platformAccount);
         when(subjectAccountMapper.selectBySubjectIdForUpdate(anyLong())).thenAnswer(invocation -> {
             Long subjectId = invocation.getArgument(0);
             return subjectId == 1L ? platformAccount
-                    : subjectId == 2L ? storeAccount
                     : subjectId == 3L ? supplierAccount : leaderAccount;
         });
 
@@ -670,15 +740,18 @@ class LedgerServiceTest {
 
         // 实付 2200 = 售价 1000×2 + 分销佣金 100×2；供应商成本 400×2 = 800；平台提成 50×2 = 100
         SplitSnapshot snapshot = ledgerService.executeSplit(
-                orderId, orderNo, 2_200L, 2, 2L, null, null, null, rule, 0L,
+                orderId, orderNo, 2_200L, 2, null, null, null, null, null, 0L,
                 List.of(new SplitCalculator.LineItem(3L, 2_200L, 50L, 400L, 2, 100L)),
                 true, 9L);
 
         assertEquals(601L, snapshot.getId());
         assertEquals(200L, snapshot.getLeaderAmount(), "团长分佣 = 100 × 2 件");
         assertEquals(0L, snapshot.getStoreAmount(), "商城订单不发门店提成");
-        assertEquals(0L, storeAccount.getAvailableBalance());
+        assertEquals(0L, snapshot.getChannelAmount());
+        assertEquals(0L, snapshot.getInvestorAmount(), "本阶段商城不计算投资人份额");
+        assertEquals(1_200L, snapshot.getPlatformAmount());
         assertEquals(200L, leaderAccount.getAvailableBalance());
+        assertEquals(800L, supplierAccount.getAvailableBalance());
 
         ArgumentCaptor<SettlementRecord> recordCaptor = ArgumentCaptor.forClass(SettlementRecord.class);
         verify(settlementRecordMapper, atLeast(3)).insert(recordCaptor.capture());
@@ -686,6 +759,38 @@ class LedgerServiceTest {
         assertTrue(records.stream().anyMatch(r -> r.getSubjectId() == 9L && r.getAmount() == 200L),
                 "团长应有一条 200 分结算记录");
         assertTrue(records.stream().noneMatch(r -> r.getSubjectId() == 2L),
-                "门店不应有商城订单结算记录");
+                "门店、渠道和投资人都不应有商城订单结算记录");
+    }
+
+    @Test
+    void mallOrderWithoutLeaderCreditsCommissionToPlatform() {
+        SubjectAccount platformAccount = account(21L, 1L, "PLATFORM", 0L, 0L);
+        when(subjectQueryPort.findFirstByType("PLATFORM")).thenReturn(1L);
+        when(subjectQueryPort.findById(anyLong())).thenAnswer(invocation -> {
+            Long id = invocation.getArgument(0);
+            return subject(id, id == 1L ? "PLATFORM" : "SUPPLIER");
+        });
+        when(subjectAccountMapper.selectOne(any())).thenReturn(platformAccount);
+        when(subjectAccountMapper.selectBySubjectIdForUpdate(anyLong())).thenReturn(platformAccount);
+        when(splitSnapshotMapper.selectOne(any())).thenReturn(null);
+        doAnswer(invocation -> {
+            ((SplitSnapshot) invocation.getArgument(0)).setId(602L);
+            return 1;
+        }).when(splitSnapshotMapper).insert(any(SplitSnapshot.class));
+        doAnswer(invocation -> {
+            ((SettlementRecord) invocation.getArgument(0)).setId(901L);
+            return 1;
+        }).when(settlementRecordMapper).insert(any(SettlementRecord.class));
+
+        SplitSnapshot snapshot = ledgerService.executeSplit(
+                9_701L, "ORDER-MALL-NO-LEADER", 2L, 1,
+                null, null, null, null, null, 0L,
+                List.of(new SplitCalculator.LineItem(3L, 2L, 0L, 0L, 1, 1L)),
+                true, null);
+
+        assertEquals(0L, snapshot.getLeaderAmount());
+        assertEquals(2L, snapshot.getPlatformAmount());
+        assertEquals(2L, snapshot.getPlatformBonus());
+        assertEquals(2L, platformAccount.getAvailableBalance());
     }
 }

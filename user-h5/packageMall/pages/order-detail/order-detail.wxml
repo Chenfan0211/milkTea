@@ -1,5 +1,5 @@
 <view class="mall-page">
-  <navigation-bar title="订单详情" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+  <navigation-bar title="订单详情" back="{{true}}" delta="{{fromPayment ? 0 : 1}}" bind:back="handleBack" background="#FFFFFF" color="#2F302D" />
 
   <scroll-view class="mall-scroll" scroll-y show-scrollbar="{{false}}">
     <view class="order-detail-content">
@@ -119,15 +119,6 @@
           </view>
         </view>
 
-        <view class="order-detail__more" bindtap="openAfterSales" aria-role="button" aria-label="查看售后记录">
-          <text>查看售后记录</text>
-          <image class="order-detail__more-icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
-        </view>
-
-        <view class="order-detail__more" bindtap="openOrders" aria-role="button" aria-label="查看更多商城订单">
-          <text>查看全部商城订单</text>
-          <image class="order-detail__more-icon" src="/assets/icons/lucide/chevron-right.svg" mode="aspectFit" />
-        </view>
       </block>
     </view>
   </scroll-view>

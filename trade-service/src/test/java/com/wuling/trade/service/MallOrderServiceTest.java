@@ -11,9 +11,7 @@ import com.wuling.trade.mapper.OrderMapper;
 import com.wuling.trade.mapper.OrderShippingMapper;
 import com.wuling.trade.port.MallCatalogPort;
 import com.wuling.trade.port.MallAddressPort;
-import com.wuling.trade.port.MallRulePort;
 import com.wuling.trade.port.MallLeaderPort;
-import com.wuling.common.mq.event.SplitRuleSnapshot;
 import com.wuling.common.outbox.OutboxService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,7 +30,6 @@ class MallOrderServiceTest {
     private OrderShippingMapper shippingMapper;
     private MallCatalogPort catalogPort;
     private MallAddressPort addressPort;
-    private MallRulePort rulePort;
     private MallLeaderPort leaderPort;
     private MallOrderLookupService lookupService;
     private OutboxService outboxService;
@@ -46,11 +43,9 @@ class MallOrderServiceTest {
         shippingMapper = mock(OrderShippingMapper.class);
         catalogPort = mock(MallCatalogPort.class);
         addressPort = mock(MallAddressPort.class);
-        rulePort = mock(MallRulePort.class);
         leaderPort = mock(MallLeaderPort.class);
         when(leaderPort.resolve(anyLong())).thenReturn(MallLeaderPort.LeaderInfo.none());
         lookupService = mock(MallOrderLookupService.class);
-        when(rulePort.snapshot(5L)).thenReturn(new SplitRuleSnapshot(5L, 300, 100, 2000, 10000L, 3000));
         outboxService = mock(OutboxService.class);
         orderService = mock(OrderService.class);
         when(orderService.toDTO(any(Order.class), anyList())).thenAnswer(invocation -> {
@@ -72,7 +67,7 @@ class MallOrderServiceTest {
             return dto;
         });
         service = new MallOrderService(orderMapper, orderItemMapper, shippingMapper,
-                catalogPort, addressPort, outboxService, orderService, rulePort, leaderPort, lookupService);
+                catalogPort, addressPort, outboxService, orderService, leaderPort, lookupService);
     }
 
     @Test
@@ -83,8 +78,7 @@ class MallOrderServiceTest {
 
         MallCatalogPort.SkuView sku = new MallCatalogPort.SkuView(
                 101L, 11L, "MP001", "青瓷茶杯", "500ml", "/images/cup.jpg",
-                9900L, 12900L, 4000L, 500L, 0L, 7L,
-                3L, 4L, 5L, 8, true);
+                9900L, 12900L, 4000L, 500L, 0L, 7L, 8, true);
         when(catalogPort.findSkus(List.of(101L))).thenReturn(List.of(sku));
         doAnswer(invocation -> {
             Order order = invocation.getArgument(0);
@@ -117,9 +111,10 @@ class MallOrderServiceTest {
 
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
         verify(orderMapper).insert(orderCaptor.capture());
-        assertThat(orderCaptor.getValue().getStoreSubjectId()).isEqualTo(3L);
-        assertThat(orderCaptor.getValue().getChannelSubjectId()).isEqualTo(4L);
-        assertThat(orderCaptor.getValue().getSplitRuleId()).isEqualTo(5L);
+        assertThat(orderCaptor.getValue().getStoreSubjectId()).isNull();
+        assertThat(orderCaptor.getValue().getChannelSubjectId()).isNull();
+        assertThat(orderCaptor.getValue().getSplitRuleId()).isNull();
+        assertThat(orderCaptor.getValue().getSplitRuleSnapshot()).isNull();
         assertThat(orderCaptor.getValue().getClientRequestId()).isEqualTo("req-001");
         ArgumentCaptor<OrderItem> itemCaptor = ArgumentCaptor.forClass(OrderItem.class);
         verify(orderItemMapper).insert(itemCaptor.capture());
@@ -138,8 +133,7 @@ class MallOrderServiceTest {
 
         MallCatalogPort.SkuView sku = new MallCatalogPort.SkuView(
                 101L, 11L, "MP001", "青瓷茶杯", "500ml", "/images/cup.jpg",
-                9900L, 12900L, 4000L, 500L, 100L, 7L,
-                3L, 4L, 5L, 8, true);
+                9900L, 12900L, 4000L, 500L, 100L, 7L, 8, true);
         when(catalogPort.findSkus(List.of(101L))).thenReturn(List.of(sku));
         doAnswer(invocation -> {
             Order order = invocation.getArgument(0);
@@ -166,7 +160,8 @@ class MallOrderServiceTest {
         });
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
         verify(orderMapper).insert(orderCaptor.capture());
-        assertThat(orderCaptor.getValue().getSplitRuleSnapshot()).contains("\"leaderSubjectId\":9");
+        assertThat(orderCaptor.getValue().getLeaderSubjectId()).isEqualTo(9L);
+        assertThat(orderCaptor.getValue().getLeaderUserId()).isEqualTo(88L);
     }
     @Test
 
@@ -198,8 +193,7 @@ class MallOrderServiceTest {
     void quoteUsesServerSideLeaderPricingAndPayableTotal() {
         MallCatalogPort.SkuView sku = new MallCatalogPort.SkuView(
                 101L, 11L, "MP001", "青瓷茶杯", "500ml", "/images/cup.jpg",
-                9900L, 12900L, 4000L, 500L, 100L, 7L,
-                3L, 4L, 5L, 8, true);
+                9900L, 12900L, 4000L, 500L, 100L, 7L, 8, true);
         when(catalogPort.findSkus(List.of(101L))).thenReturn(List.of(sku));
         when(leaderPort.resolve(88L)).thenReturn(MallLeaderPort.LeaderInfo.none());
 
@@ -227,8 +221,7 @@ class MallOrderServiceTest {
     void quoteMarksOutOfStockAsInvalidWithoutChargingIt() {
         MallCatalogPort.SkuView sku = new MallCatalogPort.SkuView(
                 101L, 11L, "MP001", "青瓷茶杯", "500ml", "/images/cup.jpg",
-                9900L, 12900L, 4000L, 500L, 0L, 7L,
-                3L, 4L, 5L, 1, true);
+                9900L, 12900L, 4000L, 500L, 0L, 7L, 1, true);
         when(catalogPort.findSkus(List.of(101L))).thenReturn(List.of(sku));
 
         MallCheckoutQuoteRequest request = new MallCheckoutQuoteRequest();

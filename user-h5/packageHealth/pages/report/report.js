@@ -108,15 +108,17 @@ Page({
   },
 
   onLoad(options) {
-    if (featurePolicy.redirectIfHidden('/packageHealth/pages/report/report')) return;
-    this.reportId = String((options && options.id) || '');
-    this.pollCount = 0;
-    this.pills = {};
-    if (!this.reportId) {
-      this.setData({ loading: false, error: '报告编号缺失' });
-      return;
-    }
-    this.load();
+    return featurePolicy.ready(api.fetchConfig).then(() => {
+      if (featurePolicy.redirectIfHidden('/packageHealth/pages/report/report')) return;
+      this.reportId = String((options && options.id) || '');
+      this.pollCount = 0;
+      this.pills = {};
+      if (!this.reportId) {
+        this.setData({ loading: false, error: '报告编号缺失' });
+        return;
+      }
+      this.load();
+    });
   },
 
   onUnload() {

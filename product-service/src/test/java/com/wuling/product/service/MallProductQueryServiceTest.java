@@ -77,7 +77,7 @@ class MallProductQueryServiceTest {
     }
 
     @Test
-    @DisplayName("内部 SKU 查询返回分账快照字段和可用库存")
+    @DisplayName("内部 SKU 查询从 SPU 返回供应商和可用库存")
     void internalQueryReturnsCommercialSnapshotAndAvailableStock() {
         MallSku sku = new MallSku();
         sku.setId(1L);
@@ -89,7 +89,7 @@ class MallProductQueryServiceTest {
         sku.setCostPrice(500L);
         sku.setPlatformCommission(100L);
         sku.setDistributionCommission(120L);
-        sku.setSupplierSubjectId(401L);
+        sku.setSupplierSubjectId(999L);
         sku.setStock(8);
         sku.setLockedStock(3);
 
@@ -98,9 +98,7 @@ class MallProductQueryServiceTest {
         product.setProductCode("P-9");
         product.setName("茶杯");
         product.setStatus("ON_SALE");
-        product.setAttributionStoreSubjectId(101L);
-        product.setAttributionChannelSubjectId(301L);
-        product.setSplitRuleId(7L);
+        product.setSupplierSubjectId(401L);
 
         when(skuMapper.selectBatchIds(List.of(1L))).thenReturn(List.of(sku));
         when(productMapper.selectBatchIds(any())).thenReturn(List.of(product));
@@ -109,9 +107,6 @@ class MallProductQueryServiceTest {
 
         assertEquals(1L, view.getSkuId());
         assertEquals("P-9", view.getProductCode());
-        assertEquals(101L, view.getAttributionStoreSubjectId());
-        assertEquals(301L, view.getAttributionChannelSubjectId());
-        assertEquals(7L, view.getSplitRuleId());
         assertEquals(1000L, view.getSalePrice());
         assertEquals(500L, view.getCostPrice());
         assertEquals(100L, view.getPlatformCommission());
@@ -147,6 +142,60 @@ class MallProductQueryServiceTest {
 
         assertTrue(card.getSoldOut());
         assertFalse(card.getAvailableStock() > 0);
+    }
+
+    @Test
+    @DisplayName("内部 SKU 未配置图片时回退 SPU 主图")
+    void internalSkuFallsBackToProductCoverImage() {
+        MallSku sku = new MallSku();
+        sku.setId(1L);
+        sku.setProductId(9L);
+        sku.setSkuCode("SKU-1");
+        sku.setSpecValue("红色");
+        sku.setSalePrice(1000L);
+        sku.setStock(1);
+        sku.setLockedStock(0);
+
+        MallProduct product = new MallProduct();
+        product.setId(9L);
+        product.setStatus("ON_SALE");
+        product.setCoverImage("/images/product-cover.jpg");
+        product.setSupplierSubjectId(401L);
+
+        when(skuMapper.selectBatchIds(List.of(1L))).thenReturn(List.of(sku));
+        when(productMapper.selectBatchIds(any())).thenReturn(List.of(product));
+
+        MallSkuInternalView view = service.queryInternalSkus(List.of(1L)).get(0);
+
+        assertEquals("/images/product-cover.jpg", view.getImage());
+    }
+
+    @Test
+    @DisplayName("商城公开商品同时提供普通用户最低价与团长基础价")
+    void publicPricesIncludeDistributionCommission() {
+        MallProduct product = new MallProduct();
+        product.setId(9L);
+        product.setStatus("ON_SALE");
+        Page<MallProduct> page = new Page<>(1, 20);
+        page.setRecords(List.of(product));
+        page.setTotal(1);
+        when(productMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
+        when(productMapper.selectOne(any(Wrapper.class))).thenReturn(product);
+
+        MallSku sku = new MallSku();
+        sku.setId(1L);
+        sku.setProductId(9L);
+        sku.setSalePrice(1000L);
+        sku.setDistributionCommission(100L);
+        sku.setStock(2);
+        sku.setLockedStock(0);
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku));
+
+        MallProductCardDTO card = service.pageAppProducts(null, 1, 20).getRecords().get(0);
+        assertEquals(1000L, card.getMinPrice());
+        assertEquals(1100L, card.getMinCustomerPrice());
+        var detail = service.getAppProduct(9L);
+        assertEquals(100L, detail.getSkus().get(0).getDistributionCommission());
     }
 }
 

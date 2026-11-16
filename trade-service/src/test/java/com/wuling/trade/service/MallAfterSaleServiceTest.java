@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,6 +30,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -137,11 +139,15 @@ class MallAfterSaleServiceTest {
     @DisplayName("审核通过创建关联退款并进入退款中")
     void approveCreatesRefundThroughRefundServiceAndMovesToRefunding() {
         MallAfterSale pending = pendingAfterSale();
+        pending.setStatus("RETURN_RECEIVED");
+        pending.setReturnReceivedTime(java.time.LocalDateTime.now());
         Order order = order("SHIPPED");
         Refund refund = new Refund();
         refund.setId(501L);
         refund.setRefundNo("RF202610270001");
         when(afterSaleMapper.selectByAfterSaleNoForUpdate("AS001")).thenReturn(pending);
+        when(afterSaleMapper.selectByAfterSaleNo("AS001")).thenReturn(pending);
+        when(orderMapper.selectOne(any())).thenReturn(order("SHIPPED"));
         when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
         when(refundService.refundAfterSale(eq(order), eq(pending), nullable(String.class))).thenReturn(refund);
 
@@ -158,6 +164,8 @@ class MallAfterSaleServiceTest {
     void rejectRequiresPendingAndWritesReviewer() {
         MallAfterSale pending = pendingAfterSale();
         when(afterSaleMapper.selectByAfterSaleNoForUpdate("AS001")).thenReturn(pending);
+        when(afterSaleMapper.selectByAfterSaleNo("AS001")).thenReturn(pending);
+        when(orderMapper.selectOne(any())).thenReturn(order("SHIPPED"));
 
         MallAfterSaleVO result = service.reject("AS001", "admin", "不符合退货条件");
 
@@ -171,6 +179,8 @@ class MallAfterSaleServiceTest {
     @DisplayName("储值退款同步成功时售后单直接置成功，不能覆盖回退款中")
     void approveKeepsSuccessWhenStoredValueRefundCompletesSynchronously() {
         MallAfterSale pending = pendingAfterSale();
+        pending.setStatus("RETURN_RECEIVED");
+        pending.setReturnReceivedTime(java.time.LocalDateTime.now());
         pending.setId(503L);
         pending.setAfterSaleNo("AS002");
         Order order = order("SHIPPED");
@@ -179,6 +189,8 @@ class MallAfterSaleServiceTest {
         refund.setRefundNo("RF-SUCCESS");
         refund.setStatus(RefundService.STATUS_SUCCESS);
         when(afterSaleMapper.selectByAfterSaleNoForUpdate("AS002")).thenReturn(pending);
+        when(afterSaleMapper.selectByAfterSaleNo("AS002")).thenReturn(pending);
+        when(orderMapper.selectOne(any())).thenReturn(order);
         when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
         when(refundService.refundAfterSale(eq(order), eq(pending), any())).thenReturn(refund);
         when(refundMapper.selectById(anyLong())).thenReturn(refund);
@@ -187,6 +199,50 @@ class MallAfterSaleServiceTest {
 
         assertEquals("SUCCESS", result.getStatus());
         assertNotNull(result.getCompleteTime());
+    }
+
+    @Test
+    @DisplayName("重复审核已受理售后返回原退款，不能再创建退款")
+    void duplicateApproveReturnsExistingRefundWithoutSubmittingAgain() {
+        MallAfterSale existing = pendingAfterSale();
+        existing.setStatus("REFUNDING");
+        existing.setRefundId(501L);
+        Refund refund = new Refund();
+        refund.setId(501L);
+        refund.setRefundNo("RF-EXISTING");
+        refund.setStatus("REFUNDING");
+        when(afterSaleMapper.selectByAfterSaleNoForUpdate("AS001")).thenReturn(existing);
+        when(afterSaleMapper.selectByAfterSaleNo("AS001")).thenReturn(existing);
+        when(orderMapper.selectOne(any())).thenReturn(order("SHIPPED"));
+        when(refundMapper.selectById(501L)).thenReturn(refund);
+
+        MallAfterSaleVO result = service.approve("AS001", "admin", "重复点击");
+
+        assertEquals("REFUNDING", result.getStatus());
+        assertEquals("RF-EXISTING", result.getRefundNo());
+        verify(refundService, never()).refundAfterSale(any(), any(), any());
+        verify(afterSaleMapper, never()).updateById(any(MallAfterSale.class));
+    }
+
+    @Test
+    @DisplayName("审核先获得订单锁再锁售后，和退款通知保持相同锁顺序")
+    void approveLocksOrderBeforeAfterSaleRow() {
+        AtomicBoolean orderLocked = new AtomicBoolean();
+        MallAfterSale pending = pendingAfterSale();
+        pending.setStatus("RETURN_RECEIVED");
+        pending.setReturnReceivedTime(java.time.LocalDateTime.now());
+        when(afterSaleMapper.selectByAfterSaleNo("AS001")).thenReturn(pending);
+        when(orderMapper.selectOne(any())).thenAnswer(invocation -> {
+            orderLocked.set(true);
+            return order("SHIPPED");
+        });
+        when(afterSaleMapper.selectByAfterSaleNoForUpdate("AS001")).thenAnswer(invocation -> {
+            org.junit.jupiter.api.Assertions.assertTrue(orderLocked.get());
+            return pending;
+        });
+        when(refundService.refundAfterSale(any(), any(), any())).thenReturn(new Refund());
+
+        service.approve("AS001", "admin", "同意");
     }
 
     @Test
@@ -211,6 +267,34 @@ class MallAfterSaleServiceTest {
         assertEquals(ResultCode.FORBIDDEN, ex.getCode());
     }
 
+    @Test
+    @DisplayName("未收到退货时不能退款")
+    void approveRequiresReturnReceipt() {
+        MallAfterSale pending = pendingAfterSale();
+        when(afterSaleMapper.selectByAfterSaleNo("AS001")).thenReturn(pending);
+        when(afterSaleMapper.selectByAfterSaleNoForUpdate("AS001")).thenReturn(pending);
+        when(orderMapper.selectOne(any())).thenReturn(order("SHIPPED"));
+
+        assertThrows(BusinessException.class, () -> service.approve("AS001", "admin", null));
+        verify(refundService, never()).refundAfterSale(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("买家填写退货单号后商家确认收货")
+    void returnTrackingThenMerchantReceipt() {
+        MallAfterSale pending = pendingAfterSale();
+        when(afterSaleMapper.selectByAfterSaleNo("AS001")).thenReturn(pending);
+        when(afterSaleMapper.selectByAfterSaleNoForUpdate("AS001")).thenReturn(pending);
+
+        MallAfterSaleVO shipped = service.submitReturnTracking(USER_ID, "AS001", "顺丰", "SF123456789");
+        assertEquals("RETURN_SHIPPED", shipped.getStatus());
+        assertEquals("SF123456789", shipped.getReturnTrackingNo());
+
+        MallAfterSaleVO received = service.confirmReturnReceipt("AS001", "admin");
+        assertEquals("RETURN_RECEIVED", received.getStatus());
+        assertEquals("admin", received.getReturnReceiver());
+    }
+
     private MallAfterSale pendingAfterSale() {
         MallAfterSale afterSale = new MallAfterSale();
         afterSale.setId(401L);
@@ -219,6 +303,7 @@ class MallAfterSaleServiceTest {
         afterSale.setOrderNo(ORDER_NO);
         afterSale.setUserId(USER_ID);
         afterSale.setStatus("PENDING");
+        afterSale.setReturnTrackingNo("SF123456789");
         afterSale.setRefundAmount(9_900L);
         afterSale.setItems("[]");
         return afterSale;

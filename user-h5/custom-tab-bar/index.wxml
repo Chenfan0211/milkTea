@@ -1,4 +1,4 @@
-<view wx:if="{{!hidden}}" class="tabbar">
+<view wx:if="{{ready && !hidden}}" class="tabbar">
   <navigator
     wx:for="{{list}}"
     wx:key="pagePath"

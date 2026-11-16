@@ -21,7 +21,6 @@ import {
 import type { DataTableColumns } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField } from '@/views/_shared/types';
-import { fetchAdminSplitRules } from '@/service/api/product';
 import { fetchSubjectsByType } from '@/service/api/crud';
 import { formatFen, formatDateTime, renderTag, statusMap } from '@/views/_shared/render';
 import {
@@ -43,6 +42,8 @@ import type {
   MallSkuAdmin,
   MallSkuPayload
 } from '@/service/api/mall';
+import ProductImageUpload from './ProductImageUpload.vue';
+import { fenToYuan, yuanToFen } from './money';
 
 interface ProductFormState {
   productCode: string;
@@ -52,11 +53,8 @@ interface ProductFormState {
   specName: string;
   coverImage: string;
   description: string;
-  attributionStoreSubjectId: number | null;
-  attributionChannelSubjectId: number | null;
-  splitRuleId: number | null;
+  supplierSubjectId: number | null;
   status: MallProductStatus;
-  sort: number;
 }
 
 interface SkuRow {
@@ -69,11 +67,9 @@ interface SkuRow {
   costPrice: number;
   platformCommission: number;
   distributionCommission: number;
-  supplierSubjectId: number | null;
   stock: number;
   lockedStock: number;
   availableStock?: number;
-  sort: number;
 }
 
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
@@ -105,7 +101,6 @@ interface SubjectOption {
 }
 
 const subjects = ref<SubjectOption[]>([]);
-const splitRules = ref<any[]>([]);
 
 function subjectOptions() {
   return subjects.value
@@ -148,11 +143,8 @@ function emptyProduct(): ProductFormState {
     specName: '规格',
     coverImage: '',
     description: '',
-    attributionStoreSubjectId: null,
-    attributionChannelSubjectId: null,
-    splitRuleId: null,
-    status: 'DRAFT',
-    sort: 0
+    supplierSubjectId: null,
+    status: 'DRAFT'
   };
 }
 
@@ -166,10 +158,8 @@ function emptySku(): SkuRow {
     costPrice: 0,
     platformCommission: 0,
     distributionCommission: 0,
-    supplierSubjectId: null,
     stock: 0,
-    lockedStock: 0,
-    sort: skuRows.value.length
+    lockedStock: 0
   };
 }
 
@@ -184,43 +174,22 @@ function toSkuRow(sku: MallSkuAdmin): SkuRow {
     skuCode: sku.skuCode ?? '',
     specValue: sku.specValue ?? '',
     image: sku.image ?? '',
-    salePrice: Number(sku.salePrice) || 0,
-    originalPrice: Number(sku.originalPrice) || 0,
-    costPrice: Number(sku.costPrice) || 0,
-    platformCommission: Number(sku.platformCommission) || 0,
-    distributionCommission: Number(sku.distributionCommission) || 0,
-    supplierSubjectId: sku.supplierSubjectId ?? null,
+    salePrice: fenToYuan(sku.salePrice),
+    originalPrice: fenToYuan(sku.originalPrice),
+    costPrice: fenToYuan(sku.costPrice),
+    platformCommission: fenToYuan(sku.platformCommission),
+    distributionCommission: fenToYuan(sku.distributionCommission),
     stock: Number(sku.stock) || 0,
     lockedStock: Number(sku.lockedStock) || 0,
-    availableStock: Number(sku.availableStock) || 0,
-    sort: Number(sku.sort) || 0
+    availableStock: Number(sku.availableStock) || 0
   };
 }
 
 async function loadFormOptions() {
-  const [stores, channels, suppliers, ruleResponse] = await Promise.all([
-    fetchSubjectsByType('STORE'),
-    fetchSubjectsByType('CHANNEL'),
-    fetchSubjectsByType('SUPPLIER'),
-    fetchAdminSplitRules({ current: 1, size: 100 })
-  ]);
-  subjects.value = [
-    ...(Array.isArray(stores) ? stores : []),
-    ...(Array.isArray(channels) ? channels : []),
-    ...(Array.isArray(suppliers) ? suppliers : [])
-  ];
-  const ruleResult = ruleResponse as any;
-  splitRules.value = ruleResult?.records ?? [];
+  const suppliers = await fetchSubjectsByType('SUPPLIER');
+  subjects.value = Array.isArray(suppliers) ? suppliers : [];
 }
-const storeOptions = computed(() => subjectOptions());
-const channelOptions = computed(() => subjectOptions());
 const supplierOptions = computed(() => subjectOptions());
-const splitRuleOptions = computed(() =>
-  splitRules.value.map(rule => ({
-    label: `${rule.name || rule.code}（${rule.scope === 'GLOBAL' ? '全局' : rule.scope === 'PRODUCT' ? '商品' : rule.scope}）`,
-    value: Number(rule.id)
-  }))
-);
 
 async function loadCategories() {
   try {
@@ -258,11 +227,8 @@ async function openEdit(row: MallProductAdmin) {
       specName: detail.specName ?? '规格',
       coverImage: detail.coverImage ?? '',
       description: detail.description ?? '',
-      attributionStoreSubjectId: detail.attributionStoreSubjectId ?? null,
-      attributionChannelSubjectId: detail.attributionChannelSubjectId ?? null,
-      splitRuleId: detail.splitRuleId ?? null,
-      status: detail.status ?? 'DRAFT',
-      sort: Number(detail.sort) || 0
+      supplierSubjectId: detail.supplierSubjectId ?? null,
+      status: detail.status ?? 'DRAFT'
     });
     skuRows.value = (detail.skus ?? []).map(toSkuRow);
     if (!skuRows.value.length) skuRows.value = [emptySku()];
@@ -293,28 +259,23 @@ function productPayload(status: MallProductStatus): MallProductPayload {
     coverImage: form.coverImage.trim() || undefined,
     galleryImages: editingProduct.value?.galleryImages ?? [],
     description: form.description.trim() || undefined,
-    attributionStoreSubjectId: Number(form.attributionStoreSubjectId),
-    attributionChannelSubjectId: form.attributionChannelSubjectId || undefined,
-    splitRuleId: form.splitRuleId || undefined,
-    status,
-    sort: Number(form.sort) || 0
+    supplierSubjectId: Number(form.supplierSubjectId),
+    status
   };
 }
 
 function skuPayloads(): MallSkuPayload[] {
   return skuRows.value.map(sku => ({
     id: sku.id,
-    skuCode: sku.skuCode.trim(),
+    skuCode: sku.skuCode.trim() || undefined,
     specValue: sku.specValue.trim(),
     image: sku.image.trim() || undefined,
-    salePrice: Math.max(0, Number(sku.salePrice) || 0),
-    originalPrice: Math.max(0, Number(sku.originalPrice) || 0),
-    costPrice: Math.max(0, Number(sku.costPrice) || 0),
-    platformCommission: Math.max(0, Number(sku.platformCommission) || 0),
-    distributionCommission: Math.max(0, Number(sku.distributionCommission) || 0),
-    supplierSubjectId: Number(sku.supplierSubjectId),
-    stock: Math.max(0, Number(sku.stock) || 0),
-    sort: Number(sku.sort) || 0
+    salePrice: Math.max(0, yuanToFen(sku.salePrice)),
+    originalPrice: Math.max(0, yuanToFen(sku.originalPrice)),
+    costPrice: Math.max(0, yuanToFen(sku.costPrice)),
+    platformCommission: Math.max(0, yuanToFen(sku.platformCommission)),
+    distributionCommission: Math.max(0, yuanToFen(sku.distributionCommission)),
+    stock: Math.max(0, Number(sku.stock) || 0)
   }));
 }
 
@@ -322,20 +283,19 @@ function validateProduct(): string | null {
   if (!form.productCode.trim()) return '请填写商品编码';
   if (!form.categoryId) return '请选择商城分类';
   if (!form.name.trim()) return '请填写商品名称';
-  if (!form.attributionStoreSubjectId) return '请填写归属门店ID';
+  if (!form.supplierSubjectId) return '请选择商品供应商';
   if (!skuRows.value.length) return '至少需要维护一个 SKU';
 
   const codes = new Set<string>();
   const specs = new Set<string>();
   for (const [index, sku] of skuRows.value.entries()) {
     const rowLabel = `第 ${index + 1} 个 SKU`;
-    if (!sku.skuCode.trim()) return `${rowLabel}缺少 SKU 编码`;
     if (!sku.specValue.trim()) return `${rowLabel}缺少规格值`;
-    if (!sku.supplierSubjectId) return `${rowLabel}缺少供应商ID`;
     if (Number(sku.stock) < Number(sku.lockedStock)) return `${rowLabel}库存不能低于已锁定库存`;
-    if (codes.has(sku.skuCode.trim().toLowerCase())) return `${rowLabel}的 SKU 编码重复`;
+    const code = sku.skuCode.trim();
+    if (code && codes.has(code.toLowerCase())) return `${rowLabel}的 SKU 编码重复`;
     if (specs.has(sku.specValue.trim())) return `${rowLabel}的规格值重复`;
-    codes.add(sku.skuCode.trim().toLowerCase());
+    if (code) codes.add(code.toLowerCase());
     specs.add(sku.specValue.trim());
   }
   return null;
@@ -503,10 +463,10 @@ const columns: DataTableColumns<any> = [
   },
   { title: 'SKU 数', key: 'skus', width: 82, align: 'right', render: (row: any) => row.skus?.length ?? 0 },
   {
-    title: '归属门店',
-    key: 'attributionStoreName',
+    title: '供应商',
+    key: 'supplierName',
     minWidth: 130,
-    render: (row: any) => row.attributionStoreName || row.attributionStoreSubjectId || '—'
+    render: (row: MallProductAdmin) => row.supplierName || '待配置'
   },
   {
     title: '状态',
@@ -521,7 +481,6 @@ const columns: DataTableColumns<any> = [
       })
     )
   },
-  { title: '排序', key: 'sort', width: 80, align: 'right' },
   { title: '更新时间', key: 'updateTime', width: 170, render: (row: any) => formatDateTime(row.updateTime) }
 ];
 
@@ -602,7 +561,7 @@ const config: AdminListConfig = {
   <div class="mall-product-page">
     <AdminListPage ref="listRef" :config="config" />
 
-    <NDrawer v-model:show="drawerVisible" :width="980" placement="right">
+    <NDrawer v-model:show="drawerVisible" :width="1080" placement="right">
       <NDrawerContent :title="drawerTitle" closable :native-scrollbar="false">
         <NSpin :show="drawerLoading">
           <NForm label-placement="top">
@@ -631,49 +590,64 @@ const config: AdminListConfig = {
               <NFormItem label="状态">
                 <NSelect v-model:value="form.status" :options="statusOptions" />
               </NFormItem>
-              <NFormItem label="归属门店" required>
+              <NFormItem label="SPU 供应商" required>
                 <NSelect
-                  v-model:value="form.attributionStoreSubjectId"
-                  :options="storeOptions"
+                  v-model:value="form.supplierSubjectId"
+                  :options="supplierOptions"
                   filterable
-                  placeholder="请选择门店"
+                  placeholder="请选择供应商"
                 />
-              </NFormItem>
-              <NFormItem label="归属渠道（可选）">
-                <NSelect
-                  v-model:value="form.attributionChannelSubjectId"
-                  :options="channelOptions"
-                  filterable
-                  clearable
-                  placeholder="请选择渠道"
-                />
-              </NFormItem>
-              <NFormItem label="分账规则（可选）">
-                <NSelect
-                  v-model:value="form.splitRuleId"
-                  :options="splitRuleOptions"
-                  filterable
-                  clearable
-                  placeholder="请选择分账规则"
-                />
-              </NFormItem>
-              <NFormItem label="排序">
-                <NInputNumber v-model:value="form.sort" :precision="0" class="w-full" />
               </NFormItem>
             </div>
 
-            <NFormItem label="主图地址">
-              <NInput v-model:value="form.coverImage" placeholder="https://..." />
+            <NFormItem label="商品主图">
+              <ProductImageUpload v-model="form.coverImage" :size="132" label="商品主图" />
             </NFormItem>
-            <NImage
-              v-if="form.coverImage"
-              :src="form.coverImage"
-              width="120"
-              height="120"
-              object-fit="cover"
-              class="cover-preview"
-            />
-            <NFormItem label="商品详情">
+
+            <div class="sku-heading">
+              <div>
+                <div class="form-section-title">SKU 规格</div>
+                <div class="form-hint">金额均按元填写；SKU 编码保存时自动生成，图片为空时使用商品主图。</div>
+              </div>
+              <NButton type="primary" dashed @click="addSku">新增 SKU</NButton>
+            </div>
+
+            <div class="sku-table">
+              <div class="sku-table-head">
+                <span>规格值</span>
+                <span>SKU 图片</span>
+                <span>售价（元）</span>
+                <span>划线价（元）</span>
+                <span>成本价（元）</span>
+                <span>平台提成（元）</span>
+                <span>分销佣金（元）</span>
+                <span>库存</span>
+                <span>可用库存</span>
+                <span>操作</span>
+              </div>
+              <div v-for="(sku, index) in skuRows" :key="sku.id ?? `new-${index}`" class="sku-row">
+                <NInput v-model:value="sku.specValue" placeholder="如 原味 / 500ml" />
+                <ProductImageUpload v-model="sku.image" :size="64" label="SKU 图" />
+                <NInputNumber v-model:value="sku.salePrice" :min="0" :precision="2" :show-button="false" />
+                <NInputNumber v-model:value="sku.originalPrice" :min="0" :precision="2" :show-button="false" />
+                <NInputNumber v-model:value="sku.costPrice" :min="0" :precision="2" :show-button="false" />
+                <NInputNumber v-model:value="sku.platformCommission" :min="0" :precision="2" :show-button="false" />
+                <NInputNumber v-model:value="sku.distributionCommission" :min="0" :precision="2" :show-button="false" />
+                <NInputNumber v-model:value="sku.stock" :min="sku.lockedStock" :precision="0" :show-button="false" />
+                <div class="available-stock">
+                  <strong>{{ Math.max(0, Number(sku.stock) - Number(sku.lockedStock)) }}</strong>
+                  <small v-if="sku.lockedStock">锁定 {{ sku.lockedStock }}</small>
+                </div>
+                <div class="sku-actions">
+                  <NButton size="tiny" type="info" secondary :disabled="!sku.id" @click="openDrawerSkuStock(sku)">
+                    库存调整
+                  </NButton>
+                  <NButton size="tiny" type="error" quaternary @click="removeSku(index)">删除</NButton>
+                </div>
+              </div>
+            </div>
+
+            <NFormItem label="商品详情" class="description-field">
               <NInput
                 v-model:value="form.description"
                 type="textarea"
@@ -681,69 +655,6 @@ const config: AdminListConfig = {
                 placeholder="商品详情文案"
               />
             </NFormItem>
-
-            <div class="sku-heading">
-              <div>
-                <div class="form-section-title">单维 SKU</div>
-                <div class="form-hint">金额单位均为分；库存调整必须填写备注。</div>
-              </div>
-              <NButton type="primary" dashed @click="addSku">新增 SKU</NButton>
-            </div>
-
-            <div class="sku-list">
-              <div v-for="(sku, index) in skuRows" :key="sku.id ?? `new-${index}`" class="sku-card">
-                <div class="sku-card-head">
-                  <strong>SKU {{ index + 1 }}</strong>
-                  <div class="sku-card-actions">
-                    <span v-if="sku.id" class="stock-lock-hint">已锁定 {{ sku.lockedStock }} 件</span>
-                    <NButton size="tiny" type="info" secondary :disabled="!sku.id" @click="openDrawerSkuStock(sku)">
-                      库存调整
-                    </NButton>
-                    <NButton size="tiny" type="error" quaternary @click="removeSku(index)">删除</NButton>
-                  </div>
-                </div>
-                <div class="sku-grid">
-                  <NFormItem label="SKU 编码" required>
-                    <NInput v-model:value="sku.skuCode" placeholder="唯一编码" />
-                  </NFormItem>
-                  <NFormItem label="规格值" required>
-                    <NInput v-model:value="sku.specValue" placeholder="如 原味" />
-                  </NFormItem>
-                  <NFormItem label="图片地址">
-                    <NInput v-model:value="sku.image" placeholder="https://..." />
-                  </NFormItem>
-                  <NFormItem label="售价(分)" required>
-                    <NInputNumber v-model:value="sku.salePrice" :min="0" :precision="0" class="w-full" />
-                  </NFormItem>
-                  <NFormItem label="划线价(分)">
-                    <NInputNumber v-model:value="sku.originalPrice" :min="0" :precision="0" class="w-full" />
-                  </NFormItem>
-                  <NFormItem label="成本价(分)">
-                    <NInputNumber v-model:value="sku.costPrice" :min="0" :precision="0" class="w-full" />
-                  </NFormItem>
-                  <NFormItem label="平台提成(分)">
-                    <NFormItem label="分销佣金(分)">
-                      <NInputNumber v-model:value="sku.distributionCommission" :min="0" :precision="0" class="w-full" />
-                    </NFormItem>
-                    <NInputNumber v-model:value="sku.platformCommission" :min="0" :precision="0" class="w-full" />
-                  </NFormItem>
-                  <NFormItem label="供应商" required>
-                    <NSelect
-                      v-model:value="sku.supplierSubjectId"
-                      :options="supplierOptions"
-                      filterable
-                      placeholder="请选择供应商"
-                    />
-                  </NFormItem>
-                  <NFormItem label="实物库存" required>
-                    <NInputNumber v-model:value="sku.stock" :min="sku.lockedStock" :precision="0" class="w-full" />
-                  </NFormItem>
-                  <NFormItem label="排序">
-                    <NInputNumber v-model:value="sku.sort" :precision="0" class="w-full" />
-                  </NFormItem>
-                </div>
-              </div>
-            </div>
           </NForm>
         </NSpin>
 
@@ -816,11 +727,6 @@ const config: AdminListConfig = {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
 }
-.cover-preview {
-  margin: -4px 0 16px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-}
 .sku-heading {
   display: flex;
   align-items: flex-start;
@@ -828,37 +734,52 @@ const config: AdminListConfig = {
   gap: 16px;
   margin: 8px 0 12px;
 }
-.sku-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.sku-card {
-  padding: 14px 16px 0;
+.sku-table {
+  overflow-x: auto;
   border: 1px solid #ececea;
   border-radius: 10px;
   background: #fafaf8;
 }
-.sku-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.sku-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.stock-lock-hint {
-  color: #9b9b96;
-  font-size: 12px;
-}
-.sku-grid {
+.sku-table-head,
+.sku-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0 14px;
+  min-width: 1260px;
+  grid-template-columns: 150px 92px 118px 122px 122px 126px 126px 92px 98px 184px;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.sku-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #666762;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f3f3ef;
+}
+.sku-row + .sku-row {
+  border-top: 1px solid #ececea;
+}
+.available-stock {
+  display: flex;
+  min-height: 34px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  color: #333;
+}
+.available-stock small {
+  color: #9b9b96;
+  font-size: 11px;
+}
+.sku-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.description-field {
+  margin-top: 20px;
 }
 .drawer-footer {
   display: flex;
@@ -866,17 +787,14 @@ const config: AdminListConfig = {
   gap: 12px;
 }
 @media (max-width: 900px) {
-  .form-grid,
-  .sku-grid {
+  .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 640px) {
-  .form-grid,
-  .sku-grid {
+  .form-grid {
     grid-template-columns: 1fr;
   }
-  .sku-card-head,
   .sku-heading {
     align-items: flex-start;
     flex-direction: column;

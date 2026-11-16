@@ -69,16 +69,14 @@ async function mount(config) {
   return page;
 }
 
-// 接口仍返回旧的 8 项配置时，「我的」页必须补出线上商城入口。
+// 接口缺少 mall 时，前端也不得再强制补出线上商城入口。
 {
   const page = await mount({ functions: legacyFunctions, banners: [] });
   const mall = page.data.profileFunctions.filter(item => item.id === 'mall');
-  assert.equal(mall.length, 1, '旧配置缺少 mall 时必须合并出唯一线上商城入口');
-  assert.equal(mall[0].label, '线上商城');
-  assert.equal(mall[0].icon, '/assets/icons/lucide/shopping-bag.svg');
+  assert.equal(mall.length, 0, '旧配置缺少 mall 时也不得补出线上商城入口');
 }
 
-// 后端已经带 mall 时不得重复渲染。
+// 后端重新配置 mall 时，前端必须按配置恢复，不再自行强制注入。
 {
   const page = await mount({
     functions: legacyFunctions.concat({ id: 'mall', label: '线上商城', icon: '/assets/icons/lucide/shopping-bag.svg' }),
@@ -87,25 +85,41 @@ async function mount(config) {
   assert.equal(
     page.data.profileFunctions.filter(item => item.id === 'mall').length,
     1,
-    '后端与前端同时提供 mall 时必须去重'
+    '后端重新配置 mall 时前端必须按配置显示唯一入口'
   );
 }
 
-// 首帧（接口未返回前）也必须存在商城入口，不能依赖网络成功。
+// 首帧（接口未返回前）也不得存在商城入口。
 {
   const page = createPage();
   assert.equal(
     page.data.profileFunctions.filter(item => item.id === 'mall').length,
-    1,
-    '「我的」页初始数据必须包含线上商城入口'
+    0,
+    '「我的」页初始数据不得包含线上商城入口'
   );
 }
 
-// 点击商城入口必须进入 packageMall 商城首页。
+// 无路由 id 的孤立配置项不得渲染，例如已废弃的“消息订阅”占位项。
+{
+  const page = await mount({
+    functions: legacyFunctions.concat({
+      icon: '/assets/icons/lucide/bell.svg',
+      label: '消息订阅'
+    }),
+    banners: []
+  });
+  assert.equal(
+    page.data.profileFunctions.some(item => !item.id && item.label === '消息订阅'),
+    false,
+    '无有效 id 的孤立消息订阅项必须隐藏'
+  );
+}
+
+// 隐藏入口不影响历史页面和直接路由能力。
 {
   const page = await mount({ functions: legacyFunctions, banners: [] });
   page.handleProfileAction({ currentTarget: { dataset: { id: 'mall', label: '线上商城' } } });
   assert.equal(navigation.at(-1), '/packageMall/pages/home/home', '商城入口必须跳转 packageMall 首页');
 }
 
-console.log('「我的」页线上商城入口测试通过');
+console.log('「我的」页线上商城入口隐藏与历史路由测试通过');

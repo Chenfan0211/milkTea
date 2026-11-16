@@ -1,6 +1,7 @@
 const api = require('../../../utils/api');
 const auth = require('../../../utils/auth');
 const loginGuard = require('../../../utils/login-guard');
+const mallCart = require('../../../utils/mall-cart');
 const { requestOrderPayment } = require('../../../utils/order-payment');
 const mall = require('../../utils/mall');
 
@@ -11,12 +12,13 @@ Page({
     loading: true,
     needLogin: false,
     error: '',
-    actionBusy: false
+    actionBusy: false,
+    fromPayment: false
   },
 
   onLoad(options) {
     const orderNo = String((options && options.orderNo) || '').trim();
-    this.setData({ orderNo });
+    this.setData({ orderNo, fromPayment: options && options.fromPayment === '1' });
     if (!orderNo) {
       this.setData({ loading: false, error: '订单号缺失' });
       return;
@@ -42,13 +44,16 @@ Page({
       this.setData({ loading: false, needLogin: true, error: '' });
       return;
     }
+    const userId = auth.getUserId();
     this.setData({ loading: !this.data.order, needLogin: false, error: '' });
     api
       .fetchOrderDetail(this.data.orderNo)
       .then(result => {
+        if (userId !== auth.getUserId()) return;
         if (!result || result.category !== 'mall' || result.orderType !== 'MALL') {
           throw new Error('该订单不是商城订单');
         }
+        if (mall.normalizeStatus(result.payStatus) === 'PAID') mallCart.settlePaidOrder(result.orderNo, userId);
         this.setData({
           order: mall.decorateOrder(result),
           loading: false,
@@ -81,6 +86,7 @@ Page({
     const order = this.data.order;
     if (!order || this.data.actionBusy) return;
     const amountFen = Number(order.paidAmount || order.totalAmount) || 0;
+    const paymentUserId = auth.getUserId();
     this.setData({ actionBusy: true });
     wx.showLoading({ title: '正在支付', mask: true });
     const task =
@@ -95,6 +101,7 @@ Page({
           order.payChannel === 'STORED_VALUE'
             ? mall.normalizeStatus(result && result.payStatus) === 'PAID'
             : Boolean(result && result.paid);
+        if (paid) mallCart.settlePaidOrder(order.orderNo, paymentUserId);
         wx.showToast({ title: paid ? '支付成功' : '订单待支付', icon: 'none' });
         this.loadOrder();
       })
@@ -176,6 +183,10 @@ Page({
     });
   },
 
+  handleBack() {
+    if (this.data.fromPayment) wx.switchTab({ url: '/pages/home/home' });
+  },
+
   copyTrackingNo() {
     const trackingNo = this.data.order && this.data.order.shipping && this.data.order.shipping.trackingNo;
     if (!trackingNo) return;
@@ -183,10 +194,6 @@ Page({
       data: String(trackingNo),
       success: () => wx.showToast({ title: '单号已复制', icon: 'none' })
     });
-  },
-
-  openOrders() {
-    wx.navigateTo({ url: '/packageMall/pages/orders/orders' });
   },
 
   retry() {

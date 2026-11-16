@@ -16,7 +16,7 @@ Page({
     selectedAddress: null,
     items: [],
     count: 0,
-    amountText: '0',
+    amountText: '0.00',
     commissionText: '',
     hasCommission: false,
     paymentMethod: 'WXPAY',
@@ -82,18 +82,22 @@ Page({
         throw new Error(invalid.reason || '部分商品库存或状态已变化');
       }
       return mall.quoteItems(items).then(quote => {
-        if (quote && quote.orderable === false) {
-          throw new Error(quote.orderError || '当前商品无法合并下单');
-        }
-        const quoted = (quote && quote.items) || [];
-        const invalidQuote = quoted.find(item => !item.valid);
-        if (invalidQuote) {
-          throw new Error(invalidQuote.reason || '商品价格或库存已变化');
-        }
+        this.assertQuoteOrderable(items, quote);
         this.checkoutQuote = quote;
         this.setData(this.applyCheckoutItems(items, quote));
       });
     });
+  },
+
+  assertQuoteOrderable(items, quote) {
+    if (quote && quote.orderable === false) {
+      throw new Error(quote.orderError || '当前商品无法合并下单');
+    }
+    const quoted = (quote && quote.items) || [];
+    for (const item of items) {
+      const row = quoted.find(entry => Number(entry.skuId) === Number(item.skuId));
+      if (!row || !row.valid) throw new Error((row && row.reason) || '商品价格或库存已变化');
+    }
   },
 
   applyCheckoutItems(items, quote) {
@@ -165,11 +169,25 @@ Page({
   },
 
   validateCurrentItems() {
+    const previousQuote = this.checkoutQuote;
+    const previousItems = this.data.items;
     return mall.validateItems(this.data.items).then(items => {
       const invalid = items.find(item => !item.valid);
       if (invalid) throw new Error(invalid.reason || '商品库存不足');
-      this.setData(this.applyCheckoutItems(items));
-      return items;
+      return mall.quoteItems(items).then(quote => {
+        this.assertQuoteOrderable(items, quote);
+        const display = this.applyCheckoutItems(items, quote);
+        const priceChanged =
+          (previousQuote && Number(previousQuote.payableAmount) !== Number(quote.payableAmount)) ||
+          display.items.some(item => {
+            const previous = previousItems.find(row => Number(row.skuId) === Number(item.skuId));
+            return previous && Number(previous.unitPrice) !== item.unitPrice;
+          });
+        this.checkoutQuote = quote;
+        this.setData(display);
+        if (priceChanged) throw new Error('商品价格已更新，请确认新金额后再次提交');
+        return display.items;
+      });
     });
   },
 
@@ -185,27 +203,40 @@ Page({
     }
     this.setData({ submitting: true });
     const release = () => this.setData({ submitting: false });
+    const showFailure = error => {
+      release();
+      wx.showToast({ title: (error && error.message) || '下单失败，请重试', icon: 'none' });
+    };
+    // requirePhone 会把 action 的拒绝当作授权失败；业务失败须在 action 内结束。
+    // 授权后续跑同样经过此处理，改价提示不会变成自动重试建单。
+    const createAndPay = () => {
+      this.setData({ submitting: true });
+      return Promise.resolve()
+        .then(() => this.createAndPay())
+        .then(release, showFailure);
+    };
 
-    Promise.resolve()
+    return Promise.resolve()
       .then(() => requestMallShippingSubscribe())
       .catch(() => null)
       .then(() =>
-        loginGuard.requirePhone(() => this.createAndPay(), {
+        loginGuard.requirePhone(createAndPay, {
           reason: '下单需要绑定手机号，用于订单通知与售后'
         })
       )
-      .then(release, error => {
-        release();
-        wx.showToast({ title: (error && error.message) || '下单失败，请重试', icon: 'none' });
-      });
+      .then(release, showFailure);
   },
 
   createAndPay() {
+    const paymentUserId = auth.getUserId();
+    const payChannel = this.data.paymentMethod === 'STORED_VALUE' ? 'STORED_VALUE' : 'WXPAY';
     wx.showLoading({ title: '正在下单', mask: true });
     let createdOrder = null;
+    let settlementItems = [];
     return this.validateCurrentItems()
       .then(items => {
-        const payChannel = this.data.paymentMethod === 'STORED_VALUE' ? 'STORED_VALUE' : 'WXPAY';
+        if (paymentUserId !== auth.getUserId()) throw new Error('登录账号已变化，请重新结算');
+        settlementItems = items;
         return api.createMallOrder({
           clientRequestId: this.clientRequestId,
           addressId: this.data.selectedAddress.id,
@@ -215,13 +246,17 @@ Page({
       })
       .then(order => {
         createdOrder = order;
+        if (this.data.source === 'cart') {
+          mallCart.rememberSettlement(order.orderNo, settlementItems, paymentUserId);
+        }
+        if (paymentUserId !== auth.getUserId()) throw new Error('登录账号已变化，请重新结算');
         const quotedAmount = Number(this.checkoutQuote && this.checkoutQuote.payableAmount) || 0;
         const serverAmount = Number(order.paidAmount || order.totalAmount) || 0;
         if (quotedAmount > 0 && quotedAmount !== serverAmount) {
           throw new Error('商品价格已更新，请刷新结算页后重新提交');
         }
         const amountFen = serverAmount;
-        if (this.data.paymentMethod === 'STORED_VALUE') {
+        if (mall.normalizeStatus(order.payChannel || payChannel) === 'STORED_VALUE') {
           return api.payOrderByBalance(order.orderNo).then(result => ({
             paid: mall.normalizeStatus(result && result.payStatus) === 'PAID',
             closed: mall.normalizeStatus(result && result.status) === 'CANCELED',
@@ -232,12 +267,13 @@ Page({
       })
       .then(result => {
         wx.hideLoading();
-        this.finishPayment(createdOrder, result);
+        this.finishPayment(createdOrder, result, paymentUserId);
       })
       .catch(error => {
         wx.hideLoading();
         if (createdOrder && createdOrder.orderNo) {
-          wx.showToast({ title: '订单已创建，请继续支付', icon: 'none' });
+          const message = error && error.res && Number(error.res.code) === 400 && error.message;
+          wx.showToast({ title: message || '订单已创建，请继续支付', icon: 'none' });
           setTimeout(() => this.redirectToOrder(createdOrder.orderNo), 500);
           return;
         }
@@ -245,22 +281,22 @@ Page({
       });
   },
 
-  finishPayment(order, result) {
-    if (result && result.paid) {
-      if (this.data.source === 'cart') {
-        mallCart.remove(this.data.items.map(item => item.skuId));
-      }
+  finishPayment(order, result, paymentUserId) {
+    const paid = Boolean(result && result.paid);
+    if (paid) {
+      mallCart.settlePaidOrder(order.orderNo, paymentUserId);
       wx.showToast({ title: '支付成功', icon: 'success' });
     } else {
       wx.showToast({ title: '订单待支付', icon: 'none' });
     }
-    setTimeout(() => this.redirectToOrder(order.orderNo), result && result.paid ? 400 : 600);
+    setTimeout(() => this.redirectToOrder(order.orderNo, paid), paid ? 400 : 600);
   },
 
-  redirectToOrder(orderNo) {
+  redirectToOrder(orderNo, fromPayment) {
     if (this.redirected || !orderNo) return;
     this.redirected = true;
-    wx.redirectTo({ url: `/packageMall/pages/order-detail/order-detail?orderNo=${orderNo}` });
+    const paymentQuery = fromPayment ? '&fromPayment=1' : '';
+    wx.redirectTo({ url: `/packageMall/pages/order-detail/order-detail?orderNo=${orderNo}${paymentQuery}` });
   },
 
   goLogin() {

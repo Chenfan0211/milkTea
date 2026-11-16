@@ -11,6 +11,7 @@ public class MallProductCardDTO {
     private String subtitle;
     private String coverImage;
     private Long minPrice;
+    private Long minCustomerPrice;
     private Long originalPrice;
     private Integer availableStock;
     private Boolean soldOut;

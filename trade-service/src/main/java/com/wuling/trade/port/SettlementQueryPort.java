@@ -18,6 +18,8 @@ public interface SettlementQueryPort {
         private boolean settled;
         /** 是否存在分账记录（决定退款时是否需要冲正） */
         private boolean hasSettlement;
+        /** 存量商城分账含投资人，不能用本版三方明细部分冲正。 */
+        private boolean legacyInvestorShare;
 
         public boolean isSettled() {
             return settled;
@@ -34,6 +36,9 @@ public interface SettlementQueryPort {
         public void setHasSettlement(boolean hasSettlement) {
             this.hasSettlement = hasSettlement;
         }
+
+        public boolean isLegacyInvestorShare() { return legacyInvestorShare; }
+        public void setLegacyInvestorShare(boolean value) { legacyInvestorShare = value; }
     }
 
     /**

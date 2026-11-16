@@ -9,6 +9,7 @@ import type { UploadCustomRequestOptions } from 'naive-ui';
 import { uploadAdminImage } from '@/service/api/crud';
 import { useAdminStore } from '@/store/modules/admin';
 import { ref } from 'vue';
+import BannerTargetFields from '@/views/_shared/BannerTargetFields.vue';
 
 interface ProfileBanner {
   id?: number;
@@ -16,6 +17,8 @@ interface ProfileBanner {
   altText: string;
   sort: number;
   status: 'enabled' | 'disabled';
+  targetType: string;
+  targetId: string;
 }
 
 const props = defineProps<{
@@ -36,7 +39,9 @@ const form = reactive<ProfileBanner>({
   imageUrl: '',
   altText: '',
   sort: 0,
-  status: 'enabled'
+  status: 'enabled',
+  targetType: 'menu',
+  targetId: ''
 });
 
 const title = computed(() => (props.banner?.id ? '编辑轮播图' : '新增轮播图'));
@@ -55,6 +60,8 @@ watch(
     form.altText = source?.altText || '';
     form.sort = Number(source?.sort ?? 0);
     form.status = source?.status === 'disabled' ? 'disabled' : 'enabled';
+    form.targetType = source?.targetType || 'menu';
+    form.targetId = source?.targetId || '';
   },
   { immediate: true }
 );
@@ -100,11 +107,17 @@ async function submit() {
     window.$message?.warning('请先上传轮播图片');
     return;
   }
+  if (['menuProduct', 'mallProduct'].includes(form.targetType) && !form.targetId) {
+    window.$message?.warning('请选择目标商品');
+    return;
+  }
   const payload = {
     imageUrl: form.imageUrl,
     altText: form.altText.trim() || '我的页活动图',
     sort: Number(form.sort ?? 0),
-    status: form.status
+    status: form.status,
+    targetType: form.targetType,
+    targetId: form.targetId
   };
   submitting.value = true;
   try {
@@ -149,6 +162,8 @@ async function submit() {
       <NFormItem label="图片说明">
         <NInput v-model:value="form.altText" maxlength="40" show-count placeholder="例如：抹茶轻茉莉新品" />
       </NFormItem>
+
+      <BannerTargetFields v-model:target-type="form.targetType" v-model:target-id="form.targetId" />
 
       <NFormItem label="排序">
         <NInputNumber v-model:value="form.sort" :min="0" :precision="0" class="w-160px" />

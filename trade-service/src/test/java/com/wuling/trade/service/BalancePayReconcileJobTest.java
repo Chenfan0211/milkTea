@@ -233,7 +233,7 @@ class BalancePayReconcileJobTest {
         assertEquals(1, refunds.size(), "旧 VERIFIED 不得再作为完成态");
     }
     @Test
-    @DisplayName("无成功扣款记录（余额不足等）→ 只标记 COMPENSATED，绝不退款")
+    @DisplayName("无成功扣款记录（余额不足等）→ 标记 NO_DEBIT 保留补付能力，绝不退款")
     void noSuccessfulPayDoesNotRefund() {
         successfulPayExists = false;
         pendingIntent("WX-7", 5);
@@ -244,7 +244,7 @@ class BalancePayReconcileJobTest {
 
         job.reconcile();
 
-        assertEquals(BalancePayIntent.STATUS_COMPENSATED, intents.get(0).getStatus());
+        assertEquals(BalancePayIntent.STATUS_NO_DEBIT, intents.get(0).getStatus());
         assertTrue(refunds.isEmpty(), "无成功扣款记录时不得退款，否则会凭空退钱");
     }
 

@@ -1,0 +1,24 @@
+<view class="feature-tab-page">
+  <tongue-home-panel wx:if="{{ready && !memberZoneMode}}" />
+
+  <view wx:elif="{{ready}}" class="member-zone-page">
+    <navigation-bar title="会员专区" back="{{false}}" background="#FFFFFF" color="#2F302D" />
+    <scroll-view class="member-zone-scroll" scroll-y show-scrollbar="{{false}}">
+      <view class="member-zone-content">
+        <member-panel
+          levels="{{levels}}"
+          axis="{{axis}}"
+          current-index="{{currentIndex}}"
+          current-level="{{currentLevel}}"
+          progress-percent="{{progressPercent}}"
+          progress-label="{{progressLabel}}"
+          growth="{{currentGrowth}}"
+          bind:openrules="openLevelRules"
+        />
+        <view class="tabbar-safe-space"></view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view wx:else class="feature-tab-loading" aria-label="正在加载底部导航"></view>
+</view>

@@ -12,7 +12,7 @@ const authState = require('./utils/auth-state');
 const { refreshUserProfileFromRemote } = require('./utils/user-profile');
 const recommendationCart = require('./utils/recommendation-cart-state');
 const api = require('./utils/api');
-const featurePolicy = require('./utils/feature-policy');
+const tabBarConfig = require('./utils/tab-bar-config');
 
 function clearRecommendationCartCleanup(app) {
   if (app.recommendationCartCleanupTimer) {
@@ -102,7 +102,7 @@ App({
   onLaunch() {
     recommendationCart.cleanupExpired();
     scheduleRecommendationCartCleanup(this);
-    featurePolicy.refreshRemote(api.fetchConfig);
+    tabBarConfig.ready(api.fetchConfig);
     // 门店 / 城市数据来自后端接口（阶段 C 后不再有本地假数据）。
     Promise.all([refreshCitiesFromRemote(), refreshStoreCatalogFromRemote()]).then(() => {
       syncStoreGlobals(this, resolveStoreCatalog());

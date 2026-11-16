@@ -26,6 +26,27 @@
         </view>
 
         <view class="mall-card after-sale-detail-card">
+          <text class="mall-section-title">退货物流</text>
+          <view wx:if="{{record.returnCarrier}}" class="after-sale-info-row">
+            <text class="after-sale-info-row__label">快递公司</text>
+            <text class="after-sale-info-row__value">{{record.returnCarrier}}</text>
+          </view>
+          <view wx:if="{{record.returnTrackingNo}}" class="after-sale-info-row">
+            <text class="after-sale-info-row__label">退货单号</text>
+            <text class="after-sale-info-row__value">{{record.returnTrackingNo}}</text>
+          </view>
+          <view wx:if="{{record.returnReceivedTime}}" class="after-sale-info-row">
+            <text class="after-sale-info-row__label">商家收货时间</text>
+            <text class="after-sale-info-row__value">{{record.returnReceivedTime}}</text>
+          </view>
+          <block wx:if="{{record.canSubmitTracking}}">
+            <input class="return-tracking-input" value="{{returnCarrier}}" placeholder="退货快递公司" maxlength="64" bindinput="inputReturnCarrier" aria-label="退货快递公司" />
+            <input class="return-tracking-input" value="{{returnTrackingNo}}" placeholder="退货快递单号" maxlength="100" bindinput="inputReturnTrackingNo" aria-label="退货快递单号" />
+            <view class="mall-retry return-tracking-submit" bindtap="submitReturnTracking" aria-role="button" aria-label="提交退货快递单号">提交退货物流</view>
+          </block>
+        </view>
+
+        <view class="mall-card after-sale-detail-card">
           <text class="mall-section-title">售后单信息</text>
           <view class="after-sale-info-row">
             <text class="after-sale-info-row__label">售后单号</text>

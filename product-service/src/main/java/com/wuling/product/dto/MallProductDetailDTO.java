@@ -17,6 +17,7 @@ public class MallProductDetailDTO {
     private List<String> galleryImages;
     private String description;
     private Long minPrice;
+    private Long minCustomerPrice;
     private Long originalPrice;
     private Integer availableStock;
     private Boolean soldOut;

@@ -101,14 +101,22 @@ public class SplitCalculator {
     }
 
     /**
-     * 带明细分摊的分账计算（支持商城模式：不发门店提成 + 分销佣金切出）。
+     * 带明细分摊的分账计算（商城模式固定为平台、供应商、团长三方）。
      *
-     * @param mallOrder              商城订单标记：true 时门店提成恒为 0
+     * @param mallOrder              商城订单标记：true 时仅计算平台、供应商和团长
      * @param accumulatedInvestorAmount 投资人当月累计已分账金额（分）；null 表示不启用阈值判定
      */
     public SplitAmount calc(long paidAmount, int itemCount, boolean hasChannel,
                             SplitRule rule, long platformCommission, List<LineItem> items,
                             Long accumulatedInvestorAmount, boolean mallOrder) {
+        if (mallOrder) {
+            long supplier = sumCostPrice(items);
+            long leader = sumDistributionCommission(items);
+            long commission = sumPlatformCommission(items);
+            long platform = paidAmount - supplier - leader;
+            return new SplitAmount(platform, 0L, 0L, 0L, supplier,
+                    commission, platform - commission, leader);
+        }
         if (rule == null) {
             long commission = sumPlatformCommission(items);
             long leader = sumDistributionCommission(items);
@@ -116,7 +124,7 @@ public class SplitCalculator {
                     paidAmount - commission - leader, leader);
         }
         // 门店 / 资源方：固定金额，按商品件数计；商城订单不发门店提成
-        long store = mallOrder ? 0L : perItem(rule.getStoreRatio()) * itemCount;
+        long store = perItem(rule.getStoreRatio()) * itemCount;
         long channel = hasChannel ? perItem(rule.getChannelRatio()) * itemCount : 0L;
 
         // 供应商成本：成本单价 × 件数 后汇总（只加单价会把多件订单的成本漏算）

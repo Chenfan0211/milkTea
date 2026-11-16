@@ -18,53 +18,39 @@
       </view>
 
       <block wx:elif="{{addresses.length}}">
-        <view
-          wx:for="{{addresses}}"
-          wx:key="id"
-          class="address-card {{mode === 'select' && selectedId === item.id ? 'is-selected' : ''}}"
-          data-id="{{item.id}}"
-          bindtap="selectAddress"
-          aria-role="button"
-          aria-label="{{mode === 'select' ? '选择收货地址' : '编辑收货地址'}}：{{item.recipientName}}，{{item.fullAddress}}"
-        >
-          <view class="address-card__main">
-            <view class="address-card__head">
-              <text class="address-card__name">{{item.recipientName}}</text>
-              <text class="address-card__phone">{{item.phone}}</text>
-              <text wx:if="{{item.isDefault}}" class="mall-tag address-card__default">默认</text>
-              <text wx:if="{{item.tag}}" class="mall-tag mall-tag--muted">{{item.tag}}</text>
-            </view>
-            <text class="address-card__region">{{item.regionText}}</text>
-            <text class="address-card__detail">{{item.detailAddress}}</text>
-          </view>
-          <view wx:if="{{mode === 'select'}}" class="address-card__select">
-            <image
-              wx:if="{{selectedId === item.id}}"
-              class="address-card__selected-icon"
-              src="/assets/icons/lucide/check.svg"
-              mode="aspectFit"
-            />
-          </view>
-        </view>
-
-        <view wx:if="{{mode === 'manage'}}" class="address-actions">
+        <view class="address-item" wx:for="{{addresses}}" wx:key="id">
           <view
-            wx:for="{{addresses}}"
-            wx:key="id"
-            class="address-action-row"
+            class="address-card {{mode === 'select' && selectedId === item.id ? 'is-selected' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="selectAddress"
+            aria-role="button"
+            aria-label="{{mode === 'select' ? '选择收货地址' : '编辑收货地址'}}：{{item.recipientName}}，{{item.fullAddress}}"
           >
-            <view class="address-action-row__title">地址 {{index + 1}}</view>
+            <view class="address-card__main">
+              <view class="address-card__head">
+                <text class="address-card__name">{{item.recipientName}}</text>
+                <text class="address-card__phone">{{item.phone}}</text>
+                <text wx:if="{{item.isDefault}}" class="mall-tag address-card__default">默认</text>
+                <text wx:if="{{item.tag}}" class="mall-tag mall-tag--muted">{{item.tag}}</text>
+              </view>
+              <text class="address-card__region">{{item.regionText}}</text>
+              <text class="address-card__detail">{{item.detailAddress}}</text>
+            </view>
+            <view wx:if="{{mode === 'select'}}" class="address-card__select">
+              <image
+                wx:if="{{selectedId === item.id}}"
+                class="address-card__selected-icon"
+                src="/assets/icons/lucide/check.svg"
+                mode="aspectFit"
+              />
+            </view>
+          </view>
+          <view class="address-action-row">
+            <view class="mall-button mall-button--small address-action-row__default" wx:if="{{!item.isDefault}}" data-id="{{item.id}}" bindtap="setDefault" aria-role="button" aria-label="将{{item.recipientName}}的地址设为默认">设为默认</view>
+            <text wx:else class="address-action-row__default-state">已设默认</text>
             <view class="address-action-row__buttons">
-              <view
-                wx:if="{{!item.isDefault}}"
-                class="mall-button mall-button--small"
-                data-id="{{item.id}}"
-                bindtap="setDefault"
-                aria-role="button"
-                aria-label="将{{item.recipientName}}的地址设为默认"
-              >设为默认</view>
               <view class="mall-button mall-button--small" data-id="{{item.id}}" bindtap="editAddress" aria-role="button" aria-label="编辑{{item.recipientName}}的地址">编辑</view>
-              <view class="mall-button mall-button--small address-action-row__delete" data-id="{{item.id}}" bindtap="removeAddress" aria-role="button" aria-label="删除{{item.recipientName}}的地址">删除</view>
+              <view wx:if="{{mode === 'manage'}}" class="mall-button mall-button--small address-action-row__delete" data-id="{{item.id}}" bindtap="removeAddress" aria-role="button" aria-label="删除{{item.recipientName}}的地址">删除</view>
             </view>
           </view>
         </view>

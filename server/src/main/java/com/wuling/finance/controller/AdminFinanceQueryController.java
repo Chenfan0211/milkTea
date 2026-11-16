@@ -192,10 +192,35 @@ public class AdminFinanceQueryController {
             args.add("%" + orderNo + "%");
         }
         PageResult<Map<String, Object>> page = pageOf("split_snapshot", where.toString(), args, "id desc", current, size);
+        Map<Long, String> orderTypes = loadOrderTypes(page.getRecords());
         for (Map<String, Object> row : page.getRecords()) {
-            row.put("summary", summarizeOrderItems(row.get("orderId")));
+            Object orderId = row.get("orderId");
+            row.put("orderType", orderId == null ? null : orderTypes.get(((Number) orderId).longValue()));
+            row.put("leaderAmount", row.get("leaderAmount") == null ? 0L : row.get("leaderAmount"));
+            row.put("summary", summarizeOrderItems(orderId));
         }
         return Result.ok(page);
+    }
+
+    private Map<Long, String> loadOrderTypes(List<Map<String, Object>> rows) {
+        List<Long> orderIds = rows.stream()
+                .map(row -> row.get("orderId"))
+                .filter(Number.class::isInstance)
+                .map(value -> ((Number) value).longValue())
+                .distinct()
+                .toList();
+        if (orderIds.isEmpty()) {
+            return Map.of();
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(orderIds.size(), "?"));
+        Map<Long, String> result = new LinkedHashMap<>();
+        jdbcTemplate.queryForList(
+                        "select id, order_type from orders where deleted = 0 and id in (" + placeholders + ")",
+                        orderIds.toArray())
+                .forEach(row -> result.put(
+                        ((Number) row.get("id")).longValue(),
+                        row.get("order_type") == null ? null : String.valueOf(row.get("order_type"))));
+        return result;
     }
 
     /** 聚合订单商品明细为一行摘要，如「金桂轻乳茶 x1」 */

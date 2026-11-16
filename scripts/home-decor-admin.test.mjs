@@ -14,7 +14,16 @@ assert.ok(migration.includes('view.system_home-decor'), '首页装修菜单必�
 assert.ok(migration.includes("'R_OPERATION'"), '首页装修菜单必须授权运营角色');
 
 const controller = read('server/src/main/java/com/wuling/system/controller/AppConfigController.java');
-assert.ok(controller.includes('readPublicValue("home_hero")'), '首页配置接口必须读取 home_hero');
+assert.ok(controller.includes('from home_banner'), '首页配置接口必须读取逐条轮播');
+assert.ok(controller.includes("status = 'enabled' and deleted = 0"), '首页只能下发启用且未删除的轮播');
+
+const bannerMigration = read('server/src/main/resources/db/migration/V102__home_banner_records.sql');
+assert.ok(bannerMigration.includes('CREATE TABLE home_banner'), '迁移必须创建首页轮播表');
+assert.ok(bannerMigration.includes('JSON_TABLE'), '迁移必须保留已有多图');
+assert.ok(bannerMigration.includes('deleted'), '首页轮播必须支持逻辑删除');
+
+const registry = read('server/src/main/java/com/wuling/system/crud/CrudRegistry.java');
+assert.ok(registry.includes('"homeBanners"'), '首页轮播必须登记通用 CRUD 资源');
 
 const routes = read('src/router/elegant/routes.ts');
 const imports = read('src/router/elegant/imports.ts');
@@ -31,12 +40,15 @@ for (const [source, marker] of [
 }
 
 const page = read('src/views/system/home-decor/index.vue');
-assert.ok(page.includes('uploadAdminImage'), '首页装修页必须复用通用图片上传 API');
-assert.ok(page.includes('2250'), '首页装修页必须提示推荐宽度');
-assert.ok(page.includes('3120'), '首页装修页必须提示推荐高度');
-assert.ok(page.includes('aspect-ratio'), '首页装修页必须提供固定比例预览');
-assert.ok(page.includes('home_hero'), '首页装修页必须读写 home_hero 配置');
-assert.ok(page.includes('恢复默认图'), '首页装修页必须支持恢复默认图');
+const editor = read('src/views/system/home-decor/HomeBannerEditor.vue');
+assert.ok(editor.includes('uploadAdminImage'), '首页装修页必须复用通用图片上传 API');
+assert.ok(editor.includes('2250'), '首页装修页必须提示推荐宽度');
+assert.ok(editor.includes('3120'), '首页装修页必须提示推荐高度');
+assert.ok(editor.includes('dimensions.width < 750 || dimensions.height < 1040'), '首页图片必须校验原图尺寸');
+assert.ok(page.includes('homeBanners'), '首页装修页必须逐条管理轮播');
+assert.ok(page.includes('新增轮播图'), '首页装修页必须支持新增');
+assert.ok(page.includes('停用') && page.includes('启用'), '首页装修页必须支持启停');
+assert.ok(page.includes('store.remove'), '首页装修页删除必须调用通用逻辑删除');
 
 const crud = read('src/service/api/crud.ts');
 assert.ok(crud.includes('export async function uploadAdminImage'), '必须新增通用管理员图片上传函数');
@@ -44,10 +56,10 @@ assert.ok(crud.includes("url: '/api/v1/files/images'"), '上传函数必须调�
 
 const configPage = read('src/views/system/config/index.vue');
 assert.ok(configPage.includes('home_hero:'), '运营配置页必须登记 home_hero 用途');
-assert.ok(configPage.includes('请到首页装修页维护'), '运营配置页必须提示首页装修页为维护入口');
+assert.ok(configPage.includes('已迁移；请到首页装修页维护图片'), '运营配置页必须提示历史配置已迁移');
 assert.ok(configPage.includes("PROTECTED_KEYS = ['service_info', 'home_hero']"), '运营配置页必须保护 home_hero');
 assert.ok(
-  configPage.includes("!PROTECTED_KEYS.includes(String(row.configKey || ''))"),
+  configPage.includes("!NON_DELETABLE_KEYS.includes(String(row.configKey || ''))"),
   '运营配置页不得允许删除 home_hero'
 );
 
@@ -57,9 +69,14 @@ assert.ok(homeJs.includes('resolveAssetUrl'), '小程序首页必须转换文件
 assert.ok(homeJs.includes('handleHeroError'), '小程序首页必须处理动态图加载失败');
 
 const homeWxml = read('user-h5/pages/home/home.wxml');
-assert.ok(homeWxml.includes('src="{{homeHeroUrl}}"'), '首页主视觉必须绑定动态 URL');
-assert.ok(homeWxml.includes('aria-label="{{homeHeroAlt}}"'), '首页主视觉说明必须支持后台配置');
-assert.ok(homeWxml.includes('mode="aspectFill"'), '首页主视觉必须固定比例裁切');
+assert.ok(homeWxml.includes('wx:for="{{homeBanners}}"'), '首页主视觉必须逐图展示');
+assert.ok(homeWxml.includes('src="{{item.imageUrl}}"'), '首页主视觉必须绑定动态 URL');
+assert.ok(homeWxml.includes('aria-label="{{item.altText}}"'), '首页主视觉说明必须支持后台配置');
+assert.ok(homeWxml.includes('mode="aspectFit"'), '首页主视觉必须等比完整展示');
+assert.ok(homeWxml.includes('bindtap="openHomeBanner"'), '运营轮播必须支持点击跳转');
 assert.ok(homeWxml.includes('binderror="handleHeroError"'), '首页主视觉必须绑定加载失败回退');
+
+const store = read('src/store/modules/admin/index.ts');
+assert.ok(store.includes("homeBanners: 'homeBanners'"), '后台 store 必须登记首页轮播');
 
 console.log('home-decor-admin.test.mjs: passed');

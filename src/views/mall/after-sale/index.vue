@@ -12,7 +12,12 @@ import type { DetailGroup } from '@/views/_shared/detail-types';
 import type { AdminListConfig, SearchField } from '@/views/_shared/types';
 import { formatDateTime, formatFen, renderTag, statusMap } from '@/views/_shared/render';
 import { retryRefundApi } from '@/service/api/crud';
-import { approveMallAfterSale, fetchMallAfterSales, rejectMallAfterSale } from '@/service/api/mall';
+import {
+  approveMallAfterSale,
+  confirmMallReturnReceipt,
+  fetchMallAfterSales,
+  rejectMallAfterSale
+} from '@/service/api/mall';
 import type { MallAfterSale, MallAfterSaleItem, MallAfterSaleStatus } from '@/service/api/mall';
 
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
@@ -26,7 +31,9 @@ const reviewMode = ref<'approve' | 'reject'>('approve');
 const reviewForm = reactive({ remark: '' });
 
 const afterSaleStatusMap = statusMap({
-  PENDING: ['待审核', 'warning'],
+  PENDING: ['待买家寄回', 'warning'],
+  RETURN_SHIPPED: ['退货已寄出', 'info'],
+  RETURN_RECEIVED: ['已收到退货', 'primary'],
   APPROVED: ['已通过', 'info'],
   REFUNDING: ['退款中', 'primary'],
   SUCCESS: ['退款成功', 'success'],
@@ -36,7 +43,9 @@ const afterSaleStatusMap = statusMap({
 });
 
 const statusOptions = [
-  { label: '待审核', value: 'PENDING' },
+  { label: '待买家寄回', value: 'PENDING' },
+  { label: '退货已寄出', value: 'RETURN_SHIPPED' },
+  { label: '已收到退货', value: 'RETURN_RECEIVED' },
   { label: '已通过', value: 'APPROVED' },
   { label: '退款中', value: 'REFUNDING' },
   { label: '退款成功', value: 'SUCCESS' },
@@ -87,6 +96,10 @@ function buildDetailGroups(row: MallAfterSale): DetailGroup[] {
         { label: '申请用户', render: () => row.userNick || row.userId || '—' },
         { label: '退款金额（元）', render: () => `¥${formatFen(row.refundAmount)}` },
         { label: '申请时间', render: () => formatDateTime(row.applyTime) },
+        { label: '退货快递公司', render: () => row.returnCarrier || '—' },
+        { label: '退货快递单号', render: () => row.returnTrackingNo || '—' },
+        { label: '商家收货时间', render: () => formatDateTime(row.returnReceivedTime) },
+        { label: '收货确认人', render: () => row.returnReceiver || '—' },
         { label: '审核时间', render: () => formatDateTime(row.reviewTime) },
         { label: '审核人', render: () => row.reviewer || '—' },
         { label: '完成时间', render: () => formatDateTime(row.completeTime) }
@@ -131,6 +144,12 @@ async function retryAfterSaleRefund(row: MallAfterSale) {
   }
   await retryRefundApi(row.refundId);
   window.$message?.success('已重新发起退款');
+  await listRef.value?.reload();
+}
+
+async function confirmReturnReceipt(row: MallAfterSale) {
+  await confirmMallReturnReceipt(row.afterSaleNo);
+  window.$message?.success('已确认收到退货，可审核退款');
   await listRef.value?.reload();
 }
 
@@ -197,19 +216,28 @@ const config: AdminListConfig = {
       type: 'warning',
       confirm: '确认重试该售后退款？将复用原退款单，不会重复退款。',
       handler: (row: MallAfterSale) => retryAfterSaleRefund(row),
-      visible: (row: MallAfterSale) => row.status === 'FAILED'
+      visible: (row: MallAfterSale) => row.status === 'FAILED' && Boolean(row.returnReceivedTime)
+    },
+    {
+      label: '确认收货',
+      type: 'warning',
+      confirm: '确认已实际收到这笔退货？确认后可审核退款。',
+      handler: (row: MallAfterSale) => confirmReturnReceipt(row),
+      visible: (row: MallAfterSale) =>
+        row.status === 'RETURN_SHIPPED' ||
+        (row.status === 'FAILED' && Boolean(row.returnTrackingNo) && !row.returnReceivedTime)
     },
     {
       label: '通过',
       type: 'primary',
       handler: (row: MallAfterSale) => openReview(row, 'approve'),
-      visible: (row: MallAfterSale) => row.status === 'PENDING'
+      visible: (row: MallAfterSale) => row.status === 'RETURN_RECEIVED'
     },
     {
       label: '驳回',
       type: 'error',
       handler: (row: MallAfterSale) => openReview(row, 'reject'),
-      visible: (row: MallAfterSale) => row.status === 'PENDING'
+      visible: (row: MallAfterSale) => row.status === 'PENDING' || row.status === 'RETURN_RECEIVED'
     }
   ],
   loadData: async ({ page, pageSize, search }) => {

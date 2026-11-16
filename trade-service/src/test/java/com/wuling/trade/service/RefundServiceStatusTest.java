@@ -1,6 +1,13 @@
 package com.wuling.trade.service;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.common.mq.MqConstants;
@@ -56,11 +63,13 @@ class RefundServiceStatusTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Refund.class);
         orderMapper = mock(OrderMapper.class);
         refundMapper = mock(RefundMapper.class);
         paymentMapper = mock(PaymentMapper.class);
         settlementQueryPort = mock(SettlementQueryPort.class);
         orderService = mock(OrderService.class);
+        when(orderService.lockForUpdate(ORDER_NO)).thenAnswer(invocation -> orderMapper.selectById(ORDER_ID));
         gatewayResolver = mock(PaymentGatewayResolver.class);
         paymentGateway = mock(PaymentGateway.class);
         outboxService = mock(OutboxService.class);
@@ -75,6 +84,17 @@ class RefundServiceStatusTest {
                 gatewayResolver,
                 outboxService,
                 storedValueBalancePort);
+        Payment originalPayment = new Payment();
+        originalPayment.setOrderNo(ORDER_NO);
+        originalPayment.setChannel("MOCK");
+        originalPayment.setAmount(AMOUNT);
+        originalPayment.setStandardStatus("PAID");
+        when(paymentMapper.selectOne(any(Wrapper.class))).thenReturn(originalPayment);
+        when(gatewayResolver.forPayment(any())).thenReturn(paymentGateway);
+        when(refundMapper.update(isNull(), any())).thenReturn(1);
+        DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
+        beans.registerSingleton("refundService", service);
+        ReflectionTestUtils.setField(service, "self", beans.getBeanProvider(RefundService.class));
     }
 
     @Test
@@ -83,7 +103,7 @@ class RefundServiceStatusTest {
         when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
         when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
         when(gatewayResolver.active()).thenReturn(paymentGateway);
-        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq("user cancel")))
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq(AMOUNT), eq("user cancel")))
                 .thenReturn(null);
         doAnswer(invocation -> {
             Refund refund = invocation.getArgument(0);
@@ -105,7 +125,7 @@ class RefundServiceStatusTest {
         Order order = order(OrderService.STATUS_COMPLETED, null);
         when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
         when(gatewayResolver.active()).thenReturn(paymentGateway);
-        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq("after verify")))
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq(AMOUNT), eq("after verify")))
                 .thenReturn(null);
         doAnswer(invocation -> {
             Refund refund = invocation.getArgument(0);
@@ -142,7 +162,7 @@ class RefundServiceStatusTest {
         when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
         when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
         when(gatewayResolver.active()).thenReturn(paymentGateway);
-        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), any()))
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq(AMOUNT), any()))
                 .thenReturn(new PaymentGateway.RefundApplyResult(false, null, "declined"));
         doAnswer(invocation -> {
             Refund refund = invocation.getArgument(0);
@@ -162,7 +182,7 @@ class RefundServiceStatusTest {
         when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
         when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
         when(gatewayResolver.active()).thenReturn(paymentGateway);
-        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), any()))
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq(AMOUNT), any()))
                 .thenReturn(new PaymentGateway.RefundApplyResult(false, null, "declined"));
         doAnswer(invocation -> {
             Refund refund = invocation.getArgument(0);
@@ -293,18 +313,18 @@ class RefundServiceStatusTest {
         Refund refund = refund(RefundService.STATUS_FAILED);
         Order order = order(OrderService.STATUS_PAID, "FAILED");
         when(refundMapper.selectById(REFUND_ID)).thenReturn(refund);
+        when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund);
         when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
         when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
         when(gatewayResolver.active()).thenReturn(paymentGateway);
-        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), any()))
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq(AMOUNT), any()))
                 .thenReturn(null);
 
         service.retry(REFUND_ID);
 
         verify(orderService).markRefundPending(order);
-        ArgumentCaptor<Refund> captor = ArgumentCaptor.forClass(Refund.class);
-        verify(refundMapper).updateById(captor.capture());
-        assertEquals(RefundService.STATUS_REFUNDING, captor.getValue().getStatus());
+        verify(refundMapper).update(isNull(), any());
+        assertEquals(RefundService.STATUS_REFUNDING, refund.getStatus());
     }
     @Test
     void syncRefundStatusByRefundNoReturnsLatestStatusAndAdvanced() {
@@ -313,6 +333,7 @@ class RefundServiceStatusTest {
         Order order = order(OrderService.STATUS_PAID, "PENDING");
         when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund);
         when(refundMapper.selectById(REFUND_ID)).thenReturn(refund);
+        when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund);
         when(orderMapper.selectById(ORDER_ID)).thenReturn(order);
         when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
         when(gatewayResolver.active()).thenReturn(paymentGateway);
@@ -345,7 +366,7 @@ class RefundServiceStatusTest {
         when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
         when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
         when(gatewayResolver.active()).thenReturn(paymentGateway);
-        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), isNull()))
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq(AMOUNT), isNull()))
                 .thenReturn(new PaymentGateway.RefundApplyResult(true, "3RD1", null));
         // 即时重查：先用 selectOne 定位退款单，再用 selectById 读最新
         when(refundMapper.selectOne(any(Wrapper.class))).thenReturn(refund(RefundService.STATUS_REFUNDING));
@@ -358,7 +379,15 @@ class RefundServiceStatusTest {
             return 1;
         }).when(refundMapper).insert(any(Refund.class));
 
-        service.refund(ORDER_NO, null);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.refund(ORDER_NO, null);
+            for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCommit();
+            }
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
 
         // 即时重查是异步的：轮询等待其完成（最多 2 秒）
         long deadline = System.currentTimeMillis() + 2000;
@@ -385,7 +414,7 @@ class RefundServiceStatusTest {
         when(orderService.lockForUpdate(ORDER_NO)).thenReturn(order);
         when(settlementQueryPort.query(ORDER_ID)).thenReturn(settlement(false, false));
         when(gatewayResolver.active()).thenReturn(paymentGateway);
-        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), isNull()))
+        when(paymentGateway.refund(eq(ORDER_NO), anyString(), eq(AMOUNT), eq(AMOUNT), isNull()))
                 .thenReturn(new PaymentGateway.RefundApplyResult(true, "3RD1", null));
         doAnswer(invocation -> {
             Refund r = invocation.getArgument(0);
@@ -441,6 +470,7 @@ class RefundServiceStatusTest {
         refund.setOrderId(ORDER_ID);
         refund.setOrderNo(ORDER_NO);
         refund.setAmount(AMOUNT);
+        refund.setOriginalAmount(AMOUNT);
         refund.setStatus(status);
         return refund;
     }

@@ -8,7 +8,6 @@ import com.wuling.common.mq.MqConstants;
 import com.wuling.common.mq.event.OrderPaidEvent;
 import com.wuling.common.mq.event.OrderVerifiedEvent;
 import com.wuling.common.mq.event.SubscribeMessageEvent;
-import com.wuling.common.mq.event.SplitRuleSnapshot;
 import com.wuling.common.outbox.OutboxService;
 import com.wuling.trade.dto.CreateMallOrderRequest;
 import com.wuling.trade.dto.MallCheckoutQuoteDTO;
@@ -22,7 +21,6 @@ import com.wuling.trade.mapper.OrderMapper;
 import com.wuling.trade.mapper.OrderShippingMapper;
 import com.wuling.trade.port.MallAddressPort;
 import com.wuling.trade.port.MallCatalogPort;
-import com.wuling.trade.port.MallRulePort;
 import com.wuling.trade.port.MallLeaderPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +50,6 @@ public class MallOrderService {
     private final OrderShippingMapper shippingMapper;
     private final MallCatalogPort catalogPort;
     private final MallAddressPort addressPort;
-    private final MallRulePort rulePort;
     private final MallLeaderPort leaderPort;
     private final MallOrderLookupService lookupService;
     private final OutboxService outboxService;
@@ -61,14 +58,13 @@ public class MallOrderService {
     public MallOrderService(OrderMapper orderMapper, OrderItemMapper orderItemMapper,
                             OrderShippingMapper shippingMapper, MallCatalogPort catalogPort,
                             MallAddressPort addressPort, OutboxService outboxService,
-                            OrderService orderService, MallRulePort rulePort, MallLeaderPort leaderPort,
+                            OrderService orderService, MallLeaderPort leaderPort,
                             MallOrderLookupService lookupService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.shippingMapper = shippingMapper;
         this.catalogPort = catalogPort;
         this.addressPort = addressPort;
-        this.rulePort = rulePort;
         this.leaderPort = leaderPort;
         this.lookupService = lookupService;
         this.outboxService = outboxService;
@@ -91,7 +87,6 @@ public class MallOrderService {
         MallCheckoutQuoteDTO quote = new MallCheckoutQuoteDTO();
         quote.setLeaderBuyer(leaderBuyer);
         List<MallCheckoutQuoteDTO.Item> lines = new ArrayList<>();
-        MallCatalogPort.SkuView first = null;
         boolean orderable = true;
         String orderError = null;
         long payable = 0L;
@@ -116,14 +111,6 @@ public class MallOrderService {
             line.setImage(sku.image());
             line.setOriginalPrice(sku.originalPrice());
             line.setAvailableStock(sku.availableStock());
-            if (first == null) {
-                first = sku;
-            } else if (!java.util.Objects.equals(first.storeSubjectId(), sku.storeSubjectId())
-                    || !java.util.Objects.equals(first.channelSubjectId(), sku.channelSubjectId())
-                    || !java.util.Objects.equals(first.splitRuleId(), sku.splitRuleId())) {
-                orderable = false;
-                orderError = "同一订单商品的归属主体或分账规则不一致";
-            }
             if (!sku.onSale()) {
                 line.setValid(false);
                 line.setReason("商品已下架");
@@ -149,6 +136,7 @@ public class MallOrderService {
         quote.setOrderError(orderError);
         return quote;
     }
+    @Transactional(rollbackFor = Exception.class)
     public OrderDTO create(Long userId, CreateMallOrderRequest request) {
         return create(userId, request, nextOrderNo());
     }
@@ -185,24 +173,17 @@ public class MallOrderService {
         Long leaderSubjectId = leaderInfo.leaderSubjectId();
         Long leaderUserId = leaderInfo.leaderUserId();
         long total = 0L;
-        MallCatalogPort.SkuView first = null;
         for (Long skuId : quantities.keySet().stream().sorted().toList()) {
             MallCatalogPort.SkuView sku = skuMap.get(skuId);
             int quantity = quantities.get(skuId);
             if (!sku.onSale()) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "商品已下架：" + sku.name());
             }
-            if (sku.storeSubjectId() == null || sku.supplierSubjectId() == null) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "商品归属门店或供应商未配置：" + sku.name());
+            if (sku.supplierSubjectId() == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "商品供应商未配置：" + sku.name());
             }
             if (sku.availableStock() < quantity) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "商品库存不足：" + sku.name());
-            }
-            if (first == null) first = sku;
-            if (!Objects.equals(first.storeSubjectId(), sku.storeSubjectId())
-                    || !Objects.equals(first.channelSubjectId(), sku.channelSubjectId())
-                    || !Objects.equals(first.splitRuleId(), sku.splitRuleId())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "同一订单商品的归属主体或分账规则不一致");
             }
             OrderItem item = new OrderItem();
             item.setMallSkuId(sku.skuId());
@@ -231,16 +212,12 @@ public class MallOrderService {
         order.setClientRequestId(requestId);
         order.setOrderType("MALL");
         order.setUserId(userId);
-        order.setStoreSubjectId(first.storeSubjectId());
-        order.setChannelSubjectId(first.channelSubjectId());
-        SplitRuleSnapshot ruleSnapshot = rulePort.snapshot(first.splitRuleId());
-        if (ruleSnapshot == null || ruleSnapshot.getRuleId() == null) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "商城分账规则未配置或已停用");
-        }
-        order.setSplitRuleId(ruleSnapshot.getRuleId());
-        ruleSnapshot.setLeaderSubjectId(leaderSubjectId);
-        ruleSnapshot.setLeaderUserId(leaderUserId);
-        order.setSplitRuleSnapshot(toJson(ruleSnapshot));
+        order.setStoreSubjectId(null);
+        order.setChannelSubjectId(null);
+        order.setSplitRuleId(null);
+        order.setSplitRuleSnapshot(null);
+        order.setLeaderSubjectId(leaderSubjectId);
+        order.setLeaderUserId(leaderUserId);
         order.setMealType("MALL");
         order.setStatus(OrderService.STATUS_CREATED);
         order.setPayStatus("UNPAID");
@@ -250,6 +227,7 @@ public class MallOrderService {
         order.setOriginalAmount(total);
         order.setDiscountAmount(0L);
         order.setPaidAmount(total);
+        order.setCreateTime(LocalDateTime.now());
         order.setCouponDiscount(0L);
         order.setStoredValueDiscount(0L);
         try {
@@ -335,16 +313,7 @@ public class MallOrderService {
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权取消该订单");
         }
-        if (!OrderService.STATUS_CREATED.equals(order.getStatus())) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "订单当前状态不可取消");
-        }
-        Order patch = new Order();
-        patch.setId(order.getId());
-        patch.setStatus(OrderService.STATUS_CANCELED);
-        orderMapper.updateById(patch);
-        order.setStatus(OrderService.STATUS_CANCELED);
-        stockService.releaseForCancelled(order);
-        return orderService.toDTO(order, loadItems(order.getId()));
+        return orderService.cancelUnpaid(orderNo, userId);
     }
 
     private void complete(Order order) {
@@ -369,10 +338,9 @@ public class MallOrderService {
         settlement.setStoreSubjectId(order.getStoreSubjectId());
         settlement.setChannelSubjectId(order.getChannelSubjectId());
         settlement.setSplitRuleId(order.getSplitRuleId());
-          settlement.setMallOrder(true);
-          SplitRuleSnapshot orderSnapshot = fromSnapshotJson(order.getSplitRuleSnapshot());
-          settlement.setLeaderSubjectId(orderSnapshot == null ? null : orderSnapshot.getLeaderSubjectId());
-          settlement.setSplitRuleSnapshot(orderSnapshot);
+        settlement.setMallOrder(true);
+        settlement.setLeaderSubjectId(order.getLeaderSubjectId());
+        settlement.setSplitRuleSnapshot(null);
         settlement.setPlatformCommission(platformCommission);
         settlement.setLines(lines);
         outboxService.enqueue("MALL_ORDER", order.getOrderNo(), "MALL_ORDER_COMPLETED_SPLIT",
@@ -444,22 +412,6 @@ public class MallOrderService {
     private String normalizePayChannel(String value) {
         if ("STORED_VALUE".equalsIgnoreCase(value)) return "STORED_VALUE";
         return "WXPAY";
-    }
-
-    private String toJson(Object value) {
-        try {
-            return JSON.writeValueAsString(value);
-        } catch (Exception e) {
-            throw new IllegalStateException("商城订单快照序列化失败", e);
-        }
-    }
-
-    private SplitRuleSnapshot fromSnapshotJson(String json) {
-        try {
-            return StringUtils.hasText(json) ? JSON.readValue(json, SplitRuleSnapshot.class) : null;
-        } catch (Exception e) {
-            throw new BusinessException(ResultCode.ERROR, "商城分账规则快照损坏");
-        }
     }
 
     private String toSpecJson(String specValue) {

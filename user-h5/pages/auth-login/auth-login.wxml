@@ -1,7 +1,7 @@
 <view class="auth-page">
   <navigation-bar title="" back="{{false}}" background="#FFFFFF" color="#2F302D" />
 
-  <scroll-view class="auth-scroll" scroll-y show-scrollbar="{{false}}">
+  <scroll-view class="auth-scroll" scroll-y enhanced show-scrollbar="{{false}}">
     <view class="auth-content">
       <!-- 品牌区：绿色圆形 logo + 温馨提示 -->
       <view class="auth-brand">
@@ -13,7 +13,7 @@
 
       <!-- 协议正文：多段说明 -->
       <view class="auth-doc">
-        <text class="auth-doc__para">我们依据相关法律法规制定了《用户协议》和《隐私政策》（以下统称"协议"）。请您在使用我们的产品前，仔细阅读并充分理解相关条款，以充分了解您的权利与义务。</text>
+        <text class="auth-doc__para">您可以先浏览商品和服务，自行选择是否登录。授权登录前，请仔细阅读并充分理解《用户协议》和《隐私政策》（以下统称"协议"），了解您的权利与义务。</text>
         <text class="auth-doc__para">我们非常重视您的个人信息保护。我们承诺，严格遵循最小必要原则，仅在使用具体功能时（如下单支付、配送到货）收集该功能所必需的信息。对于任何非必要信息，我们只会在您需要特定功能时单独向您申请授权，获得您同意后才会收集。</text>
         <text class="auth-doc__para">我们不会默认开启您的设备权限。只有当您使用需要特定权限的功能（例如需要位置信息查找附近门店）时，我们才会通过弹窗向您申请授权，并在您同意后开启该权限。您也可以随时在手机系统设置中关闭已开启的权限。如您不同意开启某一权限，仅会影响对应功能的使用，不影响您继续使用其他非相关功能。</text>
         <text class="auth-doc__para">如您是未成年人，请在您的监护人陪同下仔细阅读本提示及相关协议，并在征得监护人授权同意的前提下使用我们的服务或向我们提供个人信息。</text>
@@ -36,12 +36,12 @@
             mode="aspectFit"
           />
         </view>
-        <text class="auth-consent__text">允许我们在必要场景下，合理使用您的个人信息，且阅读并同意<text class="auth-consent__link" data-type="privacy" catchtap="openAgreement">《隐私政策》</text>、<text class="auth-consent__link" data-type="agreement" catchtap="openAgreement">《用户协议》</text>等内容</text>
+        <text class="auth-consent__text">允许我们在必要场景下，合理使用您的个人信息，且阅读并同意<text class="auth-consent__link" data-type="privacy" catchtap="openAgreement" aria-role="button" aria-label="查看隐私政策">《隐私政策》</text>、<text class="auth-consent__link" data-type="agreement" catchtap="openAgreement" aria-role="button" aria-label="查看用户协议">《用户协议》</text>等内容</text>
       </view>
     </view>
   </scroll-view>
 
-  <!-- 底部双按钮：拒绝仅浏览 / 同意（同意即授权手机号并完成注册登录） -->
+  <!-- 未勾选时只渲染同样式普通控件，保持旧版绿色外观且不触发授权。 -->
   <view class="auth-actions">
     <view
       class="auth-actions__ghost"
@@ -50,11 +50,19 @@
       aria-label="拒绝并仅浏览"
     >拒绝仅浏览</view>
     <button
-      class="auth-actions__primary {{agreementChecked ? '' : 'is-disabled'}}"
+      wx:if="{{agreementChecked}}"
+      class="auth-actions__primary"
       open-type="getPhoneNumber"
       bindgetphonenumber="handleAgree"
       aria-role="button"
       aria-label="同意协议并授权手机号登录"
     >同意</button>
+    <view
+      wx:else
+      class="auth-actions__primary"
+      bindtap="handleAgreementRequired"
+      aria-role="button"
+      aria-label="同意协议并授权手机号登录，请先勾选协议"
+    >同意</view>
   </view>
 </view>

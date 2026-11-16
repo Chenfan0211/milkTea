@@ -233,6 +233,28 @@
   height: 40rpx;
 }
 
+.detail-cart-entry__icon-wrap {
+  position: relative;
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.detail-cart-entry__badge {
+  position: absolute;
+  top: -8rpx;
+  right: -16rpx;
+  box-sizing: border-box;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  color: var(--card-bg);
+  font-size: var(--font-caption);
+  line-height: 32rpx;
+  text-align: center;
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+
 .detail-cart-entry__label {
   margin-top: 4rpx;
   color: var(--text-secondary);

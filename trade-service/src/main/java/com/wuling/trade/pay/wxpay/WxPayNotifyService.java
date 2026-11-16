@@ -125,6 +125,9 @@ public class WxPayNotifyService {
         if (!StringUtils.hasText(transaction.getOutTradeNo())) {
             throw new WxPayNotifyException("回调缺少商户订单号 out_trade_no");
         }
+        if (!"CNY".equals(transaction.getCurrency())) {
+            throw new WxPayNotifyException("回调币种不匹配");
+        }
         return transaction;
     }
 
@@ -208,6 +211,7 @@ public class WxPayNotifyService {
         result.setAppId(tx.getAppid());
         result.setSuccessTime(tx.getSuccessTime());
         if (tx.getAmount() != null) {
+            result.setCurrency(tx.getAmount().getCurrency());
             if (tx.getAmount().getTotal() != null) {
                 result.setTotalAmount(tx.getAmount().getTotal().longValue());
             }

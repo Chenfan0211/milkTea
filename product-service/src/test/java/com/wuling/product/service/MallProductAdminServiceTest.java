@@ -52,10 +52,10 @@ class MallProductAdminServiceTest {
     }
 
     @Test
-    @DisplayName("无归属渠道的商品可以正常分页返回")
+    @DisplayName("商品分页返回 SPU 供应商")
     void pageProductsAllowsMissingChannel() {
         MallProduct product = product(1L);
-        product.setAttributionChannelSubjectId(null);
+        product.setSupplierSubjectId(401L);
         Page<MallProduct> page = new Page<>(1, 10);
         page.setRecords(List.of(product));
         page.setTotal(1);
@@ -63,13 +63,14 @@ class MallProductAdminServiceTest {
         when(productMapper.selectPage(any(), any())).thenReturn(page);
         when(skuMapper.selectList(any())).thenReturn(List.of(sku(1L, 5, 0)));
         when(categoryMapper.selectBatchIds(any())).thenReturn(List.of(category()));
-        when(subjectQueryPort.findNames(any())).thenReturn(Map.of(101L, "主体101", 401L, "主体401"));
+        when(subjectQueryPort.findNames(any())).thenReturn(Map.of(401L, "供应商401"));
 
         MallProductAdminDTO result = service.pageProducts(1, 10, null, null, null)
                 .getRecords()
                 .get(0);
 
-        assertNull(result.getAttributionChannelName());
+        assertEquals(401L, result.getSupplierSubjectId());
+        assertEquals("供应商401", result.getSupplierName());
     }
 
     @Test
@@ -77,20 +78,19 @@ class MallProductAdminServiceTest {
     void cannotPutOnSaleWithoutSku() {
         when(productMapper.selectById(1L)).thenReturn(product(1L));
         when(skuMapper.selectList(any())).thenReturn(List.of());
-        when(subjectQueryPort.findById(101L)).thenReturn(subject(101L, "STORE"));
+        when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
 
         assertThrows(com.wuling.common.exception.BusinessException.class,
                 () -> service.updateStatus(1L, "ON_SALE"));
     }
 
     @Test
-    @DisplayName("SKU 缺少供应商时禁止上架")
+    @DisplayName("SPU 缺少供应商时禁止上架")
     void cannotPutOnSaleWhenSupplierIsMissing() {
-        when(productMapper.selectById(1L)).thenReturn(product(1L));
-        MallSku sku = sku(1L, 5, 0);
-        sku.setSupplierSubjectId(null);
-        when(skuMapper.selectList(any())).thenReturn(List.of(sku));
-        when(subjectQueryPort.findById(101L)).thenReturn(subject(101L, "STORE"));
+        MallProduct product = product(1L);
+        product.setSupplierSubjectId(null);
+        when(productMapper.selectById(1L)).thenReturn(product);
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku(1L, 5, 0)));
 
         assertThrows(com.wuling.common.exception.BusinessException.class,
                 () -> service.updateStatus(1L, "ON_SALE"));
@@ -105,7 +105,7 @@ class MallProductAdminServiceTest {
         when(productMapper.selectByProductCodeIncludingDeleted("P-1")).thenReturn(current);
         when(skuMapper.selectList(any())).thenReturn(List.of(sku(1L, 5, 0)));
         when(categoryMapper.selectById(5L)).thenReturn(category());
-        when(subjectQueryPort.findById(101L)).thenReturn(subject(101L, "STORE"));
+        when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
         when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
         when(productMapper.selectById(1L)).thenReturn(current);
 
@@ -166,6 +166,93 @@ class MallProductAdminServiceTest {
     }
 
     @Test
+    @DisplayName("新增 SKU 自动生成商品编码序号并继承 SPU 供应商")
+    void saveSkusGeneratesCodeAndInheritsProductSupplier() {
+        MallProduct product = product(1L);
+        product.setSupplierSubjectId(401L);
+        when(productMapper.selectById(1L)).thenReturn(product);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+        when(skuMapper.selectBySkuCodeIncludingDeleted("P-1-S001")).thenReturn(null);
+        when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
+
+        MallSkuAdminDTO request = skuDto(null);
+        service.saveSkus(1L, List.of(request));
+
+        org.mockito.ArgumentCaptor<MallSku> captor =
+                org.mockito.ArgumentCaptor.forClass(MallSku.class);
+        verify(skuMapper).insert(captor.capture());
+        assertEquals("P-1-S001", captor.getValue().getSkuCode());
+        assertEquals(401L, captor.getValue().getSupplierSubjectId());
+    }
+
+    @Test
+    @DisplayName("编辑 SPU 供应商后所有 SKU 统一继承")
+    void saveSkusRejectsDifferentSkuSupplier() {
+        MallProduct product = product(1L);
+        product.setSupplierSubjectId(401L);
+        when(productMapper.selectById(1L)).thenReturn(product);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+        when(skuMapper.selectBySkuCodeIncludingDeleted("SKU-OTHER")).thenReturn(null);
+
+        MallSkuAdminDTO request = skuDto("SKU-OTHER");
+        service.saveSkus(1L, List.of(request));
+
+        org.mockito.ArgumentCaptor<MallSku> captor =
+                org.mockito.ArgumentCaptor.forClass(MallSku.class);
+        verify(skuMapper).insert(captor.capture());
+        assertEquals(401L, captor.getValue().getSupplierSubjectId());
+    }
+
+    @Test
+    @DisplayName("SPU 未配置供应商时禁止保存 SKU")
+    void saveSkusRequiresSpuSupplier() {
+        MallProduct product = product(1L);
+        product.setSupplierSubjectId(null);
+        when(productMapper.selectById(1L)).thenReturn(product);
+
+        assertThrows(com.wuling.common.exception.BusinessException.class,
+                () -> service.saveSkus(1L, List.of(skuDto("SKU-NO-SUPPLIER"))));
+    }
+
+    @Test
+    @DisplayName("自动 SKU 编码不超过数据库字段长度")
+    void generatedSkuCodeFitsColumnLimit() {
+        MallProduct product = product(1L);
+        product.setProductCode("P".repeat(64));
+        product.setSupplierSubjectId(401L);
+        when(productMapper.selectById(1L)).thenReturn(product);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+
+        service.saveSkus(1L, List.of(skuDto(null)));
+
+        org.mockito.ArgumentCaptor<MallSku> captor =
+                org.mockito.ArgumentCaptor.forClass(MallSku.class);
+        verify(skuMapper).insert(captor.capture());
+        assertTrue(captor.getValue().getSkuCode().length() <= 64);
+    }
+
+    @Test
+    @DisplayName("编辑 SKU 未传编码时保留既有编码")
+    void saveSkusKeepsExistingCodeWhenPayloadOmitsIt() {
+        MallProduct product = product(1L);
+        product.setSupplierSubjectId(401L);
+        MallSku existing = sku(5L, 5, 0);
+        existing.setSkuCode("KEEP-1");
+        when(productMapper.selectById(1L)).thenReturn(product);
+        when(skuMapper.selectList(any())).thenReturn(List.of(existing));
+        when(skuMapper.selectByIdForUpdate(5L)).thenReturn(existing);
+
+        MallSkuAdminDTO request = skuDto(null);
+        request.setId(5L);
+        service.saveSkus(1L, List.of(request));
+
+        org.mockito.ArgumentCaptor<MallSku> captor =
+                org.mockito.ArgumentCaptor.forClass(MallSku.class);
+        verify(skuMapper).updateById(captor.capture());
+        assertEquals("KEEP-1", captor.getValue().getSkuCode());
+    }
+
+    @Test
     @DisplayName("整体保存 SKU 时不能删除仍有锁定库存的 SKU")
     void saveSkusRejectsDeletingLockedSku() {
         when(productMapper.selectById(1L)).thenReturn(product(1L));
@@ -186,7 +273,7 @@ class MallProductAdminServiceTest {
         product.setCategoryId(5L);
         product.setName("商品" + id);
         product.setSpecName("规格");
-        product.setAttributionStoreSubjectId(101L);
+        product.setSupplierSubjectId(401L);
         product.setStatus("DRAFT");
         product.setSort(0);
         product.setSalesCount(0);
@@ -199,7 +286,7 @@ class MallProductAdminServiceTest {
         request.setCategoryId(5L);
         request.setName("商品1");
         request.setSpecName("规格");
-        request.setAttributionStoreSubjectId(101L);
+        request.setSupplierSubjectId(401L);
         return request;
     }
 
@@ -256,13 +343,11 @@ class MallProductAdminServiceTest {
         MallSkuAdminDTO dto = new MallSkuAdminDTO();
         dto.setSkuCode(code);
         dto.setSpecValue("默认");
-        dto.setSupplierSubjectId(401L);
         dto.setSalePrice(1000L);
         dto.setOriginalPrice(1200L);
         dto.setCostPrice(500L);
         dto.setPlatformCommission(100L);
         dto.setStock(5);
-        dto.setSort(0);
         return dto;
     }
 

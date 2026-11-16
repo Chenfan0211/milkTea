@@ -77,16 +77,15 @@ class PaymentRetryGuardTest {
     }
 
     @Test
-    @DisplayName("三方返回 SUCCESS 时，标准状态回写为 PAID 并记录流水订单号")
-    void successDrivesPaidStatus() {
+    @DisplayName("缺少订单入账能力时，成功查单也不能单独把支付记录改成 PAID")
+    void successWithoutOrderSettlementMustKeepPaymentUnchanged() {
         payment("FAILED");
-        Payment result = service(new PaymentGateway.PaymentQueryResult(
+        assertThrows(BusinessException.class, () -> service(new PaymentGateway.PaymentQueryResult(
                 "SUCCESS", "支付成功", "WX-TX-001", 1390L))
-                .retry(1L);
+                .retry(1L));
 
-        assertEquals(WxPayStatusMapper.STANDARD_PAID, result.getStandardStatus());
-        assertEquals("SUCCESS", result.getThirdStatus(), "third_status 保留三方原始值");
-        assertEquals("WX-TX-001", result.getTransactionId(), "流水订单号取自三方");
+        assertEquals("FAILED", stored.getStandardStatus());
+        assertEquals("PAYERROR", stored.getThirdStatus());
     }
 
     @Test

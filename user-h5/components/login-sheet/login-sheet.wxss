@@ -194,3 +194,7 @@
 .login-sheet__link {
   color: var(--brand-green);
 }
+
+.login-sheet__primary.is-disabled {
+  opacity: 0.5;
+}

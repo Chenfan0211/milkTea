@@ -5,6 +5,8 @@ import com.wuling.product.entity.MallStockLog;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 public interface MallStockLogMapper extends BaseMapper<MallStockLog> {
 
     @Select("select count(*) from mall_stock_log "
@@ -17,6 +19,11 @@ public interface MallStockLogMapper extends BaseMapper<MallStockLog> {
     boolean existsBizChange(@Param("bizType") String bizType,
                             @Param("bizNo") String bizNo,
                             @Param("changeType") String changeType);
+
+    /** SKU 加锁后当前读，避免 RR 快照遗漏并发已提交的退款回补。 */
+    @Select("select * from mall_stock_log where order_no = #{orderNo} "
+            + "and change_type in ('DEDUCT', 'RESTORE') order by id for update")
+    List<MallStockLog> selectRefundChangesForUpdate(@Param("orderNo") String orderNo);
 
     /** 该 SKU 是否存在任何库存流水（预占/扣减/释放/回补/调整）。 */
     @Select("select count(*) > 0 from mall_stock_log where sku_id = #{skuId}")

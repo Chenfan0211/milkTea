@@ -32,6 +32,7 @@ import com.wuling.trade.entity.OrderShipping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -95,6 +96,14 @@ public class OrderService {
     private final MemberPricingService memberPricingService;
     private final MallStockService mallStockService;
     private final MallAfterSaleMapper mallAfterSaleMapper;
+
+    private ObjectProvider<PaymentService> paymentServiceProvider;
+
+    /** 延迟取代理，避免 OrderService 与支付服务构造依赖成环。 */
+    @Autowired
+    public void setPaymentServiceProvider(ObjectProvider<PaymentService> paymentServiceProvider) {
+        this.paymentServiceProvider = paymentServiceProvider;
+    }
 
     public OrderService(OrderMapper orderMapper,
                         OrderItemMapper orderItemMapper,
@@ -647,6 +656,7 @@ public class OrderService {
         if (!STATUS_CREATED.equals(order.getStatus()) || !"UNPAID".equals(order.getPayStatus())) {
             return false;
         }
+        if (!prepareMallClose(order)) return false;
         Order patch = new Order();
         patch.setId(order.getId());
         patch.setStatus(STATUS_CANCELED);
@@ -696,6 +706,11 @@ public class OrderService {
         if (!STATUS_CREATED.equals(order.getStatus()) || !"UNPAID".equals(order.getPayStatus())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单当前状态不可取消，请走退款流程");
         }
+        if (!prepareMallClose(order)) {
+            Order latest = lockForUpdate(orderNo);
+            if ("PAID".equals(latest.getPayStatus())) return toDTO(latest, loadItems(latest.getId()));
+            throw new BusinessException(ResultCode.BAD_REQUEST, "暂未确认支付结果，请稍后再取消");
+        }
         Order patch = new Order();
         patch.setId(order.getId());
         patch.setStatus(STATUS_CANCELED);
@@ -709,6 +724,11 @@ public class OrderService {
             enqueueCouponRelease(order, "用户主动取消");
         }
         return toDTO(order, loadItems(order.getId()));
+    }
+
+    private boolean prepareMallClose(Order order) {
+        return !"MALL".equalsIgnoreCase(order.getOrderType()) || paymentServiceProvider == null
+                || paymentServiceProvider.getObject().prepareUnpaidClose(order.getOrderNo());
     }
 
     public OrderDTO toDTO(Order order, List<OrderItem> items) {
@@ -762,7 +782,7 @@ public class OrderService {
             if (mallAfterSaleMapper != null) {
                 var latestAfterSale = mallAfterSaleMapper.selectLatestByOrderId(order.getId());
                 boolean active = latestAfterSale != null
-                        && java.util.Set.of("PENDING", "APPROVED", "REFUNDING")
+                        && java.util.Set.of("PENDING", "RETURN_SHIPPED", "RETURN_RECEIVED", "APPROVED", "REFUNDING")
                         .contains(latestAfterSale.getStatus());
                 dto.setActiveAfterSale(active);
                 dto.setAfterSaleStatus(latestAfterSale == null ? null : latestAfterSale.getStatus());

@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -149,6 +150,52 @@ class GiftCardRefundServiceTest {
         assertEquals("REFUNDING", captor.getValue().getThirdStatus());
         verify(alertChannel).send(
                 eq(AlertChannel.Level.CRITICAL), anyString(), anyString(), eq(ORDER_NO));
+    }
+
+    @Test
+    void unknownGatewayResultKeepsOrderAndPaymentRefundingInsteadOfRestoringCard() {
+        assertUndeterminedRefundKeepsFundsLocked(
+                new PaymentGateway.RefundApplyResult(false, null, "退款结果待查证", true));
+    }
+
+    @Test
+    void nullGatewayResultKeepsOrderAndPaymentRefundingInsteadOfRestoringCard() {
+        assertUndeterminedRefundKeepsFundsLocked(null);
+    }
+
+    private void assertUndeterminedRefundKeepsFundsLocked(PaymentGateway.RefundApplyResult gatewayResult) {
+        GiftCardOrderPort.GiftCardOrderView order = refundableOrder();
+        Payment storedPayment = payment();
+        when(orderPort.findByOrderNo(ORDER_NO)).thenReturn(order);
+        when(paymentMapper.selectOne(any(Wrapper.class))).thenReturn(storedPayment);
+        when(gatewayResolver.isMockChannel()).thenReturn(false);
+        when(gatewayResolver.active()).thenReturn(paymentGateway);
+        when(orderPort.refundBegin(ORDER_NO, "不需要了")).thenAnswer(invocation -> {
+            order.setStatus("REFUNDING");
+            return new GiftCardRefundResult("GR202609260001", AMOUNT, "REFUNDING");
+        });
+        doAnswer(invocation -> {
+            order.setStatus("PAID");
+            return null;
+        }).when(orderPort).refundFail(anyString(), anyString(), anyString());
+        when(paymentMapper.update(any(Payment.class), any(Wrapper.class))).thenAnswer(invocation -> {
+            Payment patch = invocation.getArgument(0);
+            storedPayment.setStandardStatus(patch.getStandardStatus());
+            storedPayment.setThirdStatus(patch.getThirdStatus());
+            return 1;
+        });
+        when(paymentGateway.refund(ORDER_NO, "GR202609260001", AMOUNT, "不需要了"))
+                .thenReturn(gatewayResult);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.refund(ORDER_NO, USER_ID, "不需要了"));
+
+        assertEquals("REFUNDING", order.getStatus(), "未确认退款结果时不能恢复可核销的礼品卡");
+        assertEquals("REFUNDING", storedPayment.getStandardStatus());
+        assertEquals("REFUNDING", storedPayment.getThirdStatus());
+        assertEquals("退款受理结果未知，请稍后查询订单状态再重试", error.getMessage());
+        verify(orderPort, never()).refundFail(anyString(), anyString(), anyString());
+        verify(alertChannel).send(eq(AlertChannel.Level.CRITICAL), anyString(), anyString(), eq(ORDER_NO));
     }
 
     @Test

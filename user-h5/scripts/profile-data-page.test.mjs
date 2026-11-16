@@ -176,12 +176,14 @@ api.fetchUserProfile = realRefresh;
 
 const profileWxml = fs.readFileSync(path.join(root, 'pages/profile/profile.wxml'), 'utf8');
 const profileJs = fs.readFileSync(path.join(root, 'pages/profile/profile.js'), 'utf8');
-// 未登录点头像/姓名 -> 唤起登录弹层；已登录 -> openProfileData 进个人资料页。
+// 未登录点头像/姓名 -> 统一授权页；已登录 -> openProfileData 进个人资料页。
 // 两条路径都必须存在，否则未登录用户会被直接推进资料页。
 assert.ok(profileWxml.includes('bindtap="openLogin"'), '我的页未登录时头像和姓名必须接通登录入口');
 assert.ok(
-  profileJs.includes('openLogin') && profileJs.includes('loginSheetVisible'),
-  '我的页必须实现 openLogin 唤起登录弹层'
+  profileJs.includes('openLogin') &&
+    profileJs.includes('loginGuard.openLoginSheet(') &&
+    !profileJs.includes('loginSheetVisible'),
+  '我的页必须经统一守卫进入整页授权，不再保留弹层状态'
 );
 assert.ok(
   profileJs.includes('openProfileData') && profileJs.includes('/pages/profile-data/profile-data'),

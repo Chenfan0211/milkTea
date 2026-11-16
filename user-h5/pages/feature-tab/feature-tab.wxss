@@ -1,0 +1,26 @@
+.feature-tab-page,
+.feature-tab-loading,
+.member-zone-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.feature-tab-loading {
+  background: var(--page-bg-neutral);
+}
+
+.member-zone-page {
+  background: var(--page-bg-neutral);
+}
+
+.member-zone-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.member-zone-content {
+  padding: 0 0 calc(40rpx + env(safe-area-inset-bottom));
+}

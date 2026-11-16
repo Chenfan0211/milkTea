@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const auth = require('../../utils/auth-state');
 const { resolveAssetUrl } = require('../../utils/asset-url');
 const { parseDate, formatDateTime } = require('../../utils/date-format');
 const { requestOrderPayment } = require('../../utils/order-payment');
@@ -30,15 +31,27 @@ function normalizeStatus(value) {
 }
 
 function moneyText(fen) {
-  return String(api.fenToYuan(fen));
+  const value = Number(fen);
+  return ((Number.isFinite(value) ? Math.round(value) : 0) / 100).toFixed(2);
 }
 
 // ----------------------------------------------------------------
-// 商城价格口径：公开商品页只展示 SKU 基础售价；
-// 登录后的购物车与结算以服务端 /mall/checkout/quote 返回的最终成交价为准。
+// 商品展示价与结算口径一致：团长按基础售价，普通用户加分销佣金。
+// 最终成交价仍以服务端 /mall/checkout/quote 为准。
 // ----------------------------------------------------------------
 function effectivePrice(salePrice) {
   return Number(salePrice) || 0;
+}
+
+function fetchLeaderBuyer() {
+  if (!auth.isLoggedIn()) return Promise.resolve(false);
+  return api
+    .fetchMyRoles()
+    .then(data =>
+      (Array.isArray(data && data.roles) ? data.roles : []).some(
+        role => role.roleId === 'leader' && role.status === 'active'
+      )
+    );
 }
 
 function priceText(fen) {
@@ -85,13 +98,11 @@ function categoryIconUrl(value) {
   return resolveAssetUrl(value) || CATEGORY_PLACEHOLDER_IMAGE;
 }
 
-function normalizeProduct(product) {
+function normalizeProduct(product, leaderBuyer = false) {
   const source = product || {};
   const availableStock = Math.max(0, Number(source.availableStock) || 0);
   const soldOut = Boolean(source.soldOut) || availableStock <= 0;
-  const rawMinPrice = Number(source.minPrice) || 0;
-  // 团长展示原售价；非团长展示「售价 + 分销佣金」
-  const minPrice = effectivePrice(rawMinPrice);
+  const minPrice = effectivePrice(leaderBuyer ? source.minPrice : (source.minCustomerPrice ?? source.minPrice));
   const originalPrice = Number(source.originalPrice) || 0;
   return Object.assign({}, source, {
     id: Number(source.id),
@@ -107,32 +118,31 @@ function normalizeProduct(product) {
   });
 }
 
-function normalizeSku(sku) {
+function normalizeSku(sku, leaderBuyer = false) {
   const source = sku || {};
   const availableStock = Math.max(0, Number(source.availableStock) || 0);
   const rawSalePrice = Number(source.salePrice) || 0;
   const salePrice = effectivePrice(rawSalePrice);
+  const displayPrice = salePrice + (leaderBuyer ? 0 : Number(source.distributionCommission) || 0);
   const originalPrice = Number(source.originalPrice) || 0;
   return Object.assign({}, source, {
     id: Number(source.id),
     specValue: String(source.specValue || '默认规格'),
     image: imageUrl(source.image),
     salePrice,
-    salePriceText: priceText(salePrice),
+    displayPrice,
+    salePriceText: priceText(displayPrice),
     originalPrice,
-    originalPriceText: originalPrice > salePrice ? priceText(originalPrice) : '',
+    originalPriceText: originalPrice > displayPrice ? priceText(originalPrice) : '',
     availableStock,
     soldOut: Boolean(source.soldOut) || availableStock <= 0
   });
 }
 
-function normalizeDetail(detail) {
+function normalizeDetail(detail, leaderBuyer = false) {
   const source = detail || {};
-  const skus = (Array.isArray(source.skus) ? source.skus : []).map(normalizeSku);
-  // 团长展示原售价；非团长展示「售价 + 分销佣金」。
-  // SKU 使用服务端基础售价；登录后的购物车/结算再以服务端结算确认价覆盖。
-  // 避免服务端 source.minPrice（原始售价）覆盖已叠加的展示价。
-  const minPrice = skus.length ? skus[0].salePrice : effectivePrice(Number(source.minPrice) || 0);
+  const skus = (Array.isArray(source.skus) ? source.skus : []).map(sku => normalizeSku(sku, leaderBuyer));
+  const minPrice = skus.length ? Math.min(...skus.map(sku => sku.displayPrice)) : effectivePrice(source.minPrice);
   const originalPrice = Number(source.originalPrice) || (skus[0] ? skus[0].originalPrice : 0);
   return Object.assign({}, source, {
     id: Number(source.id),
@@ -173,7 +183,7 @@ function normalizeValidatedItem(localItem, validated) {
   const reason = String(row.reason || '');
   const listed = Boolean(row.skuId) && isListedReason(reason);
   const availableStock = Math.max(0, Number(row.availableStock) || 0);
-  const rawSalePrice = Number(row.salePrice) || Number(local.salePriceFen) || 0;
+  const rawSalePrice = row.salePrice == null ? Number(local.salePriceFen) || 0 : Number(row.salePrice) || 0;
   const salePrice = effectivePrice(rawSalePrice);
   const originalPrice = Number(row.originalPrice) || Number(local.originalPriceFen) || 0;
   const valid = Boolean(row.valid) && listed;
@@ -185,6 +195,7 @@ function normalizeValidatedItem(localItem, validated) {
     specValue: String(row.specValue || local.specValue || '默认规格'),
     image: imageUrl(row.image || local.image),
     salePriceFen: salePrice,
+    distributionCommission: Number(row.distributionCommission) || 0,
     originalPriceFen: originalPrice,
     availableStock,
     listed,
@@ -317,6 +328,7 @@ module.exports = {
   FALLBACK_IMAGE,
   categoryIconUrl,
   decorateOrder,
+  fetchLeaderBuyer,
   imageUrl,
   moneyText,
   normalizeAddress,

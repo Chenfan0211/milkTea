@@ -7,7 +7,7 @@ Page({
   data: {
     items: [],
     count: 0,
-    amountText: '0',
+    amountText: '0.00',
     allSelected: false,
     checking: false,
     needLogin: false,
@@ -20,7 +20,7 @@ Page({
 
   loadCart() {
     if (!auth.isLoggedIn()) {
-      this.setData({ needLogin: true, items: [], count: 0, amountText: '0', allSelected: false });
+      this.setData({ needLogin: true, items: [], count: 0, amountText: '0.00', allSelected: false });
       return;
     }
     const rawItems = mallCart.read();
@@ -29,25 +29,53 @@ Page({
       this.applyItems([]);
       return;
     }
-    this.refreshValidation(rawItems);
+    return this.refreshValidation(rawItems).catch(() => {
+      // 校验错误由页面展示，生命周期不产生未处理的 Promise 拒绝。
+    });
   },
 
   // 进入购物车和结算前都按实际数量调用 validateMallSkus，刷新价格与可用库存。
   refreshValidation(sourceItems) {
     const items = Array.isArray(sourceItems) ? sourceItems : this.data.items;
+    const userId = auth.getUserId();
+    const requestId = (this.cartRequestId = (this.cartRequestId || 0) + 1);
+    const isCurrent = () => requestId === this.cartRequestId && userId === auth.getUserId();
     if (!items.length) {
       this.applyItems([]);
       return Promise.resolve([]);
     }
     this.setData({ checking: true, error: '' });
+    let latestItems = items;
+    const selectedIds = new Set(items.filter(item => item.selected).map(item => String(item.skuId)));
     return mall
       .validateItems(items)
       .then(validated => {
-        const invalid = validated.find(item => !item.valid);
+        if (!validated.some(item => !item.selected && item.distributionCommission > 0)) return validated;
+        return mall
+          .fetchLeaderBuyer()
+          .then(leaderBuyer =>
+            validated.map(item =>
+              !item.selected && !leaderBuyer
+                ? Object.assign({}, item, { salePriceFen: item.salePriceFen + item.distributionCommission })
+                : item
+            )
+          );
+      })
+      .then(validated => {
+        if (!isCurrent()) return [];
+        latestItems = mallCart.write(validated, userId);
+        this.applyItems(latestItems);
+        const invalid = validated.find(item => selectedIds.has(String(item.skuId)) && !item.valid);
         if (invalid) {
           throw new Error(invalid.reason || '部分商品不可购买');
         }
-        return mall.quoteItems(validated).then(quote => {
+        const selected = validated.filter(item => item.selected && item.valid);
+        if (!selected.length) {
+          this.setData({ checking: false });
+          return latestItems;
+        }
+        return mall.quoteItems(selected).then(quote => {
+          if (!isCurrent()) return [];
           if (quote && quote.orderable === false) {
             throw new Error(quote.orderError || '当前商品无法合并下单');
           }
@@ -56,32 +84,38 @@ Page({
             return map;
           }, {});
           const merged = validated.map(item => {
-            const quoted = quoteMap[String(item.skuId)] || {};
-            const unitPrice = Number(quoted.unitPrice) || Number(item.salePriceFen) || 0;
+            if (!selectedIds.has(String(item.skuId))) return item;
+            const quoted = quoteMap[String(item.skuId)];
+            if (!quoted) return Object.assign({}, item, { valid: false, selected: false, reason: '商品报价已失效' });
+            const unitPrice = Number(quoted.unitPrice) || 0;
             return Object.assign({}, item, {
               unitPrice,
               salePriceFen: unitPrice,
               lineAmount: Number(quoted.lineAmount) || unitPrice * item.quantity,
               valid: quoted.valid !== false && item.valid !== false,
+              selected: quoted.valid !== false && item.selected,
+              availableStock:
+                quoted.availableStock == null ? item.availableStock : Math.max(0, Number(quoted.availableStock) || 0),
               reason: quoted.reason || item.reason || '',
               priceChanged: mall.quotePriceChanged(item, unitPrice)
             });
           });
-          const invalidQuote = merged.find(item => !item.valid);
+          latestItems = mallCart.write(merged, userId);
+          this.applyItems(latestItems);
+          const invalidQuote = merged.find(item => selectedIds.has(String(item.skuId)) && !item.valid);
           if (invalidQuote) {
             throw new Error(invalidQuote.reason || '商品价格或库存已变化');
           }
-          mallCart.write(merged);
-          this.applyItems(merged);
           this.setData({
             checking: false,
             error: merged.some(item => item.priceChanged) ? '部分商品价格已更新，请确认后结算' : ''
           });
-          return merged;
+          return latestItems;
         });
       })
       .catch(error => {
-        this.applyItems(items);
+        if (!isCurrent()) return [];
+        this.applyItems(latestItems);
         this.setData({
           checking: false,
           error: (error && error.message) || '购物车校验失败'
@@ -112,6 +146,11 @@ Page({
     });
   },
 
+  invalidateValidation() {
+    this.cartRequestId = (this.cartRequestId || 0) + 1;
+    this.setData({ checking: false, error: '' });
+  },
+
   toggleSelected(event) {
     const skuId = Number(event.currentTarget.dataset.id);
     const item = this.data.items.find(entry => Number(entry.skuId) === skuId);
@@ -128,6 +167,7 @@ Page({
   },
 
   toggleAll() {
+    this.invalidateValidation();
     const selectAll = !this.data.allSelected;
     const next = this.data.items.map(item => {
       if (item.unavailable || item.quantity > item.availableStock) return item;
@@ -161,6 +201,7 @@ Page({
   },
 
   updateItem(skuId, patch) {
+    this.invalidateValidation();
     const next = this.data.items.map(item =>
       Number(item.skuId) === Number(skuId) ? Object.assign({}, item, patch) : item
     );
@@ -176,6 +217,7 @@ Page({
       content: '确定从购物车删除该商品吗？',
       success: ({ confirm }) => {
         if (!confirm) return;
+        this.invalidateValidation();
         const next = mallCart.remove(skuId);
         this.applyItems(next);
         wx.showToast({ title: '已删除', icon: 'none' });

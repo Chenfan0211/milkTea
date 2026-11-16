@@ -47,7 +47,11 @@ Page({
         const activeAfterSale =
           order.activeAfterSale ||
           (Array.isArray(records) &&
-            records.some(item => ['PENDING', 'APPROVED', 'REFUNDING'].includes(mall.normalizeStatus(item.status))));
+            records.some(item =>
+              ['PENDING', 'RETURN_SHIPPED', 'RETURN_RECEIVED', 'APPROVED', 'REFUNDING'].includes(
+                mall.normalizeStatus(item.status)
+              )
+            ));
         if (activeAfterSale) {
           throw new Error('该订单已有处理中的售后申请');
         }

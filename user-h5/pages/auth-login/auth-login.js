@@ -8,7 +8,7 @@ const navigate = require('../../utils/navigate');
  * 授权页（温馨提示 + 协议确认）。
  *
  * 交互约定（重要）：
- *   底部「同意」按钮本身带 open-type="getPhoneNumber"，点击即「同意协议 + 授权手机号」，
+ *   底部「同意」在勾选协议后才渲染为 open-type="getPhoneNumber" 原生按钮，
  *   一次点击完成「注册建号 -> 建立登录态 -> 进入目标页」，不再要求用户额外点第二次按钮。
  *   未勾选协议时按钮置灰并拦截（授权必须建立在用户知情同意之上）。
  *
@@ -26,8 +26,7 @@ Page(
       entryMode: false,
       // 未注册态：走「注册并登录」而非「绑定手机号」
       needRegister: false,
-      agreementChecked: false,
-      entryTip: ''
+      agreementChecked: false
     },
     onLoad(options) {
       const opts = options || {};
@@ -46,8 +45,7 @@ Page(
       this._phoneAuthorizationFailed = false;
       this.setData({
         entryMode: this.entryMode,
-        needRegister: this.needRegister,
-        entryTip: this.needRegister ? '同意后即可完成注册并开始使用' : '同意后可下单、领券并同步会员权益'
+        needRegister: this.needRegister
       });
       // 提前换一次最新 session_key；用户点击按钮时只允许使用这次刷新的结果。
       this.preparePhoneAuthorization().catch(() => {});
@@ -58,6 +56,9 @@ Page(
     },
     toggleAgreement() {
       this.setData({ agreementChecked: !this.data.agreementChecked });
+    },
+    handleAgreementRequired() {
+      guard.toast('请先阅读并勾选同意协议');
     },
     preparePhoneAuthorization() {
       this._phoneAuthorizationReady = false;
@@ -88,8 +89,7 @@ Page(
       };
       this._phoneAuthorizationReady = true;
       this.setData({
-        needRegister: this.needRegister,
-        entryTip: this.needRegister ? '同意后即可完成注册并开始使用' : '同意后可下单、领券并同步会员权益'
+        needRegister: this.needRegister
       });
     },
     resetPhoneAuthorization() {
@@ -101,7 +101,7 @@ Page(
     },
 
     /**
-     * 点击「同意」：协议确认 + 微信手机号授权 + 注册登录，一步到位。
+     * 勾选协议后点击「同意」：微信手机号授权 + 注册登录。
      *
      * 必须由 open-type="getPhoneNumber" 的按钮触发（微信硬约束，不可程序化调起），
      * 因此这里同时承担「校验勾选」与「处理授权结果」两个职责。
@@ -114,8 +114,9 @@ Page(
       }
       const detail = (e && e.detail) || {};
       if (!detail.encryptedData || !detail.iv) {
-        // 用户在系统弹窗点了「拒绝」：留在本页，允许重试或仅浏览
-        guard.toast('已取消授权，可重新点击同意或选择仅浏览');
+        // 拒绝手机号后回到原浏览位置，不重复引导或执行待处理操作。
+        guard.toast('已取消授权，可继续浏览');
+        this.handleReject();
         return;
       }
       if (!this._phoneAuthorizationReady) {
@@ -179,9 +180,12 @@ Page(
     handleReject() {
       this.completed = true;
       guard.clearPendingAction();
-      navigate.go('/pages/home/home', {
-        fail: () => navigate.go('/pages/home/home')
-      });
+      const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
+      if (pages.length > 1) {
+        wx.navigateBack({ delta: 1, fail: () => navigate.go('/pages/home/home') });
+        return;
+      }
+      navigate.go('/pages/home/home');
     },
 
     // 协议独立页面，按类型跳转

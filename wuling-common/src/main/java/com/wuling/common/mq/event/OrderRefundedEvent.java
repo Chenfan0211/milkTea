@@ -1,6 +1,7 @@
 package com.wuling.common.mq.event;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * 退款冲正事件（第 6 期）。
@@ -25,6 +26,12 @@ public class OrderRefundedEvent implements Serializable {
     private String refundNo;
     /** 退款比例（本次退款/订单实付，万分比；缺省 10000=全退，兼容旧事件） */
     private Integer refundRatio;
+    /** 商城部分退货按主体与平台两部分精确冲正；为空时兼容原比例冲正。 */
+    private Map<Long, Long> subjectRefundAmounts;
+    private Long platformCommissionRefund;
+    private Long platformBonusRefund;
+    private Long platformCommissionOriginal;
+    private Long platformBonusOriginal;
 
     public String getOrderNo() {
         return orderNo;
@@ -65,4 +72,15 @@ public class OrderRefundedEvent implements Serializable {
     public void setRefundRatio(Integer refundRatio) {
         this.refundRatio = refundRatio;
     }
+
+    public Map<Long, Long> getSubjectRefundAmounts() { return subjectRefundAmounts; }
+    public void setSubjectRefundAmounts(Map<Long, Long> value) { subjectRefundAmounts = value; }
+    public Long getPlatformCommissionRefund() { return platformCommissionRefund; }
+    public void setPlatformCommissionRefund(Long value) { platformCommissionRefund = value; }
+    public Long getPlatformBonusRefund() { return platformBonusRefund; }
+    public void setPlatformBonusRefund(Long value) { platformBonusRefund = value; }
+    public Long getPlatformCommissionOriginal() { return platformCommissionOriginal; }
+    public void setPlatformCommissionOriginal(Long value) { platformCommissionOriginal = value; }
+    public Long getPlatformBonusOriginal() { return platformBonusOriginal; }
+    public void setPlatformBonusOriginal(Long value) { platformBonusOriginal = value; }
 }

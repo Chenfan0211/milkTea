@@ -16,6 +16,11 @@ public class MallAfterSaleVO {
     private String reason;
     private Long refundAmount;
     private List<Item> items;
+    private String returnCarrier;
+    private String returnTrackingNo;
+    private String returnShippedTime;
+    private String returnReceivedTime;
+    private String returnReceiver;
     private String applyTime;
     private String reviewTime;
     private String reviewer;
