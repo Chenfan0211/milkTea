@@ -44,7 +44,7 @@ const editor = read('src/views/system/home-decor/HomeBannerEditor.vue');
 assert.ok(editor.includes('uploadAdminImage'), '首页装修页必须复用通用图片上传 API');
 assert.ok(editor.includes('2250'), '首页装修页必须提示推荐宽度');
 assert.ok(editor.includes('3120'), '首页装修页必须提示推荐高度');
-assert.ok(editor.includes('minWidth: 750, minHeight: 1040'), '首页图片必须校验原图尺寸');
+assert.ok(editor.includes('minWidth: 750') && editor.includes('minHeight: 1040'), '首页图片必须校验原图尺寸');
 assert.ok(page.includes('homeBanners'), '首页装修页必须逐条管理轮播');
 assert.ok(page.includes('新增轮播图'), '首页装修页必须支持新增');
 assert.ok(page.includes('停用') && page.includes('启用'), '首页装修页必须支持启停');
