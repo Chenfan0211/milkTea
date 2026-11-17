@@ -23,7 +23,6 @@ public class WithdrawalController {
         this.auditLog = auditLog;
     }
 
-    /** 小程序端：申请提现 */
     /** 申请提现（申请人取自 JWT） */
     @PostMapping("/api/v1/app/withdrawals")
     public Result<Withdrawal> apply(@RequestParam Long subjectId,
@@ -71,7 +70,7 @@ public class WithdrawalController {
         return Result.ok(after);
     }
 
-/**
+    /**
      * 后台：代经营方发起提现（人工代操作场景）。
      *
      * <p>与小程序端的 {@code POST /api/v1/app/withdrawals} 区别：后者从 JWT 取申请人
@@ -79,11 +78,11 @@ public class WithdrawalController {
      * 用于「经营方线下申请、运营代为录入」的运营场景。
      *
      * <p>复用 {@link WithdrawalService#apply} 的完整闭环：
-     * 余额原子冻结 → 小额即时到账 / 大额进入审核 → 写资金流水。
+     * 余额原子冻结 → 全部进入运营审核 → 审核通过后出款。
      *
      * @param userId    发起人（经营方绑定的 app_user.id）
      * @param subjectId 主体 id
-     * @param roleType  角色类型（STORE / INVESTOR / CHANNEL / SUPPLIER）
+     * @param roleType  角色类型（STORE / INVESTOR / CHANNEL / SUPPLIER / LEADER）
      * @param amount    提现金额，单位：分
      */
     @PostMapping("/api/v1/admin/finance/withdrawals/apply")
@@ -98,13 +97,14 @@ public class WithdrawalController {
         return Result.ok(created);
     }
 
-    /** 小额即时额度说明 */
+    /** 提现审核规则，兼容旧客户端的 instantLimit 字段恒为 0。 */
     @GetMapping("/api/v1/app/withdrawals/rule")
     public Result<Map<String, Object>> rule() {
         return Result.ok(Map.of(
                 "instantLimit", WithdrawalService.INSTANT_LIMIT,
-                "instantNote", "单笔不超过该额度小额即时到账，无需人工审核",
-                "auditNote", "超过即时额度需后台审核，审核通过后出款",
+                "auditRequired", true,
+                "instantNote", "所有提现申请均需运营后台审核，无免审额度",
+                "auditNote", "所有提现申请均需运营后台审核，审核通过后发起出款",
                 "failureNote", "失败或驳回将自动解冻对应金额"));
     }
 }

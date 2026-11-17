@@ -146,6 +146,20 @@ export async function removeLeader(subjectId: number): Promise<void> {
   return unwrap<void>(res);
 }
 
+interface LeaderDeactivationPreview {
+  boundUserCount: number;
+  pendingOrderCount: number;
+  pendingSettlementAmount: number;
+}
+
+export async function fetchLeaderDeactivationPreview(subjectId: number): Promise<LeaderDeactivationPreview> {
+  const res = await request<LeaderDeactivationPreview>({
+    url: `/api/v1/admin/subject/leaders/${subjectId}/deactivate-preview`,
+    method: 'get'
+  });
+  return unwrap<LeaderDeactivationPreview>(res);
+}
+
 export async function fetchLeaders(params?: any): Promise<Api.Common.PaginatingQueryRecord<any>> {
   const res = await request<any>({ url: '/api/v1/admin/subject/leaders', method: 'get', params });
   return unwrap<Api.Common.PaginatingQueryRecord<any>>(res);

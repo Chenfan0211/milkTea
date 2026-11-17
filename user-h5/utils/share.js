@@ -1,3 +1,5 @@
+const mallLeaderShare = require('./mall-leader-share');
+
 const DEFAULT_SHARE_IMAGE = '/assets/images/3x/share-home.jpg';
 const DEFAULT_SHARE_TITLE = '五零时光新中式养生茶饮';
 const SHARE_SCENE_KEY = 'shareScene';
@@ -16,6 +18,8 @@ const PAGE_SHARE_TITLES = {
   'pages/home/home': '五零时光新中式养生茶饮',
   'pages/menu/menu': '五零时光点单',
   'pages/product-detail/product-detail': '五零时光商品详情',
+  'packageMall/pages/home/home': '五零时光线上商城',
+  'packageMall/pages/product-detail/product-detail': '五零时光商城商品详情',
   'pages/recommendation-stores/recommendation-stores': '五零时光选择门店',
   // @mini-release:tongueHealth:start
   'pages/tongue/tongue': '五零时光舌象体质检测',
@@ -116,7 +120,8 @@ const SAFE_SHARE_PARAMS = {
   'pages/coupon-stores/coupon-stores': ['couponId'],
   'pages/coupon-products/coupon-products': ['couponId', 'storeId'],
   'pages/city-picker/city-picker': ['city'],
-  'pages/product-detail/product-detail': ['productId']
+  'pages/product-detail/product-detail': ['productId'],
+  'packageMall/pages/product-detail/product-detail': ['id']
 };
 
 function normalizeRoute(route) {
@@ -148,20 +153,27 @@ function buildQuery(route, options) {
     .join('&');
 }
 
+function appendShareAttribution(query, route, config) {
+  const params = query ? [query] : [];
+  // 「分享有礼」等私密页回落首页时也应保留邀请人参数。
+  if (config.inviteReferrer) {
+    params.push(`${REFERRER_PARAM}=${encodeURIComponent(String(config.inviteReferrer))}`);
+  }
+  if (mallLeaderShare.isMallShareRoute(route)) {
+    if (config.leaderUserId) {
+      params.push(`${mallLeaderShare.LEADER_PARAM}=${encodeURIComponent(String(config.leaderUserId))}`);
+    } else if (config.shareUserId) {
+      params.push(`${mallLeaderShare.SHARE_USER_PARAM}=${encodeURIComponent(String(config.shareUserId))}`);
+    }
+  }
+  return params.join('&');
+}
+
 function buildShareAppMessage(route, options, config = {}) {
   const normalizedRoute = normalizeRoute(route);
   const isPrivate = isPrivatePage(normalizedRoute);
   const path = isPrivate ? HOME_PATH : `/${normalizedRoute}`;
-  let query = isPrivate ? '' : buildQuery(normalizedRoute, options);
-
-  // 邀请分享：私密页（如「分享有礼」）回落首页时，仍需带上邀请人 userId。
-  // 历史问题：私密页的 query 会被整体清空，导致分享链接既不带参数、
-  // 好友注册也无法绑定推荐关系（app_user.referrer_id 永远为空）。
-  // 这里只在显式传入 inviteReferrer 时追加该参数，不影响其它私密页的分享行为。
-  if (config.inviteReferrer) {
-    const pair = `${REFERRER_PARAM}=${encodeURIComponent(String(config.inviteReferrer))}`;
-    query = query ? `${query}&${pair}` : pair;
-  }
+  const query = appendShareAttribution(isPrivate ? '' : buildQuery(normalizedRoute, options), normalizedRoute, config);
 
   return {
     title: getShareTitle(normalizedRoute, config.title),
@@ -172,18 +184,12 @@ function buildShareAppMessage(route, options, config = {}) {
 
 function buildShareTimeline(route, options, config = {}) {
   const normalizedRoute = normalizeRoute(route);
-  let query = isPrivatePage(normalizedRoute)
+  const baseQuery = isPrivatePage(normalizedRoute)
     ? `${SHARE_SCENE_KEY}=${SHARE_SCENE_TIMELINE}`
     : buildQuery(normalizedRoute, options);
-
-  // 朋友圈分享同样需要携带邀请人（好友从朋友圈进入也要能绑定推荐关系）
-  if (config.inviteReferrer) {
-    const pair = `${REFERRER_PARAM}=${encodeURIComponent(String(config.inviteReferrer))}`;
-    query = query ? `${query}&${pair}` : pair;
-  }
   return {
     title: getShareTitle(normalizedRoute, config.title),
-    query,
+    query: appendShareAttribution(baseQuery, normalizedRoute, config),
     imageUrl: config.imageUrl || DEFAULT_SHARE_IMAGE
   };
 }
@@ -193,6 +199,7 @@ function withShare(pageOptions, config = {}) {
 
   pageOptions.onLoad = function onLoad(options = {}) {
     this.__shareOptions__ = options || {};
+    if (config.mall) mallLeaderShare.capture(options);
     try {
       if (typeof wx !== 'undefined' && wx.showShareMenu) {
         wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] });
@@ -209,12 +216,37 @@ function withShare(pageOptions, config = {}) {
     if (originalOnLoad) return originalOnLoad.call(this, options);
   };
 
+  function buildPageShare(instance, build) {
+    const route = getInstanceRoute(instance);
+    const options = instance.__shareOptions__;
+    if (!config.mall) return build(route, options, config);
+
+    const create = attribution => {
+      const userId = mallLeaderShare.currentUserId();
+      const confirmed = attribution && attribution.userId === userId;
+      return build(route, options, {
+        ...config,
+        inviteReferrer: userId,
+        leaderUserId: confirmed ? attribution.leaderUserId : '',
+        shareUserId: confirmed ? '' : userId
+      });
+    };
+    return {
+      // 微信超时会使用同步返回值，接收侧可通过分享者 ID 请求服务端解析团长。
+      ...create(null),
+      promise: mallLeaderShare
+        .fetchShareAttribution(mallLeaderShare.currentUserId())
+        .catch(() => null)
+        .then(create)
+    };
+  }
+
   pageOptions.onShareAppMessage = function onShareAppMessage() {
-    return buildShareAppMessage(getInstanceRoute(this), this.__shareOptions__, config);
+    return buildPageShare(this, buildShareAppMessage);
   };
 
   pageOptions.onShareTimeline = function onShareTimeline() {
-    return buildShareTimeline(getInstanceRoute(this), this.__shareOptions__, config);
+    return buildPageShare(this, buildShareTimeline);
   };
 
   return pageOptions;

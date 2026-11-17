@@ -66,6 +66,24 @@ class AdminTradeQueryControllerTest {
     }
 
     @Test
+    void mallOrderNumberCannotEnterPendingVerificationPool() {
+        String search = "%MALL-PAID-001%";
+        when(jdbcTemplate.queryForObject(anyString(), eq(Long.class), eq(search), eq(search)))
+                .thenAnswer(invocation -> ((String) invocation.getArgument(0)).contains("o.order_type = 'STORE'") ? 0L : 1L);
+        when(jdbcTemplate.queryForList(anyString(), eq(search), eq(search), eq(10L), eq(0L)))
+                .thenAnswer(invocation -> ((String) invocation.getArgument(0)).contains("o.order_type = 'STORE'")
+                        ? List.of() : List.of(orderRow()));
+
+        PageResult<Map<String, Object>> page =
+                controller.verifyPool(1, 10, "MALL-PAID-001", "order", null, null, null).getData();
+
+        verify(jdbcTemplate).queryForObject(contains("o.order_type = 'STORE'"), eq(Long.class), eq(search), eq(search));
+        verify(jdbcTemplate).queryForList(contains("o.order_type = 'STORE'"), eq(search), eq(search), eq(10L), eq(0L));
+        assertEquals(0L, page.getTotal());
+        assertTrue(page.getRecords().isEmpty());
+    }
+
+    @Test
     void exchangeTypeOnlyCountsExchangePool() {
         stubTotals(3L, 7L);
         when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(List.of());

@@ -1,6 +1,7 @@
 const config = require('../config');
 const { request, unwrap } = require('./request');
 const referrer = require('./referrer');
+const mallLeaderShare = require('./mall-leader-share');
 
 /**
  * 小程序端登录态管理。
@@ -104,6 +105,7 @@ function saveSession(payload) {
   if (nextUserId) writeStorage(USER_ID_KEY, nextUserId);
   if (payload && payload.token) writeStorage(TOKEN_KEY, payload.token);
   if (payload) writeStorage(USER_KEY, payload);
+  if (payload && payload.token) mallLeaderShare.retryPending();
   return payload;
 }
 

@@ -8,20 +8,13 @@ import type { AdminListConfig, SearchField, RowAction } from '@/views/_shared/ty
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { renderMoney } from '@/views/_shared/render';
+import { financeRoleLabel, financeRoleOptions } from '../role-label';
 
 const store = useAdminStore();
 
-const roleLabel = (v: string) =>
-  (
-    ({ platform: '平台', store: '门店', resource: '资源方', investor: '投资人', supplier: '供应商' }) as Record<
-      string,
-      string
-    >
-  )[v] ?? v;
-
 const columns: DataTableColumns<any> = [
   { title: '经营方', key: 'subjectName', width: 150 },
-  { title: '角色', key: 'roleType', width: 100, render: (row: any) => roleLabel(row.roleType) },
+  { title: '角色', key: 'roleType', width: 100, render: row => financeRoleLabel(row.roleType) },
   {
     title: '可提现余额(元)',
     key: 'availableBalance',
@@ -40,13 +33,7 @@ const searchFields: SearchField[] = [
     key: 'roleType',
     label: '角色',
     type: 'select',
-    options: [
-      { label: '平台', value: 'platform' },
-      { label: '门店', value: 'store' },
-      { label: '资源方', value: 'resource' },
-      { label: '投资人', value: 'investor' },
-      { label: '供应商', value: 'supplier' }
-    ]
+    options: financeRoleOptions
   }
 ];
 

@@ -13,6 +13,7 @@ const { refreshUserProfileFromRemote } = require('./utils/user-profile');
 const recommendationCart = require('./utils/recommendation-cart-state');
 const api = require('./utils/api');
 const tabBarConfig = require('./utils/tab-bar-config');
+const mallLeaderShare = require('./utils/mall-leader-share');
 
 function clearRecommendationCartCleanup(app) {
   if (app.recommendationCartCleanupTimer) {
@@ -99,7 +100,8 @@ App({
     this.globalData.authState = authState.getAuthState();
     return this.globalData.authState;
   },
-  onLaunch() {
+  onLaunch(options) {
+    mallLeaderShare.captureEntry(options);
     recommendationCart.cleanupExpired();
     scheduleRecommendationCartCleanup(this);
     tabBarConfig.ready(api.fetchConfig);
@@ -118,13 +120,15 @@ App({
       this.globalData.loginError = result.ok ? '' : (result.error && result.error.message) || '登录失败';
       // 资料拉取完成后再同步：此时 phone 才可能就绪，状态更准确
       this.syncAuthState();
+      if (result.ok && !result.needsRegister) mallLeaderShare.retryPending();
       if (!result.ok && !result.timedOut) {
         // 开发期可见的排查线索：40029 通常意味着工具登录的微信号不是该小程序成员
         console.warn('[login] 静默登录失败：', this.globalData.loginError);
       }
     });
   },
-  onShow() {
+  onShow(options) {
+    mallLeaderShare.captureEntry(options);
     recommendationCart.cleanupExpired();
     scheduleRecommendationCartCleanup(this);
     syncStoreGlobals(this, resolveStoreCatalog());

@@ -54,6 +54,12 @@ public class RemoteSplitSnapshotQueryAdapter implements SplitSnapshotQueryPort {
             view.setPlatformShare(asLong(body.get("platformShare")));
             view.setPlatformBonus(asLong(body.get("platformBonus")));
             view.setLeaderShare(asLong(body.get("leaderShare")));
+            view.setRefundPlatform(asLong(body.get("refundPlatform")));
+            view.setRefundSupplier(asLong(body.get("refundSupplier")));
+            view.setRefundLeader(asLong(body.get("refundLeader")));
+            view.setNetPlatform(asLong(body.get("netPlatform")));
+            view.setNetSupplier(asLong(body.get("netSupplier")));
+            view.setNetLeader(asLong(body.get("netLeader")));
             view.setBase(asLong(body.get("base")));
             return view;
         } catch (Exception e) {

@@ -6,6 +6,7 @@ import com.wuling.common.cache.AppConfigCacheService;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.common.sql.SqlGuard;
 import com.wuling.system.cache.MenuCacheEvictor;
+import com.wuling.subject.service.SubjectCodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +49,13 @@ public class CrudService {
     private static final String RESOURCE_PRODUCT_CATEGORIES = "productCategories";
     /** 活动城市（运营白名单，V71）：新增后需回填门店的 activity_city_id 绑定。 */
     private static final String RESOURCE_ACTIVITY_CITIES = "activityCities";
+    /**
+     * 经营主体资源名（biz_subject）。
+     *
+     * <p>平台主体页走通用 CRUD 维护它，而编码必须与门店/渠道/供应商/投资人同口径，
+     * 故新增时单独走「占位码 + 主键派生回写」，不能落到通用的时间戳随机码分支。
+     */
+    private static final String RESOURCE_SUBJECTS = "subjects";
 
     /**
      * 内置角色资源名（sys_role）与超管角色码。
@@ -238,7 +246,13 @@ public class CrudService {
         // code 为 NOT NULL 唯一键的表（如 coupon/points_product/stored_value_package 等），
         // 前端表单大多不填 code，直接 insert 会报「Field 'code' doesn't have a default value」。
         // 这里在 code 缺失或为空时自动生成唯一 code，保证新增可用；前端显式传 code 时尊重前端值。
-        if (def.writable().contains("code") && !hasText(values.get("code"))) {
+        //
+        // 例外：subjects（经营主体 biz_subject）的编码必须与其他主体同口径，
+        // 由自增主键派生（见 SubjectCodes），因此先写占位码、插入后回写正式编码。
+        boolean autoSubjectCode = RESOURCE_SUBJECTS.equals(def.resource()) && !hasText(values.get("code"));
+        if (autoSubjectCode) {
+            values.put("code", SubjectCodes.placeholder(textValue(values.get("subject_type"))));
+        } else if (def.writable().contains("code") && !hasText(values.get("code"))) {
             values.put("code", generateCode(def.resource()));
         }
         if (values.isEmpty()) {
@@ -258,6 +272,12 @@ public class CrudService {
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
+        // 经营主体：主键已分配，把占位码回写为正式编码（前缀 + 6 位主键）。
+        // 放在 insert 之后、返回之前，保证对外读到的永远是正式编码。
+        if (autoSubjectCode && key != null) {
+            jdbcTemplate.update("update biz_subject set code = ? where id = ?",
+                    SubjectCodes.of(textValue(values.get("subject_type")), key.longValue()), key.longValue());
+        }
         Map<String, Object> created = getOne(resource, key == null ? 0L : key.longValue());
         // 活动城市新增后回填门店绑定：历史门店靠 city_id 关联 region.id，
         // 与 activity_city.region_id 同源；只回填尚未绑定的门店，不覆盖已手动绑定的。

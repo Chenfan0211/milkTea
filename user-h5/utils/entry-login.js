@@ -30,7 +30,9 @@ const ENTRY_TARGET_WHITELIST = {
   'pages/coupon-stores/coupon-stores': ['couponId'],
   'pages/coupon-products/coupon-products': ['couponId', 'storeId'],
   'pages/points-exchange/points-exchange': ['id'],
-  'pages/gift-card-purchase/gift-card-purchase': ['id']
+  'pages/gift-card-purchase/gift-card-purchase': ['id'],
+  'packageMall/pages/home/home': ['referrerId', 'leaderUserId', 'shareUserId'],
+  'packageMall/pages/product-detail/product-detail': ['id', 'referrerId', 'leaderUserId', 'shareUserId']
 };
 
 let promptEnabled = true;

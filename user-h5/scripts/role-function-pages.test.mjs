@@ -703,6 +703,15 @@ const {
 } = require(path.join(root, 'utils/roles.js'));
 const withdrawRuleData = getWithdrawRule();
 assert.ok(withdrawRuleData && withdrawRuleData.items.length >= 4, 'withdraw rule must expose at least four icon items');
+assert.equal(withdrawRuleData.instantLimit, '¥0.00', '所有提现均无免审额度');
+assert.ok(
+  withdrawRuleData.items.some(item => item.title === '运营审核'),
+  '提现规则必须说明运营审核'
+);
+assert.ok(
+  withdrawRuleData.items.every(item => !/即时到账|无需人工审核|大额审核/.test(item.title + item.description)),
+  '提现规则不得再展示自动出款或仅大额审核'
+);
 assert.ok(
   withdrawRuleData.items.every(item => item.id && item.icon && item.title && item.description),
   'withdraw rule items must be complete'
@@ -985,7 +994,7 @@ assert.ok(
   'withdraw rules page must render icon rule items'
 );
 assert.ok(
-  withdrawRulesJs.includes('getWithdrawRule') && withdrawRulesJs.includes('instantLimit'),
+  withdrawRulesJs.includes('getWithdrawRule') && withdrawRulesJs.includes('rule.auditNote'),
   'withdraw rules page must reuse the shared withdraw rule data'
 );
 assert.ok(

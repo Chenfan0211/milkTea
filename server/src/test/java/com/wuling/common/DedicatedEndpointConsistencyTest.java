@@ -205,6 +205,8 @@ class DedicatedEndpointConsistencyTest {
             "src/views/subject/device/index.vue",
             // 用户列表：绑定团长 / 归属团长走 AdminLeaderController 专用接口
             "src/views/user/list/index.vue",
+            // 团长管理页：团长列表、归属用户与停用预览走 AdminLeaderController 专用接口
+            "src/views/subject/leader/index.vue",
             // 通用列表页骨架：表单字段 type=uploadImage 时调用文件服务上传接口
             // （uploadAdminImage → FileController）。仅登记覆盖范围可见性，
             // 该页表格列由各业务页 config.columns 传入，不存在直读列漂移面。

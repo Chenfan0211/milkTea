@@ -46,7 +46,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/app/withdrawals",
                         "/api/v1/app/withdrawals/**",
                         "/api/v1/app/workbench/**",
-                        "/api/v1/app/roles/**"
+                        "/api/v1/app/roles/**",
+                        "/api/v1/app/leader/**"
                 );
     }
 }

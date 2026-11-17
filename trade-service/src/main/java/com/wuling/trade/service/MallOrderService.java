@@ -218,6 +218,7 @@ public class MallOrderService {
         order.setSplitRuleSnapshot(null);
         order.setLeaderSubjectId(leaderSubjectId);
         order.setLeaderUserId(leaderUserId);
+        order.setLeaderAttributionType(leaderBuyer ? "SELF" : leaderSubjectId != null ? "OTHER" : "PLATFORM");
         order.setMealType("MALL");
         order.setStatus(OrderService.STATUS_CREATED);
         order.setPayStatus("UNPAID");

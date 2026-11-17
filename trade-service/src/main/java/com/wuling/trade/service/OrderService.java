@@ -778,6 +778,12 @@ public class OrderService {
         dto.setAutoCompleteTime(fmt(order.getAutoCompleteTime()));
         dto.setCompleteTime(fmt(order.getCompleteTime()));
         if (mall) {
+            dto.setLeaderUserId(order.getLeaderUserId());
+            dto.setLeaderSubjectId(order.getLeaderSubjectId());
+            dto.setLeaderAttributionType(order.getLeaderAttributionType());
+            if (byAdmin && order.getLeaderSubjectId() != null) {
+                dto.setLeaderName(productQueryPort.findSubjectName(order.getLeaderSubjectId()));
+            }
             dto.setShipping(loadShipping(order.getId()));
             if (mallAfterSaleMapper != null) {
                 var latestAfterSale = mallAfterSaleMapper.selectLatestByOrderId(order.getId());
@@ -855,6 +861,12 @@ public class OrderService {
         split.setPlatformShare(view.getPlatformShare());
         split.setPlatformBonus(view.getPlatformBonus());
         split.setLeaderShare(view.getLeaderShare());
+        split.setRefundPlatform(view.getRefundPlatform());
+        split.setRefundSupplier(view.getRefundSupplier());
+        split.setRefundLeader(view.getRefundLeader());
+        split.setNetPlatform(view.getNetPlatform());
+        split.setNetSupplier(view.getNetSupplier());
+        split.setNetLeader(view.getNetLeader());
         split.setBase(view.getBase());
         return split;
     }

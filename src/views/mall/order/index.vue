@@ -3,7 +3,7 @@ defineOptions({
   name: 'MallOrder'
 });
 
-import { h, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 import { NButton, NForm, NFormItem, NInput, NModal } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
@@ -19,13 +19,16 @@ import {
   statusMap,
   toTimeRange
 } from '@/views/_shared/render';
-import { fetchMallOrders, shipMallOrder } from '@/service/api/mall';
+import { fetchMallOrderDetail, fetchMallOrders, shipMallOrder } from '@/service/api/mall';
 import type { MallOrder, MallOrderItem, MallOrderShipping } from '@/service/api/mall';
+import { describeMallSplit } from './split-detail';
 
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
 const detailVisible = ref(false);
 const detailRow = ref<MallOrder | null>(null);
 const detailGroups = ref<DetailGroup[]>([]);
+const splitVisible = ref(false);
+const splitRow = ref<MallOrder | null>(null);
 
 const shippingVisible = ref(false);
 const shippingSaving = ref(false);
@@ -75,66 +78,163 @@ function renderItem(item: MallOrderItem): string {
   return `${name}${spec}：¥${unitPrice} × ${quantity}，小计 ¥${subtotal}`;
 }
 
-function buildDetailGroups(row: MallOrder): DetailGroup[] {
-  const shipping = recipient(row);
-  const itemFields = (row.items ?? []).map((item, index) => ({
-    label: `商品 ${index + 1}`,
-    render: () => h('span', { style: 'line-height:1.7' }, renderItem(item))
-  }));
+function splitMoney(value: number | null): string {
+  return value == null ? '—' : `¥${formatFen(value)}`;
+}
 
+function commissionItems(row: MallOrder): string {
+  const items = row.items ?? [];
+  if (!items.length) return '—';
+  return items
+    .map(item => {
+      const qty = Number(item.quantity) || 0;
+      const unit = Number(item.distributionCommission) || 0;
+      return `${item.name || '商品'}${item.spec ? `（${item.spec}）` : ''}：¥${formatFen(unit)} × ${qty} = ¥${formatFen(unit * qty)}`;
+    })
+    .join('；');
+}
+
+const splitGroups: DetailGroup[] = [
+  {
+    title: '团长归属',
+    fields: [
+      { label: '归属口径', render: (row: MallOrder) => describeMallSplit(row).attribution },
+      { label: '团长用户 ID', render: (row: MallOrder) => describeMallSplit(row).leaderUserId },
+      { label: '团长主体 ID', render: (row: MallOrder) => describeMallSplit(row).leaderSubjectId },
+      { label: '团长名称', render: (row: MallOrder) => row.leaderName || '—' },
+      { label: '分账状态', render: (row: MallOrder) => describeMallSplit(row).state },
+      { label: '分账快照号', render: (row: MallOrder) => row.split?.snapshotNo || '—' },
+      { label: '实付金额', render: (row: MallOrder) => splitMoney(row.paidAmount ?? null) },
+      { label: '商品分销佣金（单价 × 件数）', render: (row: MallOrder) => commissionItems(row) }
+    ]
+  },
+  {
+    title: '原分账（元）',
+    fields: [
+      { label: '平台', render: (row: MallOrder) => splitMoney(describeMallSplit(row).platform.original) },
+      { label: '供应商', render: (row: MallOrder) => splitMoney(describeMallSplit(row).supplier.original) },
+      { label: '团长', render: (row: MallOrder) => splitMoney(describeMallSplit(row).leader.original) },
+      {
+        label: '历史其他分账',
+        render: (row: MallOrder) => (row.split?.snapshotNo ? splitMoney(describeMallSplit(row).legacy) : '—')
+      },
+      {
+        label: '合计校验',
+        render: (row: MallOrder) => {
+          const check = describeMallSplit(row).totalCheck;
+          return check == null ? '—' : check ? '一致' : '不一致，请核对账务';
+        }
+      }
+    ]
+  },
+  {
+    title: '退款冲正（元）',
+    fields: [
+      {
+        label: '平台',
+        render: (row: MallOrder) => (row.split?.snapshotNo ? splitMoney(describeMallSplit(row).platform.refunded) : '—')
+      },
+      {
+        label: '供应商',
+        render: (row: MallOrder) => (row.split?.snapshotNo ? splitMoney(describeMallSplit(row).supplier.refunded) : '—')
+      },
+      {
+        label: '团长',
+        render: (row: MallOrder) => (row.split?.snapshotNo ? splitMoney(describeMallSplit(row).leader.refunded) : '—')
+      }
+    ]
+  },
+  {
+    title: '当前净额（元）',
+    fields: [
+      {
+        label: '平台',
+        render: (row: MallOrder) => (row.split?.snapshotNo ? splitMoney(describeMallSplit(row).platform.net) : '—')
+      },
+      {
+        label: '供应商',
+        render: (row: MallOrder) => (row.split?.snapshotNo ? splitMoney(describeMallSplit(row).supplier.net) : '—')
+      },
+      {
+        label: '团长',
+        render: (row: MallOrder) => (row.split?.snapshotNo ? splitMoney(describeMallSplit(row).leader.net) : '—')
+      }
+    ]
+  }
+];
+
+function buildDetailGroups(): DetailGroup[] {
   return [
     {
       title: '订单信息',
       fields: [
         { label: '订单号', key: 'orderNo' },
-        { label: '订单状态', render: () => renderTag('status', orderStatusMap)(row) },
+        { label: '订单状态', render: (row: MallOrder) => renderTag('status', orderStatusMap)(row) },
         { label: '下单用户', key: 'user' },
-        { label: '支付方式', render: () => payChannelLabel(row.payChannel) },
-        { label: '退款状态', render: () => row.refundStatus || '无退款' },
-        { label: '售后状态', render: () => row.afterSaleStatus || (row.activeAfterSale ? '处理中' : '无售后') },
-        { label: '售后单号', render: () => row.afterSaleNo || '—' },
-        { label: '下单时间', render: () => formatDateTime(row.createTime) },
-        { label: '支付时间', render: () => formatDateTime(row.payTime) },
-        { label: '发货时间', render: () => formatDateTime(row.shippedTime) },
-        { label: '自动完成时间', render: () => formatDateTime(row.autoCompleteTime) },
-        { label: '完成时间', render: () => formatDateTime(row.completeTime) }
+        { label: '支付方式', render: (row: MallOrder) => payChannelLabel(row.payChannel) },
+        { label: '退款状态', render: (row: MallOrder) => row.refundStatus || '无退款' },
+        {
+          label: '售后状态',
+          render: (row: MallOrder) => row.afterSaleStatus || (row.activeAfterSale ? '处理中' : '无售后')
+        },
+        { label: '售后单号', render: (row: MallOrder) => row.afterSaleNo || '—' },
+        { label: '下单时间', render: (row: MallOrder) => formatDateTime(row.createTime) },
+        { label: '支付时间', render: (row: MallOrder) => formatDateTime(row.payTime) },
+        { label: '发货时间', render: (row: MallOrder) => formatDateTime(row.shippedTime) },
+        { label: '自动完成时间', render: (row: MallOrder) => formatDateTime(row.autoCompleteTime) },
+        { label: '完成时间', render: (row: MallOrder) => formatDateTime(row.completeTime) }
       ]
     },
     {
       title: '收货信息',
       fields: [
-        { label: '收货人', render: () => shipping.recipientName || '—' },
-        { label: '联系电话', render: () => shipping.phone || '—' },
-        { label: '收货地址', render: () => fullAddress(shipping) }
+        { label: '收货人', render: (row: MallOrder) => recipient(row).recipientName || '—' },
+        { label: '联系电话', render: (row: MallOrder) => recipient(row).phone || '—' },
+        { label: '收货地址', render: (row: MallOrder) => fullAddress(recipient(row)) }
       ]
     },
     {
       title: '物流信息',
       fields: [
-        { label: '快递公司', render: () => shipping.courierCompany || '待发货' },
-        { label: '快递单号', render: () => shipping.trackingNo || '待发货' }
+        { label: '快递公司', render: (row: MallOrder) => recipient(row).courierCompany || '待发货' },
+        { label: '快递单号', render: (row: MallOrder) => recipient(row).trackingNo || '待发货' }
       ]
     },
     {
       title: '商品明细',
-      fields: itemFields.length ? itemFields : [{ label: '商品', render: () => '—' }]
+      fields: [{ label: '商品', render: (row: MallOrder) => (row.items ?? []).map(renderItem).join('；') || '—' }]
     },
     {
       title: '金额信息（元）',
       fields: [
-        { label: '商品原价', render: () => `¥${formatFen(row.originalAmount)}` },
-        { label: '优惠金额', render: () => `¥${formatFen(row.discountAmount)}` },
-        { label: '优惠券抵扣', render: () => `¥${formatFen(row.couponDiscount)}` },
-        { label: '实付金额', render: () => `¥${formatFen(row.paidAmount)}` }
+        { label: '商品原价', render: (row: MallOrder) => `¥${formatFen(row.originalAmount)}` },
+        { label: '优惠金额', render: (row: MallOrder) => `¥${formatFen(row.discountAmount)}` },
+        { label: '优惠券抵扣', render: (row: MallOrder) => `¥${formatFen(row.couponDiscount)}` },
+        { label: '实付金额', render: (row: MallOrder) => `¥${formatFen(row.paidAmount)}` }
       ]
-    }
+    },
+    ...splitGroups
   ];
 }
 
 function openDetail(row: MallOrder) {
   detailRow.value = row;
-  detailGroups.value = buildDetailGroups(row);
+  detailGroups.value = buildDetailGroups();
   detailVisible.value = true;
+}
+
+function openSplit(row: MallOrder) {
+  splitRow.value = row;
+  splitVisible.value = true;
+}
+
+async function loadFreshDetail(row: MallOrder): Promise<MallOrder | null> {
+  try {
+    return await fetchMallOrderDetail(row.orderNo);
+  } catch (error: any) {
+    window.$message?.error(error?.message || '订单详情加载失败，请重试');
+    return null;
+  }
 }
 
 function openShipping(row: MallOrder) {
@@ -227,6 +327,11 @@ const config: AdminListConfig = {
       handler: (row: MallOrder) => openDetail(row)
     },
     {
+      label: '分账明细',
+      type: 'info',
+      handler: (row: MallOrder) => openSplit(row)
+    },
+    {
       label: '发货',
       type: 'primary',
       handler: (row: MallOrder) => openShipping(row),
@@ -256,7 +361,20 @@ const config: AdminListConfig = {
   <div class="mall-order-page">
     <AdminListPage ref="listRef" :config="config" />
 
-    <DetailModal v-model:show="detailVisible" title="商城订单详情" :groups="detailGroups" :row="detailRow" />
+    <DetailModal
+      v-model:show="detailVisible"
+      title="商城订单详情"
+      :groups="detailGroups"
+      :row="detailRow"
+      :load="loadFreshDetail"
+    />
+    <DetailModal
+      v-model:show="splitVisible"
+      title="商城订单分账明细"
+      :groups="splitGroups"
+      :row="splitRow"
+      :load="loadFreshDetail"
+    />
 
     <NModal v-model:show="shippingVisible" preset="card" title="订单发货" class="w-480px">
       <div v-if="shippingRow" class="shipping-order">

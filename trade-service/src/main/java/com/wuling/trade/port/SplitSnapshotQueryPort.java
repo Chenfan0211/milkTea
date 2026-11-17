@@ -42,6 +42,12 @@ public interface SplitSnapshotQueryPort {
         private Long base;
         /** 团长分销佣金所得（商城订单；无团长为 0） */
         private Long leaderShare;
+        private Long refundPlatform;
+        private Long refundSupplier;
+        private Long refundLeader;
+        private Long netPlatform;
+        private Long netSupplier;
+        private Long netLeader;
 
         public String getSnapshotNo() {
             return snapshotNo;
@@ -121,6 +127,54 @@ public interface SplitSnapshotQueryPort {
 
         public void setBase(Long base) {
             this.base = base;
+        }
+
+        public Long getRefundPlatform() {
+            return refundPlatform;
+        }
+
+        public void setRefundPlatform(Long value) {
+            this.refundPlatform = value;
+        }
+
+        public Long getRefundSupplier() {
+            return refundSupplier;
+        }
+
+        public void setRefundSupplier(Long value) {
+            this.refundSupplier = value;
+        }
+
+        public Long getRefundLeader() {
+            return refundLeader;
+        }
+
+        public void setRefundLeader(Long value) {
+            this.refundLeader = value;
+        }
+
+        public Long getNetPlatform() {
+            return netPlatform;
+        }
+
+        public void setNetPlatform(Long value) {
+            this.netPlatform = value;
+        }
+
+        public Long getNetSupplier() {
+            return netSupplier;
+        }
+
+        public void setNetSupplier(Long value) {
+            this.netSupplier = value;
+        }
+
+        public Long getNetLeader() {
+            return netLeader;
+        }
+
+        public void setNetLeader(Long value) {
+            this.netLeader = value;
         }
 
         public Long getLeaderShare() {

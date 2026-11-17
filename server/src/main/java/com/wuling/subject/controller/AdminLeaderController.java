@@ -4,14 +4,13 @@ import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.subject.service.LeaderAttributionService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,12 +34,13 @@ import java.util.Map;
 @RequestMapping("/api/v1/admin")
 public class AdminLeaderController {
 
-    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
     private final JdbcTemplate jdbcTemplate;
 
-    public AdminLeaderController(JdbcTemplate jdbcTemplate) {
+    private final LeaderAttributionService leaderAttribution;
+
+    public AdminLeaderController(JdbcTemplate jdbcTemplate, LeaderAttributionService leaderAttribution) {
         this.jdbcTemplate = jdbcTemplate;
+        this.leaderAttribution = leaderAttribution;
     }
 
     // ---------- 团长列表 ----------
@@ -53,10 +53,11 @@ public class AdminLeaderController {
         long safePage = Math.max(1, current);
         long safeSize = Math.min(Math.max(1, size), 100);
         StringBuilder sql = new StringBuilder(
-                "select s.id, s.code, s.name, s.subject_type as subjectType, s.status, "
+                "select s.id, s.code, s.name, s.subject_type as subjectType, case when s.status = 'active' then 'active' else 'inactive' end as status, "
                         + "(select g.user_id from user_role_grant g where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 limit 1) as boundUserId, "
                         + "(select u.nick_name from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserNick, "
-                        + "(select u.phone from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserPhone "
+                        + "(select u.phone from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserPhone, "
+                        + "(select coalesce(sum(a.available_balance), 0) from subject_account a where a.subject_id = s.id and a.deleted = 0) as accountBalance "
                         + "from biz_subject s where s.subject_type = 'LEADER' and s.deleted = 0 ");
         List<Object> args = new ArrayList<>();
         if (StringUtils.hasText(search)) {
@@ -70,9 +71,10 @@ public class AdminLeaderController {
                 args.add(-1L);
             }
         }
-        if (StringUtils.hasText(status)) {
-            sql.append("and s.status = ? ");
-            args.add(status.trim());
+        if ("inactive".equalsIgnoreCase(status)) {
+            sql.append("and coalesce(s.status, '') <> 'active' ");
+        } else if (!"all".equalsIgnoreCase(status)) {
+            sql.append("and s.status = 'active' ");
         }
         sql.append("order by s.id asc");
         long total = jdbcTemplate.queryForObject(
@@ -93,19 +95,26 @@ public class AdminLeaderController {
         if (userIdValue == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "userId 不能为空");
         }
-        long userId = ((Number) userIdValue).longValue();
+        long userId;
+        try {
+            userId = Long.parseLong(String.valueOf(userIdValue));
+        } catch (NumberFormatException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的用户 ID");
+        }
         List<Map<String, Object>> users = jdbcTemplate.queryForList(
-                "select id, nick_name from app_user where id = ? and deleted = 0", userId);
+                "select id, nick_name from app_user where id = ? and status = 1 and deleted = 0 for update", userId);
         if (users.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "用户不存在");
         }
         Long exists = jdbcTemplate.queryForObject(
-                "select count(*) from user_role_grant where user_id = ? and UPPER(role_code) = 'LEADER' and deleted = 0",
+                "select count(*) from user_role_grant g join biz_subject s on s.id = g.subject_id "
+                        + "where g.user_id = ? and UPPER(g.role_code) = 'LEADER' and g.status = 'active' and g.deleted = 0 "
+                        + "and s.subject_type = 'LEADER' and s.status = 'active' and s.deleted = 0",
                 Long.class, userId);
         if (exists != null && exists > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该用户已是团长");
         }
-        String nick = String.valueOf(users.get(0).get("nick_name"));
+        String nick = (String) users.get(0).get("nick_name");
         String name = payload.get("name") == null || String.valueOf(payload.get("name")).isBlank()
                 ? (StringUtils.hasText(nick) ? nick : "团长" + userId)
                 : String.valueOf(payload.get("name")).trim();
@@ -120,9 +129,15 @@ public class AdminLeaderController {
         if (subjectId == null) {
             throw new BusinessException(ResultCode.ERROR, "团长主体创建失败");
         }
-        jdbcTemplate.update(
-                "insert into user_role_grant (user_id, role_code, subject_id, status, grant_time) values (?, 'LEADER', ?, 'active', now())",
+        int restored = jdbcTemplate.update(
+                "update user_role_grant set status = 'active', grant_time = now() "
+                        + "where user_id = ? and subject_id = ? and UPPER(role_code) = 'LEADER' and deleted = 0",
                 userId, subjectId);
+        if (restored == 0) {
+            jdbcTemplate.update(
+                    "insert into user_role_grant (user_id, role_code, subject_id, status, grant_time) values (?, 'LEADER', ?, 'active', now())",
+                    userId, subjectId);
+        }
         return Result.ok(leaderRow(subjectId));
     }
 
@@ -131,21 +146,36 @@ public class AdminLeaderController {
     @DeleteMapping("/subject/leaders/{subjectId}")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> removeLeader(@PathVariable Long subjectId) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select s.id, (select g.user_id from user_role_grant g where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 limit 1) as bound_user_id from biz_subject s where s.id = ? and s.subject_type = 'LEADER' and s.deleted = 0",
-                subjectId);
-        if (rows.isEmpty()) {
+        requireLeaderSubject(subjectId);
+        jdbcTemplate.update("update biz_subject set status = 'inactive' where id = ?", subjectId);
+        jdbcTemplate.update("update user_role_grant set status = 'inactive' "
+                + "where subject_id = ? and UPPER(role_code) = 'LEADER' and deleted = 0", subjectId);
+        return Result.ok();
+    }
+
+    @GetMapping("/subject/leaders/{subjectId}/deactivate-preview")
+    public Result<Map<String, Object>> deactivatePreview(@PathVariable Long subjectId) {
+        requireLeaderSubject(subjectId);
+        Long bound = jdbcTemplate.queryForObject(
+                "select count(*) from user_leader where leader_subject_id = ? and deleted = 0", Long.class, subjectId);
+        Long pendingOrders = jdbcTemplate.queryForObject(
+                "select count(*) from orders where order_type = 'MALL' and leader_subject_id = ? "
+                        + "and status in ('CREATED', 'PAID', 'SHIPPED') and deleted = 0", Long.class, subjectId);
+        Long pendingAmount = jdbcTemplate.queryForObject(
+                "select coalesce(sum(r.amount), 0) from settlement_record r join orders o on o.id = r.order_id "
+                        + "where o.order_type = 'MALL' and r.subject_id = ? and r.status in ('PENDING', 'SETTLEABLE', 'FROZEN') "
+                        + "and r.deleted = 0 and o.deleted = 0", Long.class, subjectId);
+        return Result.ok(Map.of("boundUserCount", bound, "pendingOrderCount", pendingOrders,
+                "pendingSettlementAmount", pendingAmount));
+    }
+
+    private void requireLeaderSubject(Long subjectId) {
+        Long count = jdbcTemplate.queryForObject(
+                "select count(*) from biz_subject where id = ? and subject_type = 'LEADER' and deleted = 0",
+                Long.class, subjectId);
+        if (count == null || count == 0) {
             throw new BusinessException(ResultCode.NOT_FOUND, "团长主体不存在");
         }
-        Object boundUserId = rows.get(0).get("bound_user_id");
-        jdbcTemplate.update("update biz_subject set deleted = 1, bound_user_id = null where id = ?", subjectId);
-        if (boundUserId != null) {
-            jdbcTemplate.update(
-                    "update user_role_grant set deleted = 1 where user_id = ? and UPPER(role_code) = 'LEADER' and subject_id = ?",
-                    boundUserId, subjectId);
-            jdbcTemplate.update("update user_leader set deleted = 1 where leader_user_id = ?", boundUserId);
-        }
-        return Result.ok();
     }
 
     // ---------- 用户归属团长 ----------
@@ -158,47 +188,31 @@ public class AdminLeaderController {
         if (userIdValue == null || leaderUserIdValue == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "userId 与 leaderUserId 不能为空");
         }
-        long userId = ((Number) userIdValue).longValue();
-        long leaderUserId = ((Number) leaderUserIdValue).longValue();
-        if (userId == leaderUserId) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "用户不能归属自己");
+        try {
+            return Result.ok(leaderAttribution.assign(Long.valueOf(String.valueOf(userIdValue)),
+                    Long.valueOf(String.valueOf(leaderUserIdValue))));
+        } catch (NumberFormatException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的用户或团长 ID");
         }
-        List<Map<String, Object>> leaderRows = jdbcTemplate.queryForList(
-                "select subject_id from user_role_grant where user_id = ? and UPPER(role_code) = 'LEADER' "
-                        + "and status = 'active' and deleted = 0 order by id limit 1",
-                leaderUserId);
-        if (leaderRows.isEmpty()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "目标用户不是团长");
-        }
-        Object leaderSubjectIdValue = leaderRows.get(0).get("subject_id");
-        Long leaderSubjectId = leaderSubjectIdValue == null ? null : ((Number) leaderSubjectIdValue).longValue();
-        jdbcTemplate.update(
-                "insert into user_leader (user_id, leader_user_id, leader_subject_id) values (?, ?, ?) "
-                        + "on duplicate key update leader_user_id = values(leader_user_id), "
-                        + "leader_subject_id = values(leader_subject_id), deleted = 0",
-                userId, leaderUserId, leaderSubjectId);
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("userId", userId);
-        result.put("leaderUserId", leaderUserId);
-        result.put("leaderSubjectId", leaderSubjectId);
-        return Result.ok(result);
     }
 
     @DeleteMapping("/user-leader/{userId}")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> removeUserLeader(@PathVariable Long userId) {
-        jdbcTemplate.update("update user_leader set deleted = 1 where user_id = ? and deleted = 0", userId);
+        leaderAttribution.remove(userId);
         return Result.ok();
     }
 
     @GetMapping("/user-leader")
     public Result<PageResult<Map<String, Object>>> userLeaders(@RequestParam(defaultValue = "1") long current,
                                                                @RequestParam(defaultValue = "10") long size,
-                                                               @RequestParam(required = false) String search) {
+                                                               @RequestParam(required = false) String search,
+                                                               @RequestParam(required = false) Long leaderUserId) {
         long safePage = Math.max(1, current);
         long safeSize = Math.min(Math.max(1, size), 100);
         StringBuilder sql = new StringBuilder(
                 "select ul.user_id as userId, ul.leader_user_id as leaderUserId, ul.leader_subject_id as leaderSubjectId, "
+                        + "ul.binding_source as bindingSource, ul.bound_at as boundAt, "
                         + "u.nick_name as userNick, u.phone as userPhone, "
                         + "lu.nick_name as leaderNick, lu.phone as leaderPhone "
                         + "from user_leader ul "
@@ -217,6 +231,10 @@ public class AdminLeaderController {
                 args.add(-1L);
             }
         }
+        if (leaderUserId != null) {
+            sql.append("and ul.leader_user_id = ? ");
+            args.add(leaderUserId);
+        }
         sql.append("order by ul.id desc");
         long total = jdbcTemplate.queryForObject(
                 "select count(*) from (" + sql + ") t", Long.class, args.toArray());
@@ -231,7 +249,7 @@ public class AdminLeaderController {
 
     private Map<String, Object> leaderRow(Long subjectId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select s.id, s.code, s.name, s.subject_type as subjectType, s.status, "
+                "select s.id, s.code, s.name, s.subject_type as subjectType, case when s.status = 'active' then 'active' else 'inactive' end as status, "
                         + "(select g.user_id from user_role_grant g where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 limit 1) as boundUserId, "
                         + "(select u.nick_name from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserNick, "
                         + "(select u.phone from app_user u join user_role_grant g on g.user_id = u.id where g.subject_id = s.id and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 and u.deleted = 0 limit 1) as boundUserPhone "

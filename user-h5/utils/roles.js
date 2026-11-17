@@ -93,7 +93,7 @@ const ROLE_DASHBOARD_META = {
         description: '查看本店设备的胶囊冲泡记录'
       },
       { id: 'income', label: '每日收益', icon: '/assets/icons/lucide/banknote.svg', description: '含退款冲正后净额' },
-      { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '小额即时，大额后台审核' }
+      { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '所有金额均需运营审核' }
     ]
   },
   investor: {
@@ -112,7 +112,7 @@ const ROLE_DASHBOARD_META = {
         icon: '/assets/icons/lucide/trending-up.svg',
         description: '查看每月分佣与明细'
       },
-      { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '小额即时，大额后台审核' }
+      { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '所有金额均需运营审核' }
     ]
   },
   resource: {
@@ -131,7 +131,7 @@ const ROLE_DASHBOARD_META = {
         icon: '/assets/icons/lucide/banknote.svg',
         description: '按门店订单实付金额提成'
       },
-      { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '小额即时，大额后台审核' }
+      { id: 'withdraw', label: '提现', icon: '/assets/icons/lucide/wallet.svg', description: '所有金额均需运营审核' }
     ]
   }
 };
@@ -1124,7 +1124,7 @@ const WITHDRAW_FLOW = {
   processing: [
     { id: 'submitted', title: '已提交', description: '提现申请已提交，等待系统受理', offset: 0 },
     { id: 'approved', title: '审核通过', description: '审核通过，进入出款流程', offset: 300 },
-    { id: 'paying', title: '出款中', description: '小额即时出款，预计 2 小时内到账', offset: 840 },
+    { id: 'paying', title: '出款中', description: '运营审核通过，出款结果处理中', offset: 840 },
     { id: 'arrived', title: '已到账', description: '款项将打入指定收款账户' }
   ],
   success: [
@@ -1330,26 +1330,16 @@ function syncWithdrawRuleFromRemote() {
 /**
  * 提现规则文案与入口说明。
  *
- * 金额类（即时额度）取后端接口，保证与实际出款口径一致；
- * 说明文案取 app_config.withdraw_rule（运营可改），接口不可用时用内置兜底。
+ * 所有金额均需运营后台审核；费用和失败说明可从运营配置读取。
  */
 function getWithdrawRule() {
   const config =
     remoteIncomeRuleConfig && remoteIncomeRuleConfig.withdrawRule ? remoteIncomeRuleConfig.withdrawRule : null;
-  const limitFen =
-    remoteWithdrawRule && remoteWithdrawRule.instantLimit != null ? Number(remoteWithdrawRule.instantLimit) : null;
-  const instantLimit =
-    limitFen != null ? '¥' + (limitFen / 100).toFixed(2) : (config && config.instantLimit) || '¥100.00';
+  const auditNote = '所有提现申请均需运营后台审核，审核通过后发起出款';
   return {
-    instantLimit,
-    instantNote:
-      (remoteWithdrawRule && remoteWithdrawRule.instantNote) ||
-      (config && config.instantNote) ||
-      '小额即时到账，无需人工审核',
-    auditNote:
-      (remoteWithdrawRule && remoteWithdrawRule.auditNote) ||
-      (config && config.auditNote) ||
-      '超过即时额度需后台审核，审核通过后出款',
+    instantLimit: '¥0.00',
+    instantNote: '所有提现申请均需运营后台审核，无免审额度',
+    auditNote,
     feeNote: (config && config.feeNote) || '提现手续费与单笔上限由后台配置',
     failureNote:
       (remoteWithdrawRule && remoteWithdrawRule.failureNote) ||
@@ -1357,18 +1347,18 @@ function getWithdrawRule() {
       '失败或驳回将自动解冻对应金额',
     items: [
       {
-        id: 'instant',
+        id: 'application',
         icon: '/assets/icons/lucide/banknote.svg',
-        title: '即时到账',
-        description: '单笔不超过即时额度时，系统自动出款，无需人工审核。',
-        extra: '当前即时额度：单笔 ≤ ' + instantLimit
+        title: '提交申请',
+        description: '无论金额大小，提交后先冻结对应余额并进入待审核。',
+        extra: ''
       },
       {
         id: 'audit',
         icon: '/assets/icons/lucide/clock-muted.svg',
-        title: '大额审核',
-        description: '超过即时额度需提交后台审核，审核通过后统一出款。',
-        extra: '审核时效：1 个工作日'
+        title: '运营审核',
+        description: auditNote,
+        extra: ''
       },
       {
         id: 'fee',

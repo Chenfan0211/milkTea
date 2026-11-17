@@ -7,6 +7,8 @@ import type { DataTableColumns } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, RowAction, SearchField } from '@/views/_shared/types';
 import { useAdminStore } from '@/store/modules/admin';
+import { getServiceBaseURL } from '@/utils/service';
+import { resolveAdminImageUrl } from '@/views/_shared/image-url';
 import HomeBannerEditor from './HomeBannerEditor.vue';
 
 interface HomeBanner {
@@ -20,6 +22,10 @@ interface HomeBanner {
 }
 
 const store = useAdminStore();
+const imageBaseURL = getServiceBaseURL(
+  import.meta.env,
+  import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y'
+).baseURL;
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
 const editorVisible = ref(false);
 const editingBanner = ref<HomeBanner | null>(null);
@@ -45,7 +51,13 @@ const columns: DataTableColumns<HomeBanner> = [
     width: 130,
     render: row =>
       row.imageUrl
-        ? h(NImage, { src: row.imageUrl, width: 90, height: 125, objectFit: 'contain', previewDisabled: false })
+        ? h(NImage, {
+            src: resolveAdminImageUrl(row.imageUrl, imageBaseURL),
+            width: 90,
+            height: 125,
+            objectFit: 'contain',
+            previewDisabled: false
+          })
         : '—'
   },
   { title: '图片说明', key: 'altText', minWidth: 180, render: row => row.altText || '—' },

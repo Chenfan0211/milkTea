@@ -2,6 +2,7 @@ const { withShare } = require('../../utils/share');
 const entry = require('../../utils/entry-login');
 const navigate = require('../../utils/navigate');
 const referrer = require('../../utils/referrer');
+const mallLeaderShare = require('../../utils/mall-leader-share');
 
 /**
  * 启动页：所有冷启动入口（扫码 / 分享卡片 / 朋友圈 / 图标）的统一收口。
@@ -28,6 +29,7 @@ Page(
       // 邀请分享进入：先落盘邀请人，供后续注册绑定推荐关系。
       // 越早捕获越好 —— 用户可以拒绝授权、中途退出，之后再进就再也拿不到这个参数了。
       referrer.captureFromOptions(options);
+      if (options && (options.leaderUserId || options.shareUserId)) mallLeaderShare.capture(options);
       this.bootstrap();
     },
     bootstrap() {

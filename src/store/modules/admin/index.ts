@@ -302,7 +302,6 @@ const auditFieldMeta: Record<string, string> = {
   originalPrice: '原价',
   costPrice: '成本价',
   platformCommission: '平台分佣',
-  withdrawFreeAuditThreshold: '提现免审阈值',
   stock: '库存',
   description: '描述',
   createTime: '创建时间',
@@ -1624,7 +1623,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     const list = ensure('withdrawals');
     const item = list.find((x: any) => x.id === id);
     const st = String(item?.status || '').toUpperCase();
-    if (st && st !== 'APPLIED' && st !== 'PENDING') {
+    if (st && st !== 'APPLIED' && st !== 'AUDITING') {
       window.$message?.warning('该提现申请已处理，不能重复审核');
       return;
     }
@@ -1703,7 +1702,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
    */
   function getPlatformConfig() {
     const platform = ensure('subjects').find((subj: any) => subj.type === 'platform');
-    return platform || { withdrawFreeAuditThreshold: 0 };
+    return platform || {};
   }
 
   /**
@@ -1725,15 +1724,12 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
   }
 
   /**
-   * 提现：金额 <= 免审阈值直接出款，否则待审核
-   */
-  /**
    * 后台代经营方发起提现（走后端接口）。
    *
    * 原实现是纯本地记账（本地扣余额、本地写提现记录），刷新即丢，
    * 且金额单位是「元」，与后端不一致。
    * 现调用 POST /api/v1/admin/finance/withdrawals/apply，由后端在事务内完成
-   * 「余额原子冻结 + 小额即时到账/大额进入审核 + 写资金流水」。
+   * 「余额原子冻结 + 全部进入运营审核 + 写资金流水」。
    *
    * @param subjectId 主体 id
    * @param amount    提现金额，单位：**元**（内部换算为分后传后端）

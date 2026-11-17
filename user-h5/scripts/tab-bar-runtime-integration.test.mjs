@@ -34,11 +34,13 @@ assert.match(featurePage, /<tongue-home-panel[^>]*wx:if=/, '宿主页必须按�
 assert.match(featurePage, /wx:elif="\{\{ready\}\}"[\s\S]*<member-panel/, '宿主页必须按数据库模式渲染会员面板');
 assert.ok(exists('components/tongue-home-panel/tongue-home-panel.wxml'), '舌诊首页必须抽成可复用组件');
 
-const migration = read('../server/src/main/resources/db/migration/V97__mini_tab_bar_config.sql');
-assert.match(migration, /mini_tab_bar/, 'V97 必须写入导航配置键');
-assert.match(migration, /"schemaVersion":2/, 'V97 必须写入 schema v2');
-assert.match(migration, /"defaultThirdTab":"memberZone"/, '数据库默认第三项必须为会员专区');
-assert.match(migration, /"1\.3\.5":"memberZone"/, 'V97 必须预置当前 1.3.5 版本映射');
-assert.match(migration, /JSON_EXTRACT\(value, '\$\.schemaVersion'\) = 1/, 'V97 必须把已有 schema v1 配置升级到 v2');
+const initialMigration = read('../server/src/main/resources/db/migration/V97__mini_tab_bar_config.sql');
+const upgradeMigration = read('../server/src/main/resources/db/migration/V106__upgrade_mini_tab_bar_config.sql');
+assert.match(initialMigration, /mini_tab_bar/, 'V97 必须保留已执行的导航配置迁移');
+assert.match(initialMigration, /"schemaVersion":1/, '已执行的 V97 不能改写');
+assert.match(upgradeMigration, /'schemaVersion',\s*2/, 'V106 必须升级至 schema v2');
+assert.match(upgradeMigration, /'defaultThirdTab'/, 'V106 必须保留默认第三项');
+assert.match(upgradeMigration, /'1\.3\.5',\s*'memberZone'/, 'V106 必须预置 1.3.5 版本映射');
+assert.match(upgradeMigration, /JSON_EXTRACT\(value, '\$\.schemaVersion'\)/, 'V106 只升级旧版配置');
 
 console.log('tab-bar-runtime-integration.test.mjs: passed');

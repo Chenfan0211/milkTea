@@ -584,6 +584,19 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'subject_leader',
+        path: '/subject/leader',
+        component: 'view.subject_leader',
+        meta: {
+          title: '团长管理',
+          icon: 'mdi:account-group',
+          order: 8,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
         name: 'subject_platform',
         path: '/subject/platform',
         component: 'view.subject_platform',

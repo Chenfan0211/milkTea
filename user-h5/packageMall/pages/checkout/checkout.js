@@ -2,6 +2,7 @@ const api = require('../../../utils/api');
 const auth = require('../../../utils/auth');
 const loginGuard = require('../../../utils/login-guard');
 const mallCart = require('../../../utils/mall-cart');
+const mallLeaderShare = require('../../../utils/mall-leader-share');
 const { requestOrderPayment } = require('../../../utils/order-payment');
 const { requestMallShippingSubscribe } = require('../../../utils/subscribe-message');
 const mall = require('../../utils/mall');
@@ -48,7 +49,7 @@ Page({
     }
     this.initialized = true;
     this.setData({ loading: true, needLogin: false, error: '' });
-    Promise.all([this.loadCheckoutItems(), this.loadAddresses()])
+    Promise.all([mallLeaderShare.confirmPending().then(() => this.loadCheckoutItems()), this.loadAddresses()])
       .then(() => this.setData({ loading: false }))
       .catch(error => {
         this.setData({
@@ -233,7 +234,10 @@ Page({
     wx.showLoading({ title: '正在下单', mask: true });
     let createdOrder = null;
     let settlementItems = [];
-    return this.validateCurrentItems()
+    return mallLeaderShare
+      .confirmPending()
+      .then(() => this.validateCurrentItems())
+      .then(items => mallLeaderShare.confirmPending().then(() => items))
       .then(items => {
         if (paymentUserId !== auth.getUserId()) throw new Error('登录账号已变化，请重新结算');
         settlementItems = items;

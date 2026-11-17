@@ -44,7 +44,7 @@ const editor = read('src/views/system/home-decor/HomeBannerEditor.vue');
 assert.ok(editor.includes('uploadAdminImage'), '首页装修页必须复用通用图片上传 API');
 assert.ok(editor.includes('2250'), '首页装修页必须提示推荐宽度');
 assert.ok(editor.includes('3120'), '首页装修页必须提示推荐高度');
-assert.ok(editor.includes('dimensions.width < 750 || dimensions.height < 1040'), '首页图片必须校验原图尺寸');
+assert.ok(editor.includes('minWidth: 750, minHeight: 1040'), '首页图片必须校验原图尺寸');
 assert.ok(page.includes('homeBanners'), '首页装修页必须逐条管理轮播');
 assert.ok(page.includes('新增轮播图'), '首页装修页必须支持新增');
 assert.ok(page.includes('停用') && page.includes('启用'), '首页装修页必须支持启停');
@@ -57,7 +57,7 @@ assert.ok(crud.includes("url: '/api/v1/files/images'"), '上传函数必须调�
 const configPage = read('src/views/system/config/index.vue');
 assert.ok(configPage.includes('home_hero:'), '运营配置页必须登记 home_hero 用途');
 assert.ok(configPage.includes('已迁移；请到首页装修页维护图片'), '运营配置页必须提示历史配置已迁移');
-assert.ok(configPage.includes("PROTECTED_KEYS = ['service_info', 'home_hero']"), '运营配置页必须保护 home_hero');
+assert.ok(configPage.includes("'home_hero', 'withdraw_rule'"), '运营配置页必须保护首页配置和提现规则');
 assert.ok(
   configPage.includes("!NON_DELETABLE_KEYS.includes(String(row.configKey || ''))"),
   '运营配置页不得允许删除 home_hero'

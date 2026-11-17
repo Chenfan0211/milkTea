@@ -70,10 +70,8 @@ public final class CrudRegistry {
                     List.of("code", "name"), "id asc")),
 
             // ---------- 主体管理 ----------
-            // withdraw_free_audit_threshold：平台主体提现免审阈值（分，V31 新增列）
             Map.entry("subjects", new Resource("subjects", "biz_subject",
-                    List.of("code", "name", "subject_type", "status", "bound_user_id",
-                            "withdraw_free_audit_threshold"),
+                    List.of("code", "name", "subject_type", "status", "bound_user_id"),
                     List.of("code", "name"), "id asc", List.of("subject_type", "status"))),
             Map.entry("storeTypes", new Resource("storeTypes", "sys_dict_item",
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),

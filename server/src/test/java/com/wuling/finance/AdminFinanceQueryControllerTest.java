@@ -110,6 +110,13 @@ class AdminFinanceQueryControllerTest {
         assertEquals(200L, row.get("leaderAmount"));
     }
 
+    @Test
+    void flowAccountNameRecognizesLeaderRole() {
+        controller.flows(1L, 10L, null, null, null, null);
+
+        assertPageSqlContains("when 'LEADER' then '团长账户'");
+    }
+
     private String assertPageSqlContains(String fragment) {
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForList(sqlCaptor.capture(), any(Object[].class));

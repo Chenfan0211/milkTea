@@ -4,7 +4,6 @@ const { ensureBusinessRole } = require('../../utils/role-page');
 const {
   getCurrentBusinessRole,
   getWithdrawData,
-  getWithdrawRule,
   submitWithdraw,
   syncWithdrawalsFromRemote,
   syncWithdrawRuleFromRemote,
@@ -38,7 +37,6 @@ Page(
       title: '提现',
       data: null,
       amount: '',
-      instantLimit: 0,
       records: [],
       recordsSummary: '暂无提现记录',
       arrivalText: '0.00',
@@ -78,14 +76,12 @@ Page(
         this.leaveToRoleCenter();
         return;
       }
-      const rule = getWithdrawRule();
       this.setData(
         {
           ready: true,
           role,
           title: `${role.label}提现`,
           data,
-          instantLimit: parseBalance(rule.instantLimit),
           records: data.records
         },
         () => {

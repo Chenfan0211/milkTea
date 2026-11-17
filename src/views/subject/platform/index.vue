@@ -70,27 +70,24 @@ const rowActions: RowAction[] = [
  * 表单字段按「归属表」分两组，提交时分别写入，避免字段走错表被丢弃：
  *
  *  A. biz_subject（基础主体信息，走通用 CRUD / subjects）
- *     code / name / status / withdrawFreeAuditThreshold
+ *     code / name / status
  *
  *  B. platform_profile（微信配置，走专用接口 savePlatformProfile）
  *     appid / appSecret / mchId
  *
  * 历史问题：本页曾把 A、B 两组字段**一并**交给通用 CRUD 写 biz_subject，
- * 而 biz_subject 没有 appid/withdrawFreeAuditThreshold 等列，导致字段被静默丢弃。
- * 其中 appid/appSecret/mchId 靠专用接口侥幸存住，withdrawFreeAuditThreshold 则彻底丢失。
+ * 而 biz_subject 没有 appid 等列，导致字段被静默丢弃。
+ * 其中 appid/appSecret/mchId 靠专用接口写入。提现免审阈值已停用，不再开放编辑。
  */
 const formFields: FormField[] = [
-  { key: 'code', label: '编码' },
+  // 平台主体编码同样留空自动生成（PT-000001 这类，前缀 + 6 位主键）。
+  // 历史问题：走通用 CRUD 时会落到「SUBJECTS-时间戳-随机数」，与其它主体命名完全不同，
+  // 现已在 CrudService 内单独按主体口径生成。
+  { key: 'code', label: '编码', placeholder: '留空自动生成' },
   { key: 'name', label: '名称' },
   { key: 'appid', label: '小程序AppID', placeholder: '如 wx7d78d69cd175812e' },
   { key: 'appSecret', label: 'AppSecret', type: 'password', placeholder: '已配置则留空表示不修改' },
   { key: 'mchId', label: '微信支付商户号', placeholder: '微信支付商户号 mchId' },
-  {
-    key: 'withdrawFreeAuditThreshold',
-    label: '提现免审阈值(元)',
-    type: 'number',
-    placeholder: '按元填写，保存时换算为分；0=无免审'
-  },
   {
     key: 'status',
     label: '账号状态',
@@ -125,10 +122,7 @@ const config: AdminListConfig = {
       // 编辑时把已配置的 AppID / 商户号带进表单
       appid: row.appid || platformProfile.value?.appId || '',
       appSecret: '',
-      mchId: platformProfile.value?.mchId || '',
-      // 阈值：分 -> 元（表单按元编辑）
-      withdrawFreeAuditThreshold:
-        row.withdrawFreeAuditThreshold == null ? 0 : Number(row.withdrawFreeAuditThreshold) / 100
+      mchId: platformProfile.value?.mchId || ''
     }),
     fields: formFields,
     onSubmit: async (data, editing) => {
@@ -139,9 +133,7 @@ const config: AdminListConfig = {
         code: data.code,
         name: data.name,
         status: data.status,
-        subjectType: 'PLATFORM',
-        // 元 -> 分（后端列为 bigint，单位分）
-        withdrawFreeAuditThreshold: Math.round((Number(data.withdrawFreeAuditThreshold) || 0) * 100)
+        subjectType: 'PLATFORM'
       };
       if (editing) await store.update('subjects', editing.id, subjectPayload, '主体管理', 'name');
       else await store.add('subjects', subjectPayload, '主体管理', 'name');

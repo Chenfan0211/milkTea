@@ -24,8 +24,7 @@ Page(
           this.leaveToRoleCenter();
           return;
         }
-        // 即时额度取后端提现规则接口，说明文案取 app_config.withdraw_rule；
-        // 两者都拿不到时用内置兜底，保证规则页始终可读
+        // 费用与失败说明可远端更新；审核规则始终以所有金额人工审核为准。
         Promise.all([syncRoleConfigFromRemote(), syncWithdrawRuleFromRemote()]).then(() => this.render());
         this.render();
       });
@@ -36,7 +35,7 @@ Page(
         ready: true,
         ruleItems: rule.items,
         ruleFootnotes: [
-          '即时到账额度：单笔 ' + rule.instantLimit,
+          rule.auditNote,
           '提现手续费与单笔上限由后台配置，提交前会展示本次到账金额',
           '如对提现结果有疑问，可通过微信【五零时光】小程序-【我的】-【联系客服】咨询客服',
           '本规则最终解释权归五零时光所有'

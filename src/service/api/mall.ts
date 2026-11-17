@@ -120,6 +120,23 @@ export interface MallStockAdjustPayload {
 }
 
 export type MallOrderStatus = 'CREATED' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'CANCELED' | 'REFUNDED';
+export type MallLeaderAttributionType = 'SELF' | 'OTHER' | 'PLATFORM';
+
+export interface MallOrderSplit {
+  snapshotNo?: string | null;
+  costTotal?: number | null;
+  platformShare?: number | null;
+  leaderShare?: number | null;
+  storeShare?: number | null;
+  channelShare?: number | null;
+  investorShare?: number | null;
+  refundPlatform?: number | null;
+  refundSupplier?: number | null;
+  refundLeader?: number | null;
+  netPlatform?: number | null;
+  netSupplier?: number | null;
+  netLeader?: number | null;
+}
 
 export interface MallOrderShipping {
   recipientName?: string;
@@ -152,6 +169,10 @@ export interface MallOrder {
   orderNo: string;
   orderType: string;
   userId?: number;
+  leaderUserId?: number | null;
+  leaderSubjectId?: number | null;
+  leaderAttributionType?: MallLeaderAttributionType | null;
+  leaderName?: string | null;
   user?: string;
   store?: string;
   summary?: string;
@@ -175,6 +196,7 @@ export interface MallOrder {
   completeTime?: string;
   items?: MallOrderItem[];
   shipping?: MallOrderShipping;
+  split?: MallOrderSplit | null;
 }
 
 export interface MallOrderQuery {
@@ -309,6 +331,15 @@ export async function fetchMallOrders(params: MallOrderQuery): Promise<MallPageR
     params
   });
   return unwrap<MallPageResult<MallOrder>>(res);
+}
+
+/** 后台单笔订单详情；打开分账明细时重取账务快照与退款净额。 */
+export async function fetchMallOrderDetail(orderNo: string): Promise<MallOrder> {
+  const res = await request<MallOrder>({
+    url: `/api/v1/admin/trade/orders/${encodeURIComponent(orderNo)}`,
+    method: 'get'
+  });
+  return unwrap<MallOrder>(res);
 }
 
 export async function shipMallOrder(orderNo: string, payload: MallShipPayload): Promise<MallOrder> {

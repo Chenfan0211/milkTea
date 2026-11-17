@@ -19,9 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 提现闭环。
- * 规则（对齐 user-h5/data/role-mock.js withdrawRule）：
- * - 单笔 ≤ 即时额度（默认 100 元）小额即时到账，无需人工审核；
- * - 超过即时额度需后台审核，审核通过后出款；
+ * 规则：所有提现申请先冻结余额并进入运营后台审核，审核通过后出款；
  * - 失败或驳回自动解冻对应金额；
  * - 申请时冻结金额，成功扣减，失败解冻。
  */
@@ -31,8 +29,8 @@ public class WithdrawalService {
     private static final Logger log = LoggerFactory.getLogger(WithdrawalService.class);
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-    /** 即时到账额度（分）：100 元 */
-    public static final long INSTANT_LIMIT = 10000L;
+    /** 兼容旧客户端的规则字段：0 表示无免审额度。 */
+    public static final long INSTANT_LIMIT = 0L;
 
     public static final String APPLIED = "APPLIED";
     public static final String AUDITING = "AUDITING";
@@ -55,7 +53,7 @@ public class WithdrawalService {
         this.payoutPort = payoutPort;
     }
 
-    /** 申请提现：冻结金额，小额即时到账，大额进入审核 */
+    /** 申请提现：冻结金额，全部进入运营后台审核。 */
     @Transactional(rollbackFor = Exception.class)
     public Withdrawal apply(Long userId, Long subjectId, String roleType, long amount) {
         if (amount <= 0) {
@@ -71,21 +69,10 @@ public class WithdrawalService {
         w.setFee(0L);
         w.setApplyTime(LocalDateTime.now());
 
-        if (amount <= INSTANT_LIMIT) {
-            // 小额即时：先置待出款，由 executePayout 据通道决定 PAID 或 PROCESSING
-            // （payTime 只在确认到账后由 executePayout/confirmPaid 回写，此处不预设）
-            w.setStatus(PAID);
-            w.setReviewTime(LocalDateTime.now());
-        } else {
-            w.setStatus(APPLIED);
-        }
+        w.setStatus(APPLIED);
         withdrawalMapper.insert(w);
 
         freeze(w, amount);
-        if (PAID.equals(w.getStatus())) {
-            // 小额即时：发起出款（mock 通道立即成功；wxpay 通道受理后等回调）
-            executePayout(w);
-        }
         log.info("withdrawal apply no={} amount={} status={}", w.getWithdrawNo(), amount, w.getStatus());
         return w;
     }
@@ -93,7 +80,7 @@ public class WithdrawalService {
     /** 后台审核：通过则出款，驳回则解冻 */
     @Transactional(rollbackFor = Exception.class)
     public Withdrawal review(Long id, boolean approve, String reason) {
-        Withdrawal w = withdrawalMapper.selectById(id);
+        Withdrawal w = withdrawalMapper.selectByIdForUpdate(id);
         if (w == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "提现申请不存在");
         }
@@ -118,7 +105,7 @@ public class WithdrawalService {
     /** 出款失败：解冻 */
     @Transactional(rollbackFor = Exception.class)
     public Withdrawal markFailed(Long id, String reason) {
-        Withdrawal w = withdrawalMapper.selectById(id);
+        Withdrawal w = withdrawalMapper.selectByIdForUpdate(id);
         if (w == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "提现申请不存在");
         }

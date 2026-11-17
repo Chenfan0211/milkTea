@@ -37,7 +37,7 @@ const KEY_HINTS: Record<string, string> = {
   settlement_notes: '经营角色结算说明',
   service_info: '客服页：热线 / 在线客服说明（改此值即生效）',
   service_faqs: '客服页：常见问题列表',
-  withdraw_rule: '提现规则说明',
+  withdraw_rule: '提现规则（所有金额须运营审核，系统固定）',
   mini_tab_bar: '小程序底部导航：按微信上传版本号精确控制第三个 Tab',
   tencent_map_key: '腾讯位置服务密钥（敏感，不下发小程序）'
 };
@@ -46,10 +46,10 @@ const KEY_HINTS: Record<string, string> = {
 const SENSITIVE_KEYS = ['tencent_map_key'];
 
 /** 系统依赖配置：允许查看，但禁止在通用 JSON 表单中修改或删除。 */
-const PROTECTED_KEYS = ['service_info', 'home_hero'];
+const PROTECTED_KEYS = ['service_info', 'home_hero', 'withdraw_rule'];
 
 /** 可编辑但不可删除的系统配置。 */
-const NON_DELETABLE_KEYS = ['service_info', 'home_hero', 'mini_tab_bar'];
+const NON_DELETABLE_KEYS = ['service_info', 'home_hero', 'withdraw_rule', 'mini_tab_bar'];
 
 function hintOf(row: any): string {
   return KEY_HINTS[row?.configKey] ?? '';
@@ -195,7 +195,7 @@ async function updateHotline(row: any, phone: string) {
 const toolbar: RowAction[] = [{ label: '新增配置', type: 'primary', modal: 'add' }];
 
 const rowActions: RowAction[] = [
-  { label: '编辑', type: 'primary', modal: 'edit' },
+  { label: '编辑', type: 'primary', modal: 'edit', visible: row => row.configKey !== 'withdraw_rule' },
   {
     label: '修改客服热线',
     type: 'info',
@@ -208,7 +208,7 @@ const rowActions: RowAction[] = [
     type: 'warning',
     reasonPrompt: '确认停用该配置？（请填写备注）',
     handler: async row => await store.update('appConfig', row.id, { status: 'disabled' }, '运营配置', 'configName'),
-    visible: row => row.status !== 'disabled'
+    visible: row => row.status !== 'disabled' && row.configKey !== 'withdraw_rule'
   },
   {
     label: '启用',

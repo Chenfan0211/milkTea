@@ -4,6 +4,7 @@ import com.wuling.common.api.PageResult;
 import com.wuling.common.api.Result;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
+import com.wuling.subject.service.SubjectCodes;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -234,15 +235,60 @@ public class AdminSubjectProfileController {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * 新增主体（渠道 / 供应商 / 投资人共用）。
+     *
+     * <p><b>编码口径</b>：前端表单的 {@code code} 是<b>选填</b>，留空即由服务端生成。
+     * 生成规则见 {@link SubjectCodes}：先插入带随机占位码的行拿到自增主键，
+     * 再回写为 {@code 前缀 + 6 位主键}（如 {@code RS-000031}）。
+     *
+     * <p>历史实现是 {@code 前缀 + (该类总数 + 1000)}，软删除与手工导入都会让它算重
+     * （详见 {@link SubjectCodes} 的说明），此处已彻底移除。
+     *
+     * <p><b>手工编码仍受支持</b>（导入模板会填），但入库前先查重：
+     * 唯一键 {@code uk_biz_subject_code} 不含 {@code deleted}，被逻辑删除的行仍占着编码，
+     * 所以查重必须带上 {@code deleted = 1} 的行，否则会得到一句无法定位的 500。
+     */
     private long insertSubject(Map<String, Object> payload, String type, String defaultStatus) {
         String name = required(payload.get("name"), "名称");
-        String code = asStr(payload.get("code"), nextCode(type));
         String status = asStr(payload.get("status"), defaultStatus);
-        jdbcTemplate.update(
-                "insert into biz_subject (code, name, subject_type, status) values (?, ?, ?, ?)",
-                code, name, type, status);
-        Long id = jdbcTemplate.queryForObject("select max(id) from biz_subject where code = ?", Long.class, code);
-        return id == null ? 0L : id;
+        String manualCode = asStr(payload.get("code"), null);
+        if (manualCode != null) {
+            manualCode = manualCode.trim();
+            // 查重包含逻辑删除行：唯一键不区分 deleted，被删的编码同样不能再用。
+            Long used = jdbcTemplate.queryForObject(
+                    "select count(*) from biz_subject where code = ?", Long.class, manualCode);
+            if (used != null && used > 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "编码 " + manualCode + " 已被占用（含已删除记录），请更换");
+            }
+        }
+        String code = manualCode == null ? SubjectCodes.placeholder(type) : manualCode;
+        var keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
+        // 显式声明只取 id 这一列为生成键：
+        //   · MySQL 默认只回传 AUTO_INCREMENT 列，但 H2 会把所有默认值列（create_time 等）一并回传，
+        //     GeneratedKeyHolder.getKey() 在多列时会直接抛 InvalidDataApiUsage；
+        //   · 显式列名让两边口径一致，也避免依赖驱动的隐式行为。
+        jdbcTemplate.update(connection -> {
+            var ps = connection.prepareStatement(
+                    "insert into biz_subject (code, name, subject_type, status) values (?, ?, ?, ?)",
+                    new String[]{"id"});
+            ps.setString(1, code);
+            ps.setString(2, name);
+            ps.setString(3, type);
+            ps.setString(4, status);
+            return ps;
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        if (key == null) {
+            throw new BusinessException(ResultCode.ERROR, "主体创建失败：未取得自增主键");
+        }
+        long id = key.longValue();
+        if (manualCode == null) {
+            // 主键已分配，回写正式编码。占位码含随机 UUID，并发插入之间不会互相冲突。
+            jdbcTemplate.update("update biz_subject set code = ? where id = ?",
+                    SubjectCodes.of(type, id), id);
+        }
+        return id;
     }
 
     private void upsertChannelProfile(long subjectId, Map<String, Object> payload) {
@@ -341,18 +387,6 @@ public class AdminSubjectProfileController {
         } catch (NumberFormatException e) {
             return def;
         }
-    }
-
-    private String nextCode(String type) {
-        String prefix = switch (type) {
-            case "CHANNEL" -> "RS";
-            case "SUPPLIER" -> "SU";
-            case "INVESTOR" -> "IV";
-            default -> "SUB";
-        };
-        Long count = jdbcTemplate.queryForObject(
-                "select count(*) from biz_subject where subject_type = ?", Long.class, type);
-        return prefix + "-" + String.format("%04d", (count == null ? 0 : count) + 1000);
     }
 
     private String formatTime(Object value) {

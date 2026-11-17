@@ -237,6 +237,7 @@ const local: App.I18n.Schema = {
     'subject_device-brew': 'Brew Records',
     subject_channel: 'Resource',
     subject_investor: 'Investor',
+    subject_leader: 'Group Leaders',
     subject_supplier: 'Supplier',
     auth: 'Authorization',
     auth_role: 'Role & Permission',

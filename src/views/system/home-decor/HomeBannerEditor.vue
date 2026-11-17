@@ -6,7 +6,10 @@ import { NButton, NForm, NFormItem, NImage, NInput, NInputNumber, NModal, NSelec
 import type { UploadCustomRequestOptions } from 'naive-ui';
 import { uploadAdminImage } from '@/service/api/crud';
 import { useAdminStore } from '@/store/modules/admin';
+import { getServiceBaseURL } from '@/utils/service';
 import BannerTargetFields from '@/views/_shared/BannerTargetFields.vue';
+import { compressBannerImage, MAX_BANNER_BYTES } from '@/views/_shared/banner-image';
+import { resolveAdminImageUrl } from '@/views/_shared/image-url';
 
 interface HomeBanner {
   id?: number;
@@ -23,7 +26,10 @@ const emit = defineEmits<{ 'update:show': [boolean]; saved: [] }>();
 const store = useAdminStore();
 const submitting = ref(false);
 const uploading = ref(false);
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const imageBaseURL = getServiceBaseURL(
+  import.meta.env,
+  import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y'
+).baseURL;
 const form = reactive<HomeBanner>({
   imageUrl: '',
   altText: '',
@@ -33,6 +39,7 @@ const form = reactive<HomeBanner>({
   targetId: ''
 });
 const title = computed(() => (props.banner?.id ? '编辑轮播图' : '新增轮播图'));
+const previewUrl = computed(() => resolveAdminImageUrl(form.imageUrl, imageBaseURL));
 const statusOptions = [
   { label: '启用', value: 'enabled' },
   { label: '停用', value: 'disabled' }
@@ -54,57 +61,22 @@ watch(
   { immediate: true }
 );
 
-async function validateUpload(file: File) {
-  const name = String(file.name || '').toLowerCase();
-  const validType = ['image/jpeg', 'image/png'].includes(file.type);
-  const validExt = name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
-  if (!validType && !validExt) return '仅支持 JPG 或 PNG 图片';
-  if (file.size > MAX_UPLOAD_BYTES) return '图片不能超过 5MB';
-  const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.addEventListener(
-      'load',
-      () => {
-        URL.revokeObjectURL(url);
-        resolve({ width: image.naturalWidth, height: image.naturalHeight });
-      },
-      { once: true }
-    );
-    image.addEventListener(
-      'error',
-      () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('图片无法读取'));
-      },
-      { once: true }
-    );
-    image.src = url;
-  });
-  if (dimensions.width < 750 || dimensions.height < 1040) return '图片宽至少 750px、高至少 1040px';
-  return '';
-}
-
 async function handleUpload(options: UploadCustomRequestOptions) {
   const file = options.file.file;
   if (!(file instanceof File)) {
     options.onError();
     return;
   }
-  let errorMessage = '';
-  try {
-    errorMessage = await validateUpload(file);
-  } catch {
-    errorMessage = '图片无法读取';
-  }
-  if (errorMessage) {
-    options.onError();
-    window.$message?.warning(errorMessage);
-    return;
-  }
   uploading.value = true;
   try {
-    const result = await uploadAdminImage(file);
+    const compressed = await compressBannerImage(file, {
+      maxWidth: 1500,
+      maxHeight: 2080,
+      minWidth: 750,
+      minHeight: 1040
+    });
+    const result = await uploadAdminImage(compressed);
+    if (result.size <= 0 || result.size > MAX_BANNER_BYTES) throw new Error('服务端保存的图片超过 1MB，请换一张图片');
     form.imageUrl = result.url;
     options.onFinish();
     window.$message?.success('图片上传成功');
@@ -157,12 +129,14 @@ async function submit() {
     <NForm label-placement="left" :label-width="96">
       <NFormItem label="轮播图片" required>
         <div class="image-field">
-          <NImage v-if="form.imageUrl" :src="form.imageUrl" width="150" height="208" object-fit="contain" />
+          <NImage v-if="form.imageUrl" :src="previewUrl" width="150" height="208" object-fit="contain" />
           <div v-else class="image-empty">暂无图片</div>
           <NUpload accept=".jpg,.jpeg,.png,image/jpeg,image/png" :show-file-list="false" :custom-request="handleUpload">
             <NButton :loading="uploading">{{ form.imageUrl ? '重新上传' : '上传图片' }}</NButton>
           </NUpload>
-          <div class="field-tip">建议 2250×3120；原图至少 750×1040px，JPG/PNG 单张不超过 5MB。</div>
+          <div class="field-tip">
+            建议 2250×3120；原图至少 750×1040px。JPG/PNG 原图不超过 5MB，上传时自动压缩至 1MB 内。
+          </div>
         </div>
       </NFormItem>
       <NFormItem label="图片说明">

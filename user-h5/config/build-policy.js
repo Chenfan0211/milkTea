@@ -1,5 +1,5 @@
 module.exports = {
-  version: 'dev',
+  version: '1.3.24',
   features: {
     tongueHealth: true,
     memberZone: true

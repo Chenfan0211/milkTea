@@ -6,6 +6,7 @@ import com.wuling.finance.mapper.SettlementRecordMapper;
 import com.wuling.subject.entity.BizSubject;
 import com.wuling.subject.mapper.BizSubjectMapper;
 import com.wuling.subject.service.StoreOperatorService;
+import com.wuling.subject.service.LeaderAttributionService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -58,15 +59,18 @@ public class InternalQueryController {
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     /** 「是否经营该门店」判定：内部接口与 app 接口共用，避免口径漂移 */
     private final StoreOperatorService storeOperatorService;
+    private final LeaderAttributionService leaderAttribution;
 
     public InternalQueryController(BizSubjectMapper bizSubjectMapper,
                                    SettlementRecordMapper settlementRecordMapper,
                                    org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
-                                   StoreOperatorService storeOperatorService) {
+                                   StoreOperatorService storeOperatorService,
+                                   LeaderAttributionService leaderAttribution) {
         this.bizSubjectMapper = bizSubjectMapper;
         this.settlementRecordMapper = settlementRecordMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.storeOperatorService = storeOperatorService;
+        this.leaderAttribution = leaderAttribution;
     }
 
     /**
@@ -156,42 +160,7 @@ public class InternalQueryController {
      */
     @GetMapping("/user-leader")
     public Map<String, Object> userLeader(@RequestParam Long userId) {
-        Long leaderSubjectId = null;
-        Boolean leader = false;
-        List<Map<String, Object>> grants = jdbcTemplate.queryForList(
-                "select role_code, subject_id from user_role_grant "
-                        + "where user_id = ? and UPPER(role_code) = 'LEADER' and UPPER(status) = 'ACTIVE' and deleted = 0 "
-                        + "order by id limit 1",
-                userId);
-        if (!grants.isEmpty()) {
-            leader = true;
-            Object subjectId = grants.get(0).get("subject_id");
-            if (subjectId != null) {
-                leaderSubjectId = ((Number) subjectId).longValue();
-            }
-        }
-        Long leaderUserId = null;
-        if (!leader) {
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    "select leader_user_id, leader_subject_id from user_leader "
-                            + "where user_id = ? and deleted = 0 order by id limit 1",
-                    userId);
-            if (!rows.isEmpty()) {
-                Map<String, Object> row = rows.get(0);
-                Object lu = row.get("leader_user_id");
-                leaderUserId = lu == null ? null : ((Number) lu).longValue();
-                Object ls = row.get("leader_subject_id");
-                leaderSubjectId = ls == null ? null : ((Number) ls).longValue();
-            }
-        } else {
-            // 团长本身没有再上级团长：归属团长主体即自身主体，供快照审计参考。
-            leaderUserId = userId;
-        }
-        Map<String, Object> result = new HashMap<>();
-        result.put("leader", leader);
-        result.put("leaderUserId", leaderUserId);
-        result.put("leaderSubjectId", leader ? leaderSubjectId : leaderSubjectId);
-        return result;
+        return leaderAttribution.resolve(userId);
     }
 
     /**
@@ -218,7 +187,7 @@ public class InternalQueryController {
                 "select s.snapshot_no, s.item_count, s.supplier_amount, s.store_amount, "
                         + "s.channel_amount, s.investor_amount, s.platform_amount, s.platform_commission, s.platform_bonus, "
                         + "s.leader_amount, "
-                        + "o.paid_amount "
+                        + "o.paid_amount, o.order_type, o.id as order_id "
                         + "from split_snapshot s left join orders o on o.order_no = s.order_no "
                         + "where s.order_no = ? and s.deleted = 0 order by s.id desc limit 1",
                 orderNo);
@@ -257,7 +226,50 @@ public class InternalQueryController {
         result.put("leaderShare", nz(row.get("leader_amount")));
         // 快照未存投资人基础额，按同一口径现算，供前端判断「基础为负」提示
         result.put("base", paid - store - channel - supplier - commission);
+        if ("MALL".equalsIgnoreCase(String.valueOf(row.get("order_type")))) {
+            addMallRefunds(orderNo, nz(row.get("order_id")), result);
+        }
         return result;
+    }
+
+    private void addMallRefunds(String orderNo, long orderId, Map<String, Object> result) {
+        // 全退旧路径只将结算记录置为 CANCELED。部分冲正即使尚未入账，也会扣减结算记录余额。
+        // 流水只用于补齐历史记录缺失的金额或角色，全额、部分退款都不能与结算记录重复相加。
+        String amountByDirection = "sum(case when upper(direction) = 'OUT' then amount else -amount end)";
+        var records = jdbcTemplate.queryForList(
+                "select upper(s.subject_type) as role_type, sum(case "
+                        + "when r.status = 'CANCELED' then coalesce(r.original_amount, "
+                        + "case when abs(coalesce(f.refund, 0)) > abs(r.amount + coalesce(r.refunded_amount, 0)) "
+                        + "then f.refund else r.amount + coalesce(r.refunded_amount, 0) end) "
+                        + "else coalesce(nullif(r.original_amount - r.amount, 0), "
+                        + "nullif(r.refunded_amount, 0), f.refund, 0) end) as refund "
+                        + "from settlement_record r join biz_subject s on s.id = r.subject_id "
+                        + "left join (select settlement_record_id, " + amountByDirection + " as refund "
+                        + "from fund_flow where order_no = ? and biz_type = 'REFUND' and deleted = 0 "
+                        + "and settlement_record_id is not null group by settlement_record_id) f "
+                        + "on f.settlement_record_id = r.id "
+                        + "where r.order_id = ? and r.deleted = 0 group by upper(s.subject_type)",
+                orderNo, orderId);
+        Map<String, Long> byRole = new HashMap<>();
+        for (var row : records) {
+            byRole.put(String.valueOf(row.get("role_type")), nz(row.get("refund")));
+        }
+
+        if (!(byRole.containsKey("PLATFORM") && byRole.containsKey("SUPPLIER")
+                && byRole.containsKey("LEADER"))) {
+            var historical = jdbcTemplate.queryForList(
+                    "select upper(role_type) as role_type, " + amountByDirection + " as refund "
+                            + "from fund_flow where order_no = ? and biz_type = 'REFUND' and deleted = 0 "
+                            + "group by upper(role_type)", orderNo);
+            for (var row : historical) {
+                byRole.putIfAbsent(String.valueOf(row.get("role_type")), nz(row.get("refund")));
+            }
+        }
+        for (var entry : Map.of("Platform", "platformShare", "Supplier", "costTotal", "Leader", "leaderShare").entrySet()) {
+            long refund = byRole.getOrDefault(entry.getKey().toUpperCase(java.util.Locale.ROOT), 0L);
+            result.put("refund" + entry.getKey(), refund);
+            result.put("net" + entry.getKey(), nz(result.get(entry.getValue())) - refund);
+        }
     }
 
     /** 空值归零（JDBC 聚合列可能为 null） */

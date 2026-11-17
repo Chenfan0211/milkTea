@@ -210,6 +210,7 @@ const routeMap: RouteMap = {
   "subject_device": "/subject/device",
   "subject_device-brew": "/subject/device-brew",
   "subject_investor": "/subject/investor",
+  "subject_leader": "/subject/leader",
   "subject_platform": "/subject/platform",
   "subject_store": "/subject/store",
   "subject_supplier": "/subject/supplier",

@@ -36,6 +36,7 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   subject_channel: { title: '资源方管理', order: 3, roles: op, keepAlive: true },
   subject_investor: { title: '投资人管理', order: 4, roles: op, keepAlive: true },
   subject_supplier: { title: '供应商管理', order: 5, roles: op, keepAlive: true },
+  subject_leader: { title: '团长管理', icon: 'mdi:account-group', order: 8, roles: op, keepAlive: true },
 
   auth: { title: '授权中心', icon: 'mdi:shield-account', order: 20, roles: [ADMIN_ROLE.SUPER] },
   // 授权中心：按需求「只有超级管理员才有这个菜单的权限，其他角色都没有菜单的权限」，

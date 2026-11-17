@@ -10,21 +10,15 @@ import type { SearchField, RowAction } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { renderTag, statusMap, renderMoney, renderDateTime, formatFen } from '@/views/_shared/render';
+import { financeRoleLabel } from '../role-label';
 
 const store = useAdminStore();
 const withdrawVisible = ref(false);
 const withdrawSubjectId = ref<number | null>(null);
 const withdrawAmount = ref<number | null>(null);
-const roleLabel = (v: string) =>
-  (
-    ({ store: '门店', investor: '投资人', resource: '资源方', channel: '资源方', supplier: '供应商' }) as Record<
-      string,
-      string
-    >
-  )[v] ?? (v ? String(v) : '—');
 const columns: DataTableColumns<any> = [
   { title: '申请人', key: 'nickName', width: 140 },
-  { title: '角色', key: 'roleType', width: 100, render: (row: any) => roleLabel(row.roleType) },
+  { title: '角色', key: 'roleType', width: 100, render: row => financeRoleLabel(row.roleType) },
   { title: '金额(元)', key: 'amount', width: 110, align: 'right', render: renderMoney('amount') },
   {
     title: '状态',
@@ -36,6 +30,7 @@ const columns: DataTableColumns<any> = [
         APPLIED: ['待审核', 'warning'],
         AUDITING: ['审核中', 'info'],
         APPROVED: ['已通过', 'success'],
+        PROCESSING: ['出款中', 'info'],
         PAID: ['已出款', 'success'],
         REJECTED: ['已驳回', 'error'],
         FAILED: ['出款失败', 'error']
@@ -53,8 +48,12 @@ const searchFields: SearchField[] = [
     type: 'select',
     options: [
       { label: '待审核', value: 'APPLIED' },
+      { label: '审核中', value: 'AUDITING' },
+      { label: '出款中', value: 'PROCESSING' },
+      { label: '已出款', value: 'PAID' },
       { label: '已通过', value: 'APPROVED' },
-      { label: '已驳回', value: 'REJECTED' }
+      { label: '已驳回', value: 'REJECTED' },
+      { label: '出款失败', value: 'FAILED' }
     ]
   }
 ];
@@ -73,14 +72,14 @@ const rowActions: RowAction[] = [
     type: 'success',
     reasonPrompt: '确认通过该提现申请？（请填写备注）',
     handler: (row, reason) => store.reviewWithdraw(row.id, true, reason),
-    visible: row => row.status === 'APPLIED'
+    visible: row => row.status === 'APPLIED' || row.status === 'AUDITING'
   },
   {
     label: '驳回',
     type: 'error',
     reasonPrompt: '确认驳回该提现申请？（请填写备注）',
     handler: (row, reason) => store.reviewWithdraw(row.id, false, reason),
-    visible: row => row.status === 'APPLIED'
+    visible: row => row.status === 'APPLIED' || row.status === 'AUDITING'
   }
 ];
 const config: AdminListConfig = {
@@ -122,7 +121,7 @@ async function submitWithdraw() {
           store.subjectAccounts
             .filter(a => a.roleType !== 'platform')
             .map(a => ({
-              label: a.subjectName + '（可提现 ¥' + formatFen(a.availableBalance) + '）',
+              label: `${a.subjectName}（${financeRoleLabel(a.roleType)}，可提现 ¥${formatFen(a.availableBalance)}）`,
               value: a.subjectId
             }))
         "

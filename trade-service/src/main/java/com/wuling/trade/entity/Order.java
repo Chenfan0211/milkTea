@@ -27,6 +27,8 @@ public class Order {
     /** 商城订单下单时快照的团长用户与主体。 */
     private Long leaderUserId;
     private Long leaderSubjectId;
+    /** SELF / OTHER / PLATFORM. Null for historic orders. */
+    private String leaderAttributionType;
     private String mealType;
     private LocalDateTime pickupTime;
     private String status;

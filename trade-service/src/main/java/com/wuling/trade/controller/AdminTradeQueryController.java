@@ -218,7 +218,7 @@ public class AdminTradeQueryController {
         boolean includeOrder = !onlyExchange;
         boolean includeExchange = !onlyOrder;
 
-        StringBuilder orderWhere = new StringBuilder(" where o.deleted = 0 and o.status = 'PAID'");
+        StringBuilder orderWhere = new StringBuilder(" where o.deleted = 0 and o.status = 'PAID' and o.order_type = 'STORE'");
         List<Object> orderArgs = new ArrayList<>();
         if (storeSubjectId != null) {
             orderWhere.append(" and o.store_subject_id = ?");

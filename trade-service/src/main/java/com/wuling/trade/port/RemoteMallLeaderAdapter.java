@@ -1,5 +1,7 @@
 package com.wuling.trade.port;
 
+import com.wuling.common.api.ResultCode;
+import com.wuling.common.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -10,7 +12,7 @@ import java.util.Map;
 
 /**
  * {@link MallLeaderPort} 的远程实现：调用 server 的 {@code /internal/user-leader}。
- * 失败时 fail-open（按非团长、无归属处理），避免团长链路故障阻塞商城下单。
+ * 已登录用户查询失败时阻止结算和下单，避免误判团长价或把佣金记给平台。
  */
 @Component
 public class RemoteMallLeaderAdapter implements MallLeaderPort {
@@ -33,14 +35,19 @@ public class RemoteMallLeaderAdapter implements MallLeaderPort {
                     .uri(uriBuilder -> uriBuilder.path("/internal/user-leader")
                             .queryParam("userId", userId).build())
                     .retrieve().body(Map.class);
-            if (body == null) {
-                return LeaderInfo.none();
+            if (body == null || !(body.get("leader") instanceof Boolean leader)) {
+                throw new IllegalStateException("Invalid attribution response");
             }
-            boolean leader = Boolean.TRUE.equals(body.get("leader"));
-            return new LeaderInfo(leader, asLong(body.get("leaderUserId")), asLong(body.get("leaderSubjectId")));
+            Long leaderUserId = asLong(body.get("leaderUserId"));
+            Long leaderSubjectId = asLong(body.get("leaderSubjectId"));
+            if ((leaderUserId == null) != (leaderSubjectId == null)
+                    || (leader && !userId.equals(leaderUserId))) {
+                throw new IllegalStateException("Incomplete attribution response");
+            }
+            return new LeaderInfo(leader, leaderUserId, leaderSubjectId);
         } catch (Exception e) {
-            log.error("团长身份/归属查询失败（按非团长处理） userId={} err={}", userId, e.getMessage());
-            return LeaderInfo.none();
+            log.error("团长身份/归属查询失败 userId={} err={}", userId, e.getMessage());
+            throw new BusinessException(ResultCode.ERROR, "团长归属暂时无法确认，请稍后重试");
         }
     }
 

@@ -9,7 +9,10 @@ import type { UploadCustomRequestOptions } from 'naive-ui';
 import { uploadAdminImage } from '@/service/api/crud';
 import { useAdminStore } from '@/store/modules/admin';
 import { ref } from 'vue';
+import { getServiceBaseURL } from '@/utils/service';
 import BannerTargetFields from '@/views/_shared/BannerTargetFields.vue';
+import { compressBannerImage, MAX_BANNER_BYTES } from '@/views/_shared/banner-image';
+import { resolveAdminImageUrl } from '@/views/_shared/image-url';
 
 interface ProfileBanner {
   id?: number;
@@ -34,7 +37,10 @@ const emit = defineEmits<{
 const store = useAdminStore();
 const submitting = ref(false);
 const uploading = ref(false);
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const imageBaseURL = getServiceBaseURL(
+  import.meta.env,
+  import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y'
+).baseURL;
 const form = reactive<ProfileBanner>({
   imageUrl: '',
   altText: '',
@@ -45,6 +51,7 @@ const form = reactive<ProfileBanner>({
 });
 
 const title = computed(() => (props.banner?.id ? '编辑轮播图' : '新增轮播图'));
+const previewUrl = computed(() => resolveAdminImageUrl(form.imageUrl, imageBaseURL));
 const statusOptions = [
   { label: '启用', value: 'enabled' },
   { label: '停用', value: 'disabled' }
@@ -66,31 +73,17 @@ watch(
   { immediate: true }
 );
 
-function validateUpload(file: File) {
-  const name = String(file.name || '').toLowerCase();
-  const validType = ['image/jpeg', 'image/png'].includes(file.type);
-  const validExt = name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
-  if (!validType && !validExt) return '仅支持 JPG 或 PNG 图片';
-  if (file.size > MAX_UPLOAD_BYTES) return '图片不能超过 5MB';
-  return '';
-}
-
 async function handleUpload(options: UploadCustomRequestOptions) {
   const file = options.file.file;
   if (!(file instanceof File)) {
     options.onError();
     return;
   }
-  const errorMessage = validateUpload(file);
-  if (errorMessage) {
-    options.onError();
-    window.$message?.warning(errorMessage);
-    return;
-  }
-
   uploading.value = true;
   try {
-    const result = await uploadAdminImage(file);
+    const compressed = await compressBannerImage(file, { maxWidth: 1420, maxHeight: 320 });
+    const result = await uploadAdminImage(compressed);
+    if (result.size <= 0 || result.size > MAX_BANNER_BYTES) throw new Error('服务端保存的图片超过 1MB，请换一张图片');
     form.imageUrl = result.url;
     options.onFinish();
     window.$message?.success('图片上传成功');
@@ -145,7 +138,7 @@ async function submit() {
         <div class="image-field">
           <NImage
             v-if="form.imageUrl"
-            :src="form.imageUrl"
+            :src="previewUrl"
             width="240"
             height="54"
             object-fit="cover"
@@ -156,7 +149,9 @@ async function submit() {
             <NButton :loading="uploading">{{ form.imageUrl ? '重新上传' : '上传图片' }}</NButton>
           </NUpload>
         </div>
-        <div class="field-tip">推荐尺寸 2130×480，固定 710×160rpx 居中裁切，单张不超过 5MB。</div>
+        <div class="field-tip">
+          推荐尺寸 2130×480，固定 710×160rpx 居中裁切。JPG/PNG 原图不超过 5MB，上传时自动压缩至 1MB 内。
+        </div>
       </NFormItem>
 
       <NFormItem label="图片说明">

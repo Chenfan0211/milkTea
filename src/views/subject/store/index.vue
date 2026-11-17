@@ -26,6 +26,12 @@ const load = async (p: any) => {
 };
 
 const columns: DataTableColumns<any> = [
+  /**
+   * 门店编码：由后端从自增主键派生（ST-000106 这类），是排障时与运营核对
+   * 「到底是哪一家门店」的唯一稳定标识 —— 名称可以重名、可以改，编码不会变。
+   * 历史问题：这一列原本缺失，出现编码异常（重号、占位码残留）时后台无从核对。
+   */
+  { title: '编码', key: 'code', width: 110 },
   { title: '名称', key: 'name', minWidth: 150 },
   { title: '绑定用户', key: 'boundUserName', width: 120, render: (row: any) => row.boundUserName || '未绑定' },
   {

@@ -10,17 +10,10 @@ import { useRoute } from 'vue-router';
 import { useAdminStore } from '@/store/modules/admin';
 import { renderTag, statusMap, formatFen, renderDateTime } from '@/views/_shared/render';
 import { fetchFinanceFlows } from '@/service/api/crud';
+import { financeRoleLabel } from '../role-label';
 
 const store = useAdminStore();
 const route = useRoute();
-
-const roleLabel = (v: string) =>
-  (
-    ({ platform: '平台', store: '门店', resource: '资源方', investor: '投资人', supplier: '供应商' }) as Record<
-      string,
-      string
-    >
-  )[v] ?? v;
 
 const typeMap = statusMap({
   INCOME: ['入账', 'success'],
@@ -109,7 +102,7 @@ const searchFields: SearchField[] = [
     type: 'select',
     options: () =>
       store.subjectAccounts.map((a: any) => ({
-        label: `${a.subjectName}（${roleLabel(a.roleType)}）`,
+        label: `${a.subjectName}（${financeRoleLabel(a.roleType)}）`,
         value: String(a.subjectId)
       }))
   },

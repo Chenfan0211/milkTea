@@ -13,8 +13,11 @@ import com.wuling.trade.port.MallCatalogPort;
 import com.wuling.trade.port.MallAddressPort;
 import com.wuling.trade.port.MallLeaderPort;
 import com.wuling.common.outbox.OutboxService;
+import com.wuling.common.mq.event.OrderVerifiedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
@@ -70,15 +73,19 @@ class MallOrderServiceTest {
                 catalogPort, addressPort, outboxService, orderService, leaderPort, lookupService);
     }
 
-    @Test
-    void createUsesSkuSalePriceWithoutMemberOrStoredValueDiscount() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void normalBuyerPaysSalePricePlusCommissionAndKeepsEffectiveLeaderSnapshot(boolean hasLeader) {
+        if (hasLeader) {
+            when(leaderPort.resolve(88L)).thenReturn(new MallLeaderPort.LeaderInfo(false, 91L, 71L));
+        }
         MallAddressPort.AddressView address = new MallAddressPort.AddressView(
                 "张三", "13800000000", "广东省", "深圳市", "南山区", "科技园1号");
         when(addressPort.findOwned(88L, 9L)).thenReturn(address);
 
         MallCatalogPort.SkuView sku = new MallCatalogPort.SkuView(
                 101L, 11L, "MP001", "青瓷茶杯", "500ml", "/images/cup.jpg",
-                9900L, 12900L, 4000L, 500L, 0L, 7L, 8, true);
+                9900L, 12900L, 4000L, 500L, 100L, 7L, 8, true);
         when(catalogPort.findSkus(List.of(101L))).thenReturn(List.of(sku));
         doAnswer(invocation -> {
             Order order = invocation.getArgument(0);
@@ -99,12 +106,12 @@ class MallOrderServiceTest {
         var dto = service.create(88L, request, "MO_TEST");
 
         assertThat(dto.getOrderType()).isEqualTo("MALL");
-        assertThat(dto.getPaidAmount()).isEqualTo(19800L);
+        assertThat(dto.getPaidAmount()).isEqualTo(20000L);
         assertThat(dto.getDiscountAmount()).isZero();
         assertThat(dto.getStoredValueDiscount()).isZero();
         assertThat(dto.getCouponDiscount()).isZero();
         assertThat(dto.getItems()).singleElement().satisfies(item -> {
-            assertThat(item.getUnitPrice()).isEqualTo(9900L);
+            assertThat(item.getUnitPrice()).isEqualTo(10000L);
             assertThat(item.getQuantity()).isEqualTo(2);
             assertThat(item.getCostPrice()).isEqualTo(4000L);
         });
@@ -114,10 +121,14 @@ class MallOrderServiceTest {
         assertThat(orderCaptor.getValue().getStoreSubjectId()).isNull();
         assertThat(orderCaptor.getValue().getChannelSubjectId()).isNull();
         assertThat(orderCaptor.getValue().getSplitRuleId()).isNull();
+        assertThat(orderCaptor.getValue().getLeaderUserId()).isEqualTo(hasLeader ? 91L : null);
+        assertThat(orderCaptor.getValue().getLeaderSubjectId()).isEqualTo(hasLeader ? 71L : null);
+        assertThat(orderCaptor.getValue().getLeaderAttributionType()).isEqualTo(hasLeader ? "OTHER" : "PLATFORM");
         assertThat(orderCaptor.getValue().getSplitRuleSnapshot()).isNull();
         assertThat(orderCaptor.getValue().getClientRequestId()).isEqualTo("req-001");
         ArgumentCaptor<OrderItem> itemCaptor = ArgumentCaptor.forClass(OrderItem.class);
         verify(orderItemMapper).insert(itemCaptor.capture());
+        assertThat(itemCaptor.getValue().getDistributionCommission()).isEqualTo(100L);
         assertThat(itemCaptor.getValue().getSpecSnapshot()).isEqualTo("{\"value\":\"500ml\"}");
         verify(catalogPort).reserve(eq("MO_TEST"), argThat(lines ->
                 lines.size() == 1 && lines.get(0).skuId().equals(101L) && lines.get(0).quantity() == 2));
@@ -162,6 +173,10 @@ class MallOrderServiceTest {
         verify(orderMapper).insert(orderCaptor.capture());
         assertThat(orderCaptor.getValue().getLeaderSubjectId()).isEqualTo(9L);
         assertThat(orderCaptor.getValue().getLeaderUserId()).isEqualTo(88L);
+        assertThat(orderCaptor.getValue().getLeaderAttributionType()).isEqualTo("SELF");
+        var lineCaptor = ArgumentCaptor.forClass(OrderItem.class);
+        verify(orderItemMapper).insert(lineCaptor.capture());
+        assertThat(lineCaptor.getValue().getDistributionCommission()).isZero();
     }
     @Test
 
@@ -239,7 +254,8 @@ class MallOrderServiceTest {
         });
     }
 
-    void confirmReceiptCompletesOnceAndPublishesSettlementAndAccrual() {
+    @Test
+    void confirmReceiptUsesOrderLeaderSnapshotWithoutResolvingCurrentBinding() {
         Order order = new Order();
         order.setId(200L);
         order.setOrderNo("MO001");
@@ -249,6 +265,9 @@ class MallOrderServiceTest {
         order.setStoreSubjectId(3L);
         order.setChannelSubjectId(4L);
         order.setSplitRuleId(5L);
+        order.setLeaderSubjectId(71L);
+        order.setLeaderUserId(91L);
+        order.setLeaderAttributionType("OTHER");
         order.setPaidAmount(19800L);
         when(orderMapper.selectOne(any())).thenReturn(order);
 
@@ -261,12 +280,19 @@ class MallOrderServiceTest {
         item.setCostPrice(4000L);
         item.setPlatformCommission(500L);
         item.setSupplierSubjectId(7L);
+        item.setDistributionCommission(100L);
         when(orderItemMapper.selectList(any())).thenReturn(List.of(item));
 
         service.confirmReceipt(88L, "MO001");
 
         verify(orderService).markMallCompleted(eq(order), any());
-        verify(outboxService, times(2)).enqueue(anyString(), eq("MO001"), anyString(), anyString(), eq("MO001"), any());
+        var settlementCaptor = ArgumentCaptor.forClass(OrderVerifiedEvent.class);
+        verify(outboxService).enqueue(eq("MALL_ORDER"), eq("MO001"), eq("MALL_ORDER_COMPLETED_SPLIT"),
+                anyString(), eq("MO001"), settlementCaptor.capture());
+        assertThat(settlementCaptor.getValue().getLeaderSubjectId()).isEqualTo(71L);
+        assertThat(settlementCaptor.getValue().getLines()).singleElement()
+                .satisfies(line -> assertThat(line.getDistributionCommission()).isEqualTo(100L));
+        verify(leaderPort, never()).resolve(anyLong());
     }
 }
 

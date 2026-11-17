@@ -56,7 +56,15 @@ assert.throws(() => policy.normalize({ ...config, pagePath: '/pages/home/home' }
 accountVersion = '1.3.6';
 assert.equal(policy.resolveAppVersion(), '1.3.6', '正式或体验版必须优先使用微信运行版本');
 accountVersion = '';
-assert.equal(policy.resolveAppVersion(), 'dev', '开发者工具版本为空时必须回退构建冻结版本');
+assert.equal(policy.resolveAppVersion(), '1.3.24', '体验版无法读取微信版本号时必须使用本次源码构建版本');
+assert.equal(
+  policy.resolveThirdTab(
+    { schemaVersion: 2, defaultThirdTab: 'memberZone', releases: { '1.3.24': 'tongueHealth' } },
+    policy.resolveAppVersion()
+  ),
+  'tongueHealth',
+  '体验版必须使用源码构建版本匹配一人一饮'
+);
 
 policy.resetForTest();
 let requests = 0;

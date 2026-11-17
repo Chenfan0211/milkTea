@@ -233,6 +233,7 @@ const local: App.I18n.Schema = {
     'subject_device-brew': '冲泡记录',
     subject_channel: '资源方管理',
     subject_investor: '投资人管理',
+    subject_leader: '团长管理',
     subject_supplier: '供应商管理',
     auth: '授权中心',
     auth_role: '角色与权限',

@@ -11,6 +11,12 @@ public class OrderDTO {
     private String orderNo;
     /** STORE / MALL. */
     private String orderType;
+    private Long leaderUserId;
+    private Long leaderSubjectId;
+    /** SELF / OTHER / PLATFORM; null for historic orders. */
+    private String leaderAttributionType;
+    /** Admin display name from the subject recorded on the order. */
+    private String leaderName;
     private Long userId;
     private String user;
     private Long storeSubjectId;
@@ -113,6 +119,13 @@ public class OrderDTO {
         /** 投资人计费基础额（分），<= 0 时投资人为 0 */
         /** 团长分销佣金所得（分）；商城订单无团长时为 0 */
         private Long leaderShare;
+        /** Posted reversal in cents. Negative for amounts restored to a negative original share. */
+        private Long refundPlatform;
+        private Long refundSupplier;
+        private Long refundLeader;
+        private Long netPlatform;
+        private Long netSupplier;
+        private Long netLeader;
         private Long base;
     }
 

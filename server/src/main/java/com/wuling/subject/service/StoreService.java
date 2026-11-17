@@ -212,13 +212,18 @@ public class StoreService {
 
     @Transactional
     public AdminStoreDTO createAdminStore(AdminStoreUpsert upsert) {
-        String nextCode = nextStoreCode();
         BizSubject subject = new BizSubject();
-        subject.setCode(nextCode);
+        // 编码由自增主键派生，而主键要等 insert 之后才分配，
+        // 故先写带随机 UUID 的占位码满足 NOT NULL + UNIQUE，紧接着回写正式编码。
+        subject.setCode(SubjectCodes.placeholder("STORE"));
         subject.setName(upsert.getName());
         subject.setSubjectType("STORE");
         subject.setStatus("active");
         bizSubjectMapper.insert(subject);
+
+        String code = SubjectCodes.of("STORE", subject.getId());
+        subject.setCode(code);
+        bizSubjectMapper.updateById(subject);
 
         StoreProfile profile = storeProfileMapper.selectOne(new LambdaQueryWrapper<StoreProfile>()
                 .eq(StoreProfile::getSubjectId, subject.getId()));
@@ -226,7 +231,7 @@ public class StoreService {
             profile = new StoreProfile();
             profile.setSubjectId(subject.getId());
         }
-        applyUpsert(profile, upsert, nextCode);
+        applyUpsert(profile, upsert, code);
         if (!StringUtils.hasText(profile.getBusinessStatus())) {
             profile.setBusinessStatus("open");
         }
@@ -291,12 +296,20 @@ public class StoreService {
         else if (!StringUtils.hasText(profile.getBusinessStatus())) profile.setBusinessStatus("open");
     }
 
-    private String nextStoreCode() {
-        Long count = bizSubjectMapper.selectCount(new LambdaQueryWrapper<BizSubject>()
-                .eq(BizSubject::getSubjectType, "STORE"));
-        long next = (count == null ? 0 : count) + 1001;
-        return "ST-" + String.format("%04d", next);
-    }
+    /**
+     * 旧实现已移除：原为 {@code ST-} + (非删除门店数 + 1001)。
+     *
+     * <p><b>为什么必须移除</b>（勿以任何形式恢复此类「按行数推算序号」的写法）：
+     * <ol>
+     *   <li><b>软删除回退</b>：删掉 ST-1003 后非删除门店数变 4，下一个又发 ST-1005，
+     *       而 {@code uk_biz_subject_code} 不含 {@code deleted}，软删除行仍占号 → 撞唯一键；</li>
+     *   <li><b>手工/导入编码</b>：运营手填 RS-1004 后行数变 4，自动号仍是 RS-1004；</li>
+     *   <li><b>并发</b>：两个请求各自 count 都读不到对方未提交的行，算出同一个号。</li>
+     * </ol>
+     * 撞车抛 {@code DuplicateKeyException}，被全局兜底成「服务器内部错误」，线上只看到 500。
+     *
+     * <p>现行口径见 {@link SubjectCodes#of}：编码由自增主键派生，主键由数据库原子分配。
+     */
 
     /**
      * 门店排队件数：近 1 小时「已支付待核销」的商品总件数，用于点单页「前方N杯制作中」。

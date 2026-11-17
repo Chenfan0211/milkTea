@@ -42,7 +42,7 @@ class InternalQueryControllerStoreOperatorTest {
         bizSubjectMapper = mock(BizSubjectMapper.class);
         jdbcTemplate = mock(JdbcTemplate.class);
         controller = new InternalQueryController(bizSubjectMapper,
-                mock(SettlementRecordMapper.class), jdbcTemplate, storeOperatorService);
+                mock(SettlementRecordMapper.class), jdbcTemplate, storeOperatorService, null);
     }
 
     @Test

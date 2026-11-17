@@ -91,7 +91,9 @@ const rowActions: RowAction[] = [
 const requiredRule = { required: true, message: '请填写', trigger: ['blur', 'change'] } as const;
 
 const formFields: FormField[] = [
-  { key: 'code', label: '编码' },
+  // 编码留空即由服务端按「前缀 + 6 位主键」生成（如 SU-000032）；
+  // 唯一键不含 deleted，被删掉的编码仍被占用，手工填写需自行确认不重复。
+  { key: 'code', label: '编码', placeholder: '留空自动生成；手工填写需与存量不重复' },
   { key: 'name', label: '名称', rules: [requiredRule] },
   // 联系方式组（V37 新增列）：与 store_profile 档案风格保持一致
   { key: 'contactName', label: '联系人' },

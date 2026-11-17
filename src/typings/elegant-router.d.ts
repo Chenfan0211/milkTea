@@ -64,6 +64,7 @@ declare module "@elegant-router/types" {
     "subject_device": "/subject/device";
     "subject_device-brew": "/subject/device-brew";
     "subject_investor": "/subject/investor";
+    "subject_leader": "/subject/leader";
     "subject_platform": "/subject/platform";
     "subject_store": "/subject/store";
     "subject_supplier": "/subject/supplier";
@@ -187,6 +188,7 @@ declare module "@elegant-router/types" {
     | "subject_device-brew"
     | "subject_device"
     | "subject_investor"
+    | "subject_leader"
     | "subject_platform"
     | "subject_store"
     | "subject_supplier"
