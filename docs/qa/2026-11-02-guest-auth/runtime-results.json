@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-02",
+  "project": "E:/项目/milkTea/user-h5/dist/miniprogram/0.1.0-guest-auth-20261102",
+  "sdkVersion": "3.17.5",
+  "platform": "devtools",
+  "guestSetup": "清除验收包登录缓存，mock wx.login 返回空 code；商品与门店请求未 mock",
+  "phoneDenial": "通过按钮 getphonenumber 事件模拟用户拒绝，未提交手机号注册或绑定",
+  "scenarios": [
+    {
+      "name": "游客冷启动（模拟 wx.login 失败）",
+      "pass": true,
+      "page": "pages/home/home",
+      "hasToken": false
+    },
+    {
+      "name": "游客点击打包自取进入菜单",
+      "pass": true,
+      "page": "pages/menu/menu",
+      "productRows": 22
+    },
+    {
+      "name": "游客手动选店并加载真实商品",
+      "pass": true,
+      "store": "星沙乐运魔方店",
+      "product": "陈皮普洱轻乳茶",
+      "driver": "Skyline page event handler"
+    },
+    {
+      "name": "游客打开商品规格",
+      "pass": true,
+      "driver": "Skyline page event handler"
+    },
+    {
+      "name": "游客读取真实商品详情",
+      "pass": true,
+      "page": "pages/product-detail/product-detail"
+    },
+    {
+      "name": "订单 Tab 展示游客空态，不自动跳登录",
+      "pass": true
+    },
+    {
+      "name": "我的 Tab 展示游客卡片，不自动弹登录",
+      "pass": true
+    },
+    {
+      "name": "弹层未勾协议授权禁用，仍可点击跳过",
+      "pass": true
+    },
+    {
+      "name": "弹层拒绝手机号后关闭并继续浏览",
+      "pass": true,
+      "driver": "模拟原生拒绝回调"
+    },
+    {
+      "name": "首页主动登录才打开授权页，未勾协议可直接返回首页",
+      "pass": true
+    },
+    {
+      "name": "独立授权页拒绝手机号后返回原菜单页",
+      "pass": true,
+      "driver": "模拟原生拒绝回调"
+    }
+  ],
+  "uncaughtExceptions": 0
+}

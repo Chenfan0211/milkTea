@@ -1,0 +1,93 @@
+{
+  "date": "2026-11-02",
+  "project": "E:/项目/milkTea/user-h5/dist/miniprogram/0.1.0-auth-style-20261102-r2",
+  "scenarios": [
+    {
+      "name": "我的主动登录统一整页，默认未勾且无原生手机号按钮",
+      "pass": true
+    },
+    {
+      "name": "未勾协议可拒绝仅浏览，返回我的",
+      "pass": true
+    },
+    {
+      "name": "订单去登录统一进入整页授权",
+      "pass": true
+    },
+    {
+      "name": "模拟拒绝手机号后返回订单原页",
+      "pass": true,
+      "driver": "原生拒绝回调模拟"
+    },
+    {
+      "name": "受保护个人资料操作复用同一整页授权",
+      "pass": true,
+      "driver": "页面原有事件处理器"
+    },
+    {
+      "name": "模拟授权完成回调返回我的来源页",
+      "pass": true,
+      "driver": "afterBound回调模拟；续跑时序由单元测试验证"
+    },
+    {
+      "name": "首页进入统一授权，未勾时绿色同意只提示",
+      "pass": true,
+      "metrics": {
+        "size": {
+          "width": 225.89999389648438,
+          "height": 45.79999923706055
+        },
+        "offset": {
+          "left": 153.8000030517578,
+          "top": 747.7000122070312
+        },
+        "background": "rgba(83, 136, 44, 255)",
+        "color": "rgba(255, 255, 255, 255)"
+      }
+    },
+    {
+      "name": "协议下半部与勾选区可见，底栏无遮挡，勾选前后按钮颜色尺寸位置一致",
+      "pass": true,
+      "scrollTop": 316.29998779296875,
+      "unchecked": {
+        "size": {
+          "width": 225.89999389648438,
+          "height": 45.79999923706055
+        },
+        "offset": {
+          "left": 153.8000030517578,
+          "top": 747.7000122070312
+        },
+        "background": "rgba(83, 136, 44, 255)",
+        "color": "rgba(255, 255, 255, 255)"
+      },
+      "checked": {
+        "size": {
+          "width": 225.89999389648438,
+          "height": 45.79999923706055
+        },
+        "offset": {
+          "left": 153.8000030517578,
+          "top": 747.7000122070312
+        },
+        "background": "rgba(83, 136, 44, 255)",
+        "color": "rgba(255, 255, 255, 255)"
+      }
+    }
+  ],
+  "guestSetup": "仅模拟 wx.login 空code，商品等业务API保持真实",
+  "successBoundary": "afterBound回调模拟与单元测试；未提交手机号注册或绑定",
+  "uiMetrics": {
+    "size": {
+      "width": 225.89999389648438,
+      "height": 45.79999923706055
+    },
+    "offset": {
+      "left": 153.8000030517578,
+      "top": 747.7000122070312
+    },
+    "background": "rgba(83, 136, 44, 255)",
+    "color": "rgba(255, 255, 255, 255)"
+  },
+  "scrollTop": 316.29998779296875
+}

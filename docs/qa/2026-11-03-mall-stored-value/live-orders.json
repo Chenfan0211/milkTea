@@ -1,0 +1,37 @@
+{
+  "run": "QA-MALL-SV-20261103",
+  "userId": 7,
+  "initialBalance": 88635,
+  "orders": {
+    "A": {
+      "orderNo": "MO20261103114859804",
+      "amount": 1,
+      "quantity": 1
+    },
+    "U": {
+      "orderNo": "MO20261103115011001",
+      "amount": 1,
+      "quantity": 1
+    },
+    "B": {
+      "orderNo": "MO20261103115014035",
+      "amount": 2,
+      "quantity": 2,
+      "afterSales": ["AS20261103115019121", "AS20261103115535595"]
+    },
+    "C": {
+      "orderNo": "MO20261103121245716",
+      "amount": 1,
+      "quantity": 1,
+      "paidByMini": true,
+      "afterSales": ["AS20261103121615331"]
+    },
+    "D": {
+      "orderNo": "MO20261103121641405",
+      "amount": 2,
+      "quantity": 2,
+      "afterSales": ["AS20261103121643912", "AS20261103121645159"]
+    }
+  },
+  "grossPaidFen": 6
+}
