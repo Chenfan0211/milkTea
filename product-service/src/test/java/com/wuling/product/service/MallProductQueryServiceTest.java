@@ -219,5 +219,23 @@ class MallProductQueryServiceTest {
 
         assertEquals(List.of("/detail/one.jpg", "/detail/two.jpg"), detail.getDetailImages());
     }
+
+    @Test
+    @DisplayName("商城列表商品卡返回多张主图")
+    void publicCardIncludesGalleryImages() {
+        MallProduct product = new MallProduct();
+        product.setId(9L);
+        product.setStatus("ON_SALE");
+        product.setGalleryImages("[\"/gallery/one.jpg\",\"/gallery/two.jpg\"]");
+        Page<MallProduct> page = new Page<>(1, 20);
+        page.setRecords(List.of(product));
+        page.setTotal(1);
+        when(productMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+
+        MallProductCardDTO card = service.pageAppProducts(null, 1, 20).getRecords().get(0);
+
+        assertEquals(List.of("/gallery/one.jpg", "/gallery/two.jpg"), card.getGalleryImages());
+    }
 }
 

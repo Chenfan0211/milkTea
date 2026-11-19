@@ -45,6 +45,7 @@ import type {
 } from '@/service/api/mall';
 import ProductImageUpload from './ProductImageUpload.vue';
 import ProductDetailImages from './ProductDetailImages.vue';
+import ProductGalleryImages from './ProductGalleryImages.vue';
 import { fenToYuan, yuanToFen } from './money';
 
 interface ProductFormState {
@@ -53,7 +54,7 @@ interface ProductFormState {
   name: string;
   subtitle: string;
   specName: string;
-  coverImage: string;
+  galleryImages: string[];
   detailImages: string[];
   description: string;
   supplierSubjectId: number | null;
@@ -145,7 +146,7 @@ function emptyProduct(): ProductFormState {
     name: '',
     subtitle: '',
     specName: '规格',
-    coverImage: '',
+    galleryImages: [],
     detailImages: [],
     description: '',
     supplierSubjectId: null,
@@ -230,7 +231,12 @@ async function openEdit(row: MallProductAdmin) {
       name: detail.name ?? '',
       subtitle: detail.subtitle ?? '',
       specName: detail.specName ?? '规格',
-      coverImage: detail.coverImage ?? '',
+      galleryImages:
+        Array.isArray(detail.galleryImages) && detail.galleryImages.length
+          ? detail.galleryImages.slice()
+          : detail.coverImage
+            ? [detail.coverImage]
+            : [],
       detailImages: Array.isArray(detail.detailImages) ? detail.detailImages.slice() : [],
       description: detail.description ?? '',
       supplierSubjectId: detail.supplierSubjectId ?? null,
@@ -262,8 +268,8 @@ function productPayload(status: MallProductStatus): MallProductPayload {
     name: form.name.trim(),
     subtitle: form.subtitle.trim() || undefined,
     specName: form.specName.trim() || '规格',
-    coverImage: form.coverImage.trim() || undefined,
-    galleryImages: editingProduct.value?.galleryImages ?? [],
+    coverImage: form.galleryImages[0] || undefined,
+    galleryImages: form.galleryImages.map(image => image.trim()).filter(Boolean),
     detailImages: form.detailImages.map(image => image.trim()).filter(Boolean),
     description: form.description.trim() || undefined,
     supplierSubjectId: Number(form.supplierSubjectId),
@@ -290,6 +296,7 @@ function validateProduct(): string | null {
   if (!form.productCode.trim()) return '请填写商品编码';
   if (!form.categoryId) return '请选择商城分类';
   if (!form.name.trim()) return '请填写商品名称';
+  if (!form.galleryImages.length) return '请至少上传一张商品主图';
   if (!form.supplierSubjectId) return '请选择商品供应商';
   if (!skuRows.value.length) return '至少需要维护一个 SKU';
 
@@ -608,8 +615,8 @@ const config: AdminListConfig = {
               </NFormItem>
             </div>
 
-            <NFormItem label="商品主图">
-              <ProductImageUpload v-model="form.coverImage" :size="132" label="商品主图" />
+            <NFormItem label="商品主图轮播" required>
+              <ProductGalleryImages v-model="form.galleryImages" :disabled="saving" />
             </NFormItem>
 
             <div class="sku-heading">

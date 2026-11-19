@@ -14,9 +14,22 @@
 
       <block wx:else>
         <view class="mall-card detail-gallery">
-          <swiper class="detail-gallery__swiper" current="{{galleryIndex}}" bindchange="onGalleryChange">
+          <swiper
+            class="detail-gallery__swiper"
+            current="{{galleryIndex}}"
+            autoplay="{{galleryImages.length > 1}}"
+            interval="3000"
+            circular="{{galleryImages.length > 1}}"
+            bindchange="onGalleryChange"
+          >
             <swiper-item wx:for="{{galleryImages}}" wx:key="*this">
-              <image class="detail-gallery__image" src="{{item}}" mode="aspectFill" aria-label="{{product.name}}商品图" />
+              <image
+                class="detail-gallery__image"
+                src="{{item}}"
+                mode="aspectFill"
+                lazy-load
+                aria-label="{{product.name}}商品图"
+              />
             </swiper-item>
           </swiper>
           <view wx:if="{{galleryImages.length > 1}}" class="detail-gallery__counter">{{galleryIndex + 1}}/{{galleryImages.length}}</view>

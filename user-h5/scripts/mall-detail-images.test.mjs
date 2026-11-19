@@ -19,8 +19,8 @@ const detail = mall.normalizeDetail({
 assert.deepEqual(
   detail.detailImages,
   [
-    'https://api.wulingshiguang.top/api/v1/files/public/detail-one.jpg',
-    'https://api.wulingshiguang.top/api/v1/files/public/detail-two.jpg'
+    'https://api.wulingshiguang.top/api/v1/files/public/detail-one.jpg?variant=detail',
+    'https://api.wulingshiguang.top/api/v1/files/public/detail-two.jpg?variant=detail'
   ],
   '商品详情长图必须按接口顺序补全 URL 并过滤空地址'
 );

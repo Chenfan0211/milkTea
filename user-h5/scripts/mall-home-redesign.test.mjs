@@ -222,3 +222,5 @@ for (const line of wxss.split('\n')) {
 }
 
 console.log('商城首页对齐时光币商城测试通过');
+
+await import('./mall-product-card-gallery.test.mjs');

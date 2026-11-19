@@ -71,8 +71,8 @@ function quotePriceChanged(item, unitPrice) {
   return Number.isFinite(previous) && previous > 0 && Number.isFinite(next) && previous !== next;
 }
 
-function imageUrl(value) {
-  return resolveAssetUrl(value) || FALLBACK_IMAGE;
+function imageUrl(value, variant) {
+  return resolveAssetUrl(value, variant) || FALLBACK_IMAGE;
 }
 
 function plainText(value) {
@@ -104,12 +104,17 @@ function normalizeProduct(product, leaderBuyer = false) {
   const soldOut = Boolean(source.soldOut) || availableStock <= 0;
   const minPrice = effectivePrice(leaderBuyer ? source.minPrice : (source.minCustomerPrice ?? source.minPrice));
   const originalPrice = Number(source.originalPrice) || 0;
+  const image = imageUrl(source.coverImage, 'thumb');
+  const galleryImages = (Array.isArray(source.galleryImages) ? source.galleryImages : [])
+    .map(value => imageUrl(value, 'thumb'))
+    .filter(Boolean);
   return Object.assign({}, source, {
     id: Number(source.id),
     categoryId: Number(source.categoryId),
     name: String(source.name || '商城商品'),
     subtitle: String(source.subtitle || ''),
-    image: imageUrl(source.coverImage),
+    image,
+    galleryImages: galleryImages.length ? galleryImages : [image],
     minPrice,
     priceText: priceText(minPrice),
     originalPriceText: originalPrice > minPrice ? priceText(originalPrice) : '',
@@ -151,10 +156,12 @@ function normalizeDetail(detail, leaderBuyer = false) {
     specName: String(source.specName || '规格'),
     categoryName: String(source.categoryName || ''),
     description: plainText(source.description),
-    image: imageUrl(source.coverImage),
-    galleryImages: (Array.isArray(source.galleryImages) ? source.galleryImages : []).map(imageUrl).filter(Boolean),
+    image: imageUrl(source.coverImage, 'display'),
+    galleryImages: (Array.isArray(source.galleryImages) ? source.galleryImages : [])
+      .map(value => imageUrl(value, 'display'))
+      .filter(Boolean),
     detailImages: (Array.isArray(source.detailImages) ? source.detailImages : [])
-      .map(value => resolveAssetUrl(String(value || '').trim()))
+      .map(value => resolveAssetUrl(String(value || '').trim(), 'detail'))
       .filter(Boolean),
     minPrice,
     priceText: priceText(minPrice),

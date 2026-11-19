@@ -190,9 +190,26 @@
   background: var(--page-bg-neutral);
 }
 
+.product-card__swiper {
+  width: 100%;
+  height: 300rpx;
+}
+
 .product-card__image {
   width: 100%;
   height: 100%;
+}
+
+.product-card__gallery-counter {
+  position: absolute;
+  right: 12rpx;
+  bottom: 12rpx;
+  padding: 4rpx 8rpx;
+  color: var(--card-bg);
+  font-size: var(--font-caption);
+  line-height: 24rpx;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius-pill);
 }
 
 .product-card__sold-out {

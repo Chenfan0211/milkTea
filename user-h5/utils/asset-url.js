@@ -6,14 +6,28 @@
  */
 const config = require('../config');
 
-function resolveAssetUrl(value) {
+function appendImageVariant(raw, variant) {
+  if (!variant || !/\/api\/v1\/files\/public\/[^?#]+\.(?:jpe?g|png)(?:[?#]|$)/i.test(raw)) {
+    return raw;
+  }
+  if (/[?&]variant=[^&#]*/i.test(raw)) return raw;
+  const queryAt = raw.indexOf('?');
+  const hashAt = raw.indexOf('#');
+  if (queryAt >= 0 && (hashAt < 0 || queryAt < hashAt)) {
+    return `${raw.slice(0, queryAt + 1)}variant=${encodeURIComponent(variant)}&${raw.slice(queryAt + 1)}`;
+  }
+  const insertAt = hashAt >= 0 ? hashAt : raw.length;
+  return `${raw.slice(0, insertAt)}?variant=${encodeURIComponent(variant)}${raw.slice(insertAt)}`;
+}
+
+function resolveAssetUrl(value, variant) {
   const raw = value === undefined || value === null ? '' : String(value).trim();
   if (!raw) return '';
   if (/^(data|blob|wxfile|file):/i.test(raw) || /^\/\//.test(raw)) return raw;
-  if (/^https?:/i.test(raw)) return raw;
+  if (/^https?:/i.test(raw)) return appendImageVariant(raw, variant);
   if (raw.indexOf('/api/') === 0) {
     const base = String(config.BASE_URL || '').replace(/\/+$/, '');
-    return base ? base + raw : raw;
+    return appendImageVariant(base ? base + raw : raw, variant);
   }
   return raw;
 }

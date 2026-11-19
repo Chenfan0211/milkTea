@@ -356,8 +356,11 @@ public class MallProductAdminService {
         product.setName(requireText(request.getName(), "商品名称不能为空"));
         product.setSubtitle(trimToNull(request.getSubtitle()));
         product.setSpecName(StringUtils.hasText(request.getSpecName()) ? request.getSpecName().trim() : "规格");
-        product.setCoverImage(trimToNull(request.getCoverImage()));
-        product.setGalleryImages(writeStringList(request.getGalleryImages()));
+        List<String> galleryImages = request.getGalleryImages() == null
+                ? null : normalizeGalleryImages(request.getGalleryImages());
+        product.setGalleryImages(writeStringList(galleryImages));
+        product.setCoverImage(galleryImages != null && !galleryImages.isEmpty()
+                ? galleryImages.get(0) : trimToNull(request.getCoverImage()));
         if (request.getDetailImages() != null) {
             product.setDetailImages(writeDetailImageList(request.getDetailImages()));
         }
@@ -505,6 +508,24 @@ public class MallProductAdminService {
         } catch (Exception e) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "商品图片数据格式错误");
         }
+    }
+
+    private List<String> normalizeGalleryImages(List<String> values) {
+        List<String> normalized = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (String value : values) {
+            if (!StringUtils.hasText(value)) {
+                continue;
+            }
+            String url = value.trim();
+            if (seen.add(url)) {
+                normalized.add(url);
+            }
+        }
+        if (normalized.size() > 10) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "商品主图不能超过10张");
+        }
+        return normalized;
     }
 
     private String writeDetailImageList(List<String> values) {

@@ -162,6 +162,8 @@ class DedicatedEndpointConsistencyTest {
             "src/views/mall/product/index.vue",
             // 商城商品主图 / SKU 图片复用文件服务上传接口。
             "src/views/mall/product/ProductImageUpload.vue",
+            // 商城商品多主图轮播复用文件服务上传接口。
+            "src/views/mall/product/ProductGalleryImages.vue",
             // 商城商品详情长图列表复用文件服务上传接口。
             "src/views/mall/product/ProductDetailImages.vue",
             "src/views/mall/order/index.vue",

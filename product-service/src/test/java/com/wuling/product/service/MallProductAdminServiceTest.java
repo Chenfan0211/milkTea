@@ -188,6 +188,41 @@ class MallProductAdminServiceTest {
     }
 
     @Test
+    @DisplayName("商品主图首图自动成为封面并去除重复保持顺序")
+    void updateSyncsCoverFromFirstGalleryImage() {
+        MallProduct current = product(1L);
+        current.setCoverImage("/old-cover.jpg");
+        when(productMapper.selectById(1L)).thenReturn(current);
+        when(productMapper.selectByProductCodeIncludingDeleted("P-1")).thenReturn(current);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+        when(categoryMapper.selectById(5L)).thenReturn(category());
+        when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
+
+        MallProductSaveRequest request = productRequest();
+        request.setGalleryImages(List.of(" /cover.jpg ", "/second.jpg", "", "/cover.jpg"));
+
+        service.update(1L, request);
+
+        assertEquals("/cover.jpg", current.getCoverImage());
+        assertEquals("[\"/cover.jpg\",\"/second.jpg\"]", current.getGalleryImages());
+    }
+
+    @Test
+    @DisplayName("商品主图超过十张时拒绝保存")
+    void updateRejectsMoreThanTenGalleryImages() {
+        when(productMapper.selectById(1L)).thenReturn(product(1L));
+        when(productMapper.selectByProductCodeIncludingDeleted("P-1")).thenReturn(product(1L));
+        MallProductSaveRequest request = productRequest();
+        request.setGalleryImages(IntStream.rangeClosed(1, 11)
+                .mapToObj(index -> "/gallery/" + index + ".jpg")
+                .toList());
+
+        assertThrows(com.wuling.common.exception.BusinessException.class,
+                () -> service.update(1L, request));
+        verify(productMapper, never()).updateById(any(MallProduct.class));
+    }
+
+    @Test
     @DisplayName("后台库存调整低于已锁定量时拒绝且不写流水")
     void adjustStockRejectsStockBelowLockedStock() {
         MallSku sku = sku(1L, 5, 4);

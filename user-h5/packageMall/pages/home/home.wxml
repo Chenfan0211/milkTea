@@ -97,8 +97,38 @@
           aria-role="button"
           aria-label="查看{{item.name}}{{item.soldOut ? '，已售罄' : ''}}"
         >
-          <view class="product-card__image-wrap">
-            <image class="product-card__image" src="{{item.image}}" mode="aspectFill" aria-label="{{item.name}}商品图" />
+          <view class="product-card__image-wrap" data-id="{{item.id}}">
+            <block wx:if="{{visibleGalleryIds[item.id] && item.galleryImages.length > 1}}">
+              <swiper
+                class="product-card__swiper"
+                autoplay="{{true}}"
+                interval="3000"
+                circular="{{true}}"
+                data-id="{{item.id}}"
+                bindchange="handleCardGalleryChange"
+              >
+                <swiper-item wx:for="{{item.galleryImages}}" wx:for-item="image" wx:key="*this">
+                  <image
+                    class="product-card__image"
+                    src="{{image}}"
+                    mode="aspectFill"
+                    lazy-load
+                    aria-label="{{item.name}}商品图"
+                  />
+                </swiper-item>
+              </swiper>
+              <view class="product-card__gallery-counter">
+                {{(cardGalleryIndexes[item.id] || 0) + 1}}/{{item.galleryImages.length}}
+              </view>
+            </block>
+            <image
+              wx:else
+              class="product-card__image"
+              src="{{item.image}}"
+              mode="aspectFill"
+              lazy-load
+              aria-label="{{item.name}}商品封面图"
+            />
             <view wx:if="{{item.soldOut}}" class="product-card__sold-out">已售罄</view>
           </view>
           <view class="product-card__body">

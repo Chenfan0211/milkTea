@@ -18,6 +18,8 @@ Page(
         categories: [{ id: 0, name: '全部', iconImage: mall.categoryIconUrl('') }],
         cartCount: 0,
         cartCountText: '',
+        visibleGalleryIds: {},
+        cardGalleryIndexes: {},
         activeCategoryId: 0,
         products: [],
         page: 1,
@@ -39,6 +41,16 @@ Page(
         this.syncCartCount();
         if (this.hasShown) this.loadProducts(true);
         this.hasShown = true;
+        this.scheduleProductCardObserver();
+      },
+
+      onHide() {
+        this.disconnectProductCardObserver();
+        this.setData({ visibleGalleryIds: {} });
+      },
+
+      onUnload() {
+        this.disconnectProductCardObserver();
       },
 
       syncCartCount() {
@@ -112,7 +124,15 @@ Page(
 
       loadProducts(reset) {
         if (reset) {
-          this.setData({ loading: true, error: '', page: 1, hasMore: true });
+          this.disconnectProductCardObserver();
+          this.setData({
+            loading: true,
+            error: '',
+            page: 1,
+            hasMore: true,
+            visibleGalleryIds: {},
+            cardGalleryIndexes: {}
+          });
         } else if (this.data.loadingMore || !this.data.hasMore) {
           return;
         }
@@ -138,6 +158,7 @@ Page(
               error: '',
               hasMore: products.length < total && records.length > 0
             });
+            this.scheduleProductCardObserver();
           })
           .catch(error => {
             if (this.productRequestId !== requestId) return;
@@ -152,8 +173,48 @@ Page(
       selectCategory(event) {
         const id = Number(event.currentTarget.dataset.id) || 0;
         if (id === this.data.activeCategoryId) return;
+        this.disconnectProductCardObserver();
         this.setData({ activeCategoryId: id, products: [] });
         this.loadProducts(true);
+      },
+
+      handleCardGalleryChange(event) {
+        const id = Number(event && event.currentTarget && event.currentTarget.dataset.id);
+        const index = Number(event && event.detail && event.detail.current);
+        if (!id || !Number.isFinite(index)) return;
+        this.setData({
+          cardGalleryIndexes: Object.assign({}, this.data.cardGalleryIndexes, { [id]: index })
+        });
+      },
+
+      scheduleProductCardObserver() {
+        this.disconnectProductCardObserver();
+        if (typeof wx.nextTick === 'function') {
+          wx.nextTick(() => this.setupProductCardObserver());
+        } else {
+          this.setupProductCardObserver();
+        }
+      },
+
+      setupProductCardObserver() {
+        if (!this.data.products.length || typeof wx.createIntersectionObserver !== 'function') return;
+        const observer = wx.createIntersectionObserver(this, { observeAll: true });
+        this.productCardObserver = observer;
+        observer.relativeToViewport({ top: 0, bottom: 0 }).observe('.product-card__image-wrap', entry => {
+          const id = Number(entry && entry.dataset && entry.dataset.id);
+          if (!id) return;
+          const visible = Number(entry.intersectionRatio) > 0;
+          this.setData({
+            visibleGalleryIds: Object.assign({}, this.data.visibleGalleryIds, { [id]: visible })
+          });
+        });
+      },
+
+      disconnectProductCardObserver() {
+        if (this.productCardObserver) {
+          this.productCardObserver.disconnect();
+          this.productCardObserver = null;
+        }
       },
 
       loadMore() {

@@ -2,6 +2,8 @@ package com.wuling.product.dto;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class MallProductCardDTO {
     private Long id;
@@ -10,6 +12,7 @@ public class MallProductCardDTO {
     private String name;
     private String subtitle;
     private String coverImage;
+    private List<String> galleryImages;
     private Long minPrice;
     private Long minCustomerPrice;
     private Long originalPrice;

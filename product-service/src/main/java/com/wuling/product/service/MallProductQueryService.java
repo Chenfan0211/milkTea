@@ -198,6 +198,7 @@ public class MallProductQueryService {
         dto.setName(product.getName());
         dto.setSubtitle(product.getSubtitle());
         dto.setCoverImage(product.getCoverImage());
+        dto.setGalleryImages(parseStringList(product.getGalleryImages()));
         dto.setSort(product.getSort());
         dto.setMinPrice(min(skus, MallSku::getSalePrice));
         dto.setMinCustomerPrice(min(skus, MallProductQueryService::customerPrice));

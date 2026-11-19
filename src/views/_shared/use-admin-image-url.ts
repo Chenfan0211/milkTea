@@ -1,5 +1,6 @@
 import { getServiceBaseURL } from '@/utils/service';
 import { resolveAdminImageUrl } from './image-url';
+import type { AdminImageVariant } from './image-url';
 
 export const ADMIN_IMAGE_FALLBACK = '/assets/images/3x/mall-category-placeholder.jpg';
 
@@ -7,5 +8,6 @@ export const ADMIN_IMAGE_FALLBACK = '/assets/images/3x/mall-category-placeholder
 export function useAdminImageUrl() {
   const isProxy = import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y';
   const { baseURL } = getServiceBaseURL(import.meta.env, isProxy);
-  return (value: string | null | undefined) => resolveAdminImageUrl(value, baseURL);
+  return (value: string | null | undefined, variant: AdminImageVariant = 'thumb') =>
+    resolveAdminImageUrl(value, baseURL, variant);
 }
