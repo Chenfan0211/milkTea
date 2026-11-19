@@ -33,7 +33,7 @@ app:
     max-size-bytes: ${FILE_MAX_SIZE_BYTES:5242880}
     storage-root: ${FILE_STORAGE_ROOT:/data/wuling/uploads}
     public-base-url: ${FILE_PUBLIC_BASE_URL:/api/v1/files/public}
-    max-dimension: ${FILE_MAX_IMAGE_DIMENSION:8000}
+    max-dimension: ${FILE_MAX_IMAGE_DIMENSION:16000}
     max-pixels: ${FILE_MAX_IMAGE_PIXELS:40000000}
   # ---------- ClamAV 病毒扫描 ----------
   # enabled=false 时跳过扫描（本地开发/测试未部署 clamd 时兼容）；

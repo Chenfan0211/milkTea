@@ -73,7 +73,7 @@ async function handleUpload(options: UploadCustomRequestOptions) {
       minHeight: 1040
     });
     const result = await uploadAdminImage(compressed);
-    if (result.size <= 0 || result.size > MAX_BANNER_BYTES) throw new Error('服务端保存的图片超过 1MB，请换一张图片');
+    if (result.size <= 0 || result.size > MAX_BANNER_BYTES) throw new Error('服务端保存的图片超过 500KB，请换一张图片');
     form.imageUrl = result.url;
     options.onFinish();
     window.$message?.success('图片上传成功');
@@ -139,7 +139,7 @@ async function submit() {
             <NButton :loading="uploading">{{ form.imageUrl ? '重新上传' : '上传图片' }}</NButton>
           </NUpload>
           <div class="field-tip">
-            建议 2250×3120；原图至少 750×1040px。JPG/PNG 原图不超过 5MB，上传时自动压缩至 1MB 内。
+            建议 2250×3120；原图至少 750×1040px。JPG/PNG 原图不超过 5MB，上传时自动压缩至 500KB 内。
           </div>
         </div>
       </NFormItem>

@@ -29,9 +29,11 @@ import java.util.Base64;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -111,6 +113,46 @@ class FileControllerMvcTest {
         mockMvc.perform(get(json.get("data").get("url").asText()))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    @Test
+    void publicVariantReturnsOptimizedImageAndLongLivedCacheHeaders() throws Exception {
+        String storedName = "11111111111111111111111111111111.png";
+        Files.write(STORAGE_ROOT.resolve(storedName), pngBytes(600, 900));
+
+        MvcResult result = mockMvc.perform(get("/api/v1/files/public/" + storedName)
+                        .queryParam("variant", "thumb"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(header().string("Cache-Control", "public, max-age=31536000, immutable"))
+                .andReturn();
+
+        BufferedImage image = ImageIO.read(new java.io.ByteArrayInputStream(
+                result.getResponse().getContentAsByteArray()));
+        assertNotNull(image);
+        assertTrue(Math.max(image.getWidth(), image.getHeight()) <= 480);
+    }
+
+    @Test
+    void publicImageWithoutVariantRemainsOriginalAndCacheable() throws Exception {
+        String storedName = "22222222222222222222222222222222.png";
+        byte[] original = pngBytes(24, 16);
+        Files.write(STORAGE_ROOT.resolve(storedName), original);
+
+        mockMvc.perform(get("/api/v1/files/public/" + storedName))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "public, max-age=31536000, immutable"))
+                .andExpect(content().bytes(original));
+    }
+
+    @Test
+    void invalidPublicVariantIsRejected() throws Exception {
+        String storedName = "33333333333333333333333333333333.png";
+        Files.write(STORAGE_ROOT.resolve(storedName), pngBytes(24, 16));
+
+        mockMvc.perform(get("/api/v1/files/public/" + storedName)
+                        .queryParam("variant", "huge"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

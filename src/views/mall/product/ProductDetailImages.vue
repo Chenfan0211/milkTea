@@ -115,7 +115,9 @@ function moveImage(index: number, offset: number) {
     >
       <NButton dashed type="primary" :loading="uploading" :disabled="disabled || reachedLimit">添加详情长图</NButton>
     </NUpload>
-    <div class="detail-images-hint">最多 {{ MAX_DETAIL_IMAGES }} 张，按从上到下顺序展示；JPG/PNG 单张不超过 5MB。</div>
+    <div class="detail-images-hint">
+      最多 {{ MAX_DETAIL_IMAGES }} 张，按从上到下顺序展示；JPG/PNG 单张不超过 5MB，超过 500KB 自动压缩。
+    </div>
   </div>
 </template>
 

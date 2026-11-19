@@ -102,7 +102,7 @@ function removeImage() {
         移除
       </NButton>
     </div>
-    <div class="image-hint">JPG/PNG，最大 5MB</div>
+    <div class="image-hint">JPG/PNG，最大 5MB；超过 500KB 自动压缩</div>
   </div>
 </template>
 

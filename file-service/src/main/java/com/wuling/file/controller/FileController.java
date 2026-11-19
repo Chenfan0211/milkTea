@@ -4,6 +4,7 @@ import com.wuling.common.api.Result;
 import com.wuling.file.security.FileTypeValidator.InvalidFileException;
 import com.wuling.file.service.ImageStorageService;
 import com.wuling.file.service.ImageStorageService.ImageNotFoundException;
+import com.wuling.file.service.ImageStorageService.InvalidImageVariantException;
 import com.wuling.file.service.ImageStorageService.InvalidFilePathException;
 import com.wuling.file.service.ImageStorageService.PublicImage;
 import com.wuling.file.service.ImageStorageService.StoredImage;
@@ -28,6 +29,9 @@ import java.util.Map;
  */
 @RestController
 public class FileController {
+
+    private static final String IMAGE_CACHE_CONTROL =
+            "public, max-age=31536000, immutable";
 
     private final UploadValidationService uploadService;
     private final ImageStorageService imageStorageService;
@@ -68,14 +72,19 @@ public class FileController {
      * 公开读取已经过重编码的图片。只允许 UUID 文件名和 jpg/png 后缀。
      */
     @GetMapping("/api/v1/files/public/{storedName:.+}")
-    public ResponseEntity<byte[]> readPublicImage(@PathVariable String storedName) {
+    public ResponseEntity<byte[]> readPublicImage(
+            @PathVariable String storedName,
+            @RequestParam(value = "variant", required = false) String variant) {
         try {
-            PublicImage image = imageStorageService.loadPublicImage(storedName);
+            PublicImage image = imageStorageService.loadPublicImage(storedName, variant);
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(image.mimeType()))
                     .contentLength(image.bytes().length)
+                    .header("Cache-Control", IMAGE_CACHE_CONTROL)
                     .body(image.bytes());
         } catch (InvalidFilePathException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (InvalidImageVariantException e) {
             return ResponseEntity.badRequest().build();
         } catch (ImageNotFoundException e) {
             return ResponseEntity.notFound().build();

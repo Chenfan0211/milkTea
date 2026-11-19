@@ -46,6 +46,18 @@ for (const command of ['dev', 'dev:prod', 'build', 'build:test', 'build:prod-ip'
   );
 }
 
+const crudApi = read('src/service/api/crud.ts');
+const compression = read('src/utils/image-compression.ts');
+assert.match(crudApi, /compressAdminImage\(file\)/, '所有管理员图片上传必须在统一 API 入口自动压缩');
+assert.match(crudApi, /data\.append\(['"]file['"], uploadFile\)/, '上传 API 必须发送压缩后的文件');
+assert.match(compression, /500 \* 1024/, '管理员图片压缩目标必须为 500KB');
+assert.match(compression, /5 \* 1024 \* 1024/, '管理员图片原文件上限必须为 5MB');
+assert.match(compression, /DIMENSION_FACTORS = \[1, 0\.9, 0\.8, 0\.7\]/, '质量压缩不足时最多缩小到 70% 长边');
+
+const fileConfig = read('file-service/src/main/resources/application.yml');
+assert.match(fileConfig, /FILE_MAX_IMAGE_DIMENSION:16000/, '文件服务必须支持商品详情长图高度');
+assert.match(fileConfig, /FILE_MAX_IMAGE_PIXELS:40000000/, '长图放行不能取消总像素上限');
+
 const md5 = file => crypto.createHash('md5').update(fs.readFileSync(file)).digest('hex');
 const requiredAssets = [
   'mall-category-placeholder.jpg',

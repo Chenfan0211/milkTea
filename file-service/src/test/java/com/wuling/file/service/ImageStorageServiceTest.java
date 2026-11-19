@@ -3,6 +3,7 @@ package com.wuling.file.service;
 import com.wuling.file.security.ClamAvScanner;
 import com.wuling.file.security.FileTypeValidator.InvalidFileException;
 import com.wuling.file.service.ImageStorageService.ImageNotFoundException;
+import com.wuling.file.service.ImageStorageService.InvalidImageVariantException;
 import com.wuling.file.service.ImageStorageService.InvalidFilePathException;
 import com.wuling.file.service.ImageStorageService.PublicImage;
 import com.wuling.file.service.ImageStorageService.StoredImage;
@@ -28,8 +29,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
 import java.util.Iterator;
 import java.util.zip.CRC32;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,7 +48,7 @@ import static org.mockito.Mockito.when;
 class ImageStorageServiceTest {
 
     private static final long MAX_SIZE = 5L * 1024 * 1024;
-    private static final int MAX_DIMENSION = 8000;
+    private static final int MAX_DIMENSION = 16_000;
     private static final long MAX_PIXELS = 40_000_000L;
     private static final String PUBLIC_BASE = "/api/v1/files/public";
 
@@ -260,6 +263,131 @@ class ImageStorageServiceTest {
                 () -> service.loadPublicImage("0123456789abcdef0123456789abcdef.jpg"));
     }
 
+    @Test
+    void storeJpegKeepsServerReencodedFileWithinFiveHundredKilobytes() throws IOException {
+        byte[] original = noisyJpegBytes(1200, 900);
+        assertTrue(original.length > 500 * 1024, "测试样本必须大于 500KB");
+
+        StoredImage stored = service.store("large.jpg", original, "image/jpeg");
+
+        assertTrue(stored.size() <= 500 * 1024,
+                "服务端重编码后应控制在 500KB 内，实际=" + stored.size());
+    }
+
+    @Test
+    void storePngKeepsServerReencodedFileWithinFiveHundredKilobytes() throws IOException {
+        byte[] original = noisyPngBytes(900, 900);
+        assertTrue(original.length > 500 * 1024, "测试样本必须大于 500KB");
+
+        StoredImage stored = service.store("large.png", original, "image/png");
+
+        assertTrue(stored.size() <= 500 * 1024,
+                "PNG 服务端重编码后应控制在 500KB 内，实际=" + stored.size());
+    }
+
+    @Test
+    void thumbVariantLimitsLongestEdgeTo480AndTargets80Kilobytes() throws IOException {
+        StoredImage stored = service.store("photo.jpg", imageBytes("jpeg", 600, 900), "image/jpeg");
+
+        PublicImage variant = service.loadPublicImage(stored.storedName(), "thumb");
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(variant.bytes()));
+
+        assertNotNull(image);
+        assertEquals(480, Math.max(image.getWidth(), image.getHeight()));
+        assertTrue(variant.bytes().length <= 80 * 1024,
+                "thumb 目标不超过 80KB，实际=" + variant.bytes().length);
+    }
+
+    @Test
+    void displayVariantLimitsLongestEdgeTo1200AndTargets250Kilobytes() throws IOException {
+        StoredImage stored = service.store("photo.jpg", imageBytes("jpeg", 1800, 1200), "image/jpeg");
+
+        PublicImage variant = service.loadPublicImage(stored.storedName(), "display");
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(variant.bytes()));
+
+        assertNotNull(image);
+        assertEquals(1200, Math.max(image.getWidth(), image.getHeight()));
+        assertTrue(variant.bytes().length <= 250 * 1024,
+                "display 目标不超过 250KB，实际=" + variant.bytes().length);
+    }
+
+    @Test
+    void detailVariantLimitsWidthTo1080AndPreservesAspectRatio() throws IOException {
+        StoredImage stored = service.store("detail.png", imageBytes("png", 1200, 800), "image/png");
+
+        PublicImage variant = service.loadPublicImage(stored.storedName(), "detail");
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(variant.bytes()));
+
+        assertNotNull(image);
+        assertEquals(1080, image.getWidth());
+        assertEquals(720, image.getHeight());
+        assertTrue(variant.bytes().length <= 350 * 1024,
+                "detail 目标不超过 350KB，实际=" + variant.bytes().length);
+    }
+
+    @Test
+    void thumbVariantPreservesTransparencyForPng() throws IOException {
+        BufferedImage source = new BufferedImage(600, 300, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = source.createGraphics();
+        try {
+            graphics.setColor(new Color(0, 0, 0, 0));
+            graphics.fillRect(0, 0, source.getWidth(), source.getHeight());
+            graphics.setColor(new Color(20, 120, 40, 180));
+            graphics.fillRect(100, 50, 300, 160);
+        } finally {
+            graphics.dispose();
+        }
+        ByteArrayOutputStream png = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(source, "png", png));
+        StoredImage stored = service.store("transparent.png", png.toByteArray(), "image/png");
+
+        PublicImage variant = service.loadPublicImage(stored.storedName(), "thumb");
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(variant.bytes()));
+
+        assertNotNull(image);
+        assertEquals("image/png", variant.mimeType());
+        int transparentPixel = image.getRGB(image.getWidth() - 1, image.getHeight() - 1);
+        assertTrue((transparentPixel >>> 24) < 255, "透明 PNG 缩略图必须保留透明通道");
+    }
+
+    @Test
+    void repeatedVariantReadsReuseDiskCache() throws IOException {
+        StoredImage stored = service.store("photo.jpg", imageBytes("jpeg", 600, 900), "image/jpeg");
+
+        PublicImage first = service.loadPublicImage(stored.storedName(), "thumb");
+        PublicImage second = service.loadPublicImage(stored.storedName(), "thumb");
+
+        assertArrayEquals(first.bytes(), second.bytes());
+        Path variants = storageRoot.resolve(".variants");
+        assertTrue(Files.isDirectory(variants));
+        try (Stream<Path> files = Files.list(variants)) {
+            assertEquals(1, files.filter(Files::isRegularFile).count(), "同一规格只能生成一个缓存文件");
+        }
+    }
+
+    @Test
+    void invalidVariantIsRejected() throws IOException {
+        StoredImage stored = service.store("photo.jpg", imageBytes("jpeg", 20, 20), "image/jpeg");
+
+        assertThrows(InvalidImageVariantException.class,
+                () -> service.loadPublicImage(stored.storedName(), "original-but-not-supported"));
+    }
+
+    @Test
+    void deletingOriginalAlsoDeletesGeneratedVariants() throws IOException {
+        StoredImage stored = service.store("photo.jpg", imageBytes("jpeg", 600, 900), "image/jpeg");
+        service.loadPublicImage(stored.storedName(), "thumb");
+        service.loadPublicImage(stored.storedName(), "display");
+
+        service.deleteImage(stored.storedName());
+
+        assertFalse(Files.exists(storageRoot.resolve(stored.storedName())));
+        Path variants = storageRoot.resolve(".variants");
+        try (Stream<Path> files = Files.list(variants)) {
+            assertEquals(0, files.filter(Files::isRegularFile).count(), "删除原图时必须同步清理全部规格缓存");
+        }
+    }
+
     private static byte[] imageBytes(String format, int width, int height) throws IOException {
         int imageType = "png".equals(format) ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
         BufferedImage image = new BufferedImage(width, height, imageType);
@@ -272,6 +400,48 @@ class ImageStorageServiceTest {
         }
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         assertTrue(ImageIO.write(image, format, output), "测试图片编码失败: " + format);
+        return output.toByteArray();
+    }
+
+    private static byte[] noisyJpegBytes(int width, int height) throws IOException {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Random random = new Random(20261119L);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int red = (x * 17 + y * 13 + random.nextInt(80)) & 0xFF;
+                int green = (x * 7 + y * 29 + random.nextInt(80)) & 0xFF;
+                int blue = (x * 31 + y * 5 + random.nextInt(80)) & 0xFF;
+                image.setRGB(x, y, (red << 16) | (green << 8) | blue);
+            }
+        }
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");
+        ImageWriter writer = writers.next();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ImageOutputStream imageOutput = ImageIO.createImageOutputStream(output)) {
+            writer.setOutput(imageOutput);
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(0.98f);
+            writer.write(null, new IIOImage(image, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+        return output.toByteArray();
+    }
+
+    private static byte[] noisyPngBytes(int width, int height) throws IOException {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Random random = new Random(20261120L);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int red = random.nextInt(256);
+                int green = random.nextInt(256);
+                int blue = random.nextInt(256);
+                image.setRGB(x, y, (255 << 24) | (red << 16) | (green << 8) | blue);
+            }
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(image, "png", output));
         return output.toByteArray();
     }
 

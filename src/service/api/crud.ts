@@ -1,4 +1,5 @@
 import { request } from '../request';
+import { compressAdminImage } from '@/utils/image-compression';
 
 /**
  * 后台通用 CRUD 客户端。
@@ -495,8 +496,9 @@ export async function updateGiftCardFaceStatus(faceId: number, enabled: boolean)
 
 /** 上传管理员图片，业务字段只保存服务端返回的真实 URL。 */
 export async function uploadAdminImage(file: File): Promise<AdminImageUploadResult> {
+  const uploadFile = await compressAdminImage(file);
   const data = new FormData();
-  data.append('file', file);
+  data.append('file', uploadFile);
   const res = await request<AdminImageUploadResult>({
     url: '/api/v1/files/images',
     method: 'post',
