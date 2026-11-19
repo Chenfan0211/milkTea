@@ -10,10 +10,12 @@ import type { DataTableColumns } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, FormField, SearchField } from '@/views/_shared/types';
 import { renderDateTime, renderTag, statusMap } from '@/views/_shared/render';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 import { createMallCategory, deleteMallCategory, fetchMallCategories, updateMallCategory } from '@/service/api/mall';
 import type { MallCategory, MallCategoryPayload, MallCategoryStatus } from '@/service/api/mall';
 
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
+const adminImageUrl = useAdminImageUrl();
 
 const statusOptions = [
   { label: '启用', value: 'ENABLED' },
@@ -28,7 +30,8 @@ const columns: DataTableColumns<MallCategory> = [
     width: 84,
     render: (row: MallCategory) =>
       h(NImage, {
-        src: row.iconImage || '',
+        src: adminImageUrl(row.iconImage),
+        fallbackSrc: ADMIN_IMAGE_FALLBACK,
         width: 40,
         height: 40,
         objectFit: 'cover',

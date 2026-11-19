@@ -159,7 +159,7 @@ const rowActions: RowAction[] = [
 const requiredRule = { required: true, message: '请填写', trigger: ['blur', 'change'] } as const;
 
 const formFields: FormField[] = [
-  // 编码留空即由服务端按「前缀 + 6 位主键」生成（如 RS-000031）。
+  // 编码留空即由服务端按「前缀 + 8 位随机数 + 自增主键」生成。
   // 手工填写只在导数据/对接外部系统时用；填了就必须自己保证不与存量冲突，
   // 因为唯一键 uk_biz_subject_code 不含 deleted —— 被删掉的编码也仍被占用。
   { key: 'code', label: '编码', placeholder: '留空自动生成；手工填写需与存量不重复' },

@@ -80,7 +80,7 @@ const rowActions: RowAction[] = [
  * 其中 appid/appSecret/mchId 靠专用接口写入。提现免审阈值已停用，不再开放编辑。
  */
 const formFields: FormField[] = [
-  // 平台主体编码同样留空自动生成（PT-000001 这类，前缀 + 6 位主键）。
+  // 平台主体编码同样留空自动生成（前缀 + 8 位随机数 + 自增主键）。
   // 历史问题：走通用 CRUD 时会落到「SUBJECTS-时间戳-随机数」，与其它主体命名完全不同，
   // 现已在 CrudService 内单独按主体口径生成。
   { key: 'code', label: '编码', placeholder: '留空自动生成' },

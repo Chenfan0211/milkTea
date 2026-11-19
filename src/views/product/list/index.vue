@@ -6,6 +6,7 @@ import type { DataTableColumns } from 'naive-ui';
 import { NImage } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { formatFen, renderTag, statusMap } from '@/views/_shared/render';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 import SpecGroupsEditor from './SpecGroupsEditor.vue';
 
 defineOptions({
@@ -13,6 +14,7 @@ defineOptions({
 });
 
 const store = useAdminStore();
+const adminImageUrl = useAdminImageUrl();
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
 
 // 规格编辑弹窗
@@ -80,7 +82,14 @@ const columns: DataTableColumns<any> = [
     width: 70,
     render: (row: any) =>
       row.image
-        ? h(NImage, { src: row.image, width: 44, height: 44, objectFit: 'cover', style: 'border-radius:6px' })
+        ? h(NImage, {
+            src: adminImageUrl(row.image),
+            fallbackSrc: ADMIN_IMAGE_FALLBACK,
+            width: 44,
+            height: 44,
+            objectFit: 'cover',
+            style: 'border-radius:6px'
+          })
         : h('span', { style: 'color:#9B9B96' }, '—')
   },
   { title: '商品编码', key: 'code', width: 110 },

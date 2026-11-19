@@ -197,5 +197,27 @@ class MallProductQueryServiceTest {
         var detail = service.getAppProduct(9L);
         assertEquals(100L, detail.getSkus().get(0).getDistributionCommission());
     }
+
+    @Test
+    @DisplayName("商城公开详情返回商品详情长图")
+    void publicDetailIncludesProductDetailImages() {
+        MallProduct product = new MallProduct();
+        product.setId(9L);
+        product.setStatus("ON_SALE");
+        product.setDetailImages("[\"/detail/one.jpg\",\"/detail/two.jpg\"]");
+        when(productMapper.selectOne(any(Wrapper.class))).thenReturn(product);
+
+        MallSku sku = new MallSku();
+        sku.setId(1L);
+        sku.setProductId(9L);
+        sku.setSalePrice(1000L);
+        sku.setStock(2);
+        sku.setLockedStock(0);
+        when(skuMapper.selectList(any())).thenReturn(List.of(sku));
+
+        var detail = service.getAppProduct(9L);
+
+        assertEquals(List.of("/detail/one.jpg", "/detail/two.jpg"), detail.getDetailImages());
+    }
 }
 

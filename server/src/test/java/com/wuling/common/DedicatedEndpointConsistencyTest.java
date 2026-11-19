@@ -154,12 +154,16 @@ class DedicatedEndpointConsistencyTest {
             // 首页装修编辑弹窗复用文件服务图片上传接口。
             "src/views/system/home-decor/index.vue",
             "src/views/system/home-decor/HomeBannerEditor.vue",
+            // 商城轮播编辑弹窗复用文件服务图片上传接口。
+            "src/views/mall/banner/MallBannerEditor.vue",
             // 商城管理：分类、商品、订单均走专用接口（订单复用 AdminOrderController/OrderDTO）
             "src/views/mall/category/index.vue",
             "src/views/mall/after-sale/index.vue",
             "src/views/mall/product/index.vue",
             // 商城商品主图 / SKU 图片复用文件服务上传接口。
             "src/views/mall/product/ProductImageUpload.vue",
+            // 商城商品详情长图列表复用文件服务上传接口。
+            "src/views/mall/product/ProductDetailImages.vue",
             "src/views/mall/order/index.vue",
             // 以下 3 个为详情页：用描述列表（descriptions）而非 DataTable columns 展示，
             // 故不参与「直读列」校验，仅登记以满足覆盖范围可见性要求

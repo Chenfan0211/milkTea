@@ -11,10 +11,12 @@ import type { AdminListConfig, RowAction, SearchField } from '@/views/_shared/ty
 import { fetchGiftCardFaces, updateGiftCardFaceStatus } from '@/service/api/crud';
 import type { GiftCardFace } from '@/service/api/crud';
 import { formatFen } from '@/views/_shared/render';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 import GiftCardEditor from './GiftCardEditor.vue';
 import GiftGroupManager from './GiftGroupManager.vue';
 
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
+const adminImageUrl = useAdminImageUrl();
 const editorVisible = ref(false);
 const editingFace = ref<GiftCardFace | null>(null);
 const groupVisible = ref(false);
@@ -48,7 +50,8 @@ const columns: DataTableColumns<GiftCardFace> = [
     render: row =>
       row.cardImage
         ? h(NImage, {
-            src: row.cardImage,
+            src: adminImageUrl(row.cardImage),
+            fallbackSrc: ADMIN_IMAGE_FALLBACK,
             width: 90,
             height: 54,
             objectFit: 'cover',

@@ -244,6 +244,7 @@ const local: App.I18n.Schema = {
     auth_account: 'Account',
     auth_grant: 'Role Grants',
     mall: 'Mall',
+    mall_banner: 'Mall Carousel',
     mall_category: 'Mall Categories',
     'mall_after-sale': 'After-sale Review',
     mall_product: 'Mall Products',

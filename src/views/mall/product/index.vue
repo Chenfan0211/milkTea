@@ -23,6 +23,7 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField } from '@/views/_shared/types';
 import { fetchSubjectsByType } from '@/service/api/crud';
 import { formatFen, formatDateTime, renderTag, statusMap } from '@/views/_shared/render';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 import {
   adjustMallSkuStock,
   deleteMallProduct,
@@ -43,6 +44,7 @@ import type {
   MallSkuPayload
 } from '@/service/api/mall';
 import ProductImageUpload from './ProductImageUpload.vue';
+import ProductDetailImages from './ProductDetailImages.vue';
 import { fenToYuan, yuanToFen } from './money';
 
 interface ProductFormState {
@@ -52,6 +54,7 @@ interface ProductFormState {
   subtitle: string;
   specName: string;
   coverImage: string;
+  detailImages: string[];
   description: string;
   supplierSubjectId: number | null;
   status: MallProductStatus;
@@ -73,6 +76,7 @@ interface SkuRow {
 }
 
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
+const adminImageUrl = useAdminImageUrl();
 const categories = ref<MallCategory[]>([]);
 const drawerVisible = ref(false);
 const drawerLoading = ref(false);
@@ -142,6 +146,7 @@ function emptyProduct(): ProductFormState {
     subtitle: '',
     specName: '规格',
     coverImage: '',
+    detailImages: [],
     description: '',
     supplierSubjectId: null,
     status: 'DRAFT'
@@ -226,6 +231,7 @@ async function openEdit(row: MallProductAdmin) {
       subtitle: detail.subtitle ?? '',
       specName: detail.specName ?? '规格',
       coverImage: detail.coverImage ?? '',
+      detailImages: Array.isArray(detail.detailImages) ? detail.detailImages.slice() : [],
       description: detail.description ?? '',
       supplierSubjectId: detail.supplierSubjectId ?? null,
       status: detail.status ?? 'DRAFT'
@@ -258,6 +264,7 @@ function productPayload(status: MallProductStatus): MallProductPayload {
     specName: form.specName.trim() || '规格',
     coverImage: form.coverImage.trim() || undefined,
     galleryImages: editingProduct.value?.galleryImages ?? [],
+    detailImages: form.detailImages.map(image => image.trim()).filter(Boolean),
     description: form.description.trim() || undefined,
     supplierSubjectId: Number(form.supplierSubjectId),
     status
@@ -425,7 +432,8 @@ const columns: DataTableColumns<any> = [
     render: (row: MallProductAdmin) =>
       row.coverImage
         ? h(NImage, {
-            src: row.coverImage,
+            src: adminImageUrl(row.coverImage),
+            fallbackSrc: ADMIN_IMAGE_FALLBACK,
             width: 44,
             height: 44,
             objectFit: 'cover',
@@ -654,6 +662,10 @@ const config: AdminListConfig = {
                 :autosize="{ minRows: 4, maxRows: 10 }"
                 placeholder="商品详情文案"
               />
+            </NFormItem>
+
+            <NFormItem label="详情长图" class="detail-images-field">
+              <ProductDetailImages v-model="form.detailImages" :disabled="saving" />
             </NFormItem>
           </NForm>
         </NSpin>

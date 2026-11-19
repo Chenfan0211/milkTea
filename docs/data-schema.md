@@ -180,6 +180,8 @@
 ## 三之三、小程序商城（2026-10-25）
 
 - 商城商品独立使用 `mall_product` / `mall_sku`，不混入门店饮品 `product`。
+- 线上商城首页轮播独立存于 `mall_banner`，与点单首页 `home_banner` 互不影响；`target_type` 仅允许 `none`（纯展示）或 `mallProduct`（商城商品），小程序接口为 `/api/v1/app/config/mall`。
+- `mall_product.gallery_images` 保存顶部商品主图轮播；`mall_product.detail_images` 保存商品说明下方的有序详情长图数组，最多 20 张，两者职责相互独立。
 - 商城商品统一面向全部门店销售，`mall_product.supplier_subject_id` 为 SPU 唯一供应商，所有 SKU 自动继承；旧门店、渠道、分账字段仅作历史兼容并停止对外提供。
 - 商城订单复用 `orders` / `order_item`，以 `order_type=MALL` 区分；门店订单保持 `STORE`。
 - 商城状态机：`CREATED → PAID → SHIPPED → COMPLETED`，取消为 `CANCELED`；整单退完为 `REFUNDED`，部分退款保持 `SHIPPED/COMPLETED` 并置 `refund_status=REFUNDED`。

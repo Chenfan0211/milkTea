@@ -183,6 +183,7 @@ const routeMap: RouteMap = {
   "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?",
   "mall": "/mall",
   "mall_after-sale": "/mall/after-sale",
+  "mall_banner": "/mall/banner",
   "mall_category": "/mall/category",
   "mall_order": "/mall/order",
   "mall_product": "/mall/product",

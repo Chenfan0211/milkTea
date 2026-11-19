@@ -211,6 +211,23 @@
   white-space: pre-wrap;
 }
 
+.detail-images {
+  padding: 24rpx 0;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+}
+
+.detail-images__title {
+  margin: 0 24rpx 16rpx;
+}
+
+.detail-images__item {
+  display: block;
+  width: 100%;
+  margin-top: 12rpx;
+  background: var(--page-bg-neutral);
+}
+
 .detail-note {
   padding: 20rpx;
   color: var(--text-muted);

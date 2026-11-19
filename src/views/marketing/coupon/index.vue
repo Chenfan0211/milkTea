@@ -10,8 +10,10 @@ import type { AdminListConfig, SearchField, RowAction, FormField } from '@/views
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
 import { renderTag, statusMap } from '@/views/_shared/render';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 const store = useAdminStore();
+const adminImageUrl = useAdminImageUrl();
 
 /**
  * 优惠券管理。
@@ -68,7 +70,14 @@ const columns: DataTableColumns<any> = [
     width: 80,
     render: (row: any) =>
       row.image
-        ? h(NImage, { src: row.image, width: 56, height: 40, objectFit: 'cover', style: 'border-radius:4px' })
+        ? h(NImage, {
+            src: adminImageUrl(row.image),
+            fallbackSrc: ADMIN_IMAGE_FALLBACK,
+            width: 56,
+            height: 40,
+            objectFit: 'cover',
+            style: 'border-radius:4px'
+          })
         : h('span', { style: 'color:#9B9B96' }, '—')
   },
   { title: '券标题', key: 'name', minWidth: 200 },

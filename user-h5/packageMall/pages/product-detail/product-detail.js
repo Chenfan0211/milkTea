@@ -95,6 +95,27 @@ Page(
         this.setData({ galleryIndex: index });
       },
 
+      handleDetailImageError(event) {
+        const index = Number(
+          event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.index
+        );
+        this.setData({
+          'product.detailImages': mall.removeFailedDetailImage(
+            this.data.product.detailImages,
+            Number.isFinite(index) ? index : 0
+          )
+        });
+      },
+
+      openDetailImage(event) {
+        const index = Number(
+          event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.index
+        );
+        const urls = (this.data.product && this.data.product.detailImages) || [];
+        if (!urls[index]) return;
+        wx.previewImage({ current: urls[index], urls });
+      },
+
       increaseQuantity() {
         const sku = this.data.selectedSku;
         if (!sku || sku.soldOut) return;

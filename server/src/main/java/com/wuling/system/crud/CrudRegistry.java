@@ -231,6 +231,9 @@ public final class CrudRegistry {
             Map.entry("homeBanners", new Resource("homeBanners", "home_banner",
                     List.of("image_url", "alt_text", "target_type", "target_id", "sort", "status"),
                     List.of("alt_text"), "sort asc, id asc", List.of("status"))),
+            Map.entry("mallBanners", new Resource("mallBanners", "mall_banner",
+                    List.of("image_url", "alt_text", "target_type", "target_id", "sort", "status"),
+                    List.of("alt_text"), "sort asc, id asc", List.of("status"))),
             // 运营配置（首页入口 / 活动说明 / 我的页宫格 / 城市 / 签到规则文案）
             Map.entry("appConfig", new Resource("appConfig", "app_config",
                     List.of("config_key", "config_name", "value", "sort", "status", "remark"),

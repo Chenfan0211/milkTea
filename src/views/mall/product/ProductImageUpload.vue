@@ -7,6 +7,7 @@ import { ref } from 'vue';
 import { NButton, NImage, NUpload } from 'naive-ui';
 import type { UploadCustomRequestOptions } from 'naive-ui';
 import { uploadAdminImage } from '@/service/api/crud';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 const props = withDefaults(
   defineProps<{
@@ -25,6 +26,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
+const adminImageUrl = useAdminImageUrl();
 
 const uploading = ref(false);
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -80,7 +82,8 @@ function removeImage() {
     >
       <NImage
         v-if="props.modelValue"
-        :src="props.modelValue"
+        :src="adminImageUrl(props.modelValue)"
+        :fallback-src="ADMIN_IMAGE_FALLBACK"
         :width="props.size"
         :height="props.size"
         object-fit="cover"

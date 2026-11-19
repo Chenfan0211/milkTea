@@ -8,6 +8,7 @@ import { NButton, NForm, NFormItem, NImage, NInput, NInputNumber, NModal, NSelec
 import type { UploadCustomRequestOptions } from 'naive-ui';
 import { createGiftCardFace, fetchGiftCardGroups, updateGiftCardFace, uploadGiftCardImage } from '@/service/api/crud';
 import type { GiftCardFace, GiftCardFacePayload } from '@/service/api/crud';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 interface DenominationDraft {
   id?: number;
@@ -38,6 +39,7 @@ const submitting = ref(false);
 const uploading = ref(false);
 const groupsLoading = ref(false);
 const groupOptions = ref<{ label: string; value: string }[]>([]);
+const adminImageUrl = useAdminImageUrl();
 
 const form = reactive<GiftCardForm>({
   groupId: null,
@@ -217,7 +219,8 @@ async function submit() {
         <div class="image-field">
           <NImage
             v-if="form.cardImage"
-            :src="form.cardImage"
+            :src="adminImageUrl(form.cardImage)"
+            :fallback-src="ADMIN_IMAGE_FALLBACK"
             width="180"
             height="110"
             object-fit="cover"

@@ -227,7 +227,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: '商城管理',
       icon: 'mdi:shopping-outline',
-      i18nKey: 'route.mall'
+      i18nKey: 'route.mall',
+      order: 35,
+      roles: ['R_SUPER', 'R_OPERATION']
     },
     children: [
       {
@@ -240,6 +242,18 @@ export const generatedRoutes: GeneratedRoute[] = [
           roles: ['R_SUPER', 'R_OPERATION'],
           keepAlive: true,
           i18nKey: 'route.mall_after-sale'
+        }
+      },
+      {
+        name: 'mall_banner',
+        path: '/mall/banner',
+        component: 'view.mall_banner',
+        meta: {
+          title: '商城轮播',
+          order: 0,
+          roles: ['R_SUPER', 'R_OPERATION'],
+          keepAlive: true,
+          i18nKey: 'route.mall_banner'
         }
       },
       {

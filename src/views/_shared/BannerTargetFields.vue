@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { NFormItem, NSelect } from 'naive-ui';
 import { fetchProductsPage } from '@/service/api/admin-product';
 import { fetchMallProducts } from '@/service/api/mall';
 
-const props = defineProps<{ targetType: string; targetId: string }>();
+const props = defineProps<{ targetType: string; targetId: string; allowedTypes?: string[] }>();
 const emit = defineEmits<{ 'update:targetType': [string]; 'update:targetId': [string] }>();
-const options = [
+const allOptions = [
   { label: '不跳转', value: 'none' },
   { label: '订单页', value: 'orders' },
   { label: '优惠券页', value: 'coupons' },
@@ -15,6 +15,11 @@ const options = [
   { label: '点单商品', value: 'menuProduct' },
   { label: '商城商品', value: 'mallProduct' }
 ];
+const options = computed(() =>
+  Array.isArray(props.allowedTypes)
+    ? allOptions.filter(option => props.allowedTypes?.includes(option.value))
+    : allOptions
+);
 const products = ref<{ label: string; value: string }[]>([]);
 const searching = ref(false);
 let requestId = 0;

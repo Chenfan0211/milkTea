@@ -157,7 +157,7 @@ const rowActions: RowAction[] = [
 const requiredRule = { required: true, message: '请填写', trigger: ['blur', 'change'] } as const;
 
 const formFields: FormField[] = [
-  // 编码留空即由服务端按「前缀 + 6 位主键」生成（如 IV-000033）；
+  // 编码留空即由服务端按「前缀 + 8 位随机数 + 自增主键」生成；
   // 唯一键不含 deleted，被删掉的编码仍被占用，手工填写需自行确认不重复。
   { key: 'code', label: '编码', placeholder: '留空自动生成；手工填写需与存量不重复' },
   { key: 'name', label: '姓名', rules: [requiredRule] }

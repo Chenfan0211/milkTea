@@ -240,6 +240,7 @@ const local: App.I18n.Schema = {
     auth_account: '账号管理',
     auth_grant: '角色授权记录',
     mall: '商城管理',
+    mall_banner: '商城轮播',
     mall_category: '商城分类',
     'mall_after-sale': '售后审核',
     mall_product: '商城商品',

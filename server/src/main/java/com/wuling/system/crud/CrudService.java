@@ -272,7 +272,7 @@ public class CrudService {
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
-        // 经营主体：主键已分配，把占位码回写为正式编码（前缀 + 6 位主键）。
+        // 经营主体：主键已分配，把占位码回写为正式编码（前缀 + 8 位随机数 + 自增主键）。
         // 放在 insert 之后、返回之前，保证对外读到的永远是正式编码。
         if (autoSubjectCode && key != null) {
             jdbcTemplate.update("update biz_subject set code = ? where id = ?",

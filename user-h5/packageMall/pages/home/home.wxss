@@ -75,6 +75,24 @@
   font-weight: 600;
 }
 
+.home-banner-wrap {
+  padding: 0 20rpx 16rpx;
+}
+
+.home-banner-swiper {
+  width: 710rpx;
+  height: 260rpx;
+  overflow: hidden;
+  background: var(--brand-soft);
+  border-radius: var(--radius-lg);
+}
+
+.home-banner {
+  display: block;
+  width: 710rpx;
+  height: 260rpx;
+}
+
 .category-scroll {
   width: 100%;
   height: 144rpx;

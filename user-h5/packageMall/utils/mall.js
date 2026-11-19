@@ -153,11 +153,18 @@ function normalizeDetail(detail, leaderBuyer = false) {
     description: plainText(source.description),
     image: imageUrl(source.coverImage),
     galleryImages: (Array.isArray(source.galleryImages) ? source.galleryImages : []).map(imageUrl).filter(Boolean),
+    detailImages: (Array.isArray(source.detailImages) ? source.detailImages : [])
+      .map(value => resolveAssetUrl(String(value || '').trim()))
+      .filter(Boolean),
     minPrice,
     priceText: priceText(minPrice),
     originalPriceText: originalPrice > minPrice ? priceText(originalPrice) : '',
     skus
   });
+}
+
+function removeFailedDetailImage(images, index) {
+  return (Array.isArray(images) ? images : []).filter((_, itemIndex) => itemIndex !== Number(index));
 }
 
 function normalizeAddress(address) {
@@ -334,6 +341,7 @@ module.exports = {
   normalizeAddress,
   normalizeCategory,
   normalizeDetail,
+  removeFailedDetailImage,
   normalizeProduct,
   normalizeSku,
   normalizeStatus,

@@ -7,8 +7,7 @@ import type { DataTableColumns } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, RowAction, SearchField } from '@/views/_shared/types';
 import { useAdminStore } from '@/store/modules/admin';
-import { getServiceBaseURL } from '@/utils/service';
-import { resolveAdminImageUrl } from '@/views/_shared/image-url';
+import { useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 import HomeBannerEditor from './HomeBannerEditor.vue';
 
 interface HomeBanner {
@@ -22,10 +21,8 @@ interface HomeBanner {
 }
 
 const store = useAdminStore();
-const imageBaseURL = getServiceBaseURL(
-  import.meta.env,
-  import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y'
-).baseURL;
+const adminImageUrl = useAdminImageUrl();
+const bannerFallback = '/assets/images/3x/home-hero.jpg';
 const listRef = ref<InstanceType<typeof AdminListPage> | null>(null);
 const editorVisible = ref(false);
 const editingBanner = ref<HomeBanner | null>(null);
@@ -52,7 +49,8 @@ const columns: DataTableColumns<HomeBanner> = [
     render: row =>
       row.imageUrl
         ? h(NImage, {
-            src: resolveAdminImageUrl(row.imageUrl, imageBaseURL),
+            src: adminImageUrl(row.imageUrl),
+            fallbackSrc: bannerFallback,
             width: 90,
             height: 125,
             objectFit: 'contain',

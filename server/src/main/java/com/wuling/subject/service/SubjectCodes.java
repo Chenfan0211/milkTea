@@ -1,6 +1,7 @@
 package com.wuling.subject.service;
 
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 经营主体编码（{@code biz_subject.code}）规则。
@@ -21,17 +22,17 @@ import java.util.UUID;
  * 撞车时抛的是 {@code DuplicateKeyException}，被全局兜底成「服务器内部错误」，
  * 运营只看到 500，完全定位不到原因。
  *
- * <p><b>现在的口径</b>：{@code 前缀 + "-" + 6 位零填充自增主键}，例如 {@code ST-000106}。
+ * <p><b>现在的口径</b>：{@code 前缀 + "-" + 8 位随机数字 + 自增主键}，
+ * 例如 {@code ST-48392015106}。
  * 主键由数据库原子分配，因此：
  * <ul>
- *   <li>同类型内绝不重复（主键唯一）；</li>
+ *   <li>自增主键追加在末尾，不同主体的正式编码不会重复；</li>
  *   <li>不同类型前缀不同，全局也不会撞（{@code uk_biz_subject_code} 是全局唯一键）；</li>
- *   <li>软删除/手工编码/并发都不再影响下一个号码。</li>
+ *   <li>自动编号不再依赖当前行数，软删除和并发新增不会让下一个号码回退。</li>
  * </ul>
  *
- * <p><b>为什么补零到 6 位</b>：历史种子码是 4 位（{@code ST-1001}、{@code RS-1000}），
- * 6 位定宽码与之位数不同，永远不可能相等，无需担心主键涨到 1001 时撞上种子 ST-1001；
- * 同时定宽保证按编码排序与按主键排序一致。
+ * <p><b>为什么加 8 位随机数</b>：编码不再暴露连续主体序号的全部规律，同时末尾保留
+ * 自增主键作为唯一性根据。随机数固定为 8 位，不足 8 位时前补零。
  *
  * <p><b>兼容</b>：存量编码（4 位种子、手工导入的 {@code SU-TEST37} 等）一律不改写，
  * 前端只把 code 当不透明标识，无需同步迁移。
@@ -51,13 +52,14 @@ public final class SubjectCodes {
      *
      * @param subjectType {@code biz_subject.subject_type}（大小写不敏感）
      * @param id          主体自增主键
-     * @return 形如 {@code ST-000106} 的编码
+     * @return 形如 {@code ST-48392015106} 的编码
      */
     public static String of(String subjectType, long id) {
         if (id <= 0) {
             throw new IllegalArgumentException("主体主键必须为正数，否则编码不可用：id=" + id);
         }
-        return prefix(subjectType) + "-" + String.format("%06d", id);
+        int random = ThreadLocalRandom.current().nextInt(100_000_000);
+        return prefix(subjectType) + "-" + String.format("%08d", random) + id;
     }
 
     /**

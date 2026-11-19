@@ -10,9 +10,11 @@ import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, SearchField, RowAction, FormField, SelectOption } from '@/views/_shared/types';
 import type { DataTableColumns } from 'naive-ui';
 import { useAdminStore } from '@/store/modules/admin';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 const store = useAdminStore();
 const router = useRouter();
+const adminImageUrl = useAdminImageUrl();
 
 function isEnabled(value: any): boolean {
   return value === true || Number(value) === 1 || value === 'enabled';
@@ -104,7 +106,14 @@ const columns: DataTableColumns<any> = [
     width: 80,
     render: (row: any) =>
       row.image
-        ? h(NImage, { src: row.image, width: 56, height: 56, objectFit: 'cover', style: 'border-radius:6px' })
+        ? h(NImage, {
+            src: adminImageUrl(row.image),
+            fallbackSrc: ADMIN_IMAGE_FALLBACK,
+            width: 56,
+            height: 56,
+            objectFit: 'cover',
+            style: 'border-radius:6px'
+          })
         : h('span', { style: 'color:#9B9B96' }, '—')
   },
   { title: '商品名称', key: 'name', minWidth: 180 },

@@ -83,6 +83,7 @@ const REMOTE_RESOURCES: Record<string, string> = {
   memberLevels: 'memberLevels',
   profileBanners: 'profileBanners',
   homeBanners: 'homeBanners',
+  mallBanners: 'mallBanners',
   // 授权管理
   roles: 'roles',
   grants: 'grants',
@@ -239,6 +240,7 @@ function seed(): AdminData {
     memberLevels: [],
     profileBanners: [],
     homeBanners: [],
+    mallBanners: [],
     auditLogs: []
   };
 }
@@ -815,6 +817,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     giftCards: '礼品卡',
     profileBanners: '我的页轮播',
     homeBanners: '首页装修',
+    mallBanners: '商城轮播',
     appConfig: '运营配置'
   };
 

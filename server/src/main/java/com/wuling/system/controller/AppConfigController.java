@@ -17,7 +17,7 @@ import java.util.Set;
 /**
  * 小程序端运营配置读取。
  *
- * 通用配置存于 app_config 表（config_key -> JSON）；首页和我的页轮播逐条存于各自的轮播表。
+ * 通用配置存于 app_config 表（config_key -> JSON）；首页、线上商城和我的页轮播逐条存于各自的轮播表。
  * 首页入口、活动说明、轮播和我的页宫格等运营内容无需发版即可调整。
  *
  * 读取链路：Redis 缓存优先，未命中回源 MySQL 并写回缓存
@@ -99,6 +99,17 @@ public class AppConfigController {
         result.put("banners", jdbcTemplate.queryForList(
                 "select id, image_url as imageUrl, alt_text as altText, "
                         + "target_type as targetType, target_id as targetId from profile_banner "
+                        + "where status = 'enabled' and deleted = 0 order by sort asc, id asc"));
+        return Result.ok(result);
+    }
+
+    /** 线上商城所需配置（独立轮播） */
+    @GetMapping("/mall")
+    public Result<Map<String, Object>> mall() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("banners", jdbcTemplate.queryForList(
+                "select id, image_url as imageUrl, alt_text as altText, "
+                        + "target_type as targetType, target_id as targetId from mall_banner "
                         + "where status = 'enabled' and deleted = 0 order by sort asc, id asc"));
         return Result.ok(result);
     }

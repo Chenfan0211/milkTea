@@ -13,8 +13,10 @@ import type { RoleType } from '@/store/modules/admin';
 import defaultAvatar from '@/assets/images/profile-avatar.jpg';
 import { renderTag, statusMap, renderDateTime, formatFen } from '@/views/_shared/render';
 import { fetchLeaders, fetchUserLeaders, assignUserLeader, removeUserLeader } from '@/service/api/crud';
+import { useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 const store = useAdminStore();
+const adminImageUrl = useAdminImageUrl();
 
 const roleOptions = [
   { label: '门店', value: 'store' },
@@ -82,7 +84,13 @@ const columns: DataTableColumns<any> = [
     key: 'avatar',
     width: 80,
     render: (row: any) =>
-      h(NAvatar, { round: true, size: 40, src: row.avatar || defaultAvatar, style: 'display:block' })
+      h(NAvatar, {
+        round: true,
+        size: 40,
+        src: adminImageUrl(row.avatar) || defaultAvatar,
+        fallbackSrc: defaultAvatar,
+        style: 'display:block'
+      })
   },
   { title: '用户ID', key: 'id', width: 110, render: (row: any) => row.id ?? '—' },
   { title: '手机号', key: 'phone', width: 130, render: (row: any) => row.phone || '—' },

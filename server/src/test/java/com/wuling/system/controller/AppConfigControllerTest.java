@@ -77,4 +77,29 @@ class AppConfigControllerTest {
         org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("target_id as targetId"),
                 "我的页轮播必须下发商品 ID");
     }
+
+    @Test
+    @DisplayName("线上商城接口下发独立的启用轮播")
+    void mallIncludesEnabledBanners() {
+        AppConfigCacheService cache = mock(AppConfigCacheService.class);
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        List<Map<String, Object>> banners = List.of(
+                Map.of("id", 21L, "imageUrl", "/api/v1/files/public/mall-one.jpg",
+                        "altText", "商城新品", "targetType", "mallProduct", "targetId", "27"),
+                Map.of("id", 22L, "imageUrl", "/api/v1/files/public/mall-two.jpg",
+                        "altText", "纯展示", "targetType", "none", "targetId", ""));
+        when(jdbcTemplate.queryForList(contains("from mall_banner"))).thenReturn(banners);
+
+        AppConfigController controller = new AppConfigController(cache, jdbcTemplate);
+        Map<?, ?> result = controller.mall().getData();
+
+        assertEquals(banners, result.get("banners"), "商城接口必须逐条下发独立轮播");
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForList(sql.capture());
+        assertTrue(sql.getValue().contains("status = 'enabled'"));
+        assertTrue(sql.getValue().contains("deleted = 0"));
+        assertTrue(sql.getValue().contains("order by sort asc, id asc"));
+        assertTrue(sql.getValue().contains("target_type as targetType"));
+        assertTrue(sql.getValue().contains("target_id as targetId"));
+    }
 }

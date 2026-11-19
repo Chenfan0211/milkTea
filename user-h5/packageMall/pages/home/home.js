@@ -1,6 +1,7 @@
 const api = require('../../../utils/api');
 const mall = require('../../utils/mall');
 const mallCart = require('../../../utils/mall-cart');
+const mallBanner = require('../../../utils/mall-banner');
 const { withShare } = require('../../../utils/share');
 
 const PAGE_SIZE = 10;
@@ -13,6 +14,7 @@ Page(
   withShare(
     {
       data: {
+        mallBanners: [],
         categories: [{ id: 0, name: '全部', iconImage: mall.categoryIconUrl('') }],
         cartCount: 0,
         cartCountText: '',
@@ -27,6 +29,7 @@ Page(
       },
 
       onLoad() {
+        this.loadBanners();
         this.loadCategories();
         this.loadProducts(true);
         this.hasShown = false;
@@ -58,6 +61,41 @@ Page(
           .catch(() => {
             // 分类失败不阻断商品浏览，保留「全部」。
           });
+      },
+
+      loadBanners() {
+        api
+          .fetchMallConfig()
+          .then(config => {
+            this.setData({
+              mallBanners: mallBanner.normalizeBanners(config, api.resolveAssetUrl)
+            });
+          })
+          .catch(() => {
+            // 配置失败不阻断商城浏览，保持轮播隐藏。
+          });
+      },
+
+      handleMallBannerError(event) {
+        const index = Number(
+          event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.index
+        );
+        this.setData({
+          mallBanners: mallBanner.removeFailedBanner(this.data.mallBanners, Number.isFinite(index) ? index : 0)
+        });
+      },
+
+      openMallBanner(event) {
+        const index = Number(
+          event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.index
+        );
+        const item = this.data.mallBanners[index];
+        if (!item) return null;
+        return mallBanner.openBannerTarget(item, {
+          fetchMallProductDetail: api.fetchMallProductDetail,
+          navigateTo: url => wx.navigateTo({ url }),
+          showToast: options => wx.showToast(options)
+        });
       },
 
       handleCategoryIconError(event) {

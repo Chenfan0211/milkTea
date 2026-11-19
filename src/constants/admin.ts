@@ -25,6 +25,9 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   user: { title: '用户管理', icon: 'mdi:account-group', order: 15, roles: op },
   user_list: { title: '用户列表', order: 1, roles: op, keepAlive: true },
 
+  mall: { title: '商城管理', icon: 'mdi:shopping-outline', order: 35, roles: op },
+  mall_banner: { title: '商城轮播', order: 0, roles: op, keepAlive: true },
+
   review: { title: '申请审核', icon: 'mdi:clipboard-text-clock', order: 25, roles: op },
   review_role: { title: '角色开通审核', order: 1, roles: op, keepAlive: true },
   'review_role-detail': { title: '角色开通审核详情', roles: op, hideInMenu: true },

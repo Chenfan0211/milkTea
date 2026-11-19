@@ -6,10 +6,9 @@ import { NButton, NForm, NFormItem, NImage, NInput, NInputNumber, NModal, NSelec
 import type { UploadCustomRequestOptions } from 'naive-ui';
 import { uploadAdminImage } from '@/service/api/crud';
 import { useAdminStore } from '@/store/modules/admin';
-import { getServiceBaseURL } from '@/utils/service';
 import BannerTargetFields from '@/views/_shared/BannerTargetFields.vue';
 import { compressBannerImage, MAX_BANNER_BYTES } from '@/views/_shared/banner-image';
-import { resolveAdminImageUrl } from '@/views/_shared/image-url';
+import { useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 interface HomeBanner {
   id?: number;
@@ -26,10 +25,8 @@ const emit = defineEmits<{ 'update:show': [boolean]; saved: [] }>();
 const store = useAdminStore();
 const submitting = ref(false);
 const uploading = ref(false);
-const imageBaseURL = getServiceBaseURL(
-  import.meta.env,
-  import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y'
-).baseURL;
+const adminImageUrl = useAdminImageUrl();
+const bannerFallback = '/assets/images/3x/home-hero.jpg';
 const form = reactive<HomeBanner>({
   imageUrl: '',
   altText: '',
@@ -39,7 +36,7 @@ const form = reactive<HomeBanner>({
   targetId: ''
 });
 const title = computed(() => (props.banner?.id ? '编辑轮播图' : '新增轮播图'));
-const previewUrl = computed(() => resolveAdminImageUrl(form.imageUrl, imageBaseURL));
+const previewUrl = computed(() => adminImageUrl(form.imageUrl));
 const statusOptions = [
   { label: '启用', value: 'enabled' },
   { label: '停用', value: 'disabled' }
@@ -129,7 +126,14 @@ async function submit() {
     <NForm label-placement="left" :label-width="96">
       <NFormItem label="轮播图片" required>
         <div class="image-field">
-          <NImage v-if="form.imageUrl" :src="previewUrl" width="150" height="208" object-fit="contain" />
+          <NImage
+            v-if="form.imageUrl"
+            :src="previewUrl"
+            :fallback-src="bannerFallback"
+            width="150"
+            height="208"
+            object-fit="contain"
+          />
           <div v-else class="image-empty">暂无图片</div>
           <NUpload accept=".jpg,.jpeg,.png,image/jpeg,image/png" :show-file-list="false" :custom-request="handleUpload">
             <NButton :loading="uploading">{{ form.imageUrl ? '重新上传' : '上传图片' }}</NButton>

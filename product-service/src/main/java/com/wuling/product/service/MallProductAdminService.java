@@ -358,6 +358,9 @@ public class MallProductAdminService {
         product.setSpecName(StringUtils.hasText(request.getSpecName()) ? request.getSpecName().trim() : "规格");
         product.setCoverImage(trimToNull(request.getCoverImage()));
         product.setGalleryImages(writeStringList(request.getGalleryImages()));
+        if (request.getDetailImages() != null) {
+            product.setDetailImages(writeDetailImageList(request.getDetailImages()));
+        }
         product.setDescription(trimToNull(request.getDescription()));
         product.setSupplierSubjectId(request.getSupplierSubjectId());
         String status = StringUtils.hasText(request.getStatus()) ? upper(request.getStatus()) : "DRAFT";
@@ -435,6 +438,7 @@ public class MallProductAdminService {
         dto.setSpecName(product.getSpecName());
         dto.setCoverImage(product.getCoverImage());
         dto.setGalleryImages(parseStringList(product.getGalleryImages()));
+        dto.setDetailImages(parseStringList(product.getDetailImages()));
         dto.setDescription(product.getDescription());
         dto.setSupplierSubjectId(product.getSupplierSubjectId());
         dto.setSupplierName(subjectName(suppliers, product.getSupplierSubjectId()));
@@ -501,6 +505,28 @@ public class MallProductAdminService {
         } catch (Exception e) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "商品图片数据格式错误");
         }
+    }
+
+    private String writeDetailImageList(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return "[]";
+        }
+        List<String> normalized = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (String value : values) {
+            if (!StringUtils.hasText(value)) {
+                continue;
+            }
+            String url = value.trim();
+            if (!seen.add(url)) {
+                continue;
+            }
+            normalized.add(url);
+        }
+        if (normalized.size() > 20) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "商品详情长图不能超过20张");
+        }
+        return writeStringList(normalized);
     }
     private static boolean negative(Long value) {
         return value != null && value < 0;

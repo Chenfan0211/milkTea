@@ -6,9 +6,11 @@ import AdminDetailPage from '@/views/_shared/AdminDetailPage.vue';
 import type { DetailGroup } from '@/views/_shared/AdminDetailPage.vue';
 import { useAdminStore } from '@/store/modules/admin';
 import { formatFen, formatDateTime } from '@/views/_shared/render';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 const store = useAdminStore();
 const route = useRoute();
+const adminImageUrl = useAdminImageUrl();
 
 const payStatusLabel = (v: string) => ({ UNPAID: '未支付', PAID: '已支付', REFUNDED: '已退款' })[v] ?? v;
 const mealTypeLabel = (v: string) =>
@@ -41,7 +43,8 @@ function renderItems(row: any) {
       h('div', { style: 'display:flex;align-items:center;gap:10px' }, [
         it.image
           ? h(NImage, {
-              src: it.image,
+              src: adminImageUrl(it.image),
+              fallbackSrc: ADMIN_IMAGE_FALLBACK,
               width: 40,
               height: 40,
               objectFit: 'cover',

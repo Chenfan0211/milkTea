@@ -5,6 +5,7 @@ import com.wuling.common.api.Result;
 import com.wuling.common.api.ResultCode;
 import com.wuling.common.exception.BusinessException;
 import com.wuling.subject.service.LeaderAttributionService;
+import com.wuling.subject.service.SubjectCodes;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -118,16 +119,20 @@ public class AdminLeaderController {
         String name = payload.get("name") == null || String.valueOf(payload.get("name")).isBlank()
                 ? (StringUtils.hasText(nick) ? nick : "团长" + userId)
                 : String.valueOf(payload.get("name")).trim();
-        String code = "LD-" + userId;
-        jdbcTemplate.update(
-                "insert into biz_subject (code, name, subject_type, status) values (?, ?, 'LEADER', 'active') "
-                        + "on duplicate key update name = values(name), subject_type = 'LEADER', "
-                        + "status = 'active', deleted = 0, bound_user_id = null",
-                code, name);
-        Long subjectId = jdbcTemplate.queryForObject(
-                "select id from biz_subject where code = ? and deleted = 0", Long.class, code);
-        if (subjectId == null) {
-            throw new BusinessException(ResultCode.ERROR, "团长主体创建失败");
+        List<Long> existingSubjects = jdbcTemplate.queryForList(
+                "select g.subject_id from user_role_grant g join biz_subject s on s.id = g.subject_id "
+                        + "where g.user_id = ? and UPPER(g.role_code) = 'LEADER' and g.deleted = 0 "
+                        + "and s.subject_type = 'LEADER' and s.deleted = 0 order by g.id desc limit 1",
+                Long.class, userId);
+        Long subjectId;
+        if (existingSubjects.isEmpty()) {
+            subjectId = insertLeaderSubject(name);
+        } else {
+            subjectId = existingSubjects.get(0);
+            jdbcTemplate.update(
+                    "update biz_subject set name = ?, status = 'active', bound_user_id = null "
+                            + "where id = ? and deleted = 0",
+                    name, subjectId);
         }
         int restored = jdbcTemplate.update(
                 "update user_role_grant set status = 'active', grant_time = now() "
@@ -139,6 +144,26 @@ public class AdminLeaderController {
                     userId, subjectId);
         }
         return Result.ok(leaderRow(subjectId));
+    }
+
+    private long insertLeaderSubject(String name) {
+        var keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            var ps = connection.prepareStatement(
+                    "insert into biz_subject (code, name, subject_type, status) values (?, ?, 'LEADER', 'active')",
+                    new String[]{"id"});
+            ps.setString(1, SubjectCodes.placeholder("LEADER"));
+            ps.setString(2, name);
+            return ps;
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        if (key == null) {
+            throw new BusinessException(ResultCode.ERROR, "团长主体创建失败");
+        }
+        long subjectId = key.longValue();
+        jdbcTemplate.update("update biz_subject set code = ? where id = ?",
+                SubjectCodes.of("LEADER", subjectId), subjectId);
+        return subjectId;
     }
 
     // ---------- 解除团长 ----------

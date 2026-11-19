@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -131,12 +132,14 @@ class SubjectCodeCollisionTest {
     @Test
     @DisplayName("连续新增多个渠道：编码各不相同、无占位码残留")
     void consecutiveCreatesYieldDistinctCodes() {
-        String first = String.valueOf(controller.createChannel(channelPayload("甲")).getData().get("code"));
-        String second = String.valueOf(controller.createChannel(channelPayload("乙")).getData().get("code"));
+        Map<String, Object> firstCreated = controller.createChannel(channelPayload("甲")).getData();
+        Map<String, Object> secondCreated = controller.createChannel(channelPayload("乙")).getData();
+        String first = String.valueOf(firstCreated.get("code"));
+        String second = String.valueOf(secondCreated.get("code"));
 
         assertNotEquals(first, second, "两次新增拿到了同一个编码");
-        assertTrue(first.matches("RS-\\d{6}"), "编码应为 前缀+6位主键，实际：" + first);
-        assertTrue(second.matches("RS-\\d{6}"), "编码应为 前缀+6位主键，实际：" + second);
+        assertGeneratedCode("RS", firstCreated.get("id"), first);
+        assertGeneratedCode("RS", secondCreated.get("id"), second);
 
         Long placeholders = jdbcTemplate.queryForObject(
                 "select count(*) from biz_subject where code like '%-TMP-%'", Long.class);
@@ -184,8 +187,7 @@ class SubjectCodeCollisionTest {
         payload.put("code", "   ");
         Map<String, Object> created = controller.createChannel(payload).getData();
 
-        assertTrue(String.valueOf(created.get("code")).matches("RS-\\d{6}"),
-                "留空应自动生成正式编码，实际：" + created.get("code"));
+        assertGeneratedCode("RS", created.get("id"), String.valueOf(created.get("code")));
     }
 
     private void insertSeed(String code, String name, String type) {
@@ -201,6 +203,14 @@ class SubjectCodeCollisionTest {
         payload.put("storeType", "奶茶/饮品");
         payload.put("status", "active");
         return payload;
+    }
+
+    private static void assertGeneratedCode(String prefix, Object idValue, String code) {
+        String id = String.valueOf(idValue);
+        assertTrue(
+                code.matches(Pattern.quote(prefix) + "-\\d{8}" + Pattern.quote(id)),
+                "编码应为 " + prefix + "-8位随机数" + id + "，实际：" + code
+        );
     }
 
     /** 防御：确认 H2 真的按 MySQL 口径建出了唯一键，否则本测试全是假绿。 */

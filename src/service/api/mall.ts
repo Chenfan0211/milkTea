@@ -65,6 +65,7 @@ export interface MallProductAdmin {
   specName?: string;
   coverImage?: string;
   galleryImages?: string[];
+  detailImages?: string[];
   description?: string;
   supplierSubjectId?: number;
   supplierName?: string;
@@ -88,6 +89,7 @@ export interface MallProductPayload {
   specName?: string;
   coverImage?: string;
   galleryImages?: string[];
+  detailImages?: string[];
   description?: string;
   supplierSubjectId: number;
   status: MallProductStatus;

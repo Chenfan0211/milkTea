@@ -27,8 +27,10 @@ import { geocodeAddress } from '@/utils/tencent-map';
 import type { AdminListConfig, FormField, RowAction } from './types';
 import DetailModal from './DetailModal.vue';
 import type { DetailGroup } from './detail-types';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from './use-admin-image-url';
 
 const props = defineProps<{ config: AdminListConfig }>();
+const adminImageUrl = useAdminImageUrl();
 
 const loading = ref(false);
 const rows = ref<any[]>([]);
@@ -644,7 +646,8 @@ function renderField(field: FormField) {
           default: () =>
             current
               ? h(NImage, {
-                  src: current,
+                  src: adminImageUrl(current),
+                  fallbackSrc: ADMIN_IMAGE_FALLBACK,
                   width: 120,
                   height: 120,
                   objectFit: 'cover',
@@ -695,7 +698,14 @@ function renderField(field: FormField) {
         {
           default: () =>
             current
-              ? h(NImage, { src: current, width: 120, height: 120, objectFit: 'cover', style: 'border-radius:6px' })
+              ? h(NImage, {
+                  src: adminImageUrl(current),
+                  fallbackSrc: ADMIN_IMAGE_FALLBACK,
+                  width: 120,
+                  height: 120,
+                  objectFit: 'cover',
+                  style: 'border-radius:6px'
+                })
               : h('div', { class: 'image-upload-trigger' }, '点击上传图片')
         }
       ),

@@ -15,6 +15,7 @@ public class MallProductAdminDTO {
     private String specName;
     private String coverImage;
     private List<String> galleryImages;
+    private List<String> detailImages;
     private String description;
     private Long supplierSubjectId;
     private String supplierName;

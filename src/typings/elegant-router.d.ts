@@ -37,6 +37,7 @@ declare module "@elegant-router/types" {
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
     "mall": "/mall";
     "mall_after-sale": "/mall/after-sale";
+    "mall_banner": "/mall/banner";
     "mall_category": "/mall/category";
     "mall_order": "/mall/order";
     "mall_product": "/mall/product";
@@ -165,6 +166,7 @@ declare module "@elegant-router/types" {
     | "finance_withdraw"
     | "home"
     | "mall_after-sale"
+    | "mall_banner"
     | "mall_category"
     | "mall_order"
     | "mall_product"

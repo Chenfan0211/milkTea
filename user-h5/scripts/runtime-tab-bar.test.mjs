@@ -56,10 +56,10 @@ assert.throws(() => policy.normalize({ ...config, pagePath: '/pages/home/home' }
 accountVersion = '1.3.6';
 assert.equal(policy.resolveAppVersion(), '1.3.6', '正式或体验版必须优先使用微信运行版本');
 accountVersion = '';
-assert.equal(policy.resolveAppVersion(), '1.3.24', '体验版无法读取微信版本号时必须使用本次源码构建版本');
+assert.equal(policy.resolveAppVersion(), '1.4.1', '体验版无法读取微信版本号时必须使用本次源码构建版本');
 assert.equal(
   policy.resolveThirdTab(
-    { schemaVersion: 2, defaultThirdTab: 'memberZone', releases: { '1.3.24': 'tongueHealth' } },
+    { schemaVersion: 2, defaultThirdTab: 'memberZone', releases: { '1.4.1': 'tongueHealth' } },
     policy.resolveAppVersion()
   ),
   'tongueHealth',

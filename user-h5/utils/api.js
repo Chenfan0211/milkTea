@@ -961,6 +961,11 @@ function fetchProfileConfig() {
   return request({ url: '/api/v1/app/config/profile', method: 'GET' }).then(unwrap);
 }
 
+/** 线上商城配置：独立轮播 */
+function fetchMallConfig() {
+  return request({ url: '/api/v1/app/config/mall', method: 'GET' }).then(unwrap);
+}
+
 /** 城市列表 */
 function fetchCities() {
   return request({ url: '/api/v1/app/config/cities', method: 'GET' }).then(unwrap);
@@ -984,6 +989,7 @@ module.exports = {
   fenToYuan,
   fetchHomeConfig,
   fetchProfileConfig,
+  fetchMallConfig,
   fetchCities,
   fetchSigninConfig,
   fetchConfig,

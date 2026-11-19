@@ -9,8 +9,7 @@ import type { DataTableColumns } from 'naive-ui';
 import AdminListPage from '@/views/_shared/AdminListPage.vue';
 import type { AdminListConfig, RowAction, SearchField } from '@/views/_shared/types';
 import { useAdminStore } from '@/store/modules/admin';
-import { getServiceBaseURL } from '@/utils/service';
-import { resolveAdminImageUrl } from '@/views/_shared/image-url';
+import { useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 import ProfileBannerEditor from './ProfileBannerEditor.vue';
 
 interface ProfileBanner {
@@ -24,10 +23,8 @@ interface ProfileBanner {
 }
 
 const store = useAdminStore();
-const imageBaseURL = getServiceBaseURL(
-  import.meta.env,
-  import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y'
-).baseURL;
+const adminImageUrl = useAdminImageUrl();
+const bannerFallback = '/assets/images/3x/profile-banner.jpg';
 const targetLabels: Record<string, string> = {
   none: '不跳转',
   orders: '订单页',
@@ -58,7 +55,8 @@ const columns: DataTableColumns<ProfileBanner> = [
     render: row =>
       row.imageUrl
         ? h(NImage, {
-            src: resolveAdminImageUrl(row.imageUrl, imageBaseURL),
+            src: adminImageUrl(row.imageUrl),
+            fallbackSrc: bannerFallback,
             width: 160,
             height: 36,
             objectFit: 'cover',

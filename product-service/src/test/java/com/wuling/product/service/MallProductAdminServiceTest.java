@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -116,6 +117,74 @@ class MallProductAdminServiceTest {
 
         assertEquals("ON_SALE", current.getStatus());
         verify(productMapper).updateById(current);
+    }
+
+    @Test
+    @DisplayName("编辑商品时按顺序保存详情长图并过滤空白与重复地址")
+    void updatePersistsNormalizedDetailImages() {
+        MallProduct current = product(1L);
+        when(productMapper.selectById(1L)).thenReturn(current);
+        when(productMapper.selectByProductCodeIncludingDeleted("P-1")).thenReturn(current);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+        when(categoryMapper.selectById(5L)).thenReturn(category());
+        when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
+
+        MallProductSaveRequest request = productRequest();
+        request.setDetailImages(List.of(" /detail/first.jpg ", "", "/detail/first.jpg", "/detail/second.png"));
+
+        service.update(1L, request);
+
+        assertEquals("[\"/detail/first.jpg\",\"/detail/second.png\"]", current.getDetailImages());
+    }
+
+    @Test
+    @DisplayName("详情长图超过二十张时拒绝保存")
+    void updateRejectsMoreThanTwentyDetailImages() {
+        when(productMapper.selectById(1L)).thenReturn(product(1L));
+        when(productMapper.selectByProductCodeIncludingDeleted("P-1")).thenReturn(product(1L));
+        MallProductSaveRequest request = productRequest();
+        request.setDetailImages(IntStream.rangeClosed(1, 21)
+                .mapToObj(index -> "/detail/" + index + ".jpg")
+                .toList());
+
+        assertThrows(com.wuling.common.exception.BusinessException.class,
+                () -> service.update(1L, request));
+        verify(productMapper, never()).updateById(any(MallProduct.class));
+    }
+
+    @Test
+    @DisplayName("提交空详情长图数组时清空已有长图")
+    void updateClearsDetailImagesWhenEmptyArraySubmitted() {
+        MallProduct current = product(1L);
+        current.setDetailImages("[\"/detail/old.jpg\"]");
+        when(productMapper.selectById(1L)).thenReturn(current);
+        when(productMapper.selectByProductCodeIncludingDeleted("P-1")).thenReturn(current);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+        when(categoryMapper.selectById(5L)).thenReturn(category());
+        when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
+
+        MallProductSaveRequest request = productRequest();
+        request.setDetailImages(List.of());
+
+        service.update(1L, request);
+
+        assertEquals("[]", current.getDetailImages());
+    }
+
+    @Test
+    @DisplayName("编辑请求未传详情长图时保留已有长图")
+    void updateKeepsDetailImagesWhenFieldOmitted() {
+        MallProduct current = product(1L);
+        current.setDetailImages("[\"/detail/old.jpg\"]");
+        when(productMapper.selectById(1L)).thenReturn(current);
+        when(productMapper.selectByProductCodeIncludingDeleted("P-1")).thenReturn(current);
+        when(skuMapper.selectList(any())).thenReturn(List.of());
+        when(categoryMapper.selectById(5L)).thenReturn(category());
+        when(subjectQueryPort.findById(401L)).thenReturn(subject(401L, "SUPPLIER"));
+
+        service.update(1L, productRequest());
+
+        assertEquals("[\"/detail/old.jpg\"]", current.getDetailImages());
     }
 
     @Test

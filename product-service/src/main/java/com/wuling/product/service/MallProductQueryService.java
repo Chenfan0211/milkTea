@@ -96,6 +96,7 @@ public class MallProductQueryService {
         dto.setSpecName(product.getSpecName());
         dto.setCoverImage(product.getCoverImage());
         dto.setGalleryImages(parseStringList(product.getGalleryImages()));
+        dto.setDetailImages(parseStringList(product.getDetailImages()));
         dto.setDescription(product.getDescription());
         dto.setSalesCount(product.getSalesCount());
         dto.setSkus(skus.stream().map(sku -> toSkuView(sku, product)).toList());

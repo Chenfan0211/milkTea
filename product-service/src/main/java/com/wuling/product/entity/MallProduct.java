@@ -22,6 +22,8 @@ public class MallProduct {
     private String coverImage;
     /** JSON 数组文本，落库格式与 V86 迁移保持一致。 */
     private String galleryImages;
+    /** 商品详情长图 JSON 数组，按运营配置顺序展示。 */
+    private String detailImages;
     private String description;
     /** SPU 唯一供应商，所有 SKU 自动继承。 */
     private Long supplierSubjectId;

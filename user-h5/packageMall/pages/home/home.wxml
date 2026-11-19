@@ -16,6 +16,39 @@
       </view>
     </view>
 
+    <view wx:if="{{mallBanners.length}}" class="home-banner-wrap">
+      <swiper
+        class="home-banner-swiper"
+        autoplay="{{mallBanners.length > 1}}"
+        interval="3000"
+        circular="{{mallBanners.length > 1}}"
+        indicator-dots="{{mallBanners.length > 1}}"
+      >
+        <swiper-item wx:for="{{mallBanners}}" wx:key="id">
+          <image
+            wx:if="{{item.targetType !== 'none'}}"
+            class="home-banner"
+            src="{{item.imageUrl}}"
+            mode="aspectFill"
+            data-index="{{index}}"
+            bindtap="openMallBanner"
+            binderror="handleMallBannerError"
+            aria-role="button"
+            aria-label="{{item.altText}}"
+          />
+          <image
+            wx:else
+            class="home-banner"
+            src="{{item.imageUrl}}"
+            mode="aspectFill"
+            data-index="{{index}}"
+            binderror="handleMallBannerError"
+            aria-label="{{item.altText}}"
+          />
+        </swiper-item>
+      </swiper>
+    </view>
+
     <scroll-view class="category-scroll" scroll-x show-scrollbar="{{false}}">
       <view class="category-list">
         <view

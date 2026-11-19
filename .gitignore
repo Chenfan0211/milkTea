@@ -84,3 +84,9 @@ backend-*.tar.gz
 
 # Codex 日志/临时排查记录（不入库）
 .codex-logs/
+
+# 本地调试令牌与 Python 缓存（禁止提交）
+/eyJ*
+__pycache__/
+*.py[cod]
+/0

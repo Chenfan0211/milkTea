@@ -9,10 +9,9 @@ import type { UploadCustomRequestOptions } from 'naive-ui';
 import { uploadAdminImage } from '@/service/api/crud';
 import { useAdminStore } from '@/store/modules/admin';
 import { ref } from 'vue';
-import { getServiceBaseURL } from '@/utils/service';
 import BannerTargetFields from '@/views/_shared/BannerTargetFields.vue';
 import { compressBannerImage, MAX_BANNER_BYTES } from '@/views/_shared/banner-image';
-import { resolveAdminImageUrl } from '@/views/_shared/image-url';
+import { useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 interface ProfileBanner {
   id?: number;
@@ -37,10 +36,8 @@ const emit = defineEmits<{
 const store = useAdminStore();
 const submitting = ref(false);
 const uploading = ref(false);
-const imageBaseURL = getServiceBaseURL(
-  import.meta.env,
-  import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y'
-).baseURL;
+const adminImageUrl = useAdminImageUrl();
+const bannerFallback = '/assets/images/3x/profile-banner.jpg';
 const form = reactive<ProfileBanner>({
   imageUrl: '',
   altText: '',
@@ -51,7 +48,7 @@ const form = reactive<ProfileBanner>({
 });
 
 const title = computed(() => (props.banner?.id ? '编辑轮播图' : '新增轮播图'));
-const previewUrl = computed(() => resolveAdminImageUrl(form.imageUrl, imageBaseURL));
+const previewUrl = computed(() => adminImageUrl(form.imageUrl));
 const statusOptions = [
   { label: '启用', value: 'enabled' },
   { label: '停用', value: 'disabled' }
@@ -139,6 +136,7 @@ async function submit() {
           <NImage
             v-if="form.imageUrl"
             :src="previewUrl"
+            :fallback-src="bannerFallback"
             width="240"
             height="54"
             object-fit="cover"

@@ -240,7 +240,7 @@ public class AdminSubjectProfileController {
      *
      * <p><b>编码口径</b>：前端表单的 {@code code} 是<b>选填</b>，留空即由服务端生成。
      * 生成规则见 {@link SubjectCodes}：先插入带随机占位码的行拿到自增主键，
-     * 再回写为 {@code 前缀 + 6 位主键}（如 {@code RS-000031}）。
+     * 再回写为 {@code 前缀 + 8 位随机数 + 自增主键}（如 {@code RS-4839201531}）。
      *
      * <p>历史实现是 {@code 前缀 + (该类总数 + 1000)}，软删除与手工导入都会让它算重
      * （详见 {@link SubjectCodes} 的说明），此处已彻底移除。

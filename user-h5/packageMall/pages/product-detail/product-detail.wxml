@@ -88,6 +88,23 @@
           </view>
         </view>
 
+        <view wx:if="{{product.detailImages.length}}" class="mall-card detail-images">
+          <text class="mall-section-title detail-images__title">图文详情</text>
+          <image
+            wx:for="{{product.detailImages}}"
+            wx:key="*this"
+            class="detail-images__item"
+            src="{{item}}"
+            mode="widthFix"
+            lazy-load
+            data-index="{{index}}"
+            bindtap="openDetailImage"
+            binderror="handleDetailImageError"
+            aria-role="button"
+            aria-label="商品详情图{{index + 1}}"
+          />
+        </view>
+
         <view class="detail-note">商城商品不参与会员折扣、储值立减、优惠券或积分抵扣</view>
       </block>
     </view>

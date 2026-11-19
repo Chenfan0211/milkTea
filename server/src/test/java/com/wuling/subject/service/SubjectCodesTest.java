@@ -3,7 +3,8 @@ package com.wuling.subject.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.regex.Pattern;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,29 +18,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 根因是三套「按行数推算序号」的编码生成器，详见 {@link SubjectCodes} 的类注释。
  *
  * <p>本测试只锁编码规则本身（纯函数，不碰数据库）；跨表场景
- * （软删除后再新增、手工编码查重）由 {@link SubjectCodesContractTest} 用真 SQL 覆盖。
+ * （软删除后再新增、手工编码查重）由 {@link SubjectCodeCollisionTest} 用真 SQL 覆盖。
  */
 class SubjectCodesTest {
 
     @Test
-    @DisplayName("编码 = 前缀 + 6 位零填充主键")
-    void codeIsPrefixPlusPaddedId() {
-        assertEquals("ST-000106", SubjectCodes.of("STORE", 106));
-        assertEquals("RS-000031", SubjectCodes.of("CHANNEL", 31));
-        assertEquals("SU-000032", SubjectCodes.of("SUPPLIER", 32));
-        assertEquals("IV-000033", SubjectCodes.of("INVESTOR", 33));
-        assertEquals("PT-000001", SubjectCodes.of("PLATFORM", 1));
-        assertEquals("LD-000020", SubjectCodes.of("LEADER", 20));
+    @DisplayName("编码 = 前缀 + 8 位随机数字 + 原始自增主键")
+    void codeIsPrefixPlusRandomNumberAndId() {
+        assertGeneratedCode("STORE", "ST", 106);
+        assertGeneratedCode("CHANNEL", "RS", 31);
+        assertGeneratedCode("SUPPLIER", "SU", 32);
+        assertGeneratedCode("INVESTOR", "IV", 33);
+        assertGeneratedCode("PLATFORM", "PT", 1);
+        assertGeneratedCode("LEADER", "LD", 20);
         // 未知类型收敛到 SUB，不会与任何已知前缀撞
-        assertEquals("SUB-000099", SubjectCodes.of("WHATEVER", 99));
-        assertEquals("SUB-000099", SubjectCodes.of(null, 99));
+        assertGeneratedCode("WHATEVER", "SUB", 99);
+        assertGeneratedCode(null, "SUB", 99);
     }
 
     @Test
     @DisplayName("类型大小写不影响前缀")
     void typeIsCaseInsensitive() {
-        assertEquals(SubjectCodes.of("STORE", 7), SubjectCodes.of("store", 7));
-        assertEquals(SubjectCodes.of("CHANNEL", 7), SubjectCodes.of("Channel", 7));
+        assertGeneratedCode("store", "ST", 7);
+        assertGeneratedCode("Channel", "RS", 7);
     }
 
     @Test
@@ -55,15 +56,18 @@ class SubjectCodesTest {
     }
 
     @Test
-    @DisplayName("6 位定宽编码永远不会等于 4 位历史种子码")
-    void paddedCodeCannotCollideWithLegacySeeds() {
+    @DisplayName("随机数加主键编码永远不会等于 4 位历史种子码")
+    void generatedCodeCannotCollideWithLegacySeeds() {
         // 历史种子：ST-1001..ST-1005、RS-1000..1002、SU-1000..1002、IV-1000..1002、PT-1000。
-        // 关键断言：即使主键涨到 1001，生成的是 ST-001001，与 ST-1001 位数不同，不等。
+        // 新编码至少包含 8 位随机数字和主键，位数与历史 4 位种子码不同。
         assertNotEquals("ST-1001", SubjectCodes.of("STORE", 1001));
-        assertEquals("ST-001001", SubjectCodes.of("STORE", 1001));
+        assertGeneratedCode("STORE", "ST", 1001);
         assertNotEquals("RS-1000", SubjectCodes.of("CHANNEL", 1000));
+        assertGeneratedCode("CHANNEL", "RS", 1000);
         assertNotEquals("IV-1002", SubjectCodes.of("INVESTOR", 1002));
+        assertGeneratedCode("INVESTOR", "IV", 1002);
         assertNotEquals("PT-1000", SubjectCodes.of("PLATFORM", 1000));
+        assertGeneratedCode("PLATFORM", "PT", 1000);
     }
 
     @Test
@@ -100,5 +104,13 @@ class SubjectCodesTest {
     void nonPositiveIdIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> SubjectCodes.of("STORE", 0));
         assertThrows(IllegalArgumentException.class, () -> SubjectCodes.of("STORE", -1));
+    }
+
+    private static void assertGeneratedCode(String subjectType, String expectedPrefix, long id) {
+        String code = SubjectCodes.of(subjectType, id);
+        assertTrue(
+                code.matches(Pattern.quote(expectedPrefix) + "-\\d{8}" + Pattern.quote(String.valueOf(id))),
+                "编码应符合 " + expectedPrefix + "-8位随机数" + id + "，实际：" + code
+        );
     }
 }

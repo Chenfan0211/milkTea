@@ -20,8 +20,10 @@ import {
   formatDateTime,
   toTimeRange
 } from '@/views/_shared/render';
+import { ADMIN_IMAGE_FALLBACK, useAdminImageUrl } from '@/views/_shared/use-admin-image-url';
 
 const store = useAdminStore();
+const adminImageUrl = useAdminImageUrl();
 
 // 门店下拉：可搜索下拉框的数据源（后台门店列表）
 const storeOptions = ref<{ label: string; value: string }[]>([]);
@@ -311,7 +313,8 @@ function renderItems(row: any) {
       h('div', { style: 'display:flex;align-items:center;gap:10px' }, [
         it.image
           ? h(NImage, {
-              src: it.image,
+              src: adminImageUrl(it.image),
+              fallbackSrc: ADMIN_IMAGE_FALLBACK,
               width: 40,
               height: 40,
               objectFit: 'cover',

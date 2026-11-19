@@ -16,3 +16,13 @@ test('已有完整地址保持原样，空地址不发起预览', () => {
   assert.equal(resolveAdminImageUrl(absolute, 'https://api.wulingshiguang.top'), absolute);
   assert.equal(resolveAdminImageUrl('', 'https://api.wulingshiguang.top'), '');
 });
+
+test('后台静态资源和内嵌图片保持在当前页面上下文', () => {
+  const api = 'https://api.wulingshiguang.top';
+  assert.equal(
+    resolveAdminImageUrl('/assets/images/3x/mall-category-tea-goods.jpg', api),
+    '/assets/images/3x/mall-category-tea-goods.jpg'
+  );
+  assert.equal(resolveAdminImageUrl('data:image/png;base64,AAAA', api), 'data:image/png;base64,AAAA');
+  assert.equal(resolveAdminImageUrl('blob:https://example.test/1', api), 'blob:https://example.test/1');
+});

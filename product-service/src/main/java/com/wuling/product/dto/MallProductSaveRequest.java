@@ -27,6 +27,7 @@ public class MallProductSaveRequest {
     private String specName;
     private String coverImage;
     private List<String> galleryImages;
+    private List<String> detailImages;
     private String description;
 
     @NotNull(message = "请选择商品供应商")

@@ -32,6 +32,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   finance_withdraw: () => import("@/views/finance/withdraw/index.vue"),
   home: () => import("@/views/home/index.vue"),
   "mall_after-sale": () => import("@/views/mall/after-sale/index.vue"),
+  mall_banner: () => import("@/views/mall/banner/index.vue"),
   mall_category: () => import("@/views/mall/category/index.vue"),
   mall_order: () => import("@/views/mall/order/index.vue"),
   mall_product: () => import("@/views/mall/product/index.vue"),
