@@ -35,7 +35,8 @@ class PayoutGatewayResolverTest {
     @Test
     void mockTransferAcceptsImmediately() {
         PayoutGateway gateway = new MockPayoutGateway();
-        PayoutGateway.PayoutResult result = gateway.transfer("WD1", 100L, "openid1", "测试");
+        PayoutGateway.PayoutResult result = gateway.transfer("WD1", 100L,
+                PayoutGateway.PayeeRef.ofWx(1L, "openid1"), "测试");
 
         assertTrue(result.accepted());
         assertNotNull(result.batchNo());
@@ -49,12 +50,20 @@ class PayoutGatewayResolverTest {
 
         // openid 缺失 → fail-closed
         when(userQueryPort.findOpenid(any())).thenReturn(null);
-        PayoutGateway.PayoutResult noOpenid = service.apply("WD1", 100L, 1L, "测试");
+        PayoutGateway.PayoutResult noOpenid = service.applyWx("WD1", 100L, 1L, "测试");
         assertFalse(noOpenid.accepted(), "openid 缺失必须拒绝，不能静默成功");
 
         // openid 正常 → 受理成功
         when(userQueryPort.findOpenid(any())).thenReturn("openid-1");
-        PayoutGateway.PayoutResult ok = service.apply("WD2", 100L, 1L, "测试");
+        PayoutGateway.PayoutResult ok = service.applyWx("WD2", 100L, 1L, "测试");
         assertTrue(ok.accepted());
+    }
+
+    @Test
+    void payoutResolverFallsBackToPayChannelWhenPayoutChannelUnset() {
+        // 兼容旧部署：未配 payout-channel 时仍用 app.pay.channel
+        PayoutGatewayResolver resolver = new PayoutGatewayResolver(
+                List.of(new MockPayoutGateway()), "mock");
+        assertEquals("MOCK", resolver.activeChannel());
     }
 }

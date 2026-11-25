@@ -497,6 +497,25 @@ public class OrderService {
         order.setVerifyTime(verifyTime);
     }
 
+    /**
+     * 以支付单的实际通道回写订单支付渠道。
+     *
+     * <p>为什么需要：{@code order.payChannel} 只在建单时按前端传入写入，
+     * 而真实支付通道由 {@code payment.channel} 决定（如建单传 WXPAY、
+     * 实际走易宝）。退款按 {@code payment.channel} 回原通道，若订单侧
+     * 展示不一致，后台与小程序会把支付方式显示错，客服排查时被误导。
+     */
+    public void syncPayChannel(Order order, String payChannel) {
+        if (order == null || order.getId() == null || payChannel == null || payChannel.isBlank()) {
+            return;
+        }
+        Order patch = new Order();
+        patch.setId(order.getId());
+        patch.setPayChannel(payChannel);
+        orderMapper.updateById(patch);
+        order.setPayChannel(payChannel);
+    }
+
     public void markShipped(Order order, LocalDateTime shippedTime, LocalDateTime autoCompleteTime) {
         Order patch = new Order();
         patch.setId(order.getId());

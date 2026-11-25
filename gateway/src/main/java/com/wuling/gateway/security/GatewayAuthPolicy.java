@@ -56,6 +56,10 @@ public class GatewayAuthPolicy {
             "/api/v1/app/payout/notify",
             // 微信退款结果通知：同样由 RSA 验签 + AES-GCM 解密保护，调用方无 JWT。
             "/api/v1/app/payments/wxpay/refund-notify",
+            // 易宝异步通知（第 17 期）：调用方是易宝服务器，无 JWT。
+            // 保护手段为「数字信封解密（RSA+AES）+ 签名验证」，
+            // 且该接口仅在 app.pay.yeepay.channel=yeepay 时注册（未启用时不存在）。
+            "/api/v1/app/yeepay/notify",
             // 健康检查
             "/actuator/health",
             // 网关熔断兜底端点（内部 forward，无需登录）
@@ -97,6 +101,13 @@ public class GatewayAuthPolicy {
             "/api/v1/app/points/exchange",
             "/api/v1/app/points/exchange-orders",
             "/api/v1/app/withdrawals",
+            // 商户入驻与签约（易宝）：需登录；控制器内另有主体归属校验
+            // （StoreOperatorService.canOperate），防止篡改 subjectId 越权
+            "/api/v1/app/merchant",
+            // 结算卡管理：需登录；同上做主体归属校验
+            "/api/v1/app/payout-accounts",
+            // 押金台账（只读）：需登录；控制器内做主体归属校验
+            "/api/v1/app/deposit",
             "/api/v1/app/workbench",
             "/api/v1/app/roles",
             "/api/v1/app/auth/me",

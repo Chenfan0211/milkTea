@@ -122,6 +122,25 @@
             <version>${wechatpay-java.version}</version>
         </dependency>
 
+        <!--
+          易宝支付 YOP SDK（第 17 期接入：入驻 / 分账 / 自助结算 / 提现）。
+
+          为什么放在 trade-service：与微信 SDK 同理，只有交易服务需要发起
+          三方支付与出款请求；放公共模块会把 httpclient/crypto 传递进
+          gateway（WebFlux）等无关服务。
+
+          Bean 装配由 app.pay.yeepay.channel=yeepay 控制，未配置时
+          本依赖仅存在于 classpath，不会实例化任何客户端、不发起请求。
+        -->
+        <dependency>
+            <groupId>com.yeepay.yop.sdk</groupId>
+            <artifactId>yop-java-sdk</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.yeepay.yop.sdk</groupId>
+            <artifactId>yop-java-sdk-crypto-inter</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

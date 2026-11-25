@@ -35,6 +35,13 @@ public class OrderRefundedReverseConsumer extends AbstractMqConsumer {
                 throw new IllegalArgumentException("退款冲正事件缺少 orderNo");
             }
             int ratio = event.getRefundRatio() == null ? 10000 : event.getRefundRatio();
+            // 易宝渠道：先把已分给经营者的份额从子商户归还给平台，再冲正本地余额。
+            // 不做这一步会变成「平台替经营者垫付退款」。
+            // 归还失败不阻断退款（用户的钱必须先退），由日志告警触发人工追偿。
+            if (event.getOrderId() != null) {
+                ledgerService.returnDividedBeforeRefund(event.getOrderId(), event.getOrderNo(),
+                        event.getRefundNo(), ratio);
+            }
             if (event.getSubjectRefundAmounts() != null) {
                 ledgerService.reverseMallAfterSale(event.getOrderNo(), event.getRefundNo(), ratio,
                         event.getSubjectRefundAmounts(),

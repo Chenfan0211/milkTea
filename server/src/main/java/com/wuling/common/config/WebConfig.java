@@ -45,6 +45,13 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/app/points/exchange-orders",
                         "/api/v1/app/withdrawals",
                         "/api/v1/app/withdrawals/**",
+                        // 商户入驻与签约（易宝）：需登录，控制器内另有主体归属校验
+                        "/api/v1/app/merchant/**",
+                        // 结算卡管理：需登录，控制器内另有主体归属校验
+                        "/api/v1/app/payout-accounts",
+                        "/api/v1/app/payout-accounts/**",
+                        // 押金台账（只读）：需登录，控制器内另有主体归属校验
+                        "/api/v1/app/deposit/**",
                         "/api/v1/app/workbench/**",
                         "/api/v1/app/roles/**",
                         "/api/v1/app/leader/**"

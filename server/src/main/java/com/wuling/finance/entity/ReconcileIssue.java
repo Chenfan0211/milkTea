@@ -30,6 +30,14 @@ public class ReconcileIssue {
     public static final String TYPE_SPLIT_AMOUNT_MISMATCH = "SPLIT_AMOUNT_MISMATCH";
     /** 异常类型：退款冲正时可用余额不足 */
     public static final String TYPE_REFUND_BALANCE_SHORTAGE = "REFUND_BALANCE_SHORTAGE";
+    /**
+     * 异常类型：退款前分账资金归还失败（平台已垫付）。
+     *
+     * <p>订单已分账给经营者，退款需先 {@code divide/back} 把钱从子商户退回平台。
+     * 若经营者已把子商户余额提现，归还必然失败，退款只能平台先垫——
+     * 这类记录需运营向经营者追偿，必须进对账池否则无人知晓。
+     */
+    public static final String TYPE_DIVIDE_BACK_FAILED = "DIVIDE_BACK_FAILED";
 
     /** 状态：待处理 */
     public static final String STATUS_OPEN = "OPEN";

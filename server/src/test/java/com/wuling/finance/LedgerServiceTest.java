@@ -57,6 +57,7 @@ class LedgerServiceTest {
     private SettlementRecordMapper settlementRecordMapper;
     private ReconcileService reconcileService;
     private SubjectQueryPort subjectQueryPort;
+    private com.wuling.finance.mapper.DepositRecordMapper depositRecordMapper;
     private PlatformTransactionManager transactionManager;
     private LedgerService ledgerService;
 
@@ -69,6 +70,7 @@ class LedgerServiceTest {
         settlementRecordMapper = mock(SettlementRecordMapper.class);
         reconcileService = mock(ReconcileService.class);
         subjectQueryPort = mock(SubjectQueryPort.class);
+        depositRecordMapper = mock(com.wuling.finance.mapper.DepositRecordMapper.class);
         transactionManager = mock(PlatformTransactionManager.class);
 
         when(transactionManager.getTransaction(any()))
@@ -88,7 +90,10 @@ class LedgerServiceTest {
                 reconcileService,
                 subjectQueryPort,
                 new SplitCalculator(),
-                transactionManager);
+                transactionManager,
+                depositRecordMapper,
+                new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+                        .getBeanProvider(com.wuling.finance.divide.DivideRefundService.class));
     }
 
     @Test

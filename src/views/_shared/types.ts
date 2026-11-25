@@ -18,6 +18,12 @@ export interface SearchField {
   placeholder?: string;
 }
 
+/** 远程排序参数；sortOrder 只在 sortBy 存在时有意义。 */
+export interface RemoteSort {
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
 export interface FormField {
   key: string;
   label: string;
@@ -132,11 +138,22 @@ export interface AdminListConfig {
   refreshOnEnter?: boolean;
   columns: DataTableColumns<any>;
   searchFields?: SearchField[];
+  /**
+   * 开启表头远程排序。
+   *
+   * <p>开启后：列声明 `sorter: true` 即可点击表头排序，点击时以
+   * `sortBy = 列 key`、`sortOrder = asc | desc` 传入 loadData，后端按白名单排序。
+   *
+   * <p>为什么不能靠 naive-ui 本地排序：列表是 remote 分页，本地排序只作用于
+   * 当前这一页数据，用户点「按创建时间倒序」看到的仍是全表里最旧那一页的记录，
+   * 属于静默错误结果，必须走后端。
+   */
+  remoteSort?: boolean;
   /** 初始搜索条件（进入页面时合入搜索表单，可用于 URL 回显） */
   initialSearch?: Record<string, any>;
   toolbar?: RowAction[];
   rowActions?: RowAction[];
-  loadData: (params: { page: number; pageSize: number; search: Record<string, any> }) => Promise<{
+  loadData: (params: { page: number; pageSize: number; search: Record<string, any> } & RemoteSort) => Promise<{
     data: any[];
     total: number;
   }>;

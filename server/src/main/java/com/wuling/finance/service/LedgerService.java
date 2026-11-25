@@ -19,6 +19,7 @@ import com.wuling.subject.port.SubjectQueryPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,9 +54,12 @@ public class LedgerService {
 
     public static final String BUCKET_AVAILABLE = "AVAILABLE";
     public static final String BUCKET_FROZEN = "FROZEN";
+    /** 押金桶：不可提现、不可分账，仅用于退款冲正兜底。 */
+    public static final String BUCKET_DEPOSIT = "DEPOSIT";
 
     private static final Set<String> FLOW_TYPES = Set.of(
-            "INCOME", "WITHDRAW", "REFUND", "FREEZE", "UNFREEZE", "ADJUST");
+            "INCOME", "WITHDRAW", "REFUND", "FREEZE", "UNFREEZE", "ADJUST",
+            "DEPOSIT_SET", "DEPOSIT_DEDUCT");
     private static final Set<String> FUNDED_SETTLEMENT_STATUSES = Set.of(
             SETTLE_SETTLEABLE, SETTLE_SETTLED, "FROZEN");
 
@@ -116,7 +120,23 @@ public class LedgerService {
     /** 第 12 期：主体查询改走端口（本地实现，无网络开销） */
     private final SubjectQueryPort subjectQueryPort;
     private final SplitCalculator splitCalculator;
+    private final com.wuling.finance.mapper.DepositRecordMapper depositRecordMapper;
+    private final com.wuling.finance.divide.DivideRefundService divideRefundService;
+    /**
+     * 用于查询订单支付渠道（{@code payment.channel}）。
+     *
+     * <p>为什么直接 JDBC 而不是端口：只在核销时执行一次单表查询，
+     * 为它建跨域端口不划算。
+     */
+    private final org.springframework.jdbc.core.JdbcTemplate paymentJdbcTemplate;
 
+    /**
+     * 兼容既有单元测试的构造（无 JdbcTemplate）。
+     *
+     * <p>生产用下面的 {@code @Autowired} 版本；本重载仅为不破坏
+     * {@code LedgerServiceTest} 的 11 参构造调用。
+     * 渠道查询在 jdbcTemplate 为空时降级为 WXPAY。
+     */
     public LedgerService(SplitRuleMapper splitRuleMapper,
                          SplitSnapshotMapper splitSnapshotMapper,
                          SubjectAccountMapper subjectAccountMapper,
@@ -125,7 +145,28 @@ public class LedgerService {
                          ReconcileService reconcileService,
                          SubjectQueryPort subjectQueryPort,
                          SplitCalculator splitCalculator,
-                         PlatformTransactionManager transactionManager) {
+                         PlatformTransactionManager transactionManager,
+                         com.wuling.finance.mapper.DepositRecordMapper depositRecordMapper,
+                         org.springframework.beans.factory.ObjectProvider<com.wuling.finance.divide.DivideRefundService> divideRefundServiceProvider) {
+        this(splitRuleMapper, splitSnapshotMapper, subjectAccountMapper, fundFlowMapper,
+                settlementRecordMapper, reconcileService, subjectQueryPort, splitCalculator,
+                transactionManager, depositRecordMapper, divideRefundServiceProvider, null);
+    }
+
+    /** 运行期构造函数（Spring 使用）。 */
+    @Autowired
+    public LedgerService(SplitRuleMapper splitRuleMapper,
+                         SplitSnapshotMapper splitSnapshotMapper,
+                         SubjectAccountMapper subjectAccountMapper,
+                         FundFlowMapper fundFlowMapper,
+                         SettlementRecordMapper settlementRecordMapper,
+                         ReconcileService reconcileService,
+                         SubjectQueryPort subjectQueryPort,
+                         SplitCalculator splitCalculator,
+                         PlatformTransactionManager transactionManager,
+                         com.wuling.finance.mapper.DepositRecordMapper depositRecordMapper,
+                         org.springframework.beans.factory.ObjectProvider<com.wuling.finance.divide.DivideRefundService> divideRefundServiceProvider,
+                         org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.splitRuleMapper = splitRuleMapper;
         this.splitSnapshotMapper = splitSnapshotMapper;
         this.subjectAccountMapper = subjectAccountMapper;
@@ -135,6 +176,9 @@ public class LedgerService {
         this.subjectQueryPort = subjectQueryPort;
         this.splitCalculator = splitCalculator;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.depositRecordMapper = depositRecordMapper;
+        this.divideRefundService = divideRefundServiceProvider.getIfAvailable();
+        this.paymentJdbcTemplate = jdbcTemplate;
     }
 
     public SplitRule resolveRule(Long productId) {
@@ -333,11 +377,15 @@ public class LedgerService {
         record.setSubjectId(subjectId);
         record.setSnapshotId(snapshot.getId());
         record.setOrderId(snapshot.getOrderId());
+        // order_no 冗余落库：渠道可用额计算、易宝分账、退款归还都要按订单号关联，
+        // 每次都 join split_snapshot 成本高且快照可能归档。
+        record.setOrderNo(snapshot.getOrderNo());
         record.setAmount(amount);
         record.setOriginalAmount(amount);
         record.setRefundedAmount(0L);
         record.setStatus(SETTLE_SETTLED);
         record.setSettleDate(LocalDate.now());
+        applyChannelInfo(record, snapshot.getOrderNo());
         settlementRecordMapper.insert(record);
 
         post(new Posting(subjectId,
@@ -352,6 +400,53 @@ public class LedgerService {
                 snapshot.getOrderNo(),
                 SETTLE_SETTLED,
                 "订单核销分账入账"));
+    }
+
+    /**
+     * 写入渠道归属与清算状态。
+     *
+     * <p><b>为什么在这里查</b>：{@code OrderVerifiedEvent} 不带支付渠道，
+     * 给它加字段属于跨模块契约变更（影响 wuling-common + trade 发布端）。
+     * 在核销时查一次 {@code payment.channel} 成本可接受，且改动面最小。
+     *
+     * <p><b>清算状态的差异</b>：
+     * <ul>
+     *   <li>微信：无清算概念，直接 {@code SUCCESS}；</li>
+     *   <li>易宝：初始 {@code PENDING}，等清算通知到达才置 {@code SUCCESS}，
+     *       期间分账会被门禁拦住（见 OrderDivideService）。</li>
+     * </ul>
+     */
+    private void applyChannelInfo(SettlementRecord record, String orderNo) {
+        String channel = resolveFundChannel(orderNo);
+        record.setFundChannel(channel);
+        record.setClearingStatus(SettlementRecord.CHANNEL_YEEPAY.equals(channel)
+                ? SettlementRecord.CLEARING_PENDING
+                : SettlementRecord.CLEARING_SUCCESS);
+    }
+
+    /**
+     * 解析订单支付渠道。
+     *
+     * <p>查不到时按 {@code WXPAY} 兜底：易宝收款是本项目新增能力，
+     * 历史订单与异常情况下默认走微信，避免误标为易宝导致错误分账。
+     */
+    private String resolveFundChannel(String orderNo) {
+        if (orderNo == null || orderNo.isBlank() || paymentJdbcTemplate == null) {
+            return SettlementRecord.CHANNEL_WXPAY;
+        }
+        try {
+            List<String> rows = paymentJdbcTemplate.queryForList(
+                    "select UPPER(channel) from payment "
+                            + "where order_no = ? and deleted = 0 limit 1",
+                    String.class, orderNo);
+            if (rows.isEmpty() || rows.get(0) == null || rows.get(0).isBlank()) {
+                return SettlementRecord.CHANNEL_WXPAY;
+            }
+            return rows.get(0);
+        } catch (Exception e) {
+            log.warn("查询订单支付渠道失败，按 WXPAY 兜底 orderNo={} err={}", orderNo, e.getMessage());
+            return SettlementRecord.CHANNEL_WXPAY;
+        }
     }
 
     /**
@@ -401,11 +496,14 @@ public class LedgerService {
         record.setSubjectId(subjectId);
         record.setSnapshotId(snapshot.getId());
         record.setOrderId(snapshot.getOrderId());
+        // order_no 冗余落库：渠道可用额计算、易宝分账、退款归还都要按订单号关联。
+        record.setOrderNo(snapshot.getOrderNo());
         record.setAmount(amount);
         record.setOriginalAmount(amount);
         record.setRefundedAmount(0L);
         record.setStatus(SETTLE_SETTLED);
         record.setSettleDate(LocalDate.now());
+        applyChannelInfo(record, snapshot.getOrderNo());
         settlementRecordMapper.insert(record);
 
         post(new Posting(subjectId,
@@ -510,6 +608,41 @@ public class LedgerService {
         reverseForOrder(orderNo, null);
     }
 
+    /**
+     * 易宝渠道退款前先归还应退份额。
+     *
+     * <p>放在 {@code reverseForOrder} 的外层调用（由退款消费者调用），
+     * 而不是在冲正事务内——归还是一次三方 HTTP 调用，放进事务会拉长事务
+     * 且三方失败不该回滚本地冲正。
+     *
+     * @param orderId     订单 id
+     * @param orderNo     订单号
+     * @param refundNo    退款单号
+     * @param refundRatio 退款比例（万分比）
+     */
+    /**
+     * 【已废弃】退款前的分账归还已改为「归集参数随退款请求一起传」。
+     *
+     * <p><b>为什么改</b>：易宝的 {@code trade/refund} 自带
+     * {@code divideBackDetail} 参数，一次请求即可完成归集 + 退款。
+     * 原来「先调 divide/back 再退款」的两步做法多一个失败点、
+     * 中间状态难处理，且归集参数需要明细级 {@code divideDetailNo}。
+     *
+     * <p>现在的归集明细由 {@code DivideRefundService#buildDivideBackDetail}
+     * 在发起退款时构造，经 {@code /internal/yeepay/refund/divide-back-detail}
+     * 提供给 trade-service。
+     *
+     * <p>本方法保留为空实现，仅为兼容既有调用点，
+     * 新代码不应再调用。
+     *
+     * @deprecated 归集改由退款请求携带 divideBackDetail
+     */
+    @Deprecated
+    public void returnDividedBeforeRefund(Long orderId, String orderNo, String refundNo, int refundRatio) {
+        // 归集已并入退款请求，此处无需动作。
+        // 保留方法签名避免一次性破坏调用方（OrderRefundedReverseConsumer）。
+    }
+
     private record MallRefundShares(Map<Long, Long> subjects, long commissionRefund, long bonusRefund,
                                     long commissionOriginal, long bonusOriginal) { }
 
@@ -595,20 +728,10 @@ public class LedgerService {
             }
             long fullAmount = remainingAmount;
             SubjectAccount account = ensureAccount(record.getSubjectId());
-            post(new Posting(record.getSubjectId(),
-                    account.getRoleType(),
-                    fullAmount > 0L ? "REFUND" : "ADJUST",
-                    -deduct,
-                    BUCKET_AVAILABLE,
-                    orderId,
-                    orderNo,
-                    record.getId(),
-                    "REFUND",
-                    refundNo,
-                    SETTLE_SETTLED,
-                    fullReverse
-                            ? (fullAmount > 0L ? "退款成功，按结算记录扣回可用余额" : "退款成功，冲回平台承担的负分账")
-                            : exact == null ? "退款成功（部分退），按比例扣回可用余额" : "退款成功（部分退），按退货明细扣回可用余额"));
+            // 退款冲正顺序：可用余额 → 押金 → 都不够才抛异常（整批回滚 + 对账异常）。
+            // 押金兜底让「提现后被退款」不再必然失败，是 V115 押金设计的核心用途。
+            postRefundWithDepositFallback(account, record, orderId, orderNo, refundNo,
+                    deduct, fullAmount, fullReverse, exact == null);
             if (fullReverse) {
                 // 全退：结算记录直接置 CANCELED（与旧行为一致）
                 if (settlementRecordMapper.updateStatusIfCurrent(
@@ -633,6 +756,185 @@ public class LedgerService {
                 }
             }
         }
+    }
+
+    /**
+     * 退款冲正扣款：优先扣可用余额，不足部分扣押金，仍不足才抛异常。
+     *
+     * <p><b>为什么需要押金兜底</b>：原实现只扣可用余额，余额不足直接抛
+     * {@link InsufficientBalanceException}，外层整批回滚并记
+     * {@code REFUND_BALANCE_SHORTAGE} 对账异常。经营者在提现后再发生售后退款时，
+     * 退款必然失败，只能人工介入——这在实际运营中是高频问题。
+     *
+     * <p><b>扣款顺序</b>：可用余额 → 押金。押金是运营设定给该主体的退款保障金，
+     * 优先消耗经营者自己的可用余额符合直觉，押金作为兜底。
+     *
+     * <p><b>两段流水的意义</b>：分开记两条 fund_flow，运营能清楚看到
+     * 「这单退款有多少是从押金扣的」，避免账目混乱。
+     *
+     * @param account     收款主体账户（调用方已 ensureAccount）
+     * @param record      结算记录
+     * @param deduct      应扣金额（正数，表示从余额扣减的绝对额）
+     * @param fullAmount  结算记录剩余金额（用于区分正/负分账）
+     * @param fullReverse 是否整单全退
+     * @param prorated    是否按比例退款（用于文案）
+     */
+    private void postRefundWithDepositFallback(SubjectAccount account,
+                                               SettlementRecord record,
+                                               Long orderId,
+                                               String orderNo,
+                                               String refundNo,
+                                               long deduct,
+                                               long fullAmount,
+                                               boolean fullReverse,
+                                               boolean prorated) {
+        // 负分账（平台承担）与零金额场景不涉及押金兜底，保持原语义
+        if (fullAmount <= 0L || deduct <= 0L) {
+            post(new Posting(record.getSubjectId(),
+                    account.getRoleType(),
+                    fullAmount > 0L ? "REFUND" : "ADJUST",
+                    -deduct,
+                    BUCKET_AVAILABLE,
+                    orderId,
+                    orderNo,
+                    record.getId(),
+                    "REFUND",
+                    refundNo,
+                    SETTLE_SETTLED,
+                    fullReverse
+                            ? (fullAmount > 0L ? "退款成功，按结算记录扣回可用余额" : "退款成功，冲回平台承担的负分账")
+                            : prorated ? "退款成功（部分退），按比例扣回可用余额" : "退款成功（部分退），按退货明细扣回可用余额"));
+            return;
+        }
+
+        // 必须从「行锁后的实时余额」判断，不能用调用方预取的 account 快照：
+        // 同一笔退款会连续处理多个结算记录，账户余额在循环中已经变化，
+        // 用旧快照会把「可用余额够不够」算错（可能多扣押金或少扣可用余额）。
+        SubjectAccount locked = subjectAccountMapper.selectBySubjectIdForUpdate(record.getSubjectId());
+        if (locked == null) {
+            locked = account;
+        }
+        long available = nz(locked.getAvailableBalance());
+        long deposit = nz(locked.getDepositBalance());
+
+        long fromAvailable = Math.min(Math.max(0L, available), deduct);
+        long fromDeposit = deduct - fromAvailable;
+
+        if (fromDeposit > deposit) {
+            // 可用余额 + 押金 仍不足：抛异常让外层整批回滚并记对账异常（保持原语义）
+            throw new InsufficientBalanceException(record.getSubjectId(),
+                    available + deposit, deduct);
+        }
+
+        String suffix = fullReverse ? "" : prorated ? "（部分退按比例）" : "（部分退按明细）";
+        if (fromAvailable > 0L) {
+            post(new Posting(record.getSubjectId(),
+                    locked.getRoleType() == null ? account.getRoleType() : locked.getRoleType(),
+                    "REFUND",
+                    -fromAvailable,
+                    BUCKET_AVAILABLE,
+                    orderId,
+                    orderNo,
+                    record.getId(),
+                    "REFUND",
+                    refundNo,
+                    SETTLE_SETTLED,
+                    "退款成功" + suffix + "，扣回可用余额"));
+        }
+        if (fromDeposit > 0L) {
+            post(new Posting(record.getSubjectId(),
+                    locked.getRoleType() == null ? account.getRoleType() : locked.getRoleType(),
+                    "DEPOSIT_DEDUCT",
+                    -fromDeposit,
+                    BUCKET_DEPOSIT,
+                    orderId,
+                    orderNo,
+                    record.getId(),
+                    "REFUND",
+                    refundNo,
+                    SETTLE_SETTLED,
+                    "退款成功" + suffix + "，可用余额不足，从押金抵扣 " + fromDeposit + " 分"));
+            // 押金台账：经营者需要能看到押金减少的原因，否则会引发纠纷
+            depositRecordMapper.insert(buildDepositRecord(record.getSubjectId(),
+                    -fromDeposit, deposit, deposit - fromDeposit,
+                    "DEDUCT_REFUND", refundNo, orderNo, null,
+                    "售后退款抵扣：订单 " + orderNo + "，退款单 " + refundNo));
+        }
+    }
+
+    /**
+     * 构造押金台账记录。
+     *
+     * <p>与 {@code fund_flow} 双写：fund_flow 用于统一资金流水视图，
+     * deposit_record 用于押金专项台账与运营查询（含 reason 便于解释给经营者）。
+     */
+    private com.wuling.finance.entity.DepositRecord buildDepositRecord(Long subjectId,
+                                                                        long change,
+                                                                        long before,
+                                                                        long after,
+                                                                        String bizType,
+                                                                        String bizNo,
+                                                                        String orderNo,
+                                                                        String operator,
+                                                                        String reason) {
+        com.wuling.finance.entity.DepositRecord record = new com.wuling.finance.entity.DepositRecord();
+        record.setRecordNo(nextNo("DP"));
+        record.setSubjectId(subjectId);
+        record.setChangeAmount(change);
+        record.setBalanceBefore(before);
+        record.setBalanceAfter(after);
+        record.setBizType(bizType);
+        record.setBizNo(bizNo);
+        record.setOrderNo(orderNo);
+        record.setOperator(operator);
+        record.setReason(reason);
+        return record;
+    }
+
+    /**
+     * 运营设定/调整押金（目标值语义）。
+     *
+     * <p>为什么用目标值而非增量：运营的意图是「这个经营者应该有 500 元押金」，
+     * 让运营自己算差额容易出错。系统按差额写台账，幂等友好。
+     *
+     * @param subjectId 主体
+     * @param target    目标押金（分），必须 >= 0
+     * @param operator  操作人
+     * @param reason    原因
+     * @return 变动后的押金余额
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public long setDeposit(Long subjectId, long target, String operator, String reason) {
+        if (target < 0L) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "押金不能为负数");
+        }
+        SubjectAccount account = ensureAccount(subjectId);
+        SubjectAccount locked = subjectAccountMapper.selectBySubjectIdForUpdate(subjectId);
+        if (locked == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "资金账户不存在");
+        }
+        long before = nz(locked.getDepositBalance());
+        long delta = target - before;
+        if (delta == 0L) {
+            return before;
+        }
+        String bizType = before == 0L && delta > 0L ? "SET" : "ADJUST";
+        post(new Posting(subjectId,
+                locked.getRoleType() == null ? account.getRoleType() : locked.getRoleType(),
+                delta > 0L ? "DEPOSIT_SET" : "DEPOSIT_DEDUCT",
+                delta,
+                BUCKET_DEPOSIT,
+                null,
+                null,
+                null,
+                "DEPOSIT",
+                nextNo("DS"),
+                null,
+                reason == null ? "运营调整押金" : reason));
+        depositRecordMapper.insert(buildDepositRecord(subjectId, delta, before, target,
+                bizType, nextNo("DS"), null, operator,
+                reason == null ? "运营调整押金" : reason));
+        return target;
     }
 
     private Map<Long, Long> mallRecordRefundShares(List<SettlementRecord> records, MallRefundShares shares) {
@@ -738,8 +1040,10 @@ public class LedgerService {
         long amount = Math.abs(posting.changeAmount());
         long availableBefore = nz(account.getAvailableBalance());
         long frozenBefore = nz(account.getFrozenBalance());
+        long depositBefore = nz(account.getDepositBalance());
         long availableDelta = 0L;
         long frozenDelta = 0L;
+        long depositDelta = 0L;
         long snapshotBefore;
         long snapshotChange;
 
@@ -761,21 +1065,32 @@ public class LedgerService {
                 snapshotBefore = frozenBefore;
                 snapshotChange = -amount;
             }
+            case "DEPOSIT_SET", "DEPOSIT_DEDUCT" -> {
+                // 押金桶独立增减：正数加押金，负数扣押金；不触碰 available / frozen
+                depositDelta = posting.changeAmount();
+                snapshotBefore = depositBefore;
+                snapshotChange = posting.changeAmount();
+            }
             default -> throw new BusinessException(ResultCode.BAD_REQUEST,
                     "不支持的流水类型: " + posting.type());
         }
 
         long availableAfter = availableBefore + availableDelta;
         long frozenAfter = frozenBefore + frozenDelta;
+        long depositAfter = depositBefore + depositDelta;
         if (availableAfter < 0) {
             throw new InsufficientBalanceException(posting.subjectId(), availableBefore, -availableDelta);
         }
         if (frozenAfter < 0) {
             throw new InsufficientBalanceException(posting.subjectId(), frozenBefore, -frozenDelta);
         }
+        if (depositAfter < 0) {
+            throw new InsufficientBalanceException(posting.subjectId(), depositBefore, -depositDelta);
+        }
 
         account.setAvailableBalance(availableAfter);
         account.setFrozenBalance(frozenAfter);
+        account.setDepositBalance(depositAfter);
         if ("INCOME".equals(posting.type()) && posting.changeAmount() > 0) {
             account.setTotalIncome(nz(account.getTotalIncome()) + posting.changeAmount());
         }
@@ -827,6 +1142,25 @@ public class LedgerService {
         }
         if (("REFUND".equals(type) || "UNFREEZE".equals(type) || "WITHDRAW".equals(type)) && change >= 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, type + " 变动金额必须为负");
+        }
+        // 押金桶：只允许 DEPOSIT_SET / DEPOSIT_DEDUCT 两种类型触达。
+        // 这是「押金不可提现」的第三重保障——WITHDRAW 被上面强制绑定 FROZEN 桶，
+        // 押金桶在结构上就触达不到提现路径。
+        if ("DEPOSIT_SET".equals(type)) {
+            if (!BUCKET_DEPOSIT.equals(bucket)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "DEPOSIT_SET 必须作用于押金桶");
+            }
+            if (change <= 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "DEPOSIT_SET 变动金额必须为正");
+            }
+        }
+        if ("DEPOSIT_DEDUCT".equals(type)) {
+            if (!BUCKET_DEPOSIT.equals(bucket)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "DEPOSIT_DEDUCT 必须作用于押金桶");
+            }
+            if (change >= 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "DEPOSIT_DEDUCT 变动金额必须为负");
+            }
         }
     }
     /**

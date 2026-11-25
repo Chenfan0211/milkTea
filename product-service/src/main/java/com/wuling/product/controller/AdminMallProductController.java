@@ -42,8 +42,11 @@ public class AdminMallProductController {
             @RequestParam(defaultValue = "20") long size,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String keyword) {
-        return Result.ok(productAdminService.pageProducts(page, size, categoryId, status, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        return Result.ok(productAdminService.pageProducts(
+                page, size, categoryId, status, keyword, sortBy, sortOrder));
     }
 
     @GetMapping("/{id}")

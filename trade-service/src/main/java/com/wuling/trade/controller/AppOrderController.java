@@ -138,10 +138,66 @@ public class AppOrderController {
         }
 
         WxPayPrepayResult prepay = paymentService.prepayForMiniApp(
-                orderNo, order.getPaidAmount(), openid, order.getSummary());
+                orderNo, order.getPaidAmount(), openid, order.getSummary(), resolveClientIp());
         auditLog.record(String.valueOf(userId), "PAY", "PREPAY", orderNo,
-                "通道=" + gatewayResolver.activeChannel() + " 金额=" + order.getPaidAmount(), null);
+                "通道=" + gatewayResolver.activeCollectChannel() + " 金额=" + order.getPaidAmount(), null);
         return Result.ok(prepay);
+    }
+
+    /**
+     * 解析用户真实 IP。
+     *
+     * <p><b>为什么在服务端取</b>：易宝 {@code aggpay/pre-pay} 的 {@code userIp}
+     * 是必填项。①前端可伪造；②小程序拿不到可靠公网 IP；
+     * ③网关已透传 {@code X-Forwarded-For}。
+     *
+     * <p>优先级：{@code X-Forwarded-For} 首个非内网地址 > {@code X-Real-IP} > remoteAddr。
+     */
+    private String resolveClientIp() {
+        try {
+            jakarta.servlet.http.HttpServletRequest request =
+                    ((org.springframework.web.context.request.ServletRequestAttributes)
+                            org.springframework.web.context.request.RequestContextHolder
+                                    .currentRequestAttributes()).getRequest();
+            String xff = request.getHeader("X-Forwarded-For");
+            String realIp = request.getHeader("X-Real-IP");
+            String remoteAddr = request.getRemoteAddr();
+            String resolved = null;
+
+            if (xff != null && !xff.isBlank()) {
+                for (String part : xff.split(",")) {
+                    String ip = part.trim();
+                    if (!ip.isEmpty() && !isPrivateIp(ip)) {
+                        resolved = ip;
+                        break;
+                    }
+                }
+            }
+            if (resolved == null && realIp != null && !realIp.isBlank()) {
+                resolved = realIp.trim();
+            }
+            if (resolved == null) {
+                resolved = remoteAddr;
+            }
+
+            // 联调期开启：确认网关透传是否真正生效。
+            // 若 clientIp 等于网关内网地址，说明 ClientIpForwardFilter 未生效。
+            log.info("下单 IP 解析 clientIp={} xff={} realIp={} remoteAddr={}",
+                    resolved, xff, realIp, remoteAddr);
+            return resolved;
+        } catch (Exception e) {
+            // 取不到 IP 不影响下单：通道侧会兜底
+            return null;
+        }
+    }
+
+    /** 判断是否内网地址（内网地址不适合作为易宝的用户 IP）。 */
+    private boolean isPrivateIp(String ip) {
+        return ip.startsWith("10.") || ip.startsWith("192.168.")
+                || ip.startsWith("172.16.") || ip.startsWith("172.17.")
+                || ip.startsWith("172.18.") || ip.startsWith("172.19.")
+                || ip.startsWith("172.2") || ip.startsWith("172.30.")
+                || ip.startsWith("172.31.") || ip.startsWith("127.");
     }
 
     /**

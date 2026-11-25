@@ -73,6 +73,9 @@ public class RoleWorkbenchService {
         o.setRoleType(account == null ? null : account.getRoleType());
         o.setAvailableBalance(account == null ? 0L : account.getAvailableBalance());
         o.setFrozenBalance(account == null ? 0L : account.getFrozenBalance());
+        // 押金：不可提现，仅用于退款冲正兜底。小程序需要展示（含「不可提现」文案），
+        // 否则经营者看到后台扣了押金却查不到原因，必然产生纠纷。
+        o.setDepositBalance(account == null ? 0L : account.getDepositBalance());
         o.setTotalIncome(account == null ? 0L : account.getTotalIncome());
         o.setTotalWithdrawn(account == null ? 0L : account.getTotalWithdrawn());
         o.setTodayOrders(todayOrders);
@@ -309,6 +312,8 @@ public class RoleWorkbenchService {
         private String roleType;
         private Long availableBalance;
         private Long frozenBalance;
+        /** 押金（分）。不可提现、不可分账，仅用于退款冲正兜底。 */
+        private Long depositBalance;
         private Long totalIncome;
         private Long totalWithdrawn;
         private Long todayOrders;
@@ -323,6 +328,8 @@ public class RoleWorkbenchService {
         public void setAvailableBalance(Long v) { this.availableBalance = v; }
         public Long getFrozenBalance() { return frozenBalance; }
         public void setFrozenBalance(Long v) { this.frozenBalance = v; }
+        public Long getDepositBalance() { return depositBalance; }
+        public void setDepositBalance(Long v) { this.depositBalance = v; }
         public Long getTotalIncome() { return totalIncome; }
         public void setTotalIncome(Long v) { this.totalIncome = v; }
         public Long getTotalWithdrawn() { return totalWithdrawn; }

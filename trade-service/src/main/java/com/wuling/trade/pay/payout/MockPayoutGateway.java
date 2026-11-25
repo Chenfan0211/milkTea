@@ -22,7 +22,7 @@ public class MockPayoutGateway implements PayoutGateway {
     }
 
     @Override
-    public PayoutResult transfer(String outDetailNo, long amountFen, String openid, String remark) {
+    public PayoutResult transfer(String outTradeNo, long amountFen, PayeeRef payee, String remark) {
         return new PayoutResult(true, "MOCK-BATCH-" + System.currentTimeMillis(), null);
     }
 
@@ -32,7 +32,7 @@ public class MockPayoutGateway implements PayoutGateway {
     }
 
     @Override
-    public PayoutQueryResult query(String outDetailNo) {
+    public PayoutQueryResult query(String outTradeNo, String yeepayMerchantNo) {
         return new PayoutQueryResult("SUCCESS", null);
     }
 }

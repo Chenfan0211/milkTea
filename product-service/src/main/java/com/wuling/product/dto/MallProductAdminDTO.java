@@ -20,6 +20,8 @@ public class MallProductAdminDTO {
     private Long supplierSubjectId;
     private String supplierName;
     private String status;
+    /** 运营排序号（越小越靠前），影响小程序商城列表顺序。 */
+    private Integer sort;
     private Integer salesCount;
     private Long minPrice;
     private Long maxPrice;

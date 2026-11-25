@@ -25,10 +25,30 @@ export interface AdminProductRow {
   originalPrice?: number;
   costPrice?: number;
   platformCommission?: number;
+  /** 储值立减（单位：分） */
+  storedValuePrice?: number;
+  /**
+   * 商品缩略图。后端原样下发 product.image，为空表示确实未上传，
+   * 不会用 galleryImage 顶替（展示层按 image -> galleryImage -> 占位图 回退）。
+   */
+  image?: string;
+  /** 详情主图 */
+  galleryImage?: string;
+  /** 图片免责声明 */
+  imageDisclaimer?: string;
+  /** 促销文案 */
+  promotionText?: string;
+  ingredients?: string;
+  allergens?: string;
+  cupCapacity?: string;
+  /** 饮用提示（后端由 JSON 文本解析为字符串数组） */
+  tips?: string[];
   description?: string;
   store?: string;
   stores?: string[];
   onSale?: string;
+  /** 运营排序号（越小越靠前），影响小程序点单菜单顺序。 */
+  sort?: number;
   splitReady?: string;
   createTime?: string;
 }

@@ -1,0 +1,242 @@
+<view class="onboard-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="onboard-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="onboard-empty">
+      <empty-state title="暂无权限" description="请先开通并选择经营角色" icon="/assets/icons/lucide/users.svg" />
+    </view>
+
+    <view wx:else class="onboard-body">
+      <!-- 已完成：只展示结果与后续入口 -->
+      <view wx:if="{{status && status.onboarded}}" class="onboard-result">
+        <view class="onboard-result__icon-wrap">
+          <image class="onboard-result__icon" src="/assets/icons/lucide/circle-check.svg" mode="aspectFit" />
+        </view>
+        <text class="onboard-result__title">已完成入驻与签约</text>
+        <text class="onboard-result__desc">{{statusMessage}}</text>
+
+        <view class="onboard-result__actions">
+          <view
+            class="onboard-btn onboard-btn--primary"
+            bindtap="openSettleCard"
+            aria-role="button"
+            aria-label="管理结算卡"
+          >管理结算卡</view>
+        </view>
+      </view>
+
+      <!-- 审核中：展示状态与刷新 -->
+      <view wx:elif="{{status && status.status && status.status !== 'REVIEW_BACK'}}" class="onboard-result">
+        <view class="onboard-result__icon-wrap">
+          <image class="onboard-result__icon" src="/assets/icons/lucide/clock.svg" mode="aspectFit" />
+        </view>
+        <text class="onboard-result__title">审核中</text>
+        <text class="onboard-result__desc">{{statusMessage}}</text>
+
+        <view class="onboard-result__actions">
+          <view
+            wx:if="{{status.signUrl}}"
+            class="onboard-btn onboard-btn--primary"
+            bindtap="openSign"
+            aria-role="button"
+            aria-label="去签署协议"
+          >去签署协议</view>
+          <view
+            class="onboard-btn onboard-btn--ghost"
+            bindtap="refreshStatus"
+            aria-role="button"
+            aria-label="刷新审核进度"
+          >刷新进度</view>
+        </view>
+      </view>
+
+      <!-- 未入驻 / 被驳回：填表 -->
+      <block wx:else>
+        <view wx:if="{{status && status.status === 'REVIEW_BACK'}}" class="onboard-alert">
+          <image class="onboard-alert__icon" src="/assets/icons/lucide/circle-alert.svg" mode="aspectFit" />
+          <text class="onboard-alert__text">{{statusMessage}}</text>
+        </view>
+
+        <view class="onboard-section">
+          <text class="onboard-section__title">选择主体类型</text>
+          <text class="onboard-section__hint">不同类型需要的资料不同，请按实际经营主体选择</text>
+
+          <view class="onboard-types">
+            <view
+              wx:for="{{signTypes}}"
+              wx:key="value"
+              class="onboard-type {{signType === item.value ? 'is-active' : ''}}"
+              data-value="{{item.value}}"
+              bindtap="handlePickSignType"
+              aria-role="button"
+              aria-label="选择{{item.label}}"
+            >
+              <text class="onboard-type__label">{{item.label}}</text>
+              <text class="onboard-type__desc">{{item.desc}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{signType}}" class="onboard-section">
+          <text class="onboard-section__title">主体资料</text>
+
+          <view wx:if="{{licenceRequired}}" class="onboard-field">
+            <text class="onboard-field__label">营业执照</text>
+            <view
+              class="onboard-upload"
+              data-field="licenceUrl"
+              bindtap="handlePickImage"
+              aria-role="button"
+              aria-label="上传营业执照"
+            >
+              <image
+                wx:if="{{form.licenceUrl}}"
+                class="onboard-upload__preview"
+                src="{{form.licenceUrl}}"
+                mode="aspectFit"
+              />
+              <view wx:else class="onboard-upload__placeholder">
+                <image class="onboard-upload__icon" src="/assets/icons/lucide/upload.svg" mode="aspectFit" />
+                <text class="onboard-upload__text">点击上传</text>
+              </view>
+            </view>
+          </view>
+
+          <view wx:if="{{licenceRequired}}" class="onboard-field">
+            <text class="onboard-field__label">统一社会信用代码</text>
+            <input
+              class="onboard-input"
+              value="{{form.licenceNo}}"
+              data-field="licenceNo"
+              placeholder="请输入统一社会信用代码"
+              placeholder-class="onboard-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="onboard-field">
+            <text class="onboard-field__label">法人 / 经营者姓名</text>
+            <input
+              class="onboard-input"
+              value="{{form.legalName}}"
+              data-field="legalName"
+              placeholder="请输入姓名"
+              placeholder-class="onboard-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="onboard-field">
+            <text class="onboard-field__label">证件号码</text>
+            <input
+              class="onboard-input"
+              value="{{form.legalLicenceNo}}"
+              data-field="legalLicenceNo"
+              placeholder="请输入身份证号"
+              placeholder-class="onboard-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="onboard-field">
+            <text class="onboard-field__label">证件人像面</text>
+            <view
+              class="onboard-upload"
+              data-field="legalLicenceFrontUrl"
+              bindtap="handlePickImage"
+              aria-role="button"
+              aria-label="上传证件人像面"
+            >
+              <image
+                wx:if="{{form.legalLicenceFrontUrl}}"
+                class="onboard-upload__preview"
+                src="{{form.legalLicenceFrontUrl}}"
+                mode="aspectFit"
+              />
+              <view wx:else class="onboard-upload__placeholder">
+                <image class="onboard-upload__icon" src="/assets/icons/lucide/upload.svg" mode="aspectFit" />
+                <text class="onboard-upload__text">点击上传</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="onboard-field">
+            <text class="onboard-field__label">证件国徽面</text>
+            <view
+              class="onboard-upload"
+              data-field="legalLicenceBackUrl"
+              bindtap="handlePickImage"
+              aria-role="button"
+              aria-label="上传证件国徽面"
+            >
+              <image
+                wx:if="{{form.legalLicenceBackUrl}}"
+                class="onboard-upload__preview"
+                src="{{form.legalLicenceBackUrl}}"
+                mode="aspectFit"
+              />
+              <view wx:else class="onboard-upload__placeholder">
+                <image class="onboard-upload__icon" src="/assets/icons/lucide/upload.svg" mode="aspectFit" />
+                <text class="onboard-upload__text">点击上传</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{signType}}" class="onboard-section">
+          <text class="onboard-section__title">商户与联系信息</text>
+
+          <view class="onboard-field">
+            <text class="onboard-field__label">商户签约名</text>
+            <input
+              class="onboard-input"
+              value="{{form.signName}}"
+              data-field="signName"
+              placeholder="须与证照名称一致"
+              placeholder-class="onboard-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="onboard-field">
+            <text class="onboard-field__label">商户简称</text>
+            <input
+              class="onboard-input"
+              value="{{form.shortName}}"
+              data-field="shortName"
+              placeholder="选填，用于收银台展示"
+              placeholder-class="onboard-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="onboard-field">
+            <text class="onboard-field__label">联系人手机号</text>
+            <input
+              class="onboard-input"
+              type="number"
+              maxlength="11"
+              value="{{form.contactMobile}}"
+              data-field="contactMobile"
+              placeholder="请输入手机号"
+              placeholder-class="onboard-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+        </view>
+
+        <view wx:if="{{signType}}" class="onboard-footnote">
+          <text>提交后由易宝审核，通常 1-3 个工作日。审核通过后会下发签署链接，完成签署即可提现。</text>
+        </view>
+
+        <view
+          class="onboard-submit {{canSubmit ? '' : 'is-disabled'}}"
+          bindtap="submit"
+          aria-role="button"
+          aria-label="提交入驻申请"
+          aria-disabled="{{!canSubmit}}"
+        >{{submitting ? '提交中…' : '提交入驻申请'}}</view>
+      </block>
+    </view>
+  </scroll-view>
+</view>

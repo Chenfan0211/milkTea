@@ -1416,8 +1416,9 @@ function getWithdrawData(roleId) {
   return {
     balance: fenToYuanText(overview ? overview.availableBalance : 0),
     pending: fenToYuanText(overview ? overview.frozenBalance : 0),
-    // 保证金：后端无对应字段，不再展示写死的假金额
-    deposit: '',
+    // 押金：不可提现、不可分账，仅用于退款冲正兜底。
+    // 数据来自后端 overview.depositBalance（分）→ 元；未返回时按 0 展示。
+    deposit: fenToYuanText(overview ? overview.depositBalance : 0),
     records: remote || []
   };
 }

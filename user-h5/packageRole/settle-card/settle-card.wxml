@@ -1,0 +1,127 @@
+<view class="card-page">
+  <navigation-bar title="{{title}}" back="{{true}}" background="#FFFFFF" color="#2F302D" />
+
+  <scroll-view class="card-scroll" scroll-y show-scrollbar="{{false}}">
+    <view wx:if="{{!ready}}" class="card-empty">
+      <empty-state title="暂无权限" description="请先开通并选择经营角色" icon="/assets/icons/lucide/users.svg" />
+    </view>
+
+    <view wx:else class="card-body">
+      <view class="card-tip">
+        <image class="card-tip__icon" src="/assets/icons/lucide/info.svg" mode="aspectFit" />
+        <text class="card-tip__text">结算卡用于接收提现款项，开户名须与签约主体一致。绑定时易宝会自动校验卡户名。</text>
+      </view>
+
+      <!-- 已绑卡列表 -->
+      <view wx:if="{{!cardsEmpty}}" class="card-section">
+        <text class="card-section__title">已绑定的结算卡</text>
+
+        <view wx:for="{{cards}}" wx:key="id" class="card-item">
+          <view class="card-item__head">
+            <view class="card-item__info">
+              <text class="card-item__name">{{item.accountName}}</text>
+              <text class="card-item__no">{{item.cardMask}}</text>
+            </view>
+            <view wx:if="{{item.isDefault}}" class="card-item__badge">默认</view>
+          </view>
+
+          <view class="card-item__meta">
+            <text class="card-item__bank">{{item.bankName || '开户行待完善'}}</text>
+            <text class="card-item__status card-item__status--{{item.statusTone}}">{{item.statusLabel}}</text>
+          </view>
+
+          <text wx:if="{{item.verifyMsg}}" class="card-item__error">{{item.verifyMsg}}</text>
+
+          <view
+            wx:if="{{!item.isDefault && item.verifyStatus === 'PASS'}}"
+            class="card-item__action"
+            data-id="{{item.id}}"
+            bindtap="setDefault"
+            aria-role="button"
+            aria-label="设为默认结算卡"
+          >设为默认</view>
+        </view>
+      </view>
+
+      <!-- 新增绑卡 -->
+      <view class="card-section">
+        <text class="card-section__title">添加结算卡</text>
+
+        <view wx:if="{{!onboarded}}" class="card-blocked">
+          <image class="card-blocked__icon" src="/assets/icons/lucide/lock.svg" mode="aspectFit" />
+          <text class="card-blocked__text">请先完成入驻与协议签署后再绑定结算卡</text>
+        </view>
+
+        <block wx:else>
+          <view wx:if="{{accountTypes.length > 1}}" class="card-field">
+            <text class="card-field__label">账户类型</text>
+            <view class="card-types">
+              <view
+                wx:for="{{accountTypes}}"
+                wx:key="value"
+                class="card-type {{accountType === item.value ? 'is-active' : ''}}"
+                data-value="{{item.value}}"
+                bindtap="handlePickAccountType"
+                aria-role="button"
+                aria-label="选择{{item.label}}"
+              >{{item.label}}</view>
+            </view>
+          </view>
+
+          <view wx:else-if="{{accountTypes.length === 1}}" class="card-note">
+            <text>当前主体类型仅支持绑定{{accountTypeLabel}}</text>
+          </view>
+
+          <view class="card-field">
+            <text class="card-field__label">开户名</text>
+            <input
+              class="card-input"
+              value="{{form.accountName}}"
+              data-field="accountName"
+              placeholder="须与签约主体名称一致"
+              placeholder-class="card-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="card-field">
+            <text class="card-field__label">银行卡号</text>
+            <input
+              class="card-input"
+              type="number"
+              value="{{form.bankCardNo}}"
+              data-field="bankCardNo"
+              placeholder="请输入银行卡号"
+              placeholder-class="card-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="card-field">
+            <text class="card-field__label">开户行名称</text>
+            <input
+              class="card-input"
+              value="{{form.bankName}}"
+              data-field="bankName"
+              placeholder="如：中国工商银行"
+              placeholder-class="card-input__placeholder"
+              bindinput="handleInput"
+            />
+          </view>
+
+          <view class="card-footnote">
+            <text>农信社卡或 16 位以下农业银行卡建议填写支行编码，可提高出款成功率。</text>
+          </view>
+
+          <view
+            class="card-submit {{canSubmit ? '' : 'is-disabled'}}"
+            bindtap="submit"
+            aria-role="button"
+            aria-label="提交绑定"
+            aria-disabled="{{!canSubmit}}"
+          >{{submitting ? '绑定中…' : '提交绑定'}}</view>
+        </block>
+      </view>
+    </view>
+  </scroll-view>
+</view>

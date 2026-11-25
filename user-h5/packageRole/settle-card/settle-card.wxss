@@ -1,0 +1,258 @@
+.card-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--page-bg);
+}
+
+.card-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.card-empty {
+  padding: 120rpx var(--page-gutter);
+}
+
+.card-body {
+  padding: var(--space-lg) var(--page-gutter) 40rpx;
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* ---------- 顶部提示 ---------- */
+.card-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background-color: var(--brand-soft);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.card-tip__icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+
+.card-tip__text {
+  flex: 1;
+  font-size: var(--font-caption);
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+/* ---------- 分区 ---------- */
+.card-section {
+  background-color: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.card-section__title {
+  font-size: var(--font-title);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* ---------- 卡列表 ---------- */
+.card-item {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background-color: var(--page-bg-neutral);
+  border-radius: var(--radius-md);
+}
+
+.card-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-item__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.card-item__name {
+  font-size: var(--font-body);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.card-item__no {
+  font-size: var(--font-caption);
+  color: var(--text-secondary);
+}
+
+.card-item__badge {
+  padding: 4rpx 12rpx;
+  background-color: var(--brand-soft);
+  color: var(--brand-green);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-caption);
+}
+
+.card-item__meta {
+  margin-top: var(--space-xs);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-item__bank {
+  font-size: var(--font-caption);
+  color: var(--text-muted);
+}
+
+.card-item__status {
+  font-size: var(--font-caption);
+}
+
+.card-item__status--pending {
+  color: var(--text-muted);
+}
+
+.card-item__status--success {
+  color: var(--brand-green);
+}
+
+.card-item__status--failed {
+  color: var(--price-red);
+}
+
+.card-item__error {
+  display: block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption);
+  color: var(--price-red);
+  line-height: 1.5;
+}
+
+.card-item__action {
+  margin-top: var(--space-sm);
+  height: 64rpx;
+  border-radius: var(--radius-pill);
+  border: 2rpx solid var(--brand-green);
+  color: var(--brand-green);
+  font-size: var(--font-caption);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- 未入驻拦截 ---------- */
+.card-blocked {
+  margin-top: var(--space-md);
+  padding: var(--space-lg);
+  background-color: var(--page-bg-neutral);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.card-blocked__icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.card-blocked__text {
+  font-size: var(--font-caption);
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ---------- 表单 ---------- */
+.card-field {
+  margin-top: var(--space-md);
+}
+
+.card-field__label {
+  display: block;
+  font-size: var(--font-caption);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.card-input {
+  width: 100%;
+  height: 88rpx;
+  padding: 0 var(--space-md);
+  box-sizing: border-box;
+  background-color: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-body);
+  color: var(--text-main);
+}
+
+.card-input__placeholder {
+  color: var(--text-muted);
+}
+
+.card-types {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.card-type {
+  flex: 1;
+  height: 80rpx;
+  border-radius: var(--radius-sm);
+  border: 2rpx solid var(--line-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-caption);
+  color: var(--text-secondary);
+}
+
+.card-type.is-active {
+  border-color: var(--brand-green);
+  background-color: var(--brand-tint);
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.card-note {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--page-bg-neutral);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-caption);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.card-footnote {
+  margin-top: var(--space-md);
+  font-size: var(--font-caption);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.card-submit {
+  margin-top: var(--space-lg);
+  height: 96rpx;
+  border-radius: var(--radius-pill);
+  background-color: var(--brand-green);
+  color: #FFFFFF;
+  font-size: var(--font-body);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-submit.is-disabled {
+  background-color: var(--line-color);
+  color: var(--text-muted);
+}

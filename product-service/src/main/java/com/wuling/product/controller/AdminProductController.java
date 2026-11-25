@@ -43,8 +43,10 @@ public class AdminProductController {
     @GetMapping("/list")
     public Result<PageResult<AdminProductDTO>> list(@RequestParam(defaultValue = "1") long current,
                                                     @RequestParam(defaultValue = "10") long size,
-                                                    @RequestParam(required = false) String search) {
-        return Result.ok(productQueryService.pageAdminProducts(current, size, search));
+                                                    @RequestParam(required = false) String search,
+                                                    @RequestParam(required = false) String sortBy,
+                                                    @RequestParam(required = false) String sortOrder) {
+        return Result.ok(productQueryService.pageAdminProducts(current, size, search, sortBy, sortOrder));
     }
 
     /** 新增商品 */

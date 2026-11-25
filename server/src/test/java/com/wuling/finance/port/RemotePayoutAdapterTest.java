@@ -29,7 +29,8 @@ class RemotePayoutAdapterTest {
         when(uriSpec.uri(anyString())).thenThrow(new RuntimeException("下游不可用"));
 
         RemotePayoutAdapter adapter = new RemotePayoutAdapter(restClient);
-        PayoutPort.PayoutResult result = adapter.transfer("WD1", 500L, 7L, "测试");
+        PayoutPort.PayoutResult result = adapter.transfer("WD1", 500L,
+                PayoutPort.Payee.ofWx(7L, 21L), "测试");
 
         assertFalse(result.accepted(), "下游异常必须 fail-closed");
         assertFalse(result.immediatePaid());

@@ -45,7 +45,8 @@ class WxPayoutGatewayTest {
         when(transferBatchService.initiateBatchTransfer(any())).thenReturn(response);
 
         PayoutGateway.PayoutResult result = gateway()
-                .transfer("WD202609300001", 500L, "openid-abc", "五零时光提现");
+                .transfer("WD202609300001", 500L,
+                        PayoutGateway.PayeeRef.ofWx(1L, "openid-abc"), "五零时光提现");
 
         assertTrue(result.accepted());
         assertEquals("WX-BATCH-123", result.batchNo());
@@ -73,7 +74,7 @@ class WxPayoutGatewayTest {
     void transferRejectsAmountOverLimit() {
         // 2000 元 = 200000 分；超出即拒单，不发起 SDK 调用
         PayoutGateway.PayoutResult result = gateway()
-                .transfer("WD1", 200001L, "openid-abc", "五零时光提现");
+                .transfer("WD1", 200001L, PayoutGateway.PayeeRef.ofWx(1L, "openid-abc"), "五零时光提现");
 
         assertFalse(result.accepted());
         assertTrue(result.failReason().contains("2000"));
@@ -85,7 +86,7 @@ class WxPayoutGatewayTest {
     @Test
     void transferRejectsMissingOpenid() {
         PayoutGateway.PayoutResult result = gateway()
-                .transfer("WD1", 100L, null, "五零时光提现");
+                .transfer("WD1", 100L, PayoutGateway.PayeeRef.ofWx(1L, null), "五零时光提现");
 
         assertFalse(result.accepted());
         assertTrue(result.failReason().contains("openid"));
@@ -99,7 +100,7 @@ class WxPayoutGatewayTest {
                 .thenThrow(new RuntimeException("网络超时"));
 
         PayoutGateway.PayoutResult result = gateway()
-                .transfer("WD1", 100L, "openid-abc", "五零时光提现");
+                .transfer("WD1", 100L, PayoutGateway.PayeeRef.ofWx(1L, "openid-abc"), "五零时光提现");
 
         assertFalse(result.accepted());
         assertTrue(result.failReason().contains("网络超时"));
@@ -112,7 +113,7 @@ class WxPayoutGatewayTest {
         entity.setDetailStatus("SUCCESS");
         when(transferBatchService.getTransferDetailByOutNo(any())).thenReturn(entity);
 
-        PayoutGateway.PayoutQueryResult result = gateway().query("WD1");
+        PayoutGateway.PayoutQueryResult result = gateway().query("WD1", null);
 
         assertNotNull(result);
         assertEquals("SUCCESS", result.status());

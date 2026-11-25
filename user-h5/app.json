@@ -42,6 +42,7 @@
     {
       "root": "packageRole",
       "pages": [
+        "merchant-onboard/merchant-onboard",
         "resource-orders/resource-orders",
         "role-apply/role-apply",
         "role-brew-records/role-brew-records",
@@ -64,7 +65,8 @@
         "role-withdraw-detail/role-withdraw-detail",
         "role-withdraw-records/role-withdraw-records",
         "role-withdraw-rules/role-withdraw-rules",
-        "role-workbench/role-workbench"
+        "role-workbench/role-workbench",
+        "settle-card/settle-card"
       ]
     },
     {

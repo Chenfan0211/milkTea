@@ -31,12 +31,17 @@ public class WithdrawalController {
         return Result.ok(withdrawalService.apply(CurrentUser.require(), subjectId, roleType, amount));
     }
 
-    /** 小程序端：我的提现记录 */
+    /**
+     * 小程序端：我的提现记录。
+     *
+     * <p><b>修正越权读</b>：原实现直接返回全平台提现记录，任意登录用户都能看到
+     * 别人的提现金额与单号。此处按申请人 userId 过滤。
+     */
     @GetMapping("/api/v1/app/withdrawals")
     public Result<PageResult<Withdrawal>> myList(@RequestParam(defaultValue = "1") long current,
                                                  @RequestParam(defaultValue = "10") long size,
                                                  @RequestParam(required = false) String status) {
-        return Result.ok(withdrawalService.page(current, size, status));
+        return Result.ok(withdrawalService.pageByUser(CurrentUser.require(), current, size, status));
     }
 
     /** 后台：提现列表 */
@@ -105,7 +110,9 @@ public class WithdrawalController {
                 "auditRequired", true,
                 "instantNote", "所有提现申请均需运营后台审核，无免审额度",
                 "auditNote", "所有提现申请均需运营后台审核，审核通过后发起出款",
-                "failureNote", "失败或驳回将自动解冻对应金额"));
+                "failureNote", "失败或驳回将自动解冻对应金额",
+                // 押金不可提现，前端据此展示独立一行并标注
+                "depositWithdrawable", false));
     }
 }
 

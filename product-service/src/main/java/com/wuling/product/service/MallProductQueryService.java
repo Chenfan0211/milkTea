@@ -62,7 +62,8 @@ public class MallProductQueryService {
         QueryWrapper<MallProduct> query = new QueryWrapper<MallProduct>()
                 .eq("status", "ON_SALE")
                 .eq(categoryId != null, "category_id", categoryId)
-                // 售罄商品保留展示并沉底；随后按运营排序、ID 倒序形成稳定分页顺序。
+                // 售罄商品保留展示并沉底；随后按运营排序号、ID 倒序形成稳定分页顺序。
+                // 注意：售罄沉底优先级高于运营排序号——后台把售罄商品排到最前也不会顶到有货商品之上。
                 .orderByAsc("case when exists(" + AVAILABLE_SKU_EXISTS + ") then 0 else 1 end")
                 .orderByAsc("sort")
                 .orderByDesc("id");

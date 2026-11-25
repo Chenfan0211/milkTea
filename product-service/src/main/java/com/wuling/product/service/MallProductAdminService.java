@@ -19,6 +19,7 @@ import com.wuling.product.mapper.MallProductMapper;
 import com.wuling.product.mapper.MallSkuMapper;
 import com.wuling.product.mapper.MallStockLogMapper;
 import com.wuling.product.port.SubjectQueryPort;
+import com.wuling.product.support.SortSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,19 @@ import java.util.stream.Collectors;
 public class MallProductAdminService {
     private static final long MAX_PAGE_SIZE = 100;
     private static final Set<String> PRODUCT_STATUSES = Set.of("DRAFT", "ON_SALE", "OFF_SALE");
+
+    /**
+     * 后台列表可排序字段白名单（前端列 key -> 实体字段）。
+     *
+     * <p>不含价格/库存：两者是按 SKU 聚合出来的派生值，数据库层无法排序；
+     * salesCount 先保留在表里，销量口径接订单后可直接启用到此处。
+     */
+    private static final Map<String, com.baomidou.mybatisplus.core.toolkit.support.SFunction<MallProduct, ?>>
+            MALL_PRODUCT_SORT_COLUMNS = Map.of(
+            "sort", MallProduct::getSort,
+            "createTime", MallProduct::getCreateTime,
+            "updateTime", MallProduct::getUpdateTime,
+            "salesCount", MallProduct::getSalesCount);
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final MallProductMapper productMapper;
     private final MallSkuMapper skuMapper;
@@ -71,7 +85,9 @@ public class MallProductAdminService {
     public PageResult<MallProductAdminDTO> pageProducts(long page, long size,
                                                         Long categoryId,
                                                         String status,
-                                                        String keyword) {
+                                                        String keyword,
+                                                        String sortBy,
+                                                        String sortOrder) {
         long safePage = page < 1 ? 1 : page;
         long safeSize = size < 1 ? 20 : Math.min(size, MAX_PAGE_SIZE);
         LambdaQueryWrapper<MallProduct> query = new LambdaQueryWrapper<MallProduct>()
@@ -79,9 +95,15 @@ public class MallProductAdminService {
                 .eq(StringUtils.hasText(status), MallProduct::getStatus, upper(status))
                 .and(StringUtils.hasText(keyword), wrapper -> wrapper
                         .like(MallProduct::getName, keyword.trim())
-                        .or().like(MallProduct::getProductCode, keyword.trim()))
-                .orderByAsc(MallProduct::getSort)
-                .orderByDesc(MallProduct::getId);
+                        .or().like(MallProduct::getProductCode, keyword.trim()));
+        com.baomidou.mybatisplus.core.toolkit.support.SFunction<MallProduct, ?> sortColumn =
+                SortSupport.resolve(MALL_PRODUCT_SORT_COLUMNS, sortBy);
+        if (sortColumn != null) {
+            query.orderBy(true, SortSupport.isAsc(sortOrder), sortColumn);
+        } else {
+            // 默认：运营排序号升序 + id 倒序（新建商品排在同类靠前）
+            query.orderByAsc(MallProduct::getSort).orderByDesc(MallProduct::getId);
+        }
         Page<MallProduct> result = productMapper.selectPage(new Page<>(safePage, safeSize), query);
         Map<Long, List<MallSku>> skusByProduct = loadSkus(result.getRecords());
         Map<Long, String> suppliers = subjectNames(result.getRecords().stream()
@@ -114,6 +136,7 @@ public class MallProductAdminService {
         MallProduct product = new MallProduct();
         product.setProductCode(productCode);
         product.setSalesCount(0);
+        product.setSort(0);
         apply(product, request);
         if ("ON_SALE".equals(product.getStatus())) {
             validateOnSale(product, List.of());
@@ -366,6 +389,11 @@ public class MallProductAdminService {
         }
         product.setDescription(trimToNull(request.getDescription()));
         product.setSupplierSubjectId(request.getSupplierSubjectId());
+        // 排序号：运营位，越小越靠前。未传时保留原值（新增时上方已置 0），
+        // 避免只改价格等字段的调用把已配置的排位冲成 0。
+        if (request.getSort() != null) {
+            product.setSort(SortSupport.clampSort(request.getSort()));
+        }
         String status = StringUtils.hasText(request.getStatus()) ? upper(request.getStatus()) : "DRAFT";
         if (!PRODUCT_STATUSES.contains(status)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "商品状态仅支持 DRAFT/ON_SALE/OFF_SALE");
@@ -446,6 +474,7 @@ public class MallProductAdminService {
         dto.setSupplierSubjectId(product.getSupplierSubjectId());
         dto.setSupplierName(subjectName(suppliers, product.getSupplierSubjectId()));
         dto.setStatus(product.getStatus());
+        dto.setSort(product.getSort() == null ? 0 : product.getSort());
         dto.setSalesCount(product.getSalesCount());
         dto.setCreateTime(product.getCreateTime() == null ? null : product.getCreateTime().format(TIME_FORMAT));
         dto.setUpdateTime(product.getUpdateTime() == null ? null : product.getUpdateTime().format(TIME_FORMAT));

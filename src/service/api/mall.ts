@@ -70,6 +70,8 @@ export interface MallProductAdmin {
   supplierSubjectId?: number;
   supplierName?: string;
   status: MallProductStatus;
+  /** 运营排序号（越小越靠前），影响小程序商城列表顺序。 */
+  sort?: number;
   salesCount?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -92,6 +94,8 @@ export interface MallProductPayload {
   detailImages?: string[];
   description?: string;
   supplierSubjectId: number;
+  /** 运营排序号（越小越靠前）；不传则后端保留原值，新增时按 0。 */
+  sort?: number;
   status: MallProductStatus;
 }
 
@@ -114,6 +118,9 @@ export interface MallProductQuery {
   categoryId?: number;
   status?: MallProductStatus;
   keyword?: string;
+  /** 后台列表排序：sort / createTime / updateTime / salesCount。 */
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface MallStockAdjustPayload {

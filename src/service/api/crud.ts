@@ -577,6 +577,65 @@ export async function unfreezeAccount(subjectId: number, amount: number): Promis
   return unwrap<void>(res);
 }
 
+// ---------------- 经营者押金（退款兜底） ----------------
+
+/**
+ * 设定/调整押金（目标值语义）。
+ *
+ * <p>传「目标值」而非增量：运营的意图是「这个经营者应该有 500 元押金」，
+ * 由后端算差额并写台账，避免运营自己算错。
+ */
+export async function setDeposit(subjectId: number, amount: number, reason?: string): Promise<any> {
+  const res = await request<any>({
+    url: `/api/v1/admin/finance/deposits/${subjectId}/set`,
+    method: 'post',
+    params: { amount, reason }
+  });
+  return unwrap<any>(res);
+}
+
+/** 查询押金余额与变动明细 */
+export async function fetchDeposit(subjectId: number, limit = 50): Promise<any> {
+  const res = await request<any>({
+    url: '/api/v1/admin/finance/deposits',
+    method: 'get',
+    params: { subjectId, limit }
+  });
+  return unwrap<any>(res);
+}
+
+/** 押金列表（含可用/冻结/押金三列） */
+export async function fetchDepositsPage(params?: Record<string, any>): Promise<CrudPage> {
+  const res = await request<CrudPage>({
+    url: '/api/v1/admin/finance/deposits/page',
+    method: 'get',
+    params
+  });
+  return unwrap<CrudPage>(res);
+}
+
+// ---------------- 商户入驻（易宝） ----------------
+
+/** 入驻列表 */
+export async function fetchOnboards(params?: Record<string, any>): Promise<CrudPage> {
+  const res = await request<CrudPage>({
+    url: '/api/v1/admin/subjects/onboards',
+    method: 'get',
+    params
+  });
+  return unwrap<CrudPage>(res);
+}
+
+/** 某主体的入驻资料（证件号与手机号返回掩码） */
+export async function fetchOnboardMaterial(subjectId: number): Promise<any> {
+  const res = await request<any>({
+    url: '/api/v1/admin/subjects/onboards/material',
+    method: 'get',
+    params: { subjectId }
+  });
+  return unwrap<any>(res);
+}
+
 // ---------------- 交易查询 ----------------
 
 export async function fetchPayments(params?: Record<string, any>): Promise<CrudPage> {

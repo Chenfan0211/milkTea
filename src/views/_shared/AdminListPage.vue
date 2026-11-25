@@ -73,6 +73,24 @@ const pagination = reactive<PaginationProps>({
 
 const search = reactive<Record<string, any>>({});
 
+/**
+ * 表头远程排序状态。
+ *
+ * <p>只在 config.remoteSort 为 true 时生效：列声明 `sorter: true` 后点击表头，
+ * naive-ui 会通过 `update:sorter` 抛出列 key 与方向，这里转成
+ * sortBy / sortOrder 交给后端，避免本地排序只排当前页。
+ */
+const sorter = ref<{ columnKey: string; order: 'ascend' | 'descend' } | null>(null);
+
+function onSorterChange(next: any) {
+  if (!props.config.remoteSort) return;
+  const first = Array.isArray(next) ? next[0] : next;
+  sorter.value = first && first.order ? { columnKey: String(first.columnKey), order: first.order } : null;
+  // 排序变化后原页码无意义，回到第一页，避免落在空白页上。
+  pagination.page = 1;
+  loadData();
+}
+
 // 初始化初始搜索条件（URL 回显等）
 watch(
   () => props.config.initialSearch,
@@ -438,10 +456,12 @@ const columns = computed(() => {
   );
   // 统一：文本列默认省略 + 悬停 tooltip，避免长文本撑宽表格
   const cols: any[] = visibleCols.map((col: any) => {
-    if (col.ellipsis === false || col.ellipsis != null) return col;
-    if (col.key === '__actions__') return col;
-    if (col.type === 'selection' || col.type === 'expand') return col;
-    return { ...col, ellipsis: { tooltip: true } };
+    // 未开启 remoteSort 时移除 sorter，防止 naive-ui 只排当前页而给出错误结果
+    const base = !props.config.remoteSort && col.sorter ? { ...col, sorter: false } : col;
+    if (base.ellipsis === false || base.ellipsis != null) return base;
+    if (base.key === '__actions__') return base;
+    if (base.type === 'selection' || base.type === 'expand') return base;
+    return { ...base, ellipsis: { tooltip: true } };
   });
   if (props.config.rowActions?.length) {
     cols.push({
@@ -502,7 +522,10 @@ async function loadData() {
     const result = await props.config.loadData({
       page: pagination.page ?? 1,
       pageSize: pagination.pageSize ?? 10,
-      search
+      search,
+      // 未点过表头时两个参数都为 undefined，由后端回落各自的默认排序列。
+      sortBy: sorter.value?.columnKey,
+      sortOrder: sorter.value ? (sorter.value.order === 'descend' ? 'desc' : 'asc') : undefined
     });
     const lastPage = Math.max(1, Math.ceil(result.total / (pagination.pageSize ?? 10)));
     if ((pagination.page ?? 1) > lastPage) {
@@ -551,8 +574,125 @@ function handleReset() {
   for (const key of Object.keys(search)) {
     search[key] = undefined;
   }
+  // 重置要连排序一起清，否则用户以为回到默认顺序、实际还在按上次的列排。
+  sorter.value = null;
   pagination.page = 1;
   loadData();
+}
+
+/**
+ * 渲染图片上传字段（type: 'uploadImage' 与 'image' 共用）。
+ *
+ * <p><b>为什么抽成独立方法</b>：2026-11-23 事故——`type:'image'` 曾用
+ * `FileReader.readAsDataURL` 把 base64 存进表单，提交后写进
+ * `VARCHAR(255)` 的列，MySQL 报 `Data too long for column`。
+ * 现在两种类型统一走本方法（调文件服务上传，只存 URL），
+ * 从结构上杜绝 base64 落库。
+ *
+ * <p><b>历史数据兜底</b>：若编辑的是旧记录且值仍是 `data:image/` 开头，
+ * 提示重新上传——否则原样提交会再次触发同样的报错。
+ */
+function renderUploadImageField(field: FormField, disabled: boolean) {
+  const raw = formModel[field.key];
+  const isLegacyBase64 = typeof raw === 'string' && raw.startsWith('data:image/');
+  // 历史 base64 不参与预览渲染（体积过大，且渲染无意义）
+  const current = isLegacyBase64 ? '' : raw;
+
+  const uploadHint = isLegacyBase64
+    ? h('div', { class: 'image-legacy-hint', style: 'color:#d03050;font-size:12px;margin-bottom:6px' },
+        '该图片为历史遗留格式，请重新上传')
+    : null;
+
+  return h('div', { class: 'image-field' }, [
+    uploadHint,
+    h(
+      NUpload,
+      {
+        accept: '.jpg,.jpeg,.png,image/jpeg,image/png',
+        multiple: false,
+        max: 1,
+        showFileList: false,
+        defaultUpload: false,
+        disabled,
+        'onUpdate:fileList': async (files: UploadFileInfo[]) => {
+          const file = files[0]?.file;
+          if (!(file instanceof File)) return;
+          const validTypes = ['image/jpeg', 'image/png'];
+          const maxBytes = field.maxBytes ?? 5 * 1024 * 1024;
+          if (!validTypes.includes(file.type)) {
+            window.$message?.warning('仅支持 JPG/PNG 图片');
+            return;
+          }
+          if (file.size > maxBytes) {
+            window.$message?.warning(`图片不能超过 ${Math.floor(maxBytes / 1024 / 1024)}MB`);
+            return;
+          }
+          if (field.square) {
+            const square = await new Promise<boolean>(resolve => {
+              const url = URL.createObjectURL(file);
+              const image = new Image();
+              image.addEventListener(
+                'load',
+                () => {
+                  URL.revokeObjectURL(url);
+                  resolve(image.naturalWidth === image.naturalHeight);
+                },
+                { once: true }
+              );
+              image.addEventListener(
+                'error',
+                () => {
+                  URL.revokeObjectURL(url);
+                  resolve(false);
+                },
+                { once: true }
+              );
+              image.src = url;
+            });
+            if (!square) {
+              window.$message?.warning('请上传 1:1 正方形图片');
+              return;
+            }
+          }
+          try {
+            const result = await uploadAdminImage(file);
+            formModel[field.key] = result.url;
+            window.$message?.success('图片上传成功，请保存后生效');
+          } catch (error: any) {
+            window.$message?.error(error?.message || '图片上传失败');
+          }
+        }
+      },
+      {
+        default: () =>
+          current
+            ? h(NImage, {
+                src: adminImageUrl(current),
+                fallbackSrc: ADMIN_IMAGE_FALLBACK,
+                width: 120,
+                height: 120,
+                objectFit: 'cover',
+                style: field.square ? 'border-radius:50%' : 'border-radius:6px'
+              })
+            : h('div', { class: 'image-upload-trigger' }, field.placeholder ?? '点击上传图片')
+      }
+    ),
+    current || isLegacyBase64
+      ? h(
+          NButton,
+          {
+            size: 'tiny',
+            quaternary: true,
+            disabled,
+            style: 'margin-top:8px',
+            onClick: () => {
+              formModel[field.key] = '';
+            }
+          },
+          { default: () => '移除图片' }
+        )
+      : null
+  ]);
 }
 
 function renderField(field: FormField) {
@@ -582,149 +722,21 @@ function renderField(field: FormField) {
     });
   }
   if (field.type === 'uploadImage') {
-    const current = formModel[field.key];
-    return h('div', { class: 'image-field' }, [
-      h(
-        NUpload,
-        {
-          accept: '.jpg,.jpeg,.png,image/jpeg,image/png',
-          multiple: false,
-          max: 1,
-          showFileList: false,
-          defaultUpload: false,
-          disabled,
-          'onUpdate:fileList': async (files: UploadFileInfo[]) => {
-            const file = files[0]?.file;
-            if (!(file instanceof File)) return;
-            const validTypes = ['image/jpeg', 'image/png'];
-            const maxBytes = field.maxBytes ?? 5 * 1024 * 1024;
-            if (!validTypes.includes(file.type)) {
-              window.$message?.warning('仅支持 JPG/PNG 图片');
-              return;
-            }
-            if (file.size > maxBytes) {
-              window.$message?.warning(`图片不能超过 ${Math.floor(maxBytes / 1024 / 1024)}MB`);
-              return;
-            }
-            if (field.square) {
-              const square = await new Promise<boolean>(resolve => {
-                const url = URL.createObjectURL(file);
-                const image = new Image();
-                image.addEventListener(
-                  'load',
-                  () => {
-                    URL.revokeObjectURL(url);
-                    resolve(image.naturalWidth === image.naturalHeight);
-                  },
-                  { once: true }
-                );
-                image.addEventListener(
-                  'error',
-                  () => {
-                    URL.revokeObjectURL(url);
-                    resolve(false);
-                  },
-                  { once: true }
-                );
-                image.src = url;
-              });
-              if (!square) {
-                window.$message?.warning('请上传 1:1 正方形图片');
-                return;
-              }
-            }
-            try {
-              const result = await uploadAdminImage(file);
-              formModel[field.key] = result.url;
-              window.$message?.success('图片上传成功，请保存后生效');
-            } catch (error: any) {
-              window.$message?.error(error?.message || '图片上传失败');
-            }
-          }
-        },
-        {
-          default: () =>
-            current
-              ? h(NImage, {
-                  src: adminImageUrl(current),
-                  fallbackSrc: ADMIN_IMAGE_FALLBACK,
-                  width: 120,
-                  height: 120,
-                  objectFit: 'cover',
-                  style: field.square ? 'border-radius:50%' : 'border-radius:6px'
-                })
-              : h('div', { class: 'image-upload-trigger' }, field.placeholder ?? '点击上传图片')
-        }
-      ),
-      current
-        ? h(
-            NButton,
-            {
-              size: 'tiny',
-              quaternary: true,
-              disabled,
-              style: 'margin-top:8px',
-              onClick: () => {
-                formModel[field.key] = '';
-              }
-            },
-            { default: () => '移除图片' }
-          )
-        : null
-    ]);
+    return renderUploadImageField(field, disabled);
   }
   if (field.type === 'image') {
-    const current = formModel[field.key];
-    return h('div', { class: 'image-field' }, [
-      h(
-        NUpload,
-        {
-          accept: 'image/*',
-          multiple: false,
-          max: 1,
-          showFileList: false,
-          defaultUpload: false,
-          disabled,
-          'onUpdate:fileList': (files: UploadFileInfo[]) => {
-            const file = files[0]?.file;
-            if (!file) return;
-            const reader = new FileReader();
-            reader.addEventListener('load', () => {
-              formModel[field.key] = reader.result;
-            });
-            reader.readAsDataURL(file);
-          }
-        },
-        {
-          default: () =>
-            current
-              ? h(NImage, {
-                  src: adminImageUrl(current),
-                  fallbackSrc: ADMIN_IMAGE_FALLBACK,
-                  width: 120,
-                  height: 120,
-                  objectFit: 'cover',
-                  style: 'border-radius:6px'
-                })
-              : h('div', { class: 'image-upload-trigger' }, '点击上传图片')
-        }
-      ),
-      current
-        ? h(
-            NButton,
-            {
-              size: 'tiny',
-              quaternary: true,
-              disabled,
-              style: 'margin-top:8px',
-              onClick: () => {
-                formModel[field.key] = '';
-              }
-            },
-            { default: () => '移除图片' }
-          )
-        : null
-    ]);
+    // ============================================================
+    // 【2026-11-23 修复】type:'image' 不再走 FileReader → base64。
+    //
+    // 事故：商品管理保存报「Data too long for column 'image'」。
+    // 根因是这个分支把 2.2MB 的 base64 data URL 直接写进
+    // VARCHAR(255) 的列，MySQL 必然拒绝。
+    //
+    // 现在统一复用 uploadImage 的实现（走文件服务上传，存 URL）。
+    // 保留 type:'image' 作为别名，是为了兼容各处既有配置不被一次性打断；
+    // 新代码请直接用 type:'uploadImage'。
+    // ============================================================
+    return renderUploadImageField(field, disabled);
   }
   if (field.type === 'date') {
     const raw = formModel[field.key];
@@ -921,6 +933,8 @@ defineExpose({ reload: loadData });
         :pagination="pagination"
         :row-key="(row: any) => row.id"
         :bordered="false"
+        :sorter="sorter"
+        @update:sorter="onSorterChange"
       />
     </NCard>
 

@@ -261,6 +261,7 @@ const local: App.I18n.Schema = {
     finance_flow: '资金流水',
     finance_reconcile: '对账异常池',
     finance_withdraw: '提现管理',
+    subject_onboard: '入驻与签约',
     'trade_verify-pool': '待核销池',
     system: '系统审计',
     system_audit: '审计日志',

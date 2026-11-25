@@ -196,6 +196,23 @@ public class PaymentService {
     @Transactional(rollbackFor = Exception.class)
     public WxPayPrepayResult prepayForMiniApp(String orderNo, long amountFen,
                                               String payerOpenid, String description) {
+        return prepayForMiniApp(orderNo, amountFen, payerOpenid, description, null);
+    }
+
+    /**
+     * 小程序支付下单（带用户真实 IP）。
+     *
+     * <p><b>为什么需要 clientIp</b>：易宝 {@code aggpay/pre-pay} 的
+     * {@code userIp} 是必填项，缺失会导致下单失败。该值由控制器从
+     * 请求头（{@code X-Forwarded-For}）解析后传入，<b>不接受前端参数</b>
+     * （前端可伪造，且小程序拿不到可靠公网 IP）。微信通道忽略此参数。
+     *
+     * @param clientIp 用户真实 IP；null 时通道自行兜底
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public WxPayPrepayResult prepayForMiniApp(String orderNo, long amountFen,
+                                              String payerOpenid, String description,
+                                              String clientIp) {
         Order order = orderService.lockForUpdate(orderNo);
         if (OrderService.STATUS_PAID.equals(order.getStatus())
                 || OrderService.STATUS_SHIPPED.equals(order.getStatus())
@@ -220,8 +237,8 @@ public class PaymentService {
         if (deadline != null && !deadline.isAfter(LocalDateTime.now())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "订单支付已超时，请重新下单");
         }
-        WxPayPrepayResult result = gateway.prepayForMiniApp(
-                orderNo, amountFen, payerOpenid, description, deadline);
+        WxPayPrepayResult result = prepayWithIp(gateway, orderNo, amountFen,
+                payerOpenid, description, deadline, clientIp);
         if (result == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST,
                     "当前支付通道不支持小程序支付: " + channel);
@@ -607,6 +624,32 @@ public class PaymentService {
     }
 
     /**
+     * 通用三方支付回调入账（易宝等新通道复用）。
+     *
+     * <p><b>为什么单独开这个入口</b>：{@code settlePaid} 是 private，
+     * 而不同通道的回调报文结构差异大（微信有完整交易对象，
+     * 易宝只有 orderId + uniqueOrderNo + status）。
+     * 本方法只做通道无关的入账，签名校验与解析由各通道自行完成。
+     *
+     * <p><b>金额校验仍由 {@code settlePaid} 内部完成</b>：
+     * 它会在行锁后比对订单实付金额，不匹配则抛异常拒绝入账。
+     *
+     * @param orderNo       商户订单号
+     * @param transactionId 三方交易号（易宝为 uniqueOrderNo）
+     * @param channelTag    通道标识（YEEPAY / WXPAY）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public OrderDTO applyGatewayCallback(String orderNo, String transactionId, String channelTag) {
+        if (!StringUtils.hasText(orderNo)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "回调缺少订单号");
+        }
+        if (!StringUtils.hasText(transactionId)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "回调缺少三方交易号");
+        }
+        return settlePaid(orderNo, transactionId, channelTag);
+    }
+
+    /**
      * 储值余额支付点单订单（同步扣款，一次事务内完成）。
      *
      * <p><b>与微信支付的核心区别</b>：余额支付没有第三方、没有回调，
@@ -778,7 +821,24 @@ public class PaymentService {
 
     private PaymentGateway gatewayForOrder(String orderNo) {
         Payment previous = findOrderPayment(orderNo);
-        return previous == null ? gatewayResolver.active() : gatewayResolver.forPayment(previous);
+        return previous == null ? gatewayResolver.forCollect() : gatewayResolver.forPayment(previous);
+    }
+
+    /**
+     * 按通道能力选择下单方法。
+     *
+     * <p>易宝需要 {@code userIp}，因此单独走带 IP 的重载；
+     * 微信忽略该参数，走原方法。这样避免在 {@code PaymentGateway}
+     * 接口上新增通用参数（会污染所有实现）。
+     */
+    private WxPayPrepayResult prepayWithIp(PaymentGateway gateway, String orderNo, long amountFen,
+                                           String payerOpenid, String description,
+                                           LocalDateTime deadline, String clientIp) {
+        if (gateway instanceof com.wuling.trade.pay.yeepay.YeepayPaymentGateway yeepay) {
+            return yeepay.prepayForMiniApp(orderNo, amountFen, payerOpenid, description,
+                    deadline, clientIp);
+        }
+        return gateway.prepayForMiniApp(orderNo, amountFen, payerOpenid, description, deadline);
     }
 
     private void syncOrderPayment(Order order, String transactionId, String channel, LocalDateTime now) {
@@ -791,6 +851,13 @@ public class PaymentService {
             payment.setAmount(order.getPaidAmount()); payment.setChannel(channel);
         } else if (!channel.equalsIgnoreCase(payment.getChannel())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "回调与原支付通道不一致，请人工核查");
+        }
+        // 订单上的 payChannel 只在建单时写入，之后不跟随实际支付通道。
+        // 退款按 payment.channel 回到原通道（RefundService#forPayment），
+        // 若订单侧展示的通道与实际支付单不一致，后台/小程序会误导客服与用户，
+        // 故此处以支付单的 channel 为准回写订单。
+        if (!channel.equalsIgnoreCase(order.getPayChannel())) {
+            orderService.syncPayChannel(order, channel);
         }
         if (StringUtils.hasText(payment.getTransactionId())
                 && !payment.getTransactionId().equals(transactionId)) {

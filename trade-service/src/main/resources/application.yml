@@ -152,8 +152,13 @@ app:
   # 安全：通道为 wxpay 时若缺任一配置/证书，WxPayProperties#validateOnStartup
   # 会让服务拒绝启动（fail-fast），避免带着无签名能力的通道上线。
   pay:
-    # 支付通道：mock | wxpay
+    # 支付通道：mock | wxpay（保持不变）
     channel: ${PAY_CHANNEL:mock}
+    # 收款通道：新订单走哪个通道。wxpay | yeepay
+    # 与 channel 解耦的原因：切换出款不应影响收款，
+    # 且收款 Bean 被历史订单退款依赖（forPayment），不能按配置卸载。
+    # 缺省回落 PAY_CHANNEL，保持既有部署行为。
+    collect-channel: ${COLLECT_CHANNEL:${PAY_CHANNEL:mock}}
     # 储值模拟充值：仅 PAY_CHANNEL=mock 时生效，默认开启供联调，生产切真实支付前关闭
     stored-value-demo-enabled: ${STORED_VALUE_DEMO_ENABLED:true}
     # 内部网关回调签名密钥（/api/v1/app/payments/callback）
@@ -190,6 +195,42 @@ app:
       http-timeout-ms: ${WXPAY_HTTP_TIMEOUT_MS:8000}
       # 收银台展示的商品描述前缀
       description-prefix: ${WXPAY_DESCRIPTION_PREFIX:五零时光}
+
+    # ---------- 出款通道（独立于收款通道）----------
+    # 为什么独立：微信收款 + 易宝出款需要长期并存。若与 PAY_CHANNEL 共用一个键，
+    # 切换出款就必须动收款配置，而收款通道 Bean 被历史订单退款依赖，
+    # 改配置会导致历史订单退款失败（PaymentGatewayResolver#forPayment 抛异常）。
+    # 缺省回落到 app.pay.channel，保持既有部署行为不变。
+    payout-channel: ${PAYOUT_CHANNEL:${PAY_CHANNEL:mock}}
+
+    # ---------- 易宝支付（第 17 期，与微信完全独立）----------
+    # 安全：channel=yeepay 时若缺 app-key / merchant-no / private-key，
+    # YeepayProperties#validateOnStartup 会让服务拒绝启动（fail-fast）。
+    # 留空时一个易宝 Bean 都不装配，不发起任何请求，线上零影响。
+    #
+    # 【配置来源已变更】app-key / merchant-no / platform-merchant-no /
+    # private-key / yop-public-key 现在存在数据库
+    # platform_profile.pay_config，由运营后台「平台主体」页维护，
+    # trade-service 启动后经 /internal/platform/yeepay-config 拉取。
+    # 下方环境变量仅作兜底（DB 未配置时才用），正常情况下留空即可。
+    yeepay:
+      channel: ${YEEPAY_CHANNEL:}
+      app-key: ${YEEPAY_APP_KEY:}
+      # 服务商主商编
+      merchant-no: ${YEEPAY_MERCHANT_NO:}
+      # 平台商商编：子商户入网时的 parentMerchantNo，分账发起方
+      platform-merchant-no: ${YEEPAY_PLATFORM_MERCHANT_NO:}
+      private-key: ${YEEPAY_PRIVATE_KEY:}
+      yop-public-key: ${YEEPAY_YOP_PUBLIC_KEY:}
+      notify-base-url: ${YEEPAY_NOTIFY_BASE_URL:https://api.wulingshiguang.top}
+      # 分账间隔（毫秒）：易宝要求同订单两次分账间隔 2-3 秒
+      divide-interval-ms: ${YEEPAY_DIVIDE_INTERVAL_MS:2500}
+      sandbox: ${YEEPAY_SANDBOX:false}
+      http-timeout-ms: ${YEEPAY_HTTP_TIMEOUT_MS:8000}
+
+# 提现出款补偿任务（PROCESSING 单主动查单）
+payout-reconcile:
+  cron: ${PAYOUT_RECONCILE_CRON:0 */5 * * * ?}
 
 management:
   endpoints:

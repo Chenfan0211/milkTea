@@ -33,10 +33,13 @@ import java.util.List;
 public class OrderVerifiedSplitConsumer extends AbstractMqConsumer {
 
     private final LedgerService ledgerService;
+    private final com.wuling.finance.divide.OrderDivideService orderDivideService;
 
-    public OrderVerifiedSplitConsumer(MqIdempotent idempotent, LedgerService ledgerService) {
+    public OrderVerifiedSplitConsumer(MqIdempotent idempotent, LedgerService ledgerService,
+                                      com.wuling.finance.divide.OrderDivideService orderDivideService) {
         super(idempotent);
         this.ledgerService = ledgerService;
+        this.orderDivideService = orderDivideService;
     }
 
     @RabbitListener(queues = MqConstants.FINANCE_SPLIT_QUEUE)
@@ -83,6 +86,17 @@ public class OrderVerifiedSplitConsumer extends AbstractMqConsumer {
                     Boolean.TRUE.equals(event.getMallOrder()),
                     event.getLeaderSubjectId());
             log.info("核销分账完成 orderNo={}", event.getOrderNo());
+
+            // 本地记账完成后发起易宝分账。
+            // 必须在 executeSplit 的事务之外调用：分账是外部 HTTP 调用，
+            // 放在同一事务里会拉长事务、放大锁范围，且外部失败不应回滚本地记账。
+            // 失败只记日志——钱仍在平台待分账账户，补偿任务会重试。
+            try {
+                orderDivideService.divideForOrder(event.getOrderId(), event.getOrderNo());
+            } catch (Exception e) {
+                log.warn("易宝分账触发失败（本地记账已成功，待补偿）orderNo={} err={}",
+                        event.getOrderNo(), e.getMessage());
+            }
         });
     }
 }

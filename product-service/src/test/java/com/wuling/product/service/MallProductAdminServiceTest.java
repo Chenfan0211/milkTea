@@ -66,7 +66,7 @@ class MallProductAdminServiceTest {
         when(categoryMapper.selectBatchIds(any())).thenReturn(List.of(category()));
         when(subjectQueryPort.findNames(any())).thenReturn(Map.of(401L, "供应商401"));
 
-        MallProductAdminDTO result = service.pageProducts(1, 10, null, null, null)
+        MallProductAdminDTO result = service.pageProducts(1, 10, null, null, null, null, null)
                 .getRecords()
                 .get(0);
 

@@ -70,6 +70,8 @@ export const adminRouteMeta: Record<string, AdminRouteMeta> = {
   'finance_snapshot-detail': { title: '分账快照详情', roles: fin, hideInMenu: true },
   finance_reconcile: { title: '对账异常池', order: 5, roles: fin, keepAlive: true },
   finance_withdraw: { title: '提现管理', order: 6, roles: fin, keepAlive: true },
+  // 易宝子商户入驻与签约：审核通过 + 签署完成后经营者才能提现
+  subject_onboard: { title: '入驻与签约', order: 9, roles: [ADMIN_ROLE.SUPER, ADMIN_ROLE.OPERATION, ADMIN_ROLE.FINANCE], keepAlive: true },
 
   marketing: { title: '营销中心', icon: 'mdi:bullhorn', order: 45, roles: op },
   marketing_coupon: { title: '优惠券管理', order: 1, roles: op, featureFlag: 'ENABLE_COUPON', keepAlive: true },

@@ -80,21 +80,36 @@ const columns: DataTableColumns<any> = [
     title: '图片',
     key: 'image',
     width: 70,
-    render: (row: any) =>
-      row.image
-        ? h(NImage, {
-            src: adminImageUrl(row.image),
-            fallbackSrc: ADMIN_IMAGE_FALLBACK,
-            width: 44,
-            height: 44,
-            objectFit: 'cover',
-            style: 'border-radius:6px'
-          })
-        : h('span', { style: 'color:#9B9B96' }, '—')
+    /**
+     * 三级兜底：缩略图 -> 详情大图 -> 占位图。
+     *
+     * 后端 image 为空时不会用 galleryImage 顶替（后台要能看出「缩略图未上传」），
+     * 所以展示层的回退放在这里。无条件渲染 NImage，避免早期「无图就显示 —」
+     * 造成整列看不到图、误判成接口故障。
+     */
+    render: (row: any) => {
+      const cover = row.image || row.galleryImage;
+      return h(NImage, {
+        src: cover ? adminImageUrl(cover) : ADMIN_IMAGE_FALLBACK,
+        fallbackSrc: ADMIN_IMAGE_FALLBACK,
+        width: 44,
+        height: 44,
+        objectFit: 'cover',
+        style: 'border-radius:6px'
+      });
+    }
   },
   { title: '商品编码', key: 'code', width: 110 },
   { title: '名称', key: 'name', minWidth: 110 },
   { title: '分类', key: 'category', width: 90 },
+  {
+    title: '排序号',
+    key: 'sort',
+    width: 92,
+    align: 'right',
+    sorter: true,
+    render: (row: any) => String(row.sort ?? 0)
+  },
   {
     title: '标签',
     key: 'tags',
@@ -113,6 +128,7 @@ const columns: DataTableColumns<any> = [
     key: 'originalPrice',
     width: 90,
     align: 'right',
+    sorter: true,
     render: (row: any) => (row.originalPrice != null ? `¥${formatFen(row.originalPrice)}` : '—')
   },
   {
@@ -181,7 +197,7 @@ const searchFields: SearchField[] = [
 const requiredRule = { required: true, message: '请填写', trigger: ['blur', 'change'] } as const;
 
 const formFields: FormField[] = [
-  { key: 'image', label: '商品图片', type: 'image', rules: [requiredRule] },
+  { key: 'image', label: '商品图片', type: 'uploadImage', rules: [requiredRule] },
   { key: 'code', label: '编码', rules: [requiredRule] },
   { key: 'name', label: '名称', rules: [requiredRule] },
   {
@@ -194,6 +210,12 @@ const formFields: FormField[] = [
     rules: [{ required: true, message: '请选择商品分类', trigger: ['change', 'blur'] }]
   },
   { key: 'originalPrice', label: '原价(元)', type: 'number', rules: [requiredRule] },
+  {
+    key: 'sort',
+    label: '排序号',
+    type: 'number',
+    placeholder: '数字越小越靠前，0-9999，影响点单菜单顺序'
+  },
   { key: 'costPrice', label: '成本价(元)', type: 'number' },
   { key: 'platformCommission', label: '平台分佣(元)', type: 'number' },
   {
@@ -213,7 +235,7 @@ const formFields: FormField[] = [
     options: () => store.subjects.filter(s => s.type === 'store').map(s => ({ label: s.name, value: s.id })),
     rules: [requiredRule]
   },
-  { key: 'galleryImage', label: '详情大图', type: 'image', rules: [requiredRule] },
+  { key: 'galleryImage', label: '详情大图', type: 'uploadImage', rules: [requiredRule] },
   { key: 'promotionText', label: '促销文案', rules: [requiredRule] },
   { key: 'imageDisclaimer', label: '图片免责声明', rules: [requiredRule] },
   { key: 'ingredients', label: '配料' },
@@ -278,10 +300,17 @@ const config: AdminListConfig = {
   searchFields,
   toolbar,
   rowActions,
-  loadData: async ({ page, pageSize, search }) => {
+  remoteSort: true,
+  loadData: async ({ page, pageSize, search, sortBy, sortOrder }) => {
     // 走 product-service 专用接口（非通用 CRUD）：/api/v1/admin/product/list
     const keyword = String((search && (search.name || search.code)) || '').trim();
-    const res = await store.loadProducts({ current: page, size: pageSize, search: keyword || undefined });
+    const res = await store.loadProducts({
+      current: page,
+      size: pageSize,
+      search: keyword || undefined,
+      sortBy,
+      sortOrder
+    });
     if (!res) return { data: [], total: 0 };
     return { data: res.records || [], total: res.total || 0 };
   },
@@ -311,6 +340,7 @@ const config: AdminListConfig = {
         .filter((id: any) => id != null),
       price: fenToYuan(row.price),
       originalPrice: fenToYuan(row.originalPrice),
+      sort: Number(row.sort) || 0,
       costPrice: fenToYuan(row.costPrice),
       platformCommission: fenToYuan(row.platformCommission),
       storedValuePrice: fenToYuan(row.storedValuePrice),

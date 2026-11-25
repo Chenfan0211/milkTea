@@ -241,3 +241,53 @@
   height: 32rpx;
   margin-left: 16rpx;
 }
+
+/* 易宝提现前置提示（未入驻 / 未绑结算卡） */
+.withdraw-gate {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--brand-soft);
+  border-radius: var(--radius-md);
+}
+
+.withdraw-gate__icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+}
+
+.withdraw-gate__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.withdraw-gate__title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.withdraw-gate__desc {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.withdraw-gate__action {
+  flex-shrink: 0;
+  padding: 0 24rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-green);
+  color: var(--card-bg);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}

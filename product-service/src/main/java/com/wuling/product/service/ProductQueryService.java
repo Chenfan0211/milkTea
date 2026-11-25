@@ -22,6 +22,7 @@ import com.wuling.product.mapper.ProductMapper;
 import com.wuling.product.mapper.ProductSpecMapper;
 import com.wuling.product.mapper.ProductStoreMapper;
 import com.wuling.product.port.SubjectQueryPort;
+import com.wuling.product.support.SortSupport;
 
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -37,6 +38,16 @@ import java.util.stream.Collectors;
 
 @Service
 public class ProductQueryService {
+
+    /** 后台列表可排序字段白名单（前端列 key -> 实体字段）。 */
+    private static final java.util.Map<String, com.baomidou.mybatisplus.core.toolkit.support.SFunction<Product, ?>>
+            ADMIN_PRODUCT_SORT_COLUMNS = java.util.Map.of(
+            "sort", Product::getSort,
+            "createTime", Product::getCreateTime,
+            "updateTime", Product::getUpdateTime,
+            // 列表展示的是原价列，直接按该列排序；price 一并放行供后续「售价」列使用。
+            "originalPrice", Product::getOriginalPrice,
+            "price", Product::getPrice);
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -159,6 +170,8 @@ public class ProductQueryService {
                 .orderByAsc(ProductCategory::getId));
         List<Product> products = productMapper.selectList(new LambdaQueryWrapper<Product>()
                 .eq(Product::getOnSale, 1)
+                // 运营排序号优先，同序号按 id 升序保证分页与门店过滤后顺序稳定。
+                .orderByAsc(Product::getSort)
                 .orderByAsc(Product::getId));
         List<ProductSpec> specs = specMapper.selectList(new LambdaQueryWrapper<ProductSpec>()
                 .orderByAsc(ProductSpec::getSort)
@@ -522,8 +535,18 @@ public class ProductQueryService {
         return dto;
     }
 
-    public PageResult<AdminProductDTO> pageAdminProducts(long current, long size, String search) {
-        LambdaQueryWrapper<Product> query = new LambdaQueryWrapper<Product>().orderByAsc(Product::getId);
+    public PageResult<AdminProductDTO> pageAdminProducts(long current, long size, String search,
+                                                         String sortBy, String sortOrder) {
+        LambdaQueryWrapper<Product> query = new LambdaQueryWrapper<>();
+        com.baomidou.mybatisplus.core.toolkit.support.SFunction<Product, ?> sortColumn =
+                SortSupport.resolve(ADMIN_PRODUCT_SORT_COLUMNS, sortBy);
+        boolean ascending = SortSupport.isAsc(sortOrder);
+        if (sortColumn != null) {
+            query.orderBy(true, ascending, sortColumn);
+        } else {
+            // 默认：运营排序号升序，同序号按 id 升序（与小程序点单菜单口径一致）
+            query.orderByAsc(Product::getSort).orderByAsc(Product::getId);
+        }
         if (StringUtils.hasText(search)) {
             query.and(w -> w.like(Product::getProductId, search)
                     .or().like(Product::getName, search)
@@ -687,6 +710,9 @@ public class ProductQueryService {
         dto.setCostPrice(product.getCostPrice());
         dto.setPlatformCommission(product.getPlatformCommission());
         dto.setStoredValuePrice(product.getStoredValuePrice());
+        // 缩略图与详情主图分别下发：后台列表要知道真实的上传状态，
+        // 不能像 galleryImage 那样用另一张图兜底（否则「未传缩略图」永远看不出来）。
+        dto.setImage(product.getImage());
         dto.setGalleryImage(product.getGalleryImage() == null ? product.getImage() : product.getGalleryImage());
         dto.setImageDisclaimer(product.getImageDisclaimer());
         dto.setPromotionText(product.getPromotionText());
@@ -696,6 +722,7 @@ public class ProductQueryService {
         dto.setTips(parseStringList(product.getTips()));
         dto.setDescription(product.getDescription());
         dto.setOnSale(product.getOnSale() != null && product.getOnSale() == 1 ? "on" : "off");
+        dto.setSort(product.getSort() == null ? 0 : product.getSort());
         dto.setSplitReady(product.getSplitRuleId() != null ? "ready" : "incomplete");
         dto.setCreateTime(product.getCreateTime() == null ? null : product.getCreateTime().format(FMT));
         dto.setTags(parseStringList(product.getTags()));

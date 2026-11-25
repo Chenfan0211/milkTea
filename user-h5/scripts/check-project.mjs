@@ -49,6 +49,7 @@ const SUBPACKAGE_ROOT = 'packageRole';
 const HEALTH_SUBPACKAGE_ROOT = 'packageHealth';
 const HEALTH_SUBPAGE_NAMES = ['capture', 'report', 'history'];
 const expectedSubPageNames = [
+  'merchant-onboard',
   'resource-orders',
   'role-apply',
   'role-brew-records',
@@ -71,7 +72,8 @@ const expectedSubPageNames = [
   'role-withdraw-detail',
   'role-withdraw-records',
   'role-withdraw-rules',
-  'role-workbench'
+  'role-workbench',
+  'settle-card'
 ];
 const expectedSubPages = expectedSubPageNames.map(name => `${SUBPACKAGE_ROOT}/${name}/${name}`);
 const expectedTabBarPages = [

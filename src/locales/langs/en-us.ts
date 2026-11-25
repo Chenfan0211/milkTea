@@ -263,6 +263,7 @@ const local: App.I18n.Schema = {
     finance_pool: 'Fund Pool',
     finance_account: 'Accounts',
     finance_flow: 'Fund Flows',
+    subject_onboard: 'Onboarding',
 
     finance_reconcile: 'Reconcile',
     finance_withdraw: 'Withdraw',

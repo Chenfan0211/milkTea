@@ -114,6 +114,36 @@ app:
     callback-secret: ${PAY_CALLBACK_SECRET:}
     # 回调时间戳允许漂移窗口（毫秒），默认 5 分钟，用于防重放
     callback-tolerance-ms: ${PAY_CALLBACK_TOLERANCE_MS:300000}
+    # 出款通道：mock | wxpay | yeepay（缺省回落 PAY_CHANNEL，保持既有部署行为）
+    payout-channel: ${PAYOUT_CHANNEL:${PAY_CHANNEL:mock}}
+    # 易宝支付（第 17 期，与微信完全独立）
+    # channel 留空时一个易宝 Bean 都不装配，不发起任何请求，线上零影响
+    yeepay:
+      channel: ${YEEPAY_CHANNEL:}
+      app-key: ${YEEPAY_APP_KEY:}
+      merchant-no: ${YEEPAY_MERCHANT_NO:}
+      platform-merchant-no: ${YEEPAY_PLATFORM_MERCHANT_NO:}
+      private-key: ${YEEPAY_PRIVATE_KEY:}
+      yop-public-key: ${YEEPAY_YOP_PUBLIC_KEY:}
+      notify-base-url: ${YEEPAY_NOTIFY_BASE_URL:https://api.wulingshiguang.top}
+      divide-interval-ms: ${YEEPAY_DIVIDE_INTERVAL_MS:2500}
+      sandbox: ${YEEPAY_SANDBOX:false}
+      http-timeout-ms: ${YEEPAY_HTTP_TIMEOUT_MS:8000}
+  # ---------- 敏感字段加密（实名证件号、银行卡号）----------
+  # 必须为 Base64 编码的 32 字节。留空时敏感字段拒绝入库（不提供默认密钥）。
+  sensitive:
+    key: ${APP_SENSITIVE_KEY:}
+  # 提现出款补偿任务（PROCESSING 单主动查单，防回调丢失导致资金卡死）
+  payout-reconcile:
+    cron: ${PAYOUT_RECONCILE_CRON:0 */5 * * * ?}
+  # 分账失败重试（只重试 FAIL 与 PENDING_ONBOARD，不碰 PROCESSING）
+  divide-retry:
+    cron: ${DIVIDE_RETRY_CRON:0 15 */2 * * ?}
+  divide:
+    # 售后期天数：核销后 N 天内不分账，钱留在平台待分账账户。
+    # 期间用户退款可直接退（无需向经营者追讨，避免平台垫付）。
+    # 设为 0 表示不冻结（核销即分账，与旧行为一致，可作灰度开关）。
+    hold-days: ${DIVIDE_HOLD_DAYS:7}
   # ---------- 阿里云轻量消息队列（原 MNS）：慧养智萃茶机设备数据 ----------
   # 对方推送「设备在线状态 + 胶囊冲泡记录」，本项目常驻长轮询消费。
   #

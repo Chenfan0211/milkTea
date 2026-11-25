@@ -10,16 +10,21 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 出款通道选型器（提现 → 微信商家转账）。
+ * 出款通道选型器（提现 → 微信商家转账 / 易宝自助结算）。
  *
- * <p>与 {@code PaymentGatewayResolver} 同构：按 {@code app.pay.channel} 从所有
- * {@link PayoutGateway} 实现中挑一个，新增通道只需加 {@code @Component}。
+ * <p>与 {@code PaymentGatewayResolver} 同构：按 {@code app.pay.payout-channel}
+ * （缺省回落到 {@code app.pay.channel}）从所有 {@link PayoutGateway} 实现中挑一个，
+ * 新增通道只需加 {@code @Component}。
+ *
+ * <p><b>为什么要独立的 payout-channel</b>：收款通道与出款通道会长期并存不同组合
+ * （如微信收款 + 易宝出款）。若两者共用一个开关，切换出款就必须改动收款通道，
+ * 而收款通道的 Bean 被历史订单退款依赖，改配置会导致退款失败。
  *
  * <p><b>fail-fast</b>：配置的通道找不到实现时启动即失败（而非静默回退 mock），
  * 避免「以为在打款，实际在演戏」的资损级问题。
  *
  * <p><b>mock 语义</b>：默认 mock 通道下 {@link MockPayoutGateway} 立即返回成功，
- * 维持提现「同步到账」的既有记账行为；切 wxpay 才走真实转账。
+ * 维持提现「同步到账」的既有记账行为；切 wxpay / yeepay 才走真实出款。
  */
 @Component
 public class PayoutGatewayResolver {
@@ -31,7 +36,7 @@ public class PayoutGatewayResolver {
     private final String activeChannel;
 
     public PayoutGatewayResolver(List<PayoutGateway> implementations,
-                                 @Value("${app.pay.channel:mock}") String configuredChannel) {
+                                 @Value("${app.pay.payout-channel:${app.pay.channel:mock}}") String configuredChannel) {
         for (PayoutGateway gateway : implementations) {
             String key = gateway.channel().toUpperCase();
             if (gateways.containsKey(key)) {

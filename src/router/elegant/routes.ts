@@ -611,6 +611,18 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'subject_onboard',
+        path: '/subject/onboard',
+        component: 'view.subject_onboard',
+        meta: {
+          title: '入驻与签约',
+          order: 9,
+          roles: ['R_SUPER', 'R_OPERATION', 'R_FINANCE'],
+          keepAlive: true,
+          i18nKey: null
+        }
+      },
+      {
         name: 'subject_platform',
         path: '/subject/platform',
         component: 'view.subject_platform',

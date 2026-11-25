@@ -132,8 +132,7 @@ class ProductQueryServiceMenuTest {
     }
 
     @Test
-    @DisplayName("回归：平台全量缓存命中时，传门店仍必须被过滤（历史 bug）")
-    void platformCacheHitStillFiltersByStore() throws Exception {
+    @DisplayName("回归：平台全量缓存命中时，传门店仍必须被过滤（历史 bug）")    void platformCacheHitStillFiltersByStore() throws Exception {
         givenPlatformAndListing();
 
         // 模拟 menu:all 缓存命中（内容是平台全量 3 个商品）

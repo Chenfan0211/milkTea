@@ -57,6 +57,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   subject_device: () => import("@/views/subject/device/index.vue"),
   subject_investor: () => import("@/views/subject/investor/index.vue"),
   subject_leader: () => import("@/views/subject/leader/index.vue"),
+  subject_onboard: () => import("@/views/subject/onboard/index.vue"),
   subject_platform: () => import("@/views/subject/platform/index.vue"),
   subject_store: () => import("@/views/subject/store/index.vue"),
   subject_supplier: () => import("@/views/subject/supplier/index.vue"),

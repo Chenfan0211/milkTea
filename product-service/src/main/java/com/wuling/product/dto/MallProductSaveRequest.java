@@ -32,5 +32,9 @@ public class MallProductSaveRequest {
 
     @NotNull(message = "请选择商品供应商")
     private Long supplierSubjectId;
+
+    /** 运营排序号（越小越靠前），影响小程序商城列表顺序；未传时按 0 处理。 */
+    private Integer sort;
+
     private String status;
 }

@@ -13,6 +13,7 @@ import com.wuling.product.mapper.ProductCategoryMapper;
 import com.wuling.product.mapper.ProductMapper;
 import com.wuling.product.mapper.ProductSpecMapper;
 import com.wuling.product.mapper.ProductStoreMapper;
+import com.wuling.product.support.SortSupport;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -72,6 +73,10 @@ public class AdminProductWriteService {
         applyEditable(product, payload);
         requireCategoryId(product.getCategoryId());
         product.setOnSale(parseOnSale(payload.get("onSale")));
+        if (product.getSort() == null) {
+            // 未填排序号时与历史数据保持一致（全部为 0），不改变既有菜单顺序。
+            product.setSort(0);
+        }
         if (!StringUtils.hasText(product.getName())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "缺少商品名称");
         }
@@ -315,6 +320,8 @@ public class AdminProductWriteService {
         if (payload.containsKey("allergens")) product.setAllergens(text(payload, "allergens"));
         if (payload.containsKey("cupCapacity")) product.setCupCapacity(text(payload, "cupCapacity"));
         if (payload.containsKey("tips")) product.setTips(toJsonArrayText(payload.get("tips")));
+        // 排序号：影响小程序点单菜单顺序，统一夹到 0-9999，非法值回落 0。
+        if (payload.containsKey("sort")) product.setSort(SortSupport.clampSort(payload.get("sort")));
     }
 
     /** onSale: on/off -> 1/0；也接受 1/0、true/false */

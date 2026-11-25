@@ -2,12 +2,15 @@ package com.wuling.finance;
 
 import com.wuling.finance.entity.Withdrawal;
 import com.wuling.finance.mapper.WithdrawalMapper;
+import com.wuling.finance.port.PayoutAccountPort;
 import com.wuling.finance.port.PayoutPort;
+import com.wuling.finance.service.ChannelBalanceService;
 import com.wuling.finance.service.LedgerService;
 import com.wuling.finance.service.WithdrawalService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.LocalDateTime;
 
@@ -23,26 +26,48 @@ import static org.mockito.Mockito.when;
  * 提现服务记账联动测试。
  *
  * <p>提现流水必须统一经过 LedgerService，并携带提现单号、冻结余额桶和正确符号。
+ *
+ * <p>测试走 <b>mock 出款通道</b>（immediatePaid=true），
+ * 因此不涉及易宝闸门；易宝分支的闸门与异步结算由
+ * {@code WithdrawalServiceYeepayTest} 单独覆盖。
  */
 class WithdrawalServiceTest {
 
     private WithdrawalMapper withdrawalMapper;
     private LedgerService ledgerService;
     private PayoutPort payoutPort;
+    private PayoutAccountPort payoutAccountPort;
+    private ChannelBalanceService channelBalanceService;
     private WithdrawalService withdrawalService;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         withdrawalMapper = mock(WithdrawalMapper.class);
         ledgerService = mock(LedgerService.class);
         payoutPort = mock(PayoutPort.class);
+        payoutAccountPort = mock(PayoutAccountPort.class);
+        channelBalanceService = mock(ChannelBalanceService.class);
+        ObjectProvider<com.wuling.subject.onboard.MerchantOnboardService> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+
         // 默认 mock 通道语义：出款即时到账（维持既有测试期望）
         when(payoutPort.transfer(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(new PayoutPort.PayoutResult(true, true, "MOCK-BATCH", null));
-        withdrawalService = new WithdrawalService(withdrawalMapper, ledgerService, payoutPort);
+
+        withdrawalService = new WithdrawalService(withdrawalMapper, ledgerService, payoutPort,
+                payoutAccountPort, provider, channelBalanceService, "mock",
+                emptyProvider(), emptyProvider());
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> ObjectProvider<T> emptyProvider() {
+        ObjectProvider<T> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        return provider;
     }
 
     @Test
@@ -118,8 +143,8 @@ class WithdrawalServiceTest {
     }
 
     @Test
-    void reviewApproveWxpayChannelMarksProcessingNotPaid() {
-        // 微信出款只在后台审核通过后发起，受理成功后等待回调。
+    void reviewApproveAsyncChannelMarksProcessingNotPaid() {
+        // 真实通道（微信/易宝）只在后台审核通过后发起，受理成功后等待回调。
         when(payoutPort.transfer(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(),
@@ -130,7 +155,7 @@ class WithdrawalServiceTest {
         when(withdrawalMapper.selectByIdForUpdate(12L)).thenReturn(withdrawal);
         Withdrawal result = withdrawalService.review(12L, true, null);
 
-        assertEquals(WithdrawalService.PROCESSING, result.getStatus(), "wxpay 通道受理后应置 PROCESSING，而非 PAID");
+        assertEquals(WithdrawalService.PROCESSING, result.getStatus(), "异步通道受理后应置 PROCESSING，而非 PAID");
         assertEquals("WX-BATCH-1", result.getTransferBatchNo());
         verify(withdrawalMapper).updateById(result);
         // 审核阶段仍不扣减冻结余额，等回调确认才记 WITHDRAW。
@@ -174,10 +199,10 @@ class WithdrawalServiceTest {
         Withdrawal processing = withdrawal(71L, 72L, "STORE", 10_000L, WithdrawalService.PROCESSING);
         when(withdrawalMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(processing);
 
-        withdrawalService.confirmFailed(processing.getWithdrawNo(), "微信转账失败");
+        withdrawalService.confirmFailed(processing.getWithdrawNo(), "转账失败");
 
         assertEquals(WithdrawalService.FAILED, processing.getStatus());
-        assertEquals("微信转账失败", processing.getFailureReason());
+        assertEquals("转账失败", processing.getFailureReason());
         LedgerService.Posting posting = captureSinglePosting();
         assertEquals("UNFREEZE", posting.type());
     }
@@ -190,6 +215,7 @@ class WithdrawalServiceTest {
         withdrawal.setRoleType(roleType);
         withdrawal.setAmount(amount);
         withdrawal.setStatus(status);
+        withdrawal.setPayoutChannel("MOCK");
         withdrawal.setApplyTime(LocalDateTime.now());
         return withdrawal;
     }

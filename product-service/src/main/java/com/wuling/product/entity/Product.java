@@ -50,6 +50,8 @@ public class Product {
     private String cupCapacity;
     private String tips;
     private Integer onSale;
+    /** 运营排序号（越小越靠前），影响小程序点单菜单中的商品顺序。 */
+    private Integer sort;
     private Long splitRuleId;
     private Long supplierSubjectId;
     private LocalDateTime createTime;

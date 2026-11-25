@@ -9,10 +9,13 @@ const {
   syncWithdrawRuleFromRemote,
   syncWorkbenchFromRemote
 } = require('../../utils/roles');
+const { fetchOnboardStatus, fetchSettleCards } = require('../../utils/api');
 
 const ROLE_CENTER_URL = '/packageRole/role-center/role-center';
 const RECORDS_URL = '/packageRole/role-withdraw-records/role-withdraw-records';
 const RULES_URL = '/packageRole/role-withdraw-rules/role-withdraw-rules';
+const ONBOARD_URL = '/packageRole/merchant-onboard/merchant-onboard';
+const SETTLE_CARD_URL = '/packageRole/settle-card/settle-card';
 
 function parseAmount(value) {
   const amount = Number(value);
@@ -41,7 +44,13 @@ Page(
       recordsSummary: '暂无提现记录',
       arrivalText: '0.00',
       feeText: '0.00',
-      canSubmit: false
+      canSubmit: false,
+      // 易宝提现前置：入驻完成 + 已绑结算卡。未满足时整卡置灰并引导补办。
+      onboarded: false,
+      hasSettleCard: false,
+      payoutReady: false,
+      payoutHint: '',
+      depositText: '0.00'
     },
     onLoad() {
       // 先确保角色已同步（冷启动/直接进入时本地 Storage 尚无角色），
@@ -65,7 +74,36 @@ Page(
         syncWithdrawalsFromRemote(role.id),
         syncWithdrawRuleFromRemote()
       ]).then(() => this.applyRoleData(role));
+      this.loadPayoutReadiness(role.id);
       this.applyRoleData(role);
+    },
+    /**
+     * 查询易宝提现前置条件。
+     *
+     * <p>为什么单独查而不混进 workbench：入驻状态与结算卡是易宝域数据，
+     * 与余额无关；即使查询失败也不应阻塞余额展示，仅置灰提交按钮。
+     */
+    loadPayoutReadiness(subjectId) {
+      if (!subjectId) return;
+      Promise.all([
+        fetchOnboardStatus(subjectId).catch(() => null),
+        fetchSettleCards(subjectId).catch(() => [])
+      ]).then(([status, cards]) => {
+        const onboarded = !!(status && status.onboarded);
+        const hasSettleCard = !!(cards && cards.some(item => item.verifyStatus === 'PASS'));
+        let hint = '';
+        if (!onboarded) {
+          hint = '请先完成入驻与协议签署';
+        } else if (!hasSettleCard) {
+          hint = '请先绑定结算银行卡';
+        }
+        this.setData({
+          onboarded,
+          hasSettleCard,
+          payoutReady: onboarded && hasSettleCard,
+          payoutHint: hint
+        });
+      });
     },
     /** 用当前缓存（可能为空）渲染提现页 */
     applyRoleData(role) {
@@ -104,11 +142,26 @@ Page(
       const amount = parseAmount(this.data.amount) || 0;
       const balance = parseBalance(this.data.data ? this.data.data.balance : '');
       const fee = 0;
+      // 押金来自后端 overview.depositBalance（已由 roles.js 转成元）；
+      // 不可提现，仅展示，因此不参与 canSubmit 计算。
+      const deposit = (this.data.data && this.data.data.deposit) || '0.00';
       this.setData({
         arrivalText: formatMoney(Math.max(amount - fee, 0)),
         feeText: formatMoney(fee),
-        canSubmit: amount > 0 && amount <= balance
+        depositText: deposit,
+        // 提现还要求易宝前置条件就绪，否则后端会拒绝（给出明确指引更好）
+        canSubmit: amount > 0 && amount <= balance && this.data.payoutReady
       });
+    },
+    openOnboard() {
+      const role = this.data.role;
+      if (!role) return;
+      wx.navigateTo({ url: `${ONBOARD_URL}?subjectId=${role.id}` });
+    },
+    openSettleCard() {
+      const role = this.data.role;
+      if (!role) return;
+      wx.navigateTo({ url: `${SETTLE_CARD_URL}?subjectId=${role.id}` });
     },
     handleAmount(event) {
       this.setData({ amount: event.detail.value }, () => this.syncPreview());
@@ -136,6 +189,10 @@ Page(
       wx.reLaunch({ url: ROLE_CENTER_URL });
     },
     submit() {
+      if (!this.data.payoutReady) {
+        wx.showToast({ title: this.data.payoutHint || '请先完成提现前置准备', icon: 'none' });
+        return;
+      }
       loginGuard.requirePhone(() => this.doSubmit(), { reason: '提现需要绑定手机号' });
     },
 

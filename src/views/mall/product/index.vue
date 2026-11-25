@@ -54,6 +54,7 @@ interface ProductFormState {
   name: string;
   subtitle: string;
   specName: string;
+  sort: number;
   galleryImages: string[];
   detailImages: string[];
   description: string;
@@ -146,6 +147,7 @@ function emptyProduct(): ProductFormState {
     name: '',
     subtitle: '',
     specName: '规格',
+    sort: 0,
     galleryImages: [],
     detailImages: [],
     description: '',
@@ -231,6 +233,7 @@ async function openEdit(row: MallProductAdmin) {
       name: detail.name ?? '',
       subtitle: detail.subtitle ?? '',
       specName: detail.specName ?? '规格',
+      sort: Number(detail.sort) || 0,
       galleryImages:
         Array.isArray(detail.galleryImages) && detail.galleryImages.length
           ? detail.galleryImages.slice()
@@ -268,6 +271,7 @@ function productPayload(status: MallProductStatus): MallProductPayload {
     name: form.name.trim(),
     subtitle: form.subtitle.trim() || undefined,
     specName: form.specName.trim() || '规格',
+    sort: Math.max(0, Math.min(9999, Number(form.sort) || 0)),
     coverImage: form.galleryImages[0] || undefined,
     galleryImages: form.galleryImages.map(image => image.trim()).filter(Boolean),
     detailImages: form.detailImages.map(image => image.trim()).filter(Boolean),
@@ -452,6 +456,14 @@ const columns: DataTableColumns<any> = [
   { title: '商品名称', key: 'name', minWidth: 160 },
   { title: '分类', key: 'categoryName', width: 110, render: (row: any) => row.categoryName || '—' },
   {
+    title: '排序号',
+    key: 'sort',
+    width: 96,
+    align: 'right',
+    sorter: true,
+    render: (row: MallProductAdmin) => String(row.sort ?? 0)
+  },
+  {
     title: '价格(元)',
     key: 'price',
     width: 125,
@@ -476,7 +488,21 @@ const columns: DataTableColumns<any> = [
       return String(stock);
     }
   },
-  { title: 'SKU 数', key: 'skus', width: 82, align: 'right', render: (row: any) => row.skus?.length ?? 0 },
+  {
+    title: '销量',
+    key: 'salesCount',
+    width: 92,
+    align: 'right',
+    // 仅展示，不开放排序：sales_count 目前不随订单累加，排序结果恒定，会误导运营。
+    render: (row: MallProductAdmin) => String(row.salesCount ?? 0)
+  },
+  {
+    title: 'SKU 数',
+    key: 'skus',
+    width: 82,
+    align: 'right',
+    render: (row: any) => row.skus?.length ?? 0
+  },
   {
     title: '供应商',
     key: 'supplierName',
@@ -496,7 +522,8 @@ const columns: DataTableColumns<any> = [
       })
     )
   },
-  { title: '更新时间', key: 'updateTime', width: 170, render: (row: any) => formatDateTime(row.updateTime) }
+  { title: '更新时间', key: 'updateTime', width: 170, sorter: true, render: (row: any) => formatDateTime(row.updateTime) },
+  { title: '创建时间', key: 'createTime', width: 170, sorter: true, render: (row: any) => formatDateTime(row.createTime) }
 ];
 
 const searchFields: SearchField[] = [
@@ -515,6 +542,7 @@ const config: AdminListConfig = {
   columns,
   searchFields,
   refreshOnEnter: true,
+  remoteSort: true,
   toolbar: [
     {
       label: '新增商品',
@@ -556,13 +584,15 @@ const config: AdminListConfig = {
       visible: (row: MallProductAdmin) => Boolean(row.skus?.some(sku => sku.id != null))
     }
   ],
-  loadData: async ({ page, pageSize, search }) => {
+  loadData: async ({ page, pageSize, search, sortBy, sortOrder }) => {
     const result = await fetchMallProducts({
       page,
       size: pageSize,
       categoryId: search?.categoryId ? Number(search.categoryId) : undefined,
       status: search?.status || undefined,
-      keyword: String(search?.keyword ?? '').trim() || undefined
+      keyword: String(search?.keyword ?? '').trim() || undefined,
+      sortBy,
+      sortOrder
     });
     return {
       data: result.records ?? [],
@@ -581,6 +611,9 @@ const config: AdminListConfig = {
         <NSpin :show="drawerLoading">
           <NForm label-placement="top">
             <div class="form-section-title">商品基础信息</div>
+            <div class="form-hint" style="margin-bottom: 12px">
+              排序号越小越靠前，影响小程序商城商品列表顺序；同序号按创建先后排列。
+            </div>
             <div class="form-grid">
               <NFormItem label="商品编码" required>
                 <NInput v-model:value="form.productCode" placeholder="如 MALL-001" />
@@ -604,6 +637,16 @@ const config: AdminListConfig = {
               </NFormItem>
               <NFormItem label="状态">
                 <NSelect v-model:value="form.status" :options="statusOptions" />
+              </NFormItem>
+              <NFormItem label="排序号">
+                <NInputNumber
+                  v-model:value="form.sort"
+                  :min="0"
+                  :max="9999"
+                  :precision="0"
+                  :show-button="false"
+                  placeholder="数字越小越靠前"
+                />
               </NFormItem>
               <NFormItem label="SPU 供应商" required>
                 <NSelect

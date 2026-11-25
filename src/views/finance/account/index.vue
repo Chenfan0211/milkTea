@@ -23,6 +23,13 @@ const columns: DataTableColumns<any> = [
     render: renderMoney('availableBalance')
   },
   { title: '冻结余额(元)', key: 'frozenBalance', width: 120, align: 'right', render: renderMoney('frozenBalance') },
+  {
+    title: '押金(元)',
+    key: 'depositBalance',
+    width: 120,
+    align: 'right',
+    render: renderMoney('depositBalance')
+  },
   { title: '累计应得(元)', key: 'totalIncome', width: 130, align: 'right', render: renderMoney('totalIncome') },
   { title: '累计已提现(元)', key: 'totalWithdrawn', width: 140, align: 'right', render: renderMoney('totalWithdrawn') }
 ];
@@ -51,6 +58,25 @@ const rowActions: RowAction[] = [
     reasonPrompt: '确认解冻该经营方冻结余额？（请填写备注）',
     handler: (row, reason) => store.unfreezeAccount(row.subjectId, reason),
     visible: row => row.frozenBalance > 0 && row.roleType !== 'platform'
+  },
+  {
+    label: '设置押金',
+    type: 'info',
+    // 押金是退款兜底金：提现后发生售后退款、可用余额不足时从这里抵扣。
+    // 押金不可提现、不分账到子商户，钱始终留在平台侧。
+    reasonPrompt: '请输入目标押金金额（元）。押金用于退款兜底，不可提现。',
+    handler: (row, reason) => {
+      const input = window.prompt('目标押金金额（元）', '0');
+      if (input === null) return Promise.resolve();
+      const yuan = Number(input);
+      if (!Number.isFinite(yuan) || yuan < 0) {
+        window.$message?.warning('请输入合法的押金金额');
+        return Promise.resolve();
+      }
+      // 元 → 分，避免浮点误差
+      return store.setDeposit(row.subjectId, Math.round(yuan * 100), reason);
+    },
+    visible: row => row.roleType !== 'platform'
   }
 ];
 

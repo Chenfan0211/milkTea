@@ -15,6 +15,22 @@ import java.util.Set;
  * - 只有登记在白名单里的资源可被访问，未知资源直接 404；
  * - 只允许写入登记过的字段，防止越权改敏感列（如 id / deleted / create_time）；
  * - 仍走既有 JWT 鉴权（/api/v1/admin/** 需登录）。
+ *
+ * <p><b>默认排序约定（统一口径）</b>：
+ * <ol>
+ *   <li>表里有 {@code sort} 列 → {@code "sort asc, id asc"}：sort 是运营可调的展示顺序，
+ *       不能按时间覆盖，否则运营排好的顺序会被新数据打乱；</li>
+ *   <li>表里没有 {@code sort} 列 → {@code "create_time desc, id desc"}：最新数据排在最上面。
+ *       用 create_time 而不是 id 排序，是因为 id 只反映自增顺序，导入/补录数据时
+ *       可能与真实创建时间不一致。</li>
+ * </ol>
+ *
+ * <p>两处例外，均在下方对应条目上标注了原因：
+ * {@code dictTypes}（按字典编码分组更可读）、{@code deviceBrewRecords}（业务时间是冲泡时间
+ * {@code base_create_time}，不是入库时间）。
+ *
+ * <p><b>本约定只作用于「后台列表」</b>。小程序读取 Banner 等接口
+ * （如 {@code AppConfigController}）自带 {@code order by}，与这里互不影响。
  */
 public final class CrudRegistry {
 
@@ -47,6 +63,8 @@ public final class CrudRegistry {
             // writable 留空 => 只读资源；写接口由 CrudService#guardReadOnly 直接 400。
             // 只靠字段白名单是拦不住的：删除动作的 payload 是空的，白名单全部丢弃等于不校验，
             // delete() 会直接 set deleted = 1（曾实测把事实数据软删掉）。
+            // 例外（无 sort 列，但不按时间倒序）：按字典编码升序排列，
+            // 同一前缀的分组（如 order_/trade_）自然聚在一起，比按创建时间更可读。
             Map.entry("dictTypes", new Resource("dictTypes", "sys_dict_type",
                     List.of(),
                     List.of("dict_type", "dict_name"), "dict_type asc")),
@@ -67,12 +85,12 @@ public final class CrudRegistry {
                     List.of("status"))),
             Map.entry("features", new Resource("features", "feature_flag",
                     List.of("code", "name", "default_status", "current_status", "open_condition"),
-                    List.of("code", "name"), "id asc")),
+                    List.of("code", "name"), "create_time desc, id desc")),
 
             // ---------- 主体管理 ----------
             Map.entry("subjects", new Resource("subjects", "biz_subject",
                     List.of("code", "name", "subject_type", "status", "bound_user_id"),
-                    List.of("code", "name"), "id asc", List.of("subject_type", "status"))),
+                    List.of("code", "name"), "create_time desc, id desc", List.of("subject_type", "status"))),
             Map.entry("storeTypes", new Resource("storeTypes", "sys_dict_item",
                     List.of("dict_type", "item_code", "item_name", "sort", "enabled", "extra"),
                     List.of("item_code", "item_name"), "sort asc, id asc", List.of("dict_type"))),
@@ -85,7 +103,7 @@ public final class CrudRegistry {
             // 一边显示未绑的不一致（历史故障）。绑定/解绑一律走专用接口。
             Map.entry("users", new Resource("users", "app_user",
                     List.of("open_id", "nick_name", "phone", "vip_level", "points", "balance", "status"),
-                    List.of("nick_name", "phone", "open_id"), "id asc", List.of("id"))),
+                    List.of("nick_name", "phone", "open_id"), "create_time desc, id desc", List.of("id"))),
 
             // ---------- 第3批：商品配置 ----------
             // 分类管理：tag=分类标签，enabled=状态（1启用/0停用，V30 新增）；
@@ -112,7 +130,7 @@ public final class CrudRegistry {
                     List.of("code", "name", "scope", "platform_ratio", "store_ratio",
                             "channel_ratio", "investor_ratio", "investor_threshold_amount",
                             "investor_ratio_after", "supplier_ratio", "status"),
-                    List.of("code", "name"), "id asc", List.of("scope"))),
+                    List.of("code", "name"), "create_time desc, id desc", List.of("scope"))),
 
             // ---------- 第4批：营销配置 ----------
             // channel / payment_restriction：优惠券渠道与支付限制（V31 新增列）；
@@ -122,10 +140,10 @@ public final class CrudRegistry {
                             "description", "image", "validity_type", "validity_start", "validity_end",
                             "validity_days", "usage_time", "channel", "payment_restriction",
                             "applicable_store_ids", "applicable_product_ids", "stock", "status"),
-                    List.of("code", "name"), "id asc", List.of("status"))),
+                    List.of("code", "name"), "create_time desc, id desc", List.of("status"))),
             Map.entry("storedValuePackages", new Resource("storedValuePackages", "stored_value_package",
                     List.of("code", "name", "amount", "status", "usage_paragraphs"),
-                    List.of("code", "name"), "id asc")),
+                    List.of("code", "name"), "create_time desc, id desc")),
             // 分类编码为业务关联键：points_product.category 保存 points_category.code。
             Map.entry("pointsCategories", new Resource("pointsCategories", "points_category",
                     List.of("code", "name", "sort", "enabled"),
@@ -135,23 +153,24 @@ public final class CrudRegistry {
                     List.of("code", "name", "image", "points", "stock", "badge", "limit_text",
                             "description", "category", "status", "purchase_limit", "display_type",
                             "coupon_amount", "coupon_condition", "badge_in_image", "coupon_id"),
-                    List.of("code", "name"), "id asc", List.of("category", "status"))),
+                    List.of("code", "name"), "create_time desc, id desc", List.of("category", "status"))),
             // 积分获取规则：奖励拆成结构化数字（reward_type/value + basis_amount/unit + daily_limit），
             // 供后续按规则发放时光币；code 与 action 由字典固定，页面只读（见 CrudService#guardPointsEarningRule）。
             Map.entry("pointsEarningRules", new Resource("pointsEarningRules", "points_earning_rule",
                     List.of("code", "action", "reward", "note", "sort",
                             "reward_type", "reward_value", "basis_amount", "basis_unit", "daily_limit", "enabled"),
                     List.of("code", "action"), "sort asc, id asc")),
+            // gift_card_denomination 有 sort 列（V16 迁移新增），按运营排序展示。
             Map.entry("giftCardDenominations", new Resource("giftCardDenominations", "gift_card_denomination",
                     List.of("code", "name", "amount", "status"),
-                    List.of("code", "name"), "id asc")),
+                    List.of("code", "name"), "sort asc, id asc")),
             // card_image：卡面图（库中已有列，V31 起放行写入）
             Map.entry("giftCards", new Resource("giftCards", "gift_card_denomination",
                     List.of("code", "name", "card_image", "amount", "status"),
-                    List.of("code", "name"), "id asc")),
+                    List.of("code", "name"), "sort asc, id asc")),
             Map.entry("giftCardOrders", new Resource("giftCardOrders", "gift_card_order",
                     List.of("pay_status"),
-                    List.of("order_no"), "id desc")),
+                    List.of("order_no"), "create_time desc, id desc")),
             Map.entry("memberLevels", new Resource("memberLevels", "member_level",
                     List.of("level_code", "name", "amount_target", "discount", "benefits", "sort"),
                     List.of("level_code", "name"), "sort asc, id asc")),
@@ -162,68 +181,68 @@ public final class CrudRegistry {
             // ---------- 授权管理 ----------
             Map.entry("roles", new Resource("roles", "sys_role",
                     List.of("code", "name", "data_scope", "status"),
-                    List.of("code", "name"), "id asc")),
+                    List.of("code", "name"), "create_time desc, id desc")),
             Map.entry("grants", new Resource("grants", "user_role_grant",
                     List.of("user_id", "role_code", "subject_id", "data_scope", "grant_by", "status"),
-                    List.of("role_code"), "id desc")),
+                    List.of("role_code"), "create_time desc, id desc")),
 
             // ---------- 交易（支付单可标记状态；订单/退款为业务动作接口）----------
             Map.entry("payments", new Resource("payments", "payment",
                     List.of("third_status", "standard_status", "transaction_id"),
-                    List.of("order_no", "payment_no"), "id desc")),
+                    List.of("order_no", "payment_no"), "create_time desc, id desc")),
             Map.entry("verifies", new Resource("verifies", "verify_record",
                     List.of("result"),
-                    List.of("order_no", "verify_code"), "id desc", List.of("create_time"))),
+                    List.of("order_no", "verify_code"), "create_time desc, id desc", List.of("create_time"))),
 
             // ---------- 财务 ----------
             Map.entry("fundPool", new Resource("fundPool", "fund_pool",
                     List.of("pool_name", "total_balance"),
-                    List.of("pool_name"), "id asc")),
+                    List.of("pool_name"), "create_time desc, id desc")),
             Map.entry("fundFlows", new Resource("fundFlows", "fund_flow",
                     List.of("remark"),
-                    List.of("flow_no", "order_no"), "id desc", List.of("subject_id", "role_type", "direction"))),
+                    List.of("flow_no", "order_no"), "create_time desc, id desc", List.of("subject_id", "role_type", "direction"))),
             Map.entry("snapshots", new Resource("snapshots", "split_snapshot",
                     List.of("status", "total_check"),
-                    List.of("snapshot_no", "order_no"), "id desc")),
+                    List.of("snapshot_no", "order_no"), "create_time desc, id desc")),
             Map.entry("reconciles", new Resource("reconciles", "reconcile_issue",
                     List.of("status"),
-                    List.of("order_no"), "id desc")),
+                    List.of("order_no"), "create_time desc, id desc")),
             Map.entry("subjectAccounts", new Resource("subjectAccounts", "subject_account",
                     List.of("role_type"),
-                    List.of(), "id asc")),
+                    List.of(), "create_time desc, id desc")),
             Map.entry("roleApplications", new Resource("roleApplications", "role_application",
                     List.of("status", "reviewer", "subject_id"),
-                    List.of("role_type"), "id desc")),
+                    List.of("role_type"), "create_time desc, id desc")),
             Map.entry("withdrawals", new Resource("withdrawals", "withdrawal",
                     List.of("failure_reason"),
-                    List.of("withdraw_no"), "id desc")),
+                    List.of("withdraw_no"), "create_time desc, id desc")),
             Map.entry("auditLogs", new Resource("auditLogs", "audit_log",
                     List.of("operator", "module", "action", "target", "reason", "ip"),
-                    List.of("operator", "module", "action", "target", "before_value", "after_value", "reason"), "id desc",
+                    List.of("operator", "module", "action", "target", "before_value", "after_value", "reason"), "create_time desc, id desc",
                     List.of("module", "action", "target"))),
 
             // ---------- 交易只读视图 ----------
             Map.entry("orders", new Resource("orders", "orders",
                     List.of("remark"),
-                    List.of("order_no", "pickup_code"), "id desc")),
+                    List.of("order_no", "pickup_code"), "create_time desc, id desc")),
             Map.entry("refunds", new Resource("refunds", "refund",
                     List.of("reason"),
-                    List.of("refund_no", "order_no"), "id desc")),
+                    List.of("refund_no", "order_no"), "create_time desc, id desc")),
             Map.entry("verifyPool", new Resource("verifyPool", "orders",
                     List.of("remark"),
-                    List.of("order_no", "pickup_code"), "id desc")),
+                    List.of("order_no", "pickup_code"), "create_time desc, id desc")),
             Map.entry("verifyRecords", new Resource("verifyRecords", "verify_record",
                     List.of("result"),
-                    List.of("order_no", "verify_code"), "id desc")),
+                    List.of("order_no", "verify_code"), "create_time desc, id desc")),
             Map.entry("exchangeRecords", new Resource("exchangeRecords", "exchange_order",
                     List.of("status"),
-                    List.of("exchange_no", "pickup_code"), "id desc")),
+                    List.of("exchange_no", "pickup_code"), "create_time desc, id desc")),
             Map.entry("referralConfig", new Resource("referralConfig", "referral_config",
                     List.of("config"),
-                    List.of(), "id desc")),
+                    List.of(), "create_time desc, id desc")),
             Map.entry("signinRules", new Resource("signinRules", "points_signin_rule",
                     List.of("daily", "streak_days", "streak_reward"),
-                    List.of(), "id asc")),
+                    List.of(), "create_time desc, id desc")),
             // “我的”页轮播：运营在营销中心维护，启停和排序后由小程序直接读取。
             Map.entry("profileBanners", new Resource("profileBanners", "profile_banner",
                     List.of("image_url", "alt_text", "target_type", "target_id", "sort", "status"),
@@ -249,12 +268,14 @@ public final class CrudRegistry {
             Map.entry("deviceBrewRecords", new Resource("deviceBrewRecords", "device_brew_record",
                     List.of(),
                     List.of("device_sn", "tea_code", "tea_name", "store_name"),
+                    // 例外（无 sort 列，但不按 create_time）：冲泡记录的业务时间是设备上报的
+                    // base_create_time（冲泡时刻），create_time 只是入库时间，设备补传时会失真。
                     "base_create_time desc, id desc",
                     List.of("store_subject_id", "device_sn", "made_day", "base_create_time"))),
             Map.entry("deviceStatusLogs", new Resource("deviceStatusLogs", "device_status_log",
                     List.of(),
                     List.of("device_sn"),
-                    "id desc",
+                    "create_time desc, id desc",
                     List.of("device_sn", "store_subject_id", "base_create_time")))
     );
 

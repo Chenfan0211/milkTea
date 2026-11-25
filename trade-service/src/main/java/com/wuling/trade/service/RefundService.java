@@ -108,6 +108,17 @@ public class RefundService {
     @Value("${app.refund.quick-recheck-delay-ms:30000}")
     private long quickRecheckDelayMs;
 
+    /**
+     * 归集明细查询客户端（server 内部接口）。
+     *
+     * <p>用字段注入而非构造参数：RefundService 有两套构造重载，
+     * 且单元测试大量使用 9 参版本，加参数会牵连 20+ 处测试。
+     * {@code required=false} 保证测试环境（无该 Bean）仍可构造。
+     */
+    @Autowired(required = false)
+    @org.springframework.beans.factory.annotation.Qualifier("serverInternalRestClient")
+    private org.springframework.web.client.RestClient serverInternalRestClient;
+
     public RefundService(OrderMapper orderMapper,
                          OrderItemMapper orderItemMapper,
                          RefundMapper refundMapper,
@@ -253,8 +264,19 @@ public class RefundService {
             return;
         }
 
-        PaymentGateway.RefundApplyResult result = gatewayResolver.forPayment(payment)
-                .refund(refund.getOrderNo(), refund.getRefundNo(), refund.getAmount(), originalTotal, refund.getReason());
+        PaymentGateway gateway = gatewayResolver.forPayment(payment);
+        PaymentGateway.RefundApplyResult result;
+        // 归集明细只对易宝有意义：微信没有分账概念，传了反而多余。
+        // 分流调用也保持既有测试与微信链路的调用形态不变。
+        if ("YEEPAY".equalsIgnoreCase(gateway.channel())) {
+            java.util.List<java.util.Map<String, Object>> divideBackDetail =
+                    loadDivideBackDetail(refund.getOrderNo(), refund);
+            result = gateway.refund(refund.getOrderNo(), refund.getRefundNo(), refund.getAmount(),
+                    originalTotal, refund.getReason(), divideBackDetail);
+        } else {
+            result = gateway.refund(refund.getOrderNo(), refund.getRefundNo(), refund.getAmount(),
+                    originalTotal, refund.getReason());
+        }
 
         if (result == null) {
             // mock 通道不支持退款：保持 REFUNDING（由外部/定时补偿推进），不伪造成功
@@ -798,8 +820,50 @@ public class RefundService {
         return true;
     }
 
-    private Payment paidPayment(String orderNo) {
-        return paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
+    /**
+     * 从 server 获取退款归集明细。
+     *
+     * <p><b>为什么需要请求 server</b>：归集明细依赖 {@code settlement_record}
+     * 的分账进度与 {@code yeepay_divide_detail_no}，属 finance 域数据。
+     * trade-service 不持有这些表，通过内部接口索取可避免反向依赖。
+     *
+     * <p><b>失败不阻断退款</b>：拿不到归集明细时退款仍会发起（走平台账户），
+     * 由 server 侧的对账异常记录垫付金额供运营追偿。
+     * 阻断退款会让用户受损，优先级更高。
+     */
+    @SuppressWarnings("unchecked")
+    private java.util.List<java.util.Map<String, Object>> loadDivideBackDetail(
+            String orderNo, com.wuling.trade.entity.Refund refund) {
+        try {
+            org.springframework.web.client.RestClient client = serverInternalRestClient;
+            if (client == null) {
+                return null;
+            }
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            body.put("orderId", refund.getOrderId());
+            body.put("refundAmountFen", refund.getAmount());
+            body.put("refundRatio", null);
+            java.util.Map<String, Object> response = client.post()
+                    .uri("/internal/yeepay/refund/divide-back-detail")
+                    .body(body)
+                    .retrieve()
+                    .body(java.util.Map.class);
+            if (response == null) {
+                return null;
+            }
+            Object detail = response.get("detail");
+            if (detail instanceof java.util.List<?> list && !list.isEmpty()) {
+                return (java.util.List<java.util.Map<String, Object>>) list;
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("获取退款归集明细失败，退款将走平台账户 orderNo={} err={}",
+                    orderNo, e.getMessage());
+            return null;
+        }
+    }
+
+    private Payment paidPayment(String orderNo) {        return paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
                 .eq(Payment::getOrderNo, orderNo)
                 .eq(Payment::getStandardStatus, "PAID")
                 .and(query -> query.eq(Payment::getBizType, Payment.BIZ_ORDER).or().isNull(Payment::getBizType))

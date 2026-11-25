@@ -52,7 +52,8 @@ public class WxPayoutGateway implements PayoutGateway {
     }
 
     @Override
-    public PayoutResult transfer(String outDetailNo, long amountFen, String openid, String remark) {
+    public PayoutResult transfer(String outTradeNo, long amountFen, PayeeRef payee, String remark) {
+        String openid = payee == null ? null : payee.wxOpenid();
         if (!StringUtils.hasText(openid)) {
             return new PayoutResult(false, null, "收款人 openid 缺失");
         }
@@ -66,14 +67,14 @@ public class WxPayoutGateway implements PayoutGateway {
 
         try {
             TransferDetailInput detail = new TransferDetailInput();
-            detail.setOutDetailNo(outDetailNo);
+            detail.setOutDetailNo(outTradeNo);
             detail.setTransferAmount(amountFen);
             detail.setTransferRemark(remark == null ? "五零时光提现" : remark);
             detail.setOpenid(openid);
 
             InitiateBatchTransferRequest request = new InitiateBatchTransferRequest();
             request.setAppid(properties.getAppId());
-            request.setOutBatchNo("B" + outDetailNo);
+            request.setOutBatchNo("B" + outTradeNo);
             request.setBatchName("五零时光提现");
             request.setBatchRemark("五零时光提现转账");
             request.setTotalAmount(amountFen);
@@ -87,25 +88,25 @@ public class WxPayoutGateway implements PayoutGateway {
             // 受理成功：batchId 为微信批次号
             return new PayoutResult(true, response.getBatchId(), null);
         } catch (Exception e) {
-            log.error("微信转账受理失败 outDetailNo={} err={}", outDetailNo, e.getMessage());
+            log.error("微信转账受理失败 outTradeNo={} err={}", outTradeNo, e.getMessage());
             return new PayoutResult(false, null, "微信转账受理失败：" + e.getMessage());
         }
     }
 
     @Override
-    public PayoutQueryResult query(String outDetailNo) {
+    public PayoutQueryResult query(String outTradeNo, String yeepayMerchantNo) {
         try {
             // 优先按商户转账单号查明细（单笔语义）
             GetTransferDetailByOutNoRequest detailRequest = new GetTransferDetailByOutNoRequest();
-            detailRequest.setOutDetailNo(outDetailNo);
-            detailRequest.setOutBatchNo("B" + outDetailNo);
+            detailRequest.setOutDetailNo(outTradeNo);
+            detailRequest.setOutBatchNo("B" + outTradeNo);
             TransferDetailEntity detail = transferBatchService.getTransferDetailByOutNo(detailRequest);
             if (detail != null && detail.getDetailStatus() != null) {
                 return new PayoutQueryResult(detail.getDetailStatus(), null);
             }
             return null;
         } catch (Exception e) {
-            log.warn("微信转账查询失败 outDetailNo={} err={}", outDetailNo, e.getMessage());
+            log.warn("微信转账查询失败 outTradeNo={} err={}", outTradeNo, e.getMessage());
             return null;
         }
     }

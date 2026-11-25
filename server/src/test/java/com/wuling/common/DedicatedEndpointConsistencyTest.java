@@ -126,7 +126,13 @@ class DedicatedEndpointConsistencyTest {
             "product-service/src/main/java/com/wuling/product/dto/MallProductAdminDTO.java",
             "product-service/src/main/java/com/wuling/product/dto/MallSkuAdminDTO.java",
             // 团长管理（LEADER 主体 + user_leader 归属）
-            "server/src/main/java/com/wuling/subject/controller/AdminLeaderController.java"
+            "server/src/main/java/com/wuling/subject/controller/AdminLeaderController.java",
+            // 入驻与签约：读 fetchOnboards / fetchOnboardMaterial
+            "server/src/main/java/com/wuling/subject/onboard/MerchantOnboardController.java",
+            // 入驻记录实体（返回字段来自实体属性：requestNo / yeepayMerchantNo / applicationStatus 等）
+            "server/src/main/java/com/wuling/subject/onboard/MerchantOnboard.java",
+            // 入驻资料实体（证件号与手机号以掩码字段返回）
+            "server/src/main/java/com/wuling/subject/onboard/MerchantMaterial.java"
     );
 
     /** 已接入专用接口校验的页面（相对仓库根）。未登记的页面会让测试失败，提醒补登记。 */
@@ -135,6 +141,8 @@ class DedicatedEndpointConsistencyTest {
             "src/views/subject/investor/index.vue",
             "src/views/subject/supplier/index.vue",
             "src/views/subject/platform/index.vue",
+            // 入驻与签约：读 fetchOnboards / fetchOnboardMaterial（MerchantOnboardController）
+            "src/views/subject/onboard/index.vue",
             // 渠道门店绑定弹窗：读 fetchChannelStores（SubjectBindingController）
             "src/views/subject/channel/ChannelStoreDialog.vue",
             // 积分规则页：读 fetchSigninRule（marketing-service）；

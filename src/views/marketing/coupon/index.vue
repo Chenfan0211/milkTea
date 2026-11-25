@@ -122,7 +122,7 @@ const searchFields: SearchField[] = [
 ];
 
 const formFields: FormField[] = [
-  { key: 'image', label: '券面图', type: 'image' },
+  { key: 'image', label: '券面图', type: 'uploadImage' },
   { key: 'name', label: '券标题', rules: [{ required: true, message: '请输入券标题', trigger: ['input', 'blur'] }] },
   {
     key: 'type',

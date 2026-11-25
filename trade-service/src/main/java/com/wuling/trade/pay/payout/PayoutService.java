@@ -6,11 +6,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * 出款业务编排（提现 → 微信商家转账）。
+ * 出款业务编排（提现 → 微信商家转账 / 易宝自助结算）。
  *
- * <p>职责：查收款人 openid（服务端按 userId，绝不接受前端传入）→ 调出款通道 →
- * 返回受理结果。状态收敛（PAID / FAILED / 解冻）由调用方 server 负责，
- * 本服务只负责「发起转账」这一动作。
+ * <p>职责：把「提现单 + 收款方信息」翻译成通道能识别的 {@link PayoutGateway.PayeeRef}
+ * → 调出款通道 → 返回受理结果。状态收敛（PAID / FAILED / 解冻）由调用方 server 负责，
+ * 本服务只负责「发起出款」这一动作。
+ *
+ * <p><b>微信通道的 openid 来源</b>：服务端按 userId 查得，<b>绝不接受前端传入</b>
+ * （前端可伪造他人 openid 造成顶号打款）。易宝通道的子商户号与结算卡 ID
+ * 由 server 侧按 subjectId 查得后随请求下发。
  *
  * <p><b>fail-closed</b>：openid 缺失、金额非法、受理失败均返回明确失败信号，
  * 由 server 侧解冻，绝不静默成功。
@@ -29,8 +33,17 @@ public class PayoutService {
         this.userQueryPort = userQueryPort;
     }
 
+    /** 当前通道是否即时到账（mock=true / wxpay、yeepay=false）。 */
+    public boolean isImmediateChannel() {
+        return gatewayResolver.active().isImmediate();
+    }
+
+    public String activeChannel() {
+        return gatewayResolver.activeChannel();
+    }
+
     /**
-     * 发起提现出款（受理）。
+     * 发起提现出款（受理）——微信通道，收款方 openid 由本服务按 userId 查得。
      *
      * @param withdrawNo 提现单号（作为微信 out_detail_no，全局唯一，保证幂等）
      * @param amountFen  金额（分）
@@ -38,21 +51,45 @@ public class PayoutService {
      * @param remark     转账备注
      * @return 受理结果（accepted / batchNo / failReason）
      */
-    /** 当前通道是否即时到账（mock=true / wxpay=false）。 */
-    public boolean isImmediateChannel() {
-        return gatewayResolver.active().isImmediate();
-    }
-
-    public PayoutGateway.PayoutResult apply(String withdrawNo, long amountFen, Long userId, String remark) {
+    public PayoutGateway.PayoutResult applyWx(String withdrawNo, long amountFen,
+                                              Long userId, String remark) {
         String openid = userQueryPort.findOpenid(userId);
         if (openid == null) {
             log.warn("提现出款：openid 缺失 withdrawNo={} userId={}", withdrawNo, userId);
             return new PayoutGateway.PayoutResult(false, null, "收款账户信息缺失，请重新登录后再试");
         }
+        return apply(withdrawNo, amountFen, PayoutGateway.PayeeRef.ofWx(userId, openid), remark);
+    }
+
+    /**
+     * 发起提现出款（受理）——通用入口，收款方由调用方（server）下发。
+     *
+     * <p>易宝通道走这里：server 按 subjectId 查出子商户号与结算卡 ID 后传入。
+     *
+     * @param withdrawNo 提现单号
+     * @param amountFen  金额（分）
+     * @param payee      收款方引用
+     * @param remark     转账备注
+     */
+    public PayoutGateway.PayoutResult apply(String withdrawNo, long amountFen,
+                                            PayoutGateway.PayeeRef payee, String remark) {
+        if (payee == null) {
+            return new PayoutGateway.PayoutResult(false, null, "收款方信息缺失");
+        }
         PayoutGateway.PayoutResult result = gatewayResolver.active()
-                .transfer(withdrawNo, amountFen, openid, remark);
+                .transfer(withdrawNo, amountFen, payee, remark);
         log.info("提现出款受理 withdrawNo={} channel={} accepted={}",
                 withdrawNo, gatewayResolver.activeChannel(), result.accepted());
         return result;
+    }
+
+    /**
+     * 主动查询出款结果（补偿回调丢失）。
+     *
+     * @param withdrawNo       提现单号
+     * @param yeepayMerchantNo 易宝子商户编号（微信通道可传 null）
+     */
+    public PayoutGateway.PayoutQueryResult query(String withdrawNo, String yeepayMerchantNo) {
+        return gatewayResolver.active().query(withdrawNo, yeepayMerchantNo);
     }
 }

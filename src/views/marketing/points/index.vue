@@ -167,7 +167,7 @@ const searchFields: SearchField[] = [
 ];
 
 const formFields: FormField[] = [
-  { key: 'image', label: '商品图片', type: 'image' },
+  { key: 'image', label: '商品图片', type: 'uploadImage' },
   { key: 'name', label: '商品名称' },
   {
     key: 'category',

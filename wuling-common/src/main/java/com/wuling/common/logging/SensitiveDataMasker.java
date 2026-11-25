@@ -32,6 +32,17 @@ public final class SensitiveDataMasker {
     /** 11 位手机号。 */
     private static final Pattern PHONE = Pattern.compile("(1[3-9]\\d)(\\d{4})(\\d{4})");
 
+    /**
+     * base64 内联图片（data URL）。
+     *
+     * <p><b>为什么必须截断</b>：2026-11-23 事故中，日志里出现
+     * {@code "image":"data:image/png;base64,...(共2217873字符)"} ——
+     * 单次请求写入 2MB，日志文件迅速膨胀且完全无法阅读。
+     * 这类值对排查毫无价值（真正的问题是「它太长」，长度信息已足够）。
+     */
+    private static final Pattern DATA_URL = Pattern.compile(
+            "(data:[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+;base64,)([A-Za-z0-9+/=]{64,})");
+
     private SensitiveDataMasker() {
     }
 
@@ -86,7 +97,33 @@ public final class SensitiveDataMasker {
                     "$1***$3");
         }
         result = PHONE.matcher(result).replaceAll("$1****$3");
+        // 内联 base64 图片：只保留类型前缀与长度，避免 MB 级内容灌进日志
+        result = truncateDataUrls(result);
         return result;
+    }
+
+    /**
+     * 截断 data URL 的 base64 主体。
+     *
+     * <p>输出形如 {@code data:image/png;base64,***TRUNCATED(2217800)}，
+     * 保留「是什么类型、有多大」这两个排查关键信息，
+     * 丢掉没有任何诊断价值的编码内容。
+     */
+    public static String truncateDataUrls(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        java.util.regex.Matcher m = DATA_URL.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String prefix = m.group(1);
+            String body = m.group(2);
+            m.appendReplacement(sb,
+                    java.util.regex.Matcher.quoteReplacement(
+                            prefix + "***TRUNCATED(" + body.length() + ")"));
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     /** 截断超长文本，避免日志被单个大 body 淹没。 */

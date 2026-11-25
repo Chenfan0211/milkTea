@@ -52,6 +52,7 @@
     "test:mall-product-detail-images": "node scripts/mall-product-detail-images-admin.test.mjs",
     "test:mall-product-gallery": "node scripts/mall-product-gallery-admin.test.mjs",
     "test:profile-banner": "node scripts/profile-banner-admin.test.mjs",
+    "test:product-sort": "node scripts/admin-product-sort.test.mjs",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
     "update-pkg": "sa update-pkg"
   },

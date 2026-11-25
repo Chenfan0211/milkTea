@@ -856,6 +856,72 @@ function fetchWithdrawals() {
 }
 
 // ============================================================
+// 商户入驻 / 结算卡（易宝）
+// ============================================================
+
+/** 查询入驻状态与签署地址 */
+function fetchOnboardStatus(subjectId) {
+  return request({
+    url: '/api/v1/app/merchant/onboard?subjectId=' + encodeURIComponent(subjectId),
+    method: 'GET'
+  }).then(unwrap);
+}
+
+/** 提交入驻申请（含证件号与手机号，服务端加密入库） */
+function submitMerchantOnboard(subjectId, form) {
+  return request({
+    url: '/api/v1/app/merchant/onboard?subjectId=' + encodeURIComponent(subjectId),
+    method: 'POST',
+    data: form
+  }).then(unwrap);
+}
+
+/** 主动刷新入驻进度（补偿回调丢失） */
+function refreshOnboardStatus(subjectId) {
+  return request({
+    url: '/api/v1/app/merchant/onboard/refresh?subjectId=' + encodeURIComponent(subjectId),
+    method: 'POST'
+  }).then(unwrap);
+}
+
+/** 告知服务端「已在易宝页面完成签署」 */
+function markOnboardSigned(subjectId) {
+  return request({
+    url: '/api/v1/app/merchant/onboard/signed?subjectId=' + encodeURIComponent(subjectId),
+    method: 'POST'
+  }).then(unwrap);
+}
+
+/** 结算卡列表（卡号仅返回掩码） */
+function fetchSettleCards(subjectId) {
+  return request({
+    url: '/api/v1/app/payout-accounts?subjectId=' + encodeURIComponent(subjectId),
+    method: 'GET'
+  }).then(unwrap);
+}
+
+/** 绑定结算卡（明文卡号由服务端加密入库） */
+function bindSettleCard(subjectId, payload) {
+  return request({
+    url: '/api/v1/app/payout-accounts?subjectId=' + encodeURIComponent(subjectId),
+    method: 'POST',
+    data: payload
+  }).then(unwrap);
+}
+
+/** 设为默认结算卡 */
+function setDefaultSettleCard(subjectId, accountId) {
+  return request({
+    url:
+      '/api/v1/app/payout-accounts/' +
+      encodeURIComponent(accountId) +
+      '/default?subjectId=' +
+      encodeURIComponent(subjectId),
+    method: 'POST'
+  }).then(unwrap);
+}
+
+// ============================================================
 // 登录（微信）
 // ============================================================
 
@@ -1096,6 +1162,13 @@ module.exports = {
   fetchWithdrawRule,
   applyWithdraw,
   fetchWithdrawals,
+  fetchOnboardStatus,
+  submitMerchantOnboard,
+  refreshOnboardStatus,
+  markOnboardSigned,
+  fetchSettleCards,
+  bindSettleCard,
+  setDefaultSettleCard,
   fetchReverseGeocode,
   fetchStoreDistances
 };

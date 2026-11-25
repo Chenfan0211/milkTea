@@ -23,6 +23,7 @@ import {
   fetchReferralConfig,
   saveSigninRule as saveSigninRuleApi,
   unfreezeAccount as unfreezeAccountApi,
+  setDeposit as setDepositApi,
   // 支付记录专用接口（双字段：订单号 / 流水订单号）
   fetchPayments
 } from '@/service/api/crud';
@@ -1815,6 +1816,26 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     await loadRemote('fundFlows');
   }
 
+  /**
+   * 设定经营者押金（目标值，单位：分）。
+   *
+   * <p>押金是退款兜底金：经营者在提现后发生售后退款、可用余额不足时，
+   * 系统会从押金抵扣，避免退款直接失败。押金不可提现、不分账。
+   *
+   * @param subjectId 主体
+   * @param amountFen 目标押金（分），传 0 表示清零
+   * @param reason    变更原因（写入押金台账与审计日志）
+   */
+  async function setDeposit(subjectId: number, amountFen: number, reason = '') {
+    if (amountFen < 0) {
+      window.$message?.warning('押金不能为负数');
+      return;
+    }
+    await setDepositApi(subjectId, amountFen, reason);
+    await loadRemote('subjectAccounts');
+    await loadRemote('fundFlows');
+  }
+
   return {
     data,
     subjects: computed(() => ensure('subjects')),
@@ -1903,6 +1924,7 @@ export const useAdminStore = defineStore(SetupStoreId.Admin, () => {
     applyWithdraw,
     freezeAccount,
     unfreezeAccount,
+    setDeposit,
     getPlatformConfig,
     executeVerify
   };

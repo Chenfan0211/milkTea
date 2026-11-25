@@ -115,6 +115,23 @@ public interface PaymentGateway {
     /** 部分退款必须传原支付总额，旧四参接口保留全额退款语义。 */
     default RefundApplyResult refund(String orderNo, String refundNo, long refundAmountFen,
                                     long originalTotalFen, String reason) {
+        return refund(orderNo, refundNo, refundAmountFen, originalTotalFen, reason, null);
+    }
+
+    /**
+     * 部分退款（带归集明细）。
+     *
+     * <p><b>为什么需要 extra 参数</b>：易宝退款支持
+     * {@code divideBackDetail} 参数，用于在退款同时把已分账的钱从
+     * 收款方账户归集回来。该参数由 server 侧按
+     * {@code settlement_record} 的分账进度构造后下发，
+     * 微信通道忽略此参数（传 null）。
+     *
+     * @param divideBackDetail 归集明细；null 表示无需归集
+     */
+    default RefundApplyResult refund(String orderNo, String refundNo, long refundAmountFen,
+                                    long originalTotalFen, String reason,
+                                    java.util.List<java.util.Map<String, Object>> divideBackDetail) {
         return null;
     }
 
