@@ -522,8 +522,20 @@ const columns: DataTableColumns<any> = [
       })
     )
   },
-  { title: '更新时间', key: 'updateTime', width: 170, sorter: true, render: (row: any) => formatDateTime(row.updateTime) },
-  { title: '创建时间', key: 'createTime', width: 170, sorter: true, render: (row: any) => formatDateTime(row.createTime) }
+  {
+    title: '更新时间',
+    key: 'updateTime',
+    width: 170,
+    sorter: true,
+    render: (row: any) => formatDateTime(row.updateTime)
+  },
+  {
+    title: '创建时间',
+    key: 'createTime',
+    width: 170,
+    sorter: true,
+    render: (row: any) => formatDateTime(row.createTime)
+  }
 ];
 
 const searchFields: SearchField[] = [

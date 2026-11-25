@@ -13,3 +13,9 @@
 "*.yml"    eol=lf
 "*.sh"     eol=lf
 "*.xml"    eol=lf
+
+# 小程序端样式/模板：oxfmt 与 editorconfig 均按 LF 处理。
+# 缺少这两条时，core.autocrlf=true 会让工作区反复出现 CRLF，
+# 导致 pre-commit 的 `git diff --exit-code` 误判为「格式化未完成」。
+"*.wxss"   eol=lf
+"*.wxml"   eol=lf

@@ -2,12 +2,7 @@ const loginGuard = require('../../utils/login-guard');
 const { withShare } = require('../../utils/share');
 const { ensureBusinessRole } = require('../../utils/role-page');
 const { getCurrentBusinessRole } = require('../../utils/roles');
-const {
-  fetchSettleCards,
-  bindSettleCard,
-  setDefaultSettleCard,
-  fetchOnboardStatus
-} = require('../../utils/api');
+const { fetchSettleCards, bindSettleCard, setDefaultSettleCard, fetchOnboardStatus } = require('../../utils/api');
 
 const SETTLE_CARD_STATUS = {
   PENDING: { label: '校验中', tone: 'pending' },
@@ -131,10 +126,8 @@ Page(
 
     syncCanSubmit() {
       const f = this.data.form;
-      const canSubmit = this.data.accountType
-        && f.accountName
-        && f.bankCardNo
-        && String(f.bankCardNo).replace(/\s/g, '').length >= 12;
+      const canSubmit =
+        this.data.accountType && f.accountName && f.bankCardNo && String(f.bankCardNo).replace(/\s/g, '').length >= 12;
       this.setData({ canSubmit: !!canSubmit });
     },
 

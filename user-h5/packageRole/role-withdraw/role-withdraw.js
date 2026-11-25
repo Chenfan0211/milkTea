@@ -85,25 +85,24 @@ Page(
      */
     loadPayoutReadiness(subjectId) {
       if (!subjectId) return;
-      Promise.all([
-        fetchOnboardStatus(subjectId).catch(() => null),
-        fetchSettleCards(subjectId).catch(() => [])
-      ]).then(([status, cards]) => {
-        const onboarded = !!(status && status.onboarded);
-        const hasSettleCard = !!(cards && cards.some(item => item.verifyStatus === 'PASS'));
-        let hint = '';
-        if (!onboarded) {
-          hint = '请先完成入驻与协议签署';
-        } else if (!hasSettleCard) {
-          hint = '请先绑定结算银行卡';
+      Promise.all([fetchOnboardStatus(subjectId).catch(() => null), fetchSettleCards(subjectId).catch(() => [])]).then(
+        ([status, cards]) => {
+          const onboarded = !!(status && status.onboarded);
+          const hasSettleCard = !!(cards && cards.some(item => item.verifyStatus === 'PASS'));
+          let hint = '';
+          if (!onboarded) {
+            hint = '请先完成入驻与协议签署';
+          } else if (!hasSettleCard) {
+            hint = '请先绑定结算银行卡';
+          }
+          this.setData({
+            onboarded,
+            hasSettleCard,
+            payoutReady: onboarded && hasSettleCard,
+            payoutHint: hint
+          });
         }
-        this.setData({
-          onboarded,
-          hasSettleCard,
-          payoutReady: onboarded && hasSettleCard,
-          payoutHint: hint
-        });
-      });
+      );
     },
     /** 用当前缓存（可能为空）渲染提现页 */
     applyRoleData(role) {

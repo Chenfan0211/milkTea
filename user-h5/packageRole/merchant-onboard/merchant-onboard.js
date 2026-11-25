@@ -191,13 +191,7 @@ Page(
 
     syncCanSubmit() {
       const f = this.data.form;
-      const required = [
-        f.legalName,
-        f.legalLicenceNo,
-        f.signName,
-        f.contactMobile,
-        f.legalLicenceFrontUrl
-      ];
+      const required = [f.legalName, f.legalLicenceNo, f.signName, f.contactMobile, f.legalLicenceFrontUrl];
       if (this.data.licenceRequired) {
         required.push(f.licenceUrl, f.licenceNo);
       }

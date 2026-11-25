@@ -244,7 +244,7 @@
   height: 96rpx;
   border-radius: var(--radius-pill);
   background-color: var(--brand-green);
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: var(--font-body);
   font-weight: 600;
   display: flex;

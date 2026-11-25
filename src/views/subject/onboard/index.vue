@@ -139,7 +139,10 @@ onMounted(load);
 
       <NAlert type="info" :bordered="false" class="mb-12px">
         经营者入驻通过并完成签署后才能提现。状态由易宝入网结果通知驱动，
-        <b>审核中/开通中</b> 属正常中间态；<b>已驳回</b>需经营者修改资料后重新提交。
+        <b>审核中/开通中</b>
+        属正常中间态；
+        <b>已驳回</b>
+        需经营者修改资料后重新提交。
       </NAlert>
 
       <NDataTable
@@ -173,7 +176,9 @@ onMounted(load);
             {{ material.contactMobileMask || '-' }}
           </NDescriptionsItem>
           <NDescriptionsItem label="经营地址">
-            {{ [material.province, material.city, material.district, material.address].filter(Boolean).join(' ') || '-' }}
+            {{
+              [material.province, material.city, material.district, material.address].filter(Boolean).join(' ') || '-'
+            }}
           </NDescriptionsItem>
         </NDescriptions>
         <NEmpty v-else description="暂无资料" />

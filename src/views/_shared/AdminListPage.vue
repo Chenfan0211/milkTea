@@ -599,8 +599,11 @@ function renderUploadImageField(field: FormField, disabled: boolean) {
   const current = isLegacyBase64 ? '' : raw;
 
   const uploadHint = isLegacyBase64
-    ? h('div', { class: 'image-legacy-hint', style: 'color:#d03050;font-size:12px;margin-bottom:6px' },
-        '该图片为历史遗留格式，请重新上传')
+    ? h(
+        'div',
+        { class: 'image-legacy-hint', style: 'color:#d03050;font-size:12px;margin-bottom:6px' },
+        '该图片为历史遗留格式，请重新上传'
+      )
     : null;
 
   return h('div', { class: 'image-field' }, [

@@ -242,7 +242,7 @@
   margin-left: 16rpx;
 }
 
-/* 易宝提现前置提示（未入驻 / 未绑结算卡） */
+/* 鏄撳疂鎻愮幇鍓嶇疆鎻愮ず锛堟湭鍏ラ┗ / 鏈粦缁撶畻鍗★級 */
 .withdraw-gate {
   display: flex;
   align-items: center;
