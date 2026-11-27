@@ -3,7 +3,6 @@ package com.wuling.trade.pay.yeepay;
 import com.yeepay.yop.sdk.auth.credentials.PKICredentialsItem;
 import com.yeepay.yop.sdk.auth.credentials.YopPKICredentials;
 import com.yeepay.yop.sdk.auth.credentials.provider.YopCredentialsProvider;
-import com.yeepay.yop.sdk.inter.utils.RSAKeyUtils;
 import com.yeepay.yop.sdk.security.CertTypeEnum;
 import com.yeepay.yop.sdk.service.common.YopClient;
 import com.yeepay.yop.sdk.service.common.YopClientBuilder;
@@ -29,6 +28,16 @@ import java.util.List;
  *
  * <p><b>条件装配</b>：仅 {@code app.pay.yeepay.channel=yeepay} 时创建。
  * 未启用时一个易宝 Bean 都不装配，线上零影响。
+ *
+ * <p><b>支持 RSA2048 与 SM2（国密）两种私钥</b>：
+ * <ul>
+ *   <li>密钥类型不靠人工配置，而是<b>按私钥内容自动识别</b>——运营从易宝后台
+ *       下载的是哪种就是哪种，配错类型不会静默失败；</li>
+ *   <li>SM2 依赖 {@code yop-java-sdk-crypto-gm}（见 trade-service/pom.xml），
+ *       该包通过 SPI 注册 {@code YopSm2PrivateKeyParser} 与
+ *       {@code YopSm2SignProcessor}；RSA 则走 {@code yop-java-sdk-crypto-inter}。
+ *       两个包同时存在，由 {@code CertTypeEnum} 在运行时选择。</li>
+ * </ul>
  */
 @Configuration
 @ConditionalOnProperty(name = "app.pay.yeepay.channel", havingValue = "yeepay")
@@ -117,21 +126,39 @@ public class YeepaySdkConfig {
                 throw new IllegalStateException(
                         "易宝商户私钥未配置。请在运营后台「平台主体」页填写商户私钥后重启服务。");
             }
+
+            CertTypeEnum certType = YeepayPrivateKeySupport.detectCertType(privateKeyText);
             PrivateKey privateKey;
             try {
-                privateKey = RSAKeyUtils.string2PrivateKey(privateKeyText);
+                privateKey = YeepayPrivateKeySupport.parse(privateKeyText, certType);
             } catch (Exception e) {
+                assertConfigured("易宝商户私钥", e);
                 throw new IllegalStateException(
-                        "易宝商户私钥解析失败，请确认是合法 RSA2048 私钥（PEM 头尾可保留）", e);
+                        "易宝商户私钥解析失败（识别为 " + certType + "）。"
+                                + "请确认从易宝开放平台下载的是与证书类型匹配的私钥，且未被截断。", e);
             }
+            if (privateKey == null) {
+                throw new IllegalStateException(
+                        "易宝商户私钥解析失败（识别为 " + certType + "，解析结果为空）");
+            }
+
             YopCredentialsProvider credentialsProvider =
-                    new FixedCredentialsProvider(appKey, privateKey);
+                    new FixedCredentialsProvider(appKey, privateKey, certType);
             YopClient client = YopClientBuilder.builder()
                     .withCredentialsProvider(credentialsProvider)
                     .build();
-            log.info("易宝 YopClient 已创建 appKey={} sandbox={}",
-                    maskAppKey(appKey), properties.isSandbox());
+            log.info("易宝 YopClient 已创建 appKey={} certType={} sandbox={}",
+                    maskAppKey(appKey), certType, properties.isSandbox());
             return client;
+        }
+
+        /** 把反射/SPI 缺失这类「环境问题」转成可操作的提示，而不是暴露堆栈。 */
+        private void assertConfigured(String what, Throwable cause) {
+            String msg = cause == null ? "" : String.valueOf(cause.getMessage());
+            if (msg.contains("SM2") || msg.contains("NoSuchAlgorithm")) {
+                log.error("易宝 {} 为 SM2 国密类型，但国密算法包缺失或被裁剪。"
+                        + "需确保 trade-service 依赖 yop-java-sdk-crypto-gm。", what);
+            }
         }
 
         private String maskAppKey(String appKey) {
@@ -148,16 +175,20 @@ public class YeepaySdkConfig {
      * <p>实现 {@link YopCredentialsProvider} 而非继承文件版实现，
      * 是因为文件版会去读 classPath 的 json 配置文件——
      * 我们恰恰要绕开文件，全部走数据库配置。
+     *
+     * <p><b>certType 必须如实传入</b>：SDK 依据它选择签名处理器
+     * （RSA2048 → YopRsaSignProcessor，SM2 → YopSm2SignProcessor）。
+     * 传错会导致签名结果不被易宝接受。
      */
     private static class FixedCredentialsProvider implements YopCredentialsProvider {
 
         private final YopPKICredentials credentials;
         private final List<CertTypeEnum> supportedCertTypes;
 
-        FixedCredentialsProvider(String appKey, PrivateKey privateKey) {
+        FixedCredentialsProvider(String appKey, PrivateKey privateKey, CertTypeEnum certType) {
             this.credentials = new YopPKICredentials(appKey,
-                    new PKICredentialsItem(privateKey, CertTypeEnum.RSA2048));
-            this.supportedCertTypes = List.of(CertTypeEnum.RSA2048);
+                    new PKICredentialsItem(privateKey, certType));
+            this.supportedCertTypes = List.of(certType);
         }
 
         @Override

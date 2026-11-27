@@ -155,6 +155,17 @@
                 <artifactId>yop-java-sdk-crypto-inter</artifactId>
                 <version>${yop-java-sdk.version}</version>
             </dependency>
+            <!--
+              国密软算法（SM2/SM3/SM4）。与 crypto-inter 并列，两者可同时引入：
+              易宝应用如果签发的是国密私钥，就必须靠这个包提供
+              YopSm2PrivateKeyParser（私钥解析）与 YopSm2SignProcessor（签名）。
+              两者都通过 META-INF/services 的 SPI 自动注册，不需要改装配代码。
+            -->
+            <dependency>
+                <groupId>com.yeepay.yop.sdk</groupId>
+                <artifactId>yop-java-sdk-crypto-gm</artifactId>
+                <version>${yop-java-sdk.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

@@ -140,6 +140,15 @@
             <groupId>com.yeepay.yop.sdk</groupId>
             <artifactId>yop-java-sdk-crypto-inter</artifactId>
         </dependency>
+        <!--
+          国密软算法包：易宝应用签发的若是 SM2 私钥（国密），必须引入。
+          提供 YopSm2PrivateKeyParser + YopSm2SignProcessor，经 SPI 自动注册，
+          与 crypto-inter（RSA）并存，由密钥的 certType 决定走哪套。
+        -->
+        <dependency>
+            <groupId>com.yeepay.yop.sdk</groupId>
+            <artifactId>yop-java-sdk-crypto-gm</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>
