@@ -73,8 +73,13 @@ public class OrderDivideService {
      * 平台商商编：平台主体作为分账接收方时的 {@code ledgerNo}。
      *
      * <p>平台自己就是平台商，无需入驻，直接用此配置值。
+     *
+     * <p><b>取值来源</b>：{@link com.wuling.finance.yeepay.YeepayConfigReader}
+     * 从 {@code platform_profile.pay_config} 读取（与 trade-service 同源）。
+     * 早期实现用 {@code @Value} 读环境变量，但配置存在数据库里，
+     * 导致这里恒为空——平台份额的分账 {@code ledgerNo} 会变成空串被易宝拒绝。
      */
-    private final String platformMerchantNo;
+    private final com.wuling.finance.yeepay.YeepayConfigReader yeepayConfigReader;
     /** 主体查询：判断某 subjectId 是否平台主体。 */
     private final com.wuling.subject.port.SubjectQueryPort subjectQueryPort;
 
@@ -87,8 +92,8 @@ public class OrderDivideService {
                               org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
                               org.springframework.beans.factory.ObjectProvider<
                                       com.wuling.finance.port.PayoutAccountPort> payoutAccountPortProvider,
-                              @Value("${app.pay.yeepay.platform-merchant-no:}") String platformMerchantNo,
-                              com.wuling.subject.port.SubjectQueryPort subjectQueryPort) {
+                              com.wuling.subject.port.SubjectQueryPort subjectQueryPort,
+                              com.wuling.finance.yeepay.YeepayConfigReader yeepayConfigReader) {
         this.settlementRecordMapper = settlementRecordMapper;
         this.onboardService = onboardService;
         this.serverInternalRestClient = internalRestClient;
@@ -98,7 +103,7 @@ public class OrderDivideService {
         this.holdDays = Math.max(0L, holdDays);
         this.paymentChannelJdbcTemplate = jdbcTemplate;
         this.payoutAccountPortProvider = payoutAccountPortProvider;
-        this.platformMerchantNo = platformMerchantNo;
+        this.yeepayConfigReader = yeepayConfigReader;
         this.subjectQueryPort = subjectQueryPort;
         if (this.yeepayEnabled) {
             log.info("分账售后期冻结：holdDays={}（0 表示核销即分账）", this.holdDays);
@@ -106,10 +111,10 @@ public class OrderDivideService {
             // 整笔订单会卡在「部分分账」，平台自己的钱也拿不到。
             // 不 fail-fast（会影响无关的收款功能），但必须 ERROR 级暴露，
             // 避免等到运营发现提现异常时才排查。
-            if (platformMerchantNo == null || platformMerchantNo.isBlank()) {
-                log.error("易宝已启用但未配置 app.pay.yeepay.platform-merchant-no："
-                        + "平台份额将无法分账，订单会卡在部分分账状态。"
-                        + "请向易宝开通「平台商」子商户并注入该商编。");
+            if (yeepayConfigReader.platformMerchantNo() == null) {
+                log.error("易宝已启用但未配置平台商商编（platform_profile.pay_config 缺 "
+                        + "yeepayPlatformMerchantNo）：平台份额将无法分账，"
+                        + "订单会卡在部分分账状态。请在运营后台补齐后重启 server。");
             }
         }
     }
@@ -770,8 +775,9 @@ public class OrderDivideService {
      * 解析主体对应的易宝分账接收方编号（{@code ledgerNo}）。
      *
      * <p><b>平台主体的特殊处理</b>：平台自己就是「平台商」本身，
-     * 不需要（也不可能有）入驻记录。它的 {@code ledgerNo} 直接用
-     * {@code app.pay.yeepay.platform-merchant-no} 配置值。
+     * 不需要（也不可能有）入驻记录。它的 {@code ledgerNo} 直接取
+     * {@code platform_profile.pay_config} 里的 {@code yeepayPlatformMerchantNo}
+     * （见 {@link com.wuling.finance.yeepay.YeepayConfigReader}）。
      *
      * <p>这样做的业务意义：平台份额能与已入驻经营者的份额在同一批
      * {@code divide/apply} 里一起分走，<b>不必等所有经营者都入驻</b>。
@@ -786,8 +792,8 @@ public class OrderDivideService {
         }
         // 平台主体：直接用平台商商编（已确认易宝允许 merchantNo == ledgerNo）
         if (isPlatformSubject(record.getSubjectId())) {
-            String platformNo = platformMerchantNo;
-            if (platformNo == null || platformNo.isBlank()) {
+            String platformNo = yeepayConfigReader.platformMerchantNo();
+            if (platformNo == null) {
                 log.warn("平台商商编未配置，平台份额无法分账 subjectId={}", record.getSubjectId());
                 return null;
             }

@@ -5,6 +5,7 @@ import com.wuling.finance.entity.ReconcileIssue;
 import com.wuling.finance.entity.SettlementRecord;
 import com.wuling.finance.mapper.SettlementRecordMapper;
 import com.wuling.finance.service.ReconcileService;
+import com.wuling.finance.yeepay.YeepayConfigReader;
 import com.wuling.subject.onboard.MerchantOnboardService;
 import com.wuling.subject.port.SubjectQueryPort;
 import org.slf4j.Logger;
@@ -53,7 +54,7 @@ public class DivideRefundService {
     private final MerchantOnboardService onboardService;
     private final ReconcileService reconcileService;
     private final SubjectQueryPort subjectQueryPort;
-    private final String platformMerchantNo;
+    private final YeepayConfigReader yeepayConfigReader;
     private final boolean yeepayEnabled;
 
     public DivideRefundService(SettlementRecordMapper settlementRecordMapper,
@@ -61,13 +62,16 @@ public class DivideRefundService {
                                org.springframework.beans.factory.ObjectProvider<
                                        ReconcileService> reconcileServiceProvider,
                                SubjectQueryPort subjectQueryPort,
-                               @Value("${app.pay.yeepay.platform-merchant-no:}") String platformMerchantNo,
+                               YeepayConfigReader yeepayConfigReader,
                                @Value("${app.pay.yeepay.channel:}") String yeepayChannel) {
         this.settlementRecordMapper = settlementRecordMapper;
         this.onboardService = onboardService;
         this.reconcileService = reconcileServiceProvider.getIfAvailable();
         this.subjectQueryPort = subjectQueryPort;
-        this.platformMerchantNo = platformMerchantNo;
+        // 平台商商编存 platform_profile.pay_config，与 trade-service 同源。
+        // 不能再用 @Value 读环境变量：数据库配好了、环境变量没配时，
+        // 归集明细的 ledgerNo 会变成空串，被易宝拒绝（历史缺陷）。
+        this.yeepayConfigReader = yeepayConfigReader;
         this.yeepayEnabled = "yeepay".equalsIgnoreCase(
                 yeepayChannel == null ? "" : yeepayChannel.trim());
     }
@@ -153,10 +157,21 @@ public class DivideRefundService {
 
         if (hasUndivided) {
             // 收单商户明细：只带 ledgerNo + divBackAccountType，不带金额（最多一条）
-            Map<String, Object> item = new HashMap<>();
-            item.put("ledgerNo", platformMerchantNoOrDefault());
-            item.put("divBackAccountType", BACK_ACCOUNT_DIVIDE);
-            detail.add(item);
+            //
+            // ledgerNo 为空时绝不能下发：易宝会返回「参数校验失败」这类
+            // 无从下手的报错，而根因其实是我们后台没配平台商商编。
+            // 这里直接跳过该条明细——钱仍在待分账账户，退款会从平台账户出，
+            // 属于可接受的降级（平台垫付后靠对账追偿），且日志已明确告警。
+            String platformLedgerNo = platformMerchantNoOrDefault();
+            if (platformLedgerNo == null) {
+                log.error("平台商商编未配置，跳过「未分账部分」的归集明细 orderId={}。"
+                        + "退款将从平台账户出款，请尽快在后台补齐易宝平台商商编。", orderId);
+            } else {
+                Map<String, Object> item = new HashMap<>();
+                item.put("ledgerNo", platformLedgerNo);
+                item.put("divBackAccountType", BACK_ACCOUNT_DIVIDE);
+                detail.add(item);
+            }
         }
 
         if (detail.isEmpty()) {
@@ -243,7 +258,16 @@ public class DivideRefundService {
     }
 
     private String platformMerchantNoOrDefault() {
-        return platformMerchantNo == null ? "" : platformMerchantNo;
+        String value = yeepayConfigReader.platformMerchantNo();
+        if (value == null || value.isBlank()) {
+            // 归集明细缺 ledgerNo 会被易宝拒绝。这里记录告警并返回 null，
+            // 由调用方（refund 构造）决定是否降级为「全额平台垫付 + 对账异常」，
+            // 而不是把一个空串发给易宝换回一个看不懂的报错。
+            log.warn("易宝平台商商编未配置（platform_profile.pay_config 缺 yeepayPlatformMerchantNo），"
+                    + "退款归集将无法指定平台份额的 ledgerNo");
+            return null;
+        }
+        return value;
     }
 
     /** 分 → 元（两位小数字符串，易宝要求）。 */
